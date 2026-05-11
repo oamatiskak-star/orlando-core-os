@@ -11,15 +11,6 @@ const integrations = [
     action: 'Koppelen',
   },
   {
-    id: 'exact',
-    name: 'Exact Online',
-    type: 'Boekhoudpakket',
-    letter: 'E',
-    color: '#6366f1',
-    status: 'inactive',
-    action: 'Koppelen',
-  },
-  {
     id: 'ing',
     name: 'ING Zakelijk',
     type: 'Bankrekening',
@@ -29,11 +20,11 @@ const integrations = [
     action: 'Koppelen',
   },
   {
-    id: 'rabo',
-    name: 'Rabobank',
+    id: 'bunq',
+    name: 'bunq',
     type: 'Bankrekening',
-    letter: 'R',
-    color: '#dc2626',
+    letter: 'b',
+    color: '#00d97e',
     status: 'inactive',
     action: 'Koppelen',
   },
@@ -92,7 +83,7 @@ export default function AdminPage() {
             <Link2 size={14} className="text-white/40" />
             <h2 className="text-sm font-semibold text-white">Externe Koppelingen</h2>
           </div>
-          <span className="text-[11px] text-white/30">0/6 actief</span>
+          <span className="text-[11px] text-white/30">0/5 actief</span>
         </div>
         <p className="text-[11px] text-white/30 mb-5">
           Verbind je boekhoudpakket, bank en belastingdienst voor automatische administratie.
