@@ -2,7 +2,8 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
-import { usePathname } from 'next/navigation'
+import { usePathname, useRouter } from 'next/navigation'
+import { createClient } from '@/lib/supabase/client'
 import {
   LayoutDashboard,
   Building2,
@@ -53,8 +54,15 @@ const NAV_ITEMS = [
 
 export default function Sidebar() {
   const pathname = usePathname()
+  const router = useRouter()
   const [collapsed, setCollapsed] = useState(false)
   const [activeCompany, setActiveCompany] = useState<Company>(COMPANIES[0])
+
+  async function handleLogout() {
+    const supabase = createClient()
+    await supabase.auth.signOut()
+    router.replace('/login')
+  }
 
   return (
     <aside
@@ -143,9 +151,21 @@ export default function Sidebar() {
           </button>
         )}
         {!collapsed && (
-          <button className="flex items-center gap-2.5 px-2 py-1.5 rounded-md text-xs text-white/30 hover:text-white/60 hover:bg-white/5 transition-colors w-full">
+          <button
+            onClick={handleLogout}
+            className="flex items-center gap-2.5 px-2 py-1.5 rounded-md text-xs text-white/30 hover:text-white/60 hover:bg-white/5 transition-colors w-full"
+          >
             <LogOut size={15} />
             <span>Uitloggen</span>
+          </button>
+        )}
+        {collapsed && (
+          <button
+            onClick={handleLogout}
+            title="Uitloggen"
+            className="flex items-center justify-center w-full py-1.5 text-white/30 hover:text-white/60 transition-colors"
+          >
+            <LogOut size={15} />
           </button>
         )}
       </div>
