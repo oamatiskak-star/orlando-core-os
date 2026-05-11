@@ -25,6 +25,7 @@ import {
   ChevronRight,
   LogOut,
   TrendingUp,
+  Banknote,
 } from 'lucide-react'
 import CompanySwitcher from './CompanySwitcher'
 import { COMPANIES } from '@/lib/companies'
@@ -40,6 +41,7 @@ const NAV_ITEMS = [
   { label: 'Projecten', href: '/dashboard/projects', icon: FolderKanban },
   { label: 'Vastgoed Deals', href: '/dashboard/vastgoed', icon: Home },
   { label: 'Calculaties', href: '/dashboard/calculaties', icon: Calculator },
+  { label: 'Finance OS', href: '/dashboard/finance', icon: Banknote },
   { label: 'CRM', href: '/dashboard/crm', icon: Users },
   { label: 'Agenda', href: '/dashboard/agenda', icon: Calendar },
   { label: 'Taken', href: '/dashboard/taken', icon: CheckSquare, badge: 7 },
