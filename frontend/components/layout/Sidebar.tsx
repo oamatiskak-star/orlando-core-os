@@ -26,6 +26,7 @@ import {
   LogOut,
   TrendingUp,
   Banknote,
+  X,
 } from 'lucide-react'
 import CompanySwitcher from './CompanySwitcher'
 import { COMPANIES } from '@/lib/companies'
@@ -54,7 +55,12 @@ const NAV_ITEMS = [
   { label: 'Instellingen', href: '/dashboard/instellingen', icon: Settings },
 ]
 
-export default function Sidebar() {
+interface SidebarProps {
+  isOpen: boolean
+  onClose: () => void
+}
+
+export default function Sidebar({ isOpen, onClose }: SidebarProps) {
   const pathname = usePathname()
   const router = useRouter()
   const [collapsed, setCollapsed] = useState(false)
@@ -69,7 +75,10 @@ export default function Sidebar() {
   return (
     <aside
       className={clsx(
-        'flex flex-col h-screen bg-[#0f0f1a] border-r border-white/5 transition-all duration-200 flex-shrink-0',
+        'flex flex-col h-screen bg-[#0f0f1a] border-r border-white/5 flex-shrink-0',
+        'fixed inset-y-0 left-0 z-50 transition-transform duration-200',
+        isOpen ? 'translate-x-0' : '-translate-x-full',
+        'md:static md:translate-x-0 md:z-auto',
         collapsed ? 'w-[60px]' : 'w-[220px]'
       )}
     >
@@ -88,14 +97,25 @@ export default function Sidebar() {
             O
           </div>
         )}
-        {!collapsed && (
+        <div className="flex items-center gap-1">
+          {/* Close button — mobile only */}
           <button
-            onClick={() => setCollapsed(true)}
-            className="text-white/30 hover:text-white/60 transition-colors"
+            onClick={onClose}
+            className="md:hidden text-white/30 hover:text-white/60 transition-colors p-1"
+            aria-label="Sluit menu"
           >
-            <ChevronLeft size={16} />
+            <X size={16} />
           </button>
-        )}
+          {/* Collapse button — desktop only */}
+          {!collapsed && (
+            <button
+              onClick={() => setCollapsed(true)}
+              className="hidden md:block text-white/30 hover:text-white/60 transition-colors"
+            >
+              <ChevronLeft size={16} />
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Company switcher */}
@@ -115,6 +135,7 @@ export default function Sidebar() {
             <Link
               key={item.href}
               href={item.href}
+              onClick={onClose}
               title={collapsed ? item.label : undefined}
               className={clsx(
                 'flex items-center gap-2.5 px-2 py-1.5 rounded-md text-xs transition-colors group relative',
@@ -147,29 +168,22 @@ export default function Sidebar() {
         {collapsed && (
           <button
             onClick={() => setCollapsed(false)}
-            className="flex items-center justify-center w-full py-1.5 text-white/30 hover:text-white/60 transition-colors"
+            className="hidden md:flex items-center justify-center w-full py-1.5 text-white/30 hover:text-white/60 transition-colors"
           >
             <ChevronRight size={16} />
           </button>
         )}
-        {!collapsed && (
-          <button
-            onClick={handleLogout}
-            className="flex items-center gap-2.5 px-2 py-1.5 rounded-md text-xs text-white/30 hover:text-white/60 hover:bg-white/5 transition-colors w-full"
-          >
-            <LogOut size={15} />
-            <span>Uitloggen</span>
-          </button>
-        )}
-        {collapsed && (
-          <button
-            onClick={handleLogout}
-            title="Uitloggen"
-            className="flex items-center justify-center w-full py-1.5 text-white/30 hover:text-white/60 transition-colors"
-          >
-            <LogOut size={15} />
-          </button>
-        )}
+        <button
+          onClick={handleLogout}
+          title={collapsed ? 'Uitloggen' : undefined}
+          className={clsx(
+            'flex items-center gap-2.5 px-2 py-1.5 rounded-md text-xs text-white/30 hover:text-white/60 hover:bg-white/5 transition-colors w-full',
+            collapsed && 'justify-center'
+          )}
+        >
+          <LogOut size={15} />
+          {!collapsed && <span>Uitloggen</span>}
+        </button>
       </div>
     </aside>
   )
