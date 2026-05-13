@@ -358,10 +358,11 @@ export default async function ChannelDetailPage({ params }: Props) {
             ) : (
               <div className="space-y-1.5">
                 {recentVideos.map(v => {
-                  const statusColor = {
+                  const SC: Record<string, string> = {
                     published: 'text-green-400', failed: 'text-red-400',
                     queued: 'text-sky-400', uploading: 'text-indigo-400',
-                  }[v.status ?? ''] ?? 'text-white/30'
+                  }
+                  const statusColor = SC[v.status ?? ''] ?? 'text-white/30'
 
                   return (
                     <div key={v.id} className="flex items-center gap-2 py-1 border-b border-white/[0.04] last:border-0">
