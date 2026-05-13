@@ -50,8 +50,9 @@ export default function UploadQueue() {
       const { data } = await supabase
         .from('youtube_upload_queue')
         .select('*, youtube_videos(title, thumbnail_path), youtube_channels(naam)')
-        .not('status', 'eq', 'verified_live')
-        .order('created_at', { ascending: false })
+        .not('video_id', 'is', null)
+        .not('status', 'in', '("planned","verified_live")')
+        .order('updated_at', { ascending: false })
         .limit(50)
       setItems((data as QueueItem[]) ?? [])
     }

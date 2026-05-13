@@ -49,9 +49,10 @@ export default function ScheduledPage() {
       const { data } = await supabase
         .from('youtube_upload_queue')
         .select('id, title, status, scheduled_publish_at, channel_id, retry_count, youtube_channels(naam)')
-        .not('scheduled_publish_at', 'is', null)
+        .not('video_id', 'is', null)
+        .not('status', 'eq', 'planned')
         .order('scheduled_publish_at', { ascending: true })
-        .limit(100)
+        .limit(200)
 
       setItems((data ?? []) as unknown as ScheduledItem[])
       setLoading(false)
