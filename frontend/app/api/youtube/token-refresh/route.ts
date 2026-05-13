@@ -8,7 +8,7 @@ export async function POST(request: NextRequest) {
   const admin = createAdminClient()
   const { data: ch, error } = await admin
     .from('youtube_channels')
-    .select('id, refresh_token')
+    .select('id, refresh_token, oauth_client_id, oauth_client_secret')
     .eq('id', channelId)
     .single()
 
@@ -16,12 +16,15 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'No refresh token' }, { status: 404 })
   }
 
+  const clientId     = ch.oauth_client_id     ?? process.env.YOUTUBE_CLIENT_ID!
+  const clientSecret = ch.oauth_client_secret ?? process.env.YOUTUBE_CLIENT_SECRET!
+
   const res = await fetch('https://oauth2.googleapis.com/token', {
     method: 'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
     body: new URLSearchParams({
-      client_id:     process.env.YOUTUBE_CLIENT_ID!,
-      client_secret: process.env.YOUTUBE_CLIENT_SECRET!,
+      client_id:     clientId,
+      client_secret: clientSecret,
       refresh_token: ch.refresh_token,
       grant_type:    'refresh_token',
     }),

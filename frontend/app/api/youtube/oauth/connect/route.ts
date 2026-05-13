@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 
 const SCOPES = [
   'https://www.googleapis.com/auth/youtube.upload',
@@ -14,14 +15,30 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'channel_uuid vereist' }, { status: 400 })
   }
 
-  const clientId = process.env.YOUTUBE_CLIENT_ID
-  if (!clientId) {
-    return NextResponse.json({ error: 'YOUTUBE_CLIENT_ID niet geconfigureerd op Vercel' }, { status: 500 })
-  }
-
   const appUrl = process.env.NEXT_PUBLIC_APP_URL
   if (!appUrl) {
-    return NextResponse.json({ error: 'NEXT_PUBLIC_APP_URL niet geconfigureerd op Vercel' }, { status: 500 })
+    return NextResponse.json({ error: 'NEXT_PUBLIC_APP_URL niet geconfigureerd' }, { status: 500 })
+  }
+
+  // Haal per-kanaal client ID op uit youtube_channels
+  const admin = createAdminClient()
+  const { data: channel, error } = await admin
+    .from('youtube_channels')
+    .select('id, naam, oauth_client_id')
+    .eq('id', channelUuid)
+    .maybeSingle()
+
+  if (error || !channel) {
+    return NextResponse.json({ error: 'Kanaal niet gevonden' }, { status: 404 })
+  }
+
+  // Per-kanaal client ID heeft prioriteit, anders valt terug op globale env var
+  const clientId = channel.oauth_client_id ?? process.env.YOUTUBE_CLIENT_ID
+  if (!clientId) {
+    return NextResponse.json(
+      { error: `Geen OAuth client ID geconfigureerd voor ${channel.naam}` },
+      { status: 500 }
+    )
   }
 
   const redirectUri = `${appUrl}/api/youtube/oauth/callback`

@@ -9,6 +9,7 @@ import { startBrowserVerificationWorker } from './workers/browser-verification-w
 import { startYouTubeRecoveryWorker } from './workers/youtube-recovery-worker'
 import { startThumbnailWorker } from './workers/thumbnail-worker'
 import { startAnalyticsFeedbackWorker } from './workers/analytics-feedback-worker'
+import { startSlotFillerWorker } from './workers/slot-filler-worker'
 
 async function main() {
   logger.info('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━')
@@ -30,6 +31,7 @@ async function main() {
   ]
 
   startUploadOrchestrator()
+  startSlotFillerWorker()
 
   logger.info(`${workers.length} workers running`)
   logger.info('Engine is live — watching for upload jobs')

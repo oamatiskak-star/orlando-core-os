@@ -13,7 +13,7 @@ export async function GET(request: NextRequest) {
   // Fetch all channels that have a refresh token and are connected or expired
   const { data: channels } = await admin
     .from('youtube_channels')
-    .select('id, naam, refresh_token, token_expires, oauth_status')
+    .select('id, naam, refresh_token, token_expires, oauth_status, oauth_client_id, oauth_client_secret')
     .in('oauth_status', ['connected', 'expired'])
     .not('refresh_token', 'is', null)
 
@@ -34,12 +34,15 @@ export async function GET(request: NextRequest) {
     }
 
     try {
+      const clientId     = (ch as any).oauth_client_id     ?? process.env.YOUTUBE_CLIENT_ID!
+      const clientSecret = (ch as any).oauth_client_secret ?? process.env.YOUTUBE_CLIENT_SECRET!
+
       const res = await fetch('https://oauth2.googleapis.com/token', {
         method: 'POST',
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
         body: new URLSearchParams({
-          client_id:     process.env.YOUTUBE_CLIENT_ID!,
-          client_secret: process.env.YOUTUBE_CLIENT_SECRET!,
+          client_id:     clientId,
+          client_secret: clientSecret,
           refresh_token: ch.refresh_token!,
           grant_type:    'refresh_token',
         }),
