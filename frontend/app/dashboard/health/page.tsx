@@ -54,16 +54,16 @@ export default function HealthPage() {
                 Alles operationeel
               </span>
             </div>
-            <p className="text-xs text-white/30">Status van alle services, agents en verbindingen.</p>
+            <p className="text-xs text-white/50">Status van alle services, agents en verbindingen.</p>
           </div>
         </div>
-        <p className="text-[11px] text-white/20 font-mono">Bijgewerkt: {lastChecked}</p>
+        <p className="text-[11px] text-white/38 font-mono">Bijgewerkt: {lastChecked}</p>
       </div>
 
       {/* Service Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
         {services.map((svc) => (
-          <div key={svc.name} className="bg-white/[0.03] border border-white/5 rounded-xl p-4 flex items-center gap-3">
+          <div key={svc.name} className="bg-white/[0.06] border border-white/5 rounded-xl p-4 flex items-center gap-3">
             {svc.status === 'online' ? (
               <CheckCircle size={16} className="text-green-400 flex-shrink-0" />
             ) : (
@@ -71,12 +71,12 @@ export default function HealthPage() {
             )}
             <div className="min-w-0">
               <p className="text-xs font-medium text-white leading-tight">{svc.name}</p>
-              <p className="text-[11px] text-white/30 truncate">{svc.detail}</p>
+              <p className="text-[11px] text-white/50 truncate">{svc.detail}</p>
             </div>
             <div className="ml-auto">
               <span className={clsx(
                 'px-2 py-0.5 rounded-full text-[10px] font-medium',
-                svc.status === 'online' ? 'bg-green-500/10 text-green-400' : 'bg-white/5 text-white/30'
+                svc.status === 'online' ? 'bg-green-500/10 text-green-400' : 'bg-white/5 text-white/50'
               )}>
                 {svc.status === 'online' ? 'Online' : 'Offline'}
               </span>
@@ -86,7 +86,7 @@ export default function HealthPage() {
       </div>
 
       {/* Recent Events */}
-      <div className="bg-white/[0.03] border border-white/5 rounded-xl p-5">
+      <div className="bg-white/[0.06] border border-white/5 rounded-xl p-5">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-sm font-semibold text-white">Recente Events</h2>
           <button className="text-[11px] text-indigo-400 hover:text-indigo-300">Alle logs</button>
@@ -94,7 +94,7 @@ export default function HealthPage() {
         <div className="space-y-2">
           {events.map((ev, i) => (
             <div key={i} className="flex items-center gap-3 py-2 border-b border-white/5 last:border-0">
-              <span className="text-[11px] text-white/25 font-mono w-20 flex-shrink-0">{ev.time}</span>
+              <span className="text-[11px] text-white/45 font-mono w-20 flex-shrink-0">{ev.time}</span>
               <span className={clsx('px-2 py-0.5 rounded text-[10px] font-semibold flex-shrink-0', typeBadge(ev.type))}>
                 {ev.type}
               </span>

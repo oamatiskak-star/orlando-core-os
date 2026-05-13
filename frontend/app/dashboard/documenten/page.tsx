@@ -24,7 +24,7 @@ export default function DocumentenPage() {
           </div>
           <div>
             <h1 className="text-base font-semibold text-white">Documenten</h1>
-            <p className="text-xs text-white/30">Centrale documentopslag — PDF&apos;s, tekeningen en rapporten.</p>
+            <p className="text-xs text-white/50">Centrale documentopslag — PDF&apos;s, tekeningen en rapporten.</p>
           </div>
         </div>
         <button className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-medium px-4 py-2 rounded-lg transition-colors">
@@ -40,13 +40,13 @@ export default function DocumentenPage() {
         </div>
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           {folders.map((f) => (
-            <button key={f.naam} className="bg-white/[0.03] border border-white/5 rounded-xl p-4 flex flex-col gap-3 text-left hover:bg-white/[0.05] hover:border-white/10 transition-colors group">
+            <button key={f.naam} className="bg-white/[0.06] border border-white/5 rounded-xl p-4 flex flex-col gap-3 text-left hover:bg-white/[0.09] hover:border-white/10 transition-colors group">
               <div className="w-9 h-9 rounded-xl bg-indigo-500/10 flex items-center justify-center">
                 <Folder size={16} className="text-indigo-400" />
               </div>
               <div>
                 <p className="text-xs font-medium text-white group-hover:text-indigo-300 transition-colors">{f.naam}/</p>
-                <p className="text-[11px] text-white/30">{f.count} bestand{f.count !== 1 ? 'en' : ''}</p>
+                <p className="text-[11px] text-white/50">{f.count} bestand{f.count !== 1 ? 'en' : ''}</p>
               </div>
             </button>
           ))}
@@ -54,22 +54,22 @@ export default function DocumentenPage() {
       </div>
 
       {/* Recent Files */}
-      <div className="bg-white/[0.03] border border-white/5 rounded-xl p-5">
+      <div className="bg-white/[0.06] border border-white/5 rounded-xl p-5">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-sm font-semibold text-white">Recente bestanden</h2>
           <button className="text-[11px] text-indigo-400 hover:text-indigo-300">Alles zien</button>
         </div>
         <div className="space-y-1">
           {recentFiles.map((file, i) => (
-            <div key={i} className="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-white/[0.03] transition-colors group cursor-pointer">
+            <div key={i} className="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-white/[0.06] transition-colors group cursor-pointer">
               <div className="w-7 h-7 rounded-lg bg-white/5 flex items-center justify-center flex-shrink-0">
-                <FileText size={13} className="text-white/30" />
+                <FileText size={13} className="text-white/50" />
               </div>
               <div className="flex-1 min-w-0">
                 <p className="text-xs text-white/70 group-hover:text-white transition-colors truncate">{file.naam}</p>
-                <p className="text-[11px] text-white/30">{file.map} · {file.datum}</p>
+                <p className="text-[11px] text-white/50">{file.map} · {file.datum}</p>
               </div>
-              <span className="text-[11px] text-white/25 flex-shrink-0">{file.size}</span>
+              <span className="text-[11px] text-white/45 flex-shrink-0">{file.size}</span>
             </div>
           ))}
         </div>

@@ -18,7 +18,7 @@ function StageBadge({ stage }: { stage: string }) {
     incasso: 'bg-red-600/10 text-red-500',
   }
   return (
-    <span className={`${map[stage] ?? 'bg-white/5 text-white/40'} px-2 py-0.5 rounded-full text-[10px] font-medium`}>
+    <span className={`${map[stage] ?? 'bg-white/5 text-white/65'} px-2 py-0.5 rounded-full text-[10px] font-medium`}>
       {stage.replace(/_/g, ' ')}
     </span>
   )
@@ -32,7 +32,7 @@ function ToneBadge({ tone }: { tone: string }) {
     streng: 'bg-red-500/10 text-red-400',
   }
   return (
-    <span className={`${map[tone] ?? 'bg-white/5 text-white/40'} px-2 py-0.5 rounded-full text-[10px] font-medium capitalize`}>
+    <span className={`${map[tone] ?? 'bg-white/5 text-white/65'} px-2 py-0.5 rounded-full text-[10px] font-medium capitalize`}>
       {tone}
     </span>
   )
@@ -75,7 +75,7 @@ export default function TemplatesPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-lg font-semibold text-white">Templates</h1>
-          <p className="text-xs text-white/30 mt-0.5">E-mail, WhatsApp en SMS templates voor automatische communicatie</p>
+          <p className="text-xs text-white/50 mt-0.5">E-mail, WhatsApp en SMS templates voor automatische communicatie</p>
         </div>
         <button className="bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-medium px-4 py-2 rounded-lg transition-colors">
           + Nieuw Template
@@ -83,7 +83,7 @@ export default function TemplatesPage() {
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-1 bg-white/[0.03] border border-white/5 rounded-lg p-1 w-fit">
+      <div className="flex gap-1 bg-white/[0.06] border border-white/5 rounded-lg p-1 w-fit">
         {TYPE_TABS.map((tab) => (
           <button
             key={tab}
@@ -91,7 +91,7 @@ export default function TemplatesPage() {
             className={`px-4 py-1.5 rounded-md text-xs font-medium transition-colors capitalize ${
               activeTab === tab
                 ? 'bg-indigo-600/30 text-indigo-400'
-                : 'text-white/40 hover:text-white/70'
+                : 'text-white/65 hover:text-white/70'
             }`}
           >
             {tab === 'email' ? 'E-mail' : tab === 'whatsapp' ? 'WhatsApp' : 'SMS'}
@@ -101,15 +101,15 @@ export default function TemplatesPage() {
 
       {/* Template cards */}
       {loading ? (
-        <div className="py-8 text-center text-xs text-white/30">Laden...</div>
+        <div className="py-8 text-center text-xs text-white/50">Laden...</div>
       ) : filtered.length === 0 ? (
         <div className="py-16 text-center">
-          <p className="text-sm text-white/40">Geen {activeTab} templates</p>
+          <p className="text-sm text-white/65">Geen {activeTab} templates</p>
         </div>
       ) : (
         <div className="grid grid-cols-1 gap-4">
           {filtered.map((tmpl) => (
-            <div key={tmpl.id} className="bg-white/[0.03] border border-white/5 rounded-xl p-4">
+            <div key={tmpl.id} className="bg-white/[0.06] border border-white/5 rounded-xl p-4">
               <div className="flex items-start justify-between gap-4">
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 mb-2">
@@ -119,15 +119,15 @@ export default function TemplatesPage() {
                     {tmpl.active ? (
                       <span className="bg-green-500/10 text-green-400 px-2 py-0.5 rounded-full text-[10px] font-medium">Actief</span>
                     ) : (
-                      <span className="bg-white/5 text-white/30 px-2 py-0.5 rounded-full text-[10px] font-medium">Inactief</span>
+                      <span className="bg-white/5 text-white/50 px-2 py-0.5 rounded-full text-[10px] font-medium">Inactief</span>
                     )}
                   </div>
                   {tmpl.subject && (
                     <p className="text-xs text-white/50 mb-2">
-                      <span className="text-white/25">Onderwerp: </span>{tmpl.subject}
+                      <span className="text-white/45">Onderwerp: </span>{tmpl.subject}
                     </p>
                   )}
-                  <p className="text-xs text-white/40 leading-relaxed line-clamp-2">
+                  <p className="text-xs text-white/65 leading-relaxed line-clamp-2">
                     {tmpl.body.slice(0, 120)}{tmpl.body.length > 120 ? '...' : ''}
                   </p>
                 </div>

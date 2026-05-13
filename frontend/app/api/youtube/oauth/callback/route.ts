@@ -43,40 +43,24 @@ export async function GET(request: NextRequest) {
     return NextResponse.redirect(`${dashUrl}?oauth_error=no_refresh_token`)
   }
 
-  // Fetch real YouTube channel ID
-  let youtubeChannelId: string | null = null
-  try {
-    const chRes = await fetch(
-      'https://www.googleapis.com/youtube/v3/channels?part=id,snippet&mine=true',
-      { headers: { Authorization: `Bearer ${access_token}` } },
-    )
-    const chData = await chRes.json()
-    youtubeChannelId = chData?.items?.[0]?.id ?? null
-  } catch {
-    // Non-fatal — we store tokens anyway
-  }
-
   const tokenExpires = new Date(Date.now() + (expires_in ?? 3600) * 1000).toISOString()
 
   const admin = createAdminClient()
-  const patch: Record<string, string | null> = {
-    access_token,
-    refresh_token,
-    token_expires:  tokenExpires,
-    oauth_status:   'connected',
-  }
-  if (youtubeChannelId) {
-    patch.channel_id = youtubeChannelId
-  }
-
   const { error: dbErr } = await admin
     .from('youtube_channels')
-    .update(patch)
+    .update({
+      access_token,
+      refresh_token,
+      token_expires:  tokenExpires,
+      oauth_status:   'connected',
+      status:         'active',
+    })
     .eq('id', channelUuid)
 
   if (dbErr) {
     console.error('Token opslaan mislukt:', dbErr)
-    return NextResponse.redirect(`${dashUrl}?oauth_error=db_save_failed`)
+    const detail = encodeURIComponent(`${dbErr.code}:${dbErr.message}`)
+    return NextResponse.redirect(`${dashUrl}?oauth_error=${detail}`)
   }
 
   return NextResponse.redirect(`${dashUrl}?oauth_success=1`)

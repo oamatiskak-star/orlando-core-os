@@ -22,7 +22,7 @@ export default function GebruikersPage() {
           </div>
           <div>
             <h1 className="text-base font-semibold text-white">Gebruikers</h1>
-            <p className="text-xs text-white/30">Gebruikersbeheer, rollen en rechten per bedrijf.</p>
+            <p className="text-xs text-white/50">Gebruikersbeheer, rollen en rechten per bedrijf.</p>
           </div>
         </div>
         <button className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-medium px-4 py-2 rounded-lg transition-colors">
@@ -32,7 +32,7 @@ export default function GebruikersPage() {
       </div>
 
       {/* Users Table */}
-      <div className="bg-white/[0.03] border border-white/5 rounded-xl overflow-hidden">
+      <div className="bg-white/[0.06] border border-white/5 rounded-xl overflow-hidden">
         <div className="px-5 py-4 border-b border-white/5">
           <h2 className="text-sm font-semibold text-white">Actieve gebruikers</h2>
         </div>
@@ -40,12 +40,12 @@ export default function GebruikersPage() {
           <table className="w-full">
             <thead>
               <tr className="border-b border-white/5">
-                <th className="px-4 py-2.5 text-left text-[10px] font-medium text-white/30 uppercase tracking-wider">Gebruiker</th>
-                <th className="px-4 py-2.5 text-left text-[10px] font-medium text-white/30 uppercase tracking-wider">E-mail</th>
-                <th className="px-4 py-2.5 text-left text-[10px] font-medium text-white/30 uppercase tracking-wider">Rol</th>
-                <th className="px-4 py-2.5 text-left text-[10px] font-medium text-white/30 uppercase tracking-wider">Bedrijf</th>
-                <th className="px-4 py-2.5 text-left text-[10px] font-medium text-white/30 uppercase tracking-wider">Laatste login</th>
-                <th className="px-4 py-2.5 text-left text-[10px] font-medium text-white/30 uppercase tracking-wider">Acties</th>
+                <th className="px-4 py-2.5 text-left text-[10px] font-medium text-white/50 uppercase tracking-wider">Gebruiker</th>
+                <th className="px-4 py-2.5 text-left text-[10px] font-medium text-white/50 uppercase tracking-wider">E-mail</th>
+                <th className="px-4 py-2.5 text-left text-[10px] font-medium text-white/50 uppercase tracking-wider">Rol</th>
+                <th className="px-4 py-2.5 text-left text-[10px] font-medium text-white/50 uppercase tracking-wider">Bedrijf</th>
+                <th className="px-4 py-2.5 text-left text-[10px] font-medium text-white/50 uppercase tracking-wider">Laatste login</th>
+                <th className="px-4 py-2.5 text-left text-[10px] font-medium text-white/50 uppercase tracking-wider">Acties</th>
               </tr>
             </thead>
             <tbody>
@@ -66,10 +66,10 @@ export default function GebruikersPage() {
                 <td className="px-4 py-3 text-xs text-white/50">Vandaag</td>
                 <td className="px-4 py-3">
                   <div className="flex items-center gap-2">
-                    <button className="w-7 h-7 rounded-lg border border-white/10 flex items-center justify-center text-white/40 hover:text-white hover:border-white/20 transition-colors">
+                    <button className="w-7 h-7 rounded-lg border border-white/10 flex items-center justify-center text-white/65 hover:text-white hover:border-white/20 transition-colors">
                       <Pencil size={11} />
                     </button>
-                    <button className="w-7 h-7 rounded-lg border border-white/10 flex items-center justify-center text-white/40 hover:text-red-400 hover:border-red-500/30 transition-colors">
+                    <button className="w-7 h-7 rounded-lg border border-white/10 flex items-center justify-center text-white/65 hover:text-red-400 hover:border-red-500/30 transition-colors">
                       <Trash2 size={11} />
                     </button>
                   </div>
@@ -81,9 +81,9 @@ export default function GebruikersPage() {
       </div>
 
       {/* Roles & Permissions */}
-      <div className="bg-white/[0.03] border border-white/5 rounded-xl p-5">
+      <div className="bg-white/[0.06] border border-white/5 rounded-xl p-5">
         <div className="flex items-center gap-2 mb-4">
-          <Shield size={14} className="text-white/40" />
+          <Shield size={14} className="text-white/65" />
           <h2 className="text-sm font-semibold text-white">Rollen &amp; Rechten</h2>
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
@@ -92,7 +92,7 @@ export default function GebruikersPage() {
               <span className={`self-start px-2 py-0.5 rounded-full text-[10px] font-semibold ${r.color}`}>
                 {r.role}
               </span>
-              <p className="text-[11px] text-white/40 leading-relaxed">{r.desc}</p>
+              <p className="text-[11px] text-white/65 leading-relaxed">{r.desc}</p>
             </div>
           ))}
         </div>

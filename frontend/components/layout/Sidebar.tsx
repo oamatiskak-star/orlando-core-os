@@ -40,7 +40,7 @@ export default function Sidebar({ isOpen, onClose }: { isOpen: boolean; onClose:
           'flex items-center gap-2.5 px-2 py-1.5 rounded-md text-xs transition-colors relative',
           active
             ? 'bg-indigo-500/15 text-indigo-400'
-            : 'text-white/40 hover:text-white/70 hover:bg-white/5'
+            : 'text-white/65 hover:text-white/70 hover:bg-white/5'
         )}
       >
         <Icon size={15} className="flex-shrink-0" />
@@ -59,7 +59,7 @@ export default function Sidebar({ isOpen, onClose }: { isOpen: boolean; onClose:
     return (
       <div key={idx} className={idx && idx > 0 ? 'mt-0.5' : ''}>
         {title && !collapsed && (
-          <p className="px-2 pt-3 pb-1 text-[9px] uppercase tracking-widest text-white/20 font-semibold select-none">
+          <p className="px-2 pt-3 pb-1 text-[9px] uppercase tracking-widest text-white/38 font-semibold select-none">
             {title}
           </p>
         )}
@@ -72,7 +72,7 @@ export default function Sidebar({ isOpen, onClose }: { isOpen: boolean; onClose:
   return (
     <aside
       className={clsx(
-        'flex flex-col h-screen bg-[#0f0f1a] border-r border-white/5 flex-shrink-0',
+        'flex flex-col h-screen bg-[#181830] border-r border-white/5 flex-shrink-0',
         'fixed inset-y-0 left-0 z-50 transition-transform duration-200',
         isOpen ? 'translate-x-0' : '-translate-x-full',
         'md:static md:translate-x-0 md:z-auto',
@@ -96,14 +96,14 @@ export default function Sidebar({ isOpen, onClose }: { isOpen: boolean; onClose:
         <div className="flex items-center gap-1">
           <button
             onClick={onClose}
-            className="md:hidden text-white/30 hover:text-white/60 transition-colors p-1"
+            className="md:hidden text-white/50 hover:text-white/60 transition-colors p-1"
           >
             <X size={16} />
           </button>
           {!collapsed && (
             <button
               onClick={() => setCollapsed(true)}
-              className="hidden md:block text-white/30 hover:text-white/60 transition-colors"
+              className="hidden md:block text-white/50 hover:text-white/60 transition-colors"
             >
               <ChevronLeft size={16} />
             </button>
@@ -143,7 +143,7 @@ export default function Sidebar({ isOpen, onClose }: { isOpen: boolean; onClose:
         {collapsed && (
           <button
             onClick={() => setCollapsed(false)}
-            className="hidden md:flex items-center justify-center w-full py-1.5 text-white/30 hover:text-white/60 transition-colors mt-1"
+            className="hidden md:flex items-center justify-center w-full py-1.5 text-white/50 hover:text-white/60 transition-colors mt-1"
           >
             <ChevronRight size={16} />
           </button>
@@ -153,7 +153,7 @@ export default function Sidebar({ isOpen, onClose }: { isOpen: boolean; onClose:
           onClick={handleLogout}
           title={collapsed ? 'Uitloggen' : undefined}
           className={clsx(
-            'flex items-center gap-2.5 px-2 py-1.5 rounded-md text-xs text-white/30 hover:text-white/60 hover:bg-white/5 transition-colors w-full mt-1',
+            'flex items-center gap-2.5 px-2 py-1.5 rounded-md text-xs text-white/50 hover:text-white/60 hover:bg-white/5 transition-colors w-full mt-1',
             collapsed && 'justify-center'
           )}
         >

@@ -22,7 +22,7 @@ function StatusBadge({ status }: { status: string }) {
     juridisch: 'bg-purple-500/10 text-purple-400',
   }
   return (
-    <span className={`${map[status] ?? 'bg-white/5 text-white/40'} px-2 py-0.5 rounded-full text-[10px] font-medium capitalize`}>
+    <span className={`${map[status] ?? 'bg-white/5 text-white/65'} px-2 py-0.5 rounded-full text-[10px] font-medium capitalize`}>
       {status}
     </span>
   )
@@ -83,7 +83,7 @@ export default function FacturenPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-lg font-semibold text-white">Facturen</h1>
-          <p className="text-xs text-white/30 mt-0.5">{invoices.length} facturen in totaal</p>
+          <p className="text-xs text-white/50 mt-0.5">{invoices.length} facturen in totaal</p>
         </div>
         <button className="bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-medium px-4 py-2 rounded-lg transition-colors">
           + Nieuwe Factuur
@@ -92,7 +92,7 @@ export default function FacturenPage() {
 
       {/* Filter bar */}
       <div className="flex items-center gap-3 flex-wrap">
-        <div className="flex gap-1 bg-white/[0.03] border border-white/5 rounded-lg p-1">
+        <div className="flex gap-1 bg-white/[0.06] border border-white/5 rounded-lg p-1">
           {STATUS_TABS.map((tab) => (
             <button
               key={tab}
@@ -100,11 +100,11 @@ export default function FacturenPage() {
               className={`px-3 py-1 rounded-md text-xs font-medium transition-colors ${
                 activeTab === tab
                   ? 'bg-indigo-600/30 text-indigo-400'
-                  : 'text-white/40 hover:text-white/70'
+                  : 'text-white/65 hover:text-white/70'
               }`}
             >
               {tab.charAt(0).toUpperCase() + tab.slice(1)}
-              <span className="ml-1.5 text-[10px] text-white/30">{counts[tab]}</span>
+              <span className="ml-1.5 text-[10px] text-white/50">{counts[tab]}</span>
             </button>
           ))}
         </div>
@@ -113,16 +113,16 @@ export default function FacturenPage() {
           placeholder="Zoek factuur, klant..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          className="bg-white/[0.03] border border-white/5 rounded-lg px-3 py-1.5 text-xs text-white placeholder-white/30 outline-none focus:border-indigo-500/50 w-56"
+          className="bg-white/[0.06] border border-white/5 rounded-lg px-3 py-1.5 text-xs text-white placeholder-white/30 outline-none focus:border-indigo-500/50 w-56"
         />
       </div>
 
       {/* Table */}
-      <div className="bg-white/[0.03] border border-white/5 rounded-xl overflow-hidden">
+      <div className="bg-white/[0.06] border border-white/5 rounded-xl overflow-hidden">
         {loading ? (
-          <div className="py-12 text-center text-xs text-white/30">Laden...</div>
+          <div className="py-12 text-center text-xs text-white/50">Laden...</div>
         ) : filtered.length === 0 ? (
-          <div className="py-12 text-center text-xs text-white/30">Geen facturen gevonden</div>
+          <div className="py-12 text-center text-xs text-white/50">Geen facturen gevonden</div>
         ) : (
           <table className="w-full">
             <thead>
@@ -131,7 +131,7 @@ export default function FacturenPage() {
                   (h) => (
                     <th
                       key={h}
-                      className="px-4 py-3 text-left text-[10px] font-medium text-white/30 uppercase tracking-wider"
+                      className="px-4 py-3 text-left text-[10px] font-medium text-white/50 uppercase tracking-wider"
                     >
                       {h}
                     </th>
@@ -155,13 +155,13 @@ export default function FacturenPage() {
                         {inv.days_overdue}d
                       </span>
                     ) : (
-                      <span className="text-xs text-white/20">—</span>
+                      <span className="text-xs text-white/38">—</span>
                     )}
                   </td>
                   <td className="px-4 py-3">
                     <StatusBadge status={inv.status} />
                   </td>
-                  <td className="px-4 py-3 text-xs text-white/40">{inv.workflow_stage}</td>
+                  <td className="px-4 py-3 text-xs text-white/65">{inv.workflow_stage}</td>
                   <td className="px-4 py-3">
                     <Link
                       href={`/dashboard/finance/facturen/${inv.id}`}

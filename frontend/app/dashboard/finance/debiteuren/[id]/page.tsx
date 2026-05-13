@@ -20,7 +20,7 @@ function StatusBadge({ status }: { status: string }) {
     betaald: 'bg-green-500/10 text-green-400',
   }
   return (
-    <span className={`${map[status] ?? 'bg-white/5 text-white/40'} px-2 py-0.5 rounded-full text-[10px] font-medium capitalize`}>
+    <span className={`${map[status] ?? 'bg-white/5 text-white/65'} px-2 py-0.5 rounded-full text-[10px] font-medium capitalize`}>
       {status}
     </span>
   )
@@ -33,7 +33,7 @@ function RiskBadge({ level }: { level: string }) {
     hoog: 'bg-red-500/10 text-red-400',
   }
   return (
-    <span className={`${map[level] ?? 'bg-white/5 text-white/40'} px-2.5 py-1 rounded-full text-xs font-medium capitalize`}>
+    <span className={`${map[level] ?? 'bg-white/5 text-white/65'} px-2.5 py-1 rounded-full text-xs font-medium capitalize`}>
       {level} risico
     </span>
   )
@@ -81,7 +81,7 @@ export default function DebiteurDetailPage() {
   }, [id])
 
   if (loading) {
-    return <div className="flex items-center justify-center h-40"><p className="text-xs text-white/30">Laden...</p></div>
+    return <div className="flex items-center justify-center h-40"><p className="text-xs text-white/50">Laden...</p></div>
   }
 
   if (!customer) {
@@ -134,8 +134,8 @@ export default function DebiteurDetailPage() {
           { label: 'Totaal betaald', value: fmt(paidAmount), color: 'text-green-400' },
           { label: 'Gem. betaaltermijn', value: `${customer.payment_avg_days} dagen`, color: 'text-white' },
         ].map((s) => (
-          <div key={s.label} className="bg-white/[0.03] border border-white/5 rounded-xl p-4">
-            <p className="text-[10px] font-medium text-white/30 uppercase tracking-wider mb-1">{s.label}</p>
+          <div key={s.label} className="bg-white/[0.06] border border-white/5 rounded-xl p-4">
+            <p className="text-[10px] font-medium text-white/50 uppercase tracking-wider mb-1">{s.label}</p>
             <p className={`text-lg font-semibold ${s.color}`}>{s.value}</p>
           </div>
         ))}
@@ -143,16 +143,16 @@ export default function DebiteurDetailPage() {
 
       <div className="grid grid-cols-3 gap-4">
         {/* Invoice history */}
-        <div className="col-span-2 bg-white/[0.03] border border-white/5 rounded-xl p-4">
+        <div className="col-span-2 bg-white/[0.06] border border-white/5 rounded-xl p-4">
           <h3 className="text-xs font-semibold text-white mb-3">Factuurhistorie</h3>
           {invoices.length === 0 ? (
-            <p className="text-xs text-white/30 py-4 text-center">Geen facturen</p>
+            <p className="text-xs text-white/50 py-4 text-center">Geen facturen</p>
           ) : (
             <table className="w-full">
               <thead>
                 <tr className="border-b border-white/5">
                   {['Factuur', 'Bedrag', 'Vervaldatum', 'Status'].map((h) => (
-                    <th key={h} className="pb-2 text-left text-[10px] font-medium text-white/30 uppercase tracking-wider">{h}</th>
+                    <th key={h} className="pb-2 text-left text-[10px] font-medium text-white/50 uppercase tracking-wider">{h}</th>
                   ))}
                 </tr>
               </thead>
@@ -173,7 +173,7 @@ export default function DebiteurDetailPage() {
         {/* Right column */}
         <div className="space-y-4">
           {/* Contact */}
-          <div className="bg-white/[0.03] border border-white/5 rounded-xl p-4">
+          <div className="bg-white/[0.06] border border-white/5 rounded-xl p-4">
             <h3 className="text-xs font-semibold text-white mb-3">Contactgegevens</h3>
             <div className="space-y-2 text-xs text-white/50">
               {customer.email && <p>{customer.email}</p>}
@@ -185,7 +185,7 @@ export default function DebiteurDetailPage() {
           </div>
 
           {/* AI Risk Analysis */}
-          <div className="bg-white/[0.03] border border-white/5 rounded-xl p-4">
+          <div className="bg-white/[0.06] border border-white/5 rounded-xl p-4">
             <div className="flex items-center gap-2 mb-3">
               <div className="w-4 h-4 rounded bg-indigo-500/20 flex items-center justify-center">
                 <span className="text-indigo-400 text-[8px] font-bold">AI</span>
@@ -194,14 +194,14 @@ export default function DebiteurDetailPage() {
             </div>
             <div className="space-y-2">
               {riskFactors.map((rf, i) => (
-                <div key={i} className={`flex items-center gap-2 text-xs ${rf.active ? 'text-red-400' : 'text-white/25'}`}>
+                <div key={i} className={`flex items-center gap-2 text-xs ${rf.active ? 'text-red-400' : 'text-white/45'}`}>
                   <span className="flex-shrink-0">{rf.icon}</span>
                   <span>{rf.label}</span>
                 </div>
               ))}
             </div>
             <div className="mt-3 pt-3 border-t border-white/5">
-              <p className="text-[10px] text-white/30">
+              <p className="text-[10px] text-white/50">
                 {customer.risk_level === 'hoog'
                   ? 'Aanbeveling: Aanscherpen betaalbeleid. Overweeg creditlimiet of vooruitbetaling.'
                   : customer.risk_level === 'midden'
@@ -212,16 +212,16 @@ export default function DebiteurDetailPage() {
           </div>
 
           {/* Communication */}
-          <div className="bg-white/[0.03] border border-white/5 rounded-xl p-4">
+          <div className="bg-white/[0.06] border border-white/5 rounded-xl p-4">
             <h3 className="text-xs font-semibold text-white mb-3">Communicatie</h3>
             {reminders.length === 0 ? (
-              <p className="text-xs text-white/30 text-center py-2">Geen berichten</p>
+              <p className="text-xs text-white/50 text-center py-2">Geen berichten</p>
             ) : (
               <div className="space-y-2">
                 {reminders.slice(0, 4).map((r) => (
                   <div key={r.id} className="flex items-center justify-between">
                     <span className="text-xs text-white/50">{r.stage.replace(/_/g, ' ')}</span>
-                    <span className="text-[10px] text-white/25">{r.sent_at}</span>
+                    <span className="text-[10px] text-white/45">{r.sent_at}</span>
                   </div>
                 ))}
               </div>

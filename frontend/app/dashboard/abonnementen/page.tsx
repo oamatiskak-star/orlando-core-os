@@ -19,7 +19,7 @@ const abonnementen = [
     prijs: '€ 0',
     letter: 'S',
     letterColor: '#3ecf8e',
-    bg: '#1a1a2e',
+    bg: '#222240',
   },
   {
     product: 'GitHub',
@@ -43,7 +43,7 @@ export default function AbonnementenPage() {
           </div>
           <div>
             <h1 className="text-base font-semibold text-white">Abonnementen</h1>
-            <p className="text-xs text-white/30">SaaS-abonnementen en licenties per product.</p>
+            <p className="text-xs text-white/50">SaaS-abonnementen en licenties per product.</p>
           </div>
         </div>
         <button className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-medium px-4 py-2 rounded-lg transition-colors">
@@ -59,24 +59,24 @@ export default function AbonnementenPage() {
           { label: 'Maandelijkse kosten', value: '€ 20' },
           { label: 'Jaarlijkse kosten', value: '€ 240' },
         ].map((s) => (
-          <div key={s.label} className="bg-white/[0.03] border border-white/5 rounded-xl p-4">
-            <p className="text-[11px] text-white/30 mb-1">{s.label}</p>
+          <div key={s.label} className="bg-white/[0.06] border border-white/5 rounded-xl p-4">
+            <p className="text-[11px] text-white/50 mb-1">{s.label}</p>
             <p className="text-xl font-semibold text-white">{s.value}</p>
           </div>
         ))}
       </div>
 
-      <div className="bg-white/[0.03] border border-white/5 rounded-xl overflow-hidden">
+      <div className="bg-white/[0.06] border border-white/5 rounded-xl overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead>
               <tr className="border-b border-white/5">
-                <th className="px-4 py-2.5 text-left text-[10px] font-medium text-white/30 uppercase tracking-wider">Product</th>
-                <th className="px-4 py-2.5 text-left text-[10px] font-medium text-white/30 uppercase tracking-wider">Plan</th>
-                <th className="px-4 py-2.5 text-left text-[10px] font-medium text-white/30 uppercase tracking-wider">Status</th>
-                <th className="px-4 py-2.5 text-left text-[10px] font-medium text-white/30 uppercase tracking-wider">Verlenging</th>
-                <th className="px-4 py-2.5 text-left text-[10px] font-medium text-white/30 uppercase tracking-wider">Prijs/mo</th>
-                <th className="px-4 py-2.5 text-left text-[10px] font-medium text-white/30 uppercase tracking-wider">Acties</th>
+                <th className="px-4 py-2.5 text-left text-[10px] font-medium text-white/50 uppercase tracking-wider">Product</th>
+                <th className="px-4 py-2.5 text-left text-[10px] font-medium text-white/50 uppercase tracking-wider">Plan</th>
+                <th className="px-4 py-2.5 text-left text-[10px] font-medium text-white/50 uppercase tracking-wider">Status</th>
+                <th className="px-4 py-2.5 text-left text-[10px] font-medium text-white/50 uppercase tracking-wider">Verlenging</th>
+                <th className="px-4 py-2.5 text-left text-[10px] font-medium text-white/50 uppercase tracking-wider">Prijs/mo</th>
+                <th className="px-4 py-2.5 text-left text-[10px] font-medium text-white/50 uppercase tracking-wider">Acties</th>
               </tr>
             </thead>
             <tbody>
@@ -99,10 +99,10 @@ export default function AbonnementenPage() {
                       {row.status}
                     </span>
                   </td>
-                  <td className="px-4 py-3 text-xs text-white/40">{row.verlenging}</td>
+                  <td className="px-4 py-3 text-xs text-white/65">{row.verlenging}</td>
                   <td className="px-4 py-3 text-xs text-white/60 font-mono">{row.prijs}</td>
                   <td className="px-4 py-3">
-                    <button className="flex items-center gap-1.5 border border-white/10 text-white/40 hover:text-white hover:border-white/20 text-xs font-medium px-3 py-1.5 rounded-lg transition-colors">
+                    <button className="flex items-center gap-1.5 border border-white/10 text-white/65 hover:text-white hover:border-white/20 text-xs font-medium px-3 py-1.5 rounded-lg transition-colors">
                       <ExternalLink size={10} />
                       Beheer
                     </button>

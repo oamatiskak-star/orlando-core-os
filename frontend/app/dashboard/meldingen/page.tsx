@@ -70,7 +70,7 @@ const meldingen = [
   {
     type: 'Systeem',
     icon: Settings,
-    iconColor: 'text-white/40',
+    iconColor: 'text-white/65',
     iconBg: 'bg-white/5',
     bericht: 'Next.js build succesvol — 18 pagina\'s gecompileerd in 34s.',
     tijd: 'Gisteren',
@@ -93,7 +93,7 @@ const typeBadge = (t: string) => {
   if (t === 'Agent') return 'bg-cyan-500/10 text-cyan-400'
   if (t === 'Auth') return 'bg-blue-500/10 text-blue-400'
   if (t === 'Financieel') return 'bg-purple-500/10 text-purple-400'
-  return 'bg-white/5 text-white/40'
+  return 'bg-white/5 text-white/65'
 }
 
 export default function MeldingenPage() {
@@ -108,7 +108,7 @@ export default function MeldingenPage() {
           </div>
           <div>
             <h1 className="text-base font-semibold text-white">Meldingen</h1>
-            <p className="text-xs text-white/30">Notificaties, alerts en systeem meldingen over alle BV&apos;s.</p>
+            <p className="text-xs text-white/50">Notificaties, alerts en systeem meldingen over alle BV&apos;s.</p>
           </div>
         </div>
         <button className="flex items-center gap-2 border border-white/10 text-white/50 hover:text-white hover:border-white/20 text-xs font-medium px-4 py-2 rounded-lg transition-colors">
@@ -118,7 +118,7 @@ export default function MeldingenPage() {
       </div>
 
       {/* Filter Tabs */}
-      <div className="flex items-center gap-1 p-1 bg-white/[0.03] border border-white/5 rounded-xl w-fit">
+      <div className="flex items-center gap-1 p-1 bg-white/[0.06] border border-white/5 rounded-xl w-fit">
         {tabs.map((tab) => (
           <button
             key={tab}
@@ -127,7 +127,7 @@ export default function MeldingenPage() {
               'px-3 py-1.5 rounded-lg text-xs font-medium transition-colors',
               activeTab === tab
                 ? 'bg-indigo-600 text-white'
-                : 'text-white/40 hover:text-white/70'
+                : 'text-white/65 hover:text-white/70'
             )}
           >
             {tab}
@@ -143,7 +143,7 @@ export default function MeldingenPage() {
             <div
               key={i}
               className={clsx(
-                'bg-white/[0.03] border border-white/5 border-l-2 rounded-xl p-4 flex items-start gap-3 transition-opacity',
+                'bg-white/[0.06] border border-white/5 border-l-2 rounded-xl p-4 flex items-start gap-3 transition-opacity',
                 m.kleur,
                 m.gelezen && 'opacity-60'
               )}
@@ -163,7 +163,7 @@ export default function MeldingenPage() {
                 <p className="text-xs text-white/70 leading-relaxed">{m.bericht}</p>
               </div>
               <div className="flex flex-col items-end gap-2 flex-shrink-0">
-                <span className="text-[11px] text-white/25 whitespace-nowrap">{m.tijd}</span>
+                <span className="text-[11px] text-white/45 whitespace-nowrap">{m.tijd}</span>
                 {!m.gelezen && (
                   <button className="text-[11px] text-indigo-400 hover:text-indigo-300 transition-colors whitespace-nowrap">
                     Markeer gelezen

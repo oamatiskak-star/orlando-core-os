@@ -22,7 +22,7 @@ function RiskBadge({ level }: { level: string }) {
     hoog: 'bg-red-500/10 text-red-400',
   }
   return (
-    <span className={`${map[level] ?? 'bg-white/5 text-white/40'} px-2 py-0.5 rounded-full text-[10px] font-medium capitalize`}>
+    <span className={`${map[level] ?? 'bg-white/5 text-white/65'} px-2 py-0.5 rounded-full text-[10px] font-medium capitalize`}>
       {level}
     </span>
   )
@@ -72,7 +72,7 @@ export default function DebiteurenPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-lg font-semibold text-white">Debiteuren</h1>
-          <p className="text-xs text-white/30 mt-0.5">{customers.length} klanten geregistreerd</p>
+          <p className="text-xs text-white/50 mt-0.5">{customers.length} klanten geregistreerd</p>
         </div>
         <button className="bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-medium px-4 py-2 rounded-lg transition-colors">
           + Nieuw
@@ -87,8 +87,8 @@ export default function DebiteurenPage() {
           { label: 'Gem. score', value: avgScore.toString(), color: avgScore >= 70 ? 'text-green-400' : avgScore >= 50 ? 'text-amber-400' : 'text-red-400' },
           { label: 'Openstaand', value: fmt(openAmount), color: 'text-amber-400' },
         ].map((s) => (
-          <div key={s.label} className="bg-white/[0.03] border border-white/5 rounded-xl p-4">
-            <p className="text-[10px] font-medium text-white/30 uppercase tracking-wider mb-1">{s.label}</p>
+          <div key={s.label} className="bg-white/[0.06] border border-white/5 rounded-xl p-4">
+            <p className="text-[10px] font-medium text-white/50 uppercase tracking-wider mb-1">{s.label}</p>
             <p className={`text-xl font-semibold ${s.color}`}>{s.value}</p>
           </div>
         ))}
@@ -100,19 +100,19 @@ export default function DebiteurenPage() {
         placeholder="Zoek klant, e-mail..."
         value={search}
         onChange={(e) => setSearch(e.target.value)}
-        className="bg-white/[0.03] border border-white/5 rounded-lg px-3 py-1.5 text-xs text-white placeholder-white/30 outline-none focus:border-indigo-500/50 w-64"
+        className="bg-white/[0.06] border border-white/5 rounded-lg px-3 py-1.5 text-xs text-white placeholder-white/30 outline-none focus:border-indigo-500/50 w-64"
       />
 
       {/* Table */}
-      <div className="bg-white/[0.03] border border-white/5 rounded-xl overflow-hidden">
+      <div className="bg-white/[0.06] border border-white/5 rounded-xl overflow-hidden">
         {loading ? (
-          <div className="py-12 text-center text-xs text-white/30">Laden...</div>
+          <div className="py-12 text-center text-xs text-white/50">Laden...</div>
         ) : (
           <table className="w-full">
             <thead>
               <tr className="border-b border-white/5">
                 {['Klant', 'KvK', 'Score', 'Risico', 'Openstaand', 'Gem. termijn', 'Facturen', 'Actie'].map((h) => (
-                  <th key={h} className="px-4 py-3 text-left text-[10px] font-medium text-white/30 uppercase tracking-wider">
+                  <th key={h} className="px-4 py-3 text-left text-[10px] font-medium text-white/50 uppercase tracking-wider">
                     {h}
                   </th>
                 ))}
@@ -126,9 +126,9 @@ export default function DebiteurenPage() {
                   <tr key={cust.id} className="hover:bg-white/[0.02] transition-colors cursor-pointer">
                     <td className="px-4 py-3">
                       <p className="text-xs font-medium text-white">{cust.name}</p>
-                      {cust.email && <p className="text-[10px] text-white/30 mt-0.5">{cust.email}</p>}
+                      {cust.email && <p className="text-[10px] text-white/50 mt-0.5">{cust.email}</p>}
                     </td>
-                    <td className="px-4 py-3 text-xs text-white/40">{cust.kvk ?? '—'}</td>
+                    <td className="px-4 py-3 text-xs text-white/65">{cust.kvk ?? '—'}</td>
                     <td className="px-4 py-3">
                       <ScoreIndicator score={cust.score} />
                     </td>
@@ -136,10 +136,10 @@ export default function DebiteurenPage() {
                       <RiskBadge level={cust.risk_level} />
                     </td>
                     <td className="px-4 py-3 text-xs text-white/70 font-medium">
-                      {openAmt > 0 ? fmt(openAmt) : <span className="text-white/20">—</span>}
+                      {openAmt > 0 ? fmt(openAmt) : <span className="text-white/38">—</span>}
                     </td>
                     <td className="px-4 py-3 text-xs text-white/50">{cust.payment_avg_days} dagen</td>
-                    <td className="px-4 py-3 text-xs text-white/40">{custInvoices.length}</td>
+                    <td className="px-4 py-3 text-xs text-white/65">{custInvoices.length}</td>
                     <td className="px-4 py-3">
                       <Link
                         href={`/dashboard/finance/debiteuren/${cust.id}`}

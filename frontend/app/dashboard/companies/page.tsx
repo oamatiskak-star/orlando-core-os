@@ -32,7 +32,7 @@ export default function CompaniesPage() {
         </div>
         <div>
           <h1 className="text-base font-semibold text-white">Bedrijven</h1>
-          <p className="text-xs text-white/30">Beheer alle BV&apos;s, holdings en werkmaatschappijen binnen het ecosysteem.</p>
+          <p className="text-xs text-white/50">Beheer alle BV&apos;s, holdings en werkmaatschappijen binnen het ecosysteem.</p>
         </div>
       </div>
 
@@ -40,16 +40,16 @@ export default function CompaniesPage() {
         {COMPANIES.map((company) => {
           const badge = roleBadge[company.role]
           return (
-            <div key={company.id} className="bg-white/[0.03] border border-white/5 rounded-xl p-5 flex flex-col gap-4">
+            <div key={company.id} className="bg-white/[0.06] border border-white/5 rounded-xl p-5 flex flex-col gap-4">
               <div className="flex items-start justify-between">
                 <div className="flex items-center gap-3">
                   <div className="w-3 h-3 rounded-full flex-shrink-0" style={{ backgroundColor: company.color }} />
                   <div>
                     <p className="text-sm font-semibold text-white">{company.short}</p>
-                    <p className="text-[11px] text-white/30 leading-tight mt-0.5">{company.name}</p>
+                    <p className="text-[11px] text-white/50 leading-tight mt-0.5">{company.name}</p>
                   </div>
                 </div>
-                <span className={`px-2 py-0.5 rounded-full text-[10px] font-medium ${badge?.className ?? 'bg-white/5 text-white/30'}`}>
+                <span className={`px-2 py-0.5 rounded-full text-[10px] font-medium ${badge?.className ?? 'bg-white/5 text-white/50'}`}>
                   {badge?.label ?? company.role}
                 </span>
               </div>
@@ -57,21 +57,21 @@ export default function CompaniesPage() {
               {company.modules.length > 0 ? (
                 <div className="flex flex-wrap gap-1.5">
                   {company.modules.map((mod) => (
-                    <span key={mod} className="px-2 py-0.5 rounded-md text-[10px] font-medium bg-white/5 text-white/40 border border-white/[0.06]">
+                    <span key={mod} className="px-2 py-0.5 rounded-md text-[10px] font-medium bg-white/5 text-white/65 border border-white/[0.12]">
                       {mod}
                     </span>
                   ))}
                 </div>
               ) : (
-                <p className="text-[11px] text-white/20 italic">Geen actieve modules</p>
+                <p className="text-[11px] text-white/38 italic">Geen actieve modules</p>
               )}
 
               <div className="flex items-center gap-4 pt-1 border-t border-white/5">
-                <div className="flex items-center gap-1.5 text-[11px] text-white/40">
+                <div className="flex items-center gap-1.5 text-[11px] text-white/65">
                   <Bot size={12} />
                   <span>{agentCounts[company.id] ?? 0} agents</span>
                 </div>
-                <div className="flex items-center gap-1.5 text-[11px] text-white/40">
+                <div className="flex items-center gap-1.5 text-[11px] text-white/65">
                   <CheckSquare size={12} />
                   <span>{taskCounts[company.id] ?? 0} taken</span>
                 </div>

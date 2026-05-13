@@ -10,7 +10,7 @@ export default function DashboardShell({ children }: { children: React.ReactNode
 
   return (
     <CompanyProvider>
-      <div className="flex h-screen bg-[#0a0a14] overflow-hidden">
+      <div className="flex h-screen bg-[#121220] overflow-hidden">
         {sidebarOpen && (
           <div
             className="fixed inset-0 z-40 bg-black/60 md:hidden"

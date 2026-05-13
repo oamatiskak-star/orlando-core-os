@@ -37,7 +37,7 @@ function eventIcon(type: string) {
     legal: <Gavel size={13} className="text-red-400" />,
     invoice_created: <FileText size={13} className="text-indigo-400" />,
   }
-  return map[type] ?? <Clock size={13} className="text-white/30" />
+  return map[type] ?? <Clock size={13} className="text-white/50" />
 }
 
 function StatusBadge({ status }: { status: string }) {
@@ -48,7 +48,7 @@ function StatusBadge({ status }: { status: string }) {
     betaald: 'bg-green-500/10 text-green-400',
   }
   return (
-    <span className={`${map[status] ?? 'bg-white/5 text-white/40'} px-2.5 py-1 rounded-full text-xs font-medium capitalize`}>
+    <span className={`${map[status] ?? 'bg-white/5 text-white/65'} px-2.5 py-1 rounded-full text-xs font-medium capitalize`}>
       {status}
     </span>
   )
@@ -115,7 +115,7 @@ export default function InvoiceDetailPage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-40">
-        <p className="text-xs text-white/30">Laden...</p>
+        <p className="text-xs text-white/50">Laden...</p>
       </div>
     )
   }
@@ -168,38 +168,38 @@ export default function InvoiceDetailPage() {
         {/* Left: detail + timeline */}
         <div className="col-span-2 space-y-4">
           {/* Invoice details */}
-          <div className="bg-white/[0.03] border border-white/5 rounded-xl p-4 space-y-3">
+          <div className="bg-white/[0.06] border border-white/5 rounded-xl p-4 space-y-3">
             <h3 className="text-xs font-semibold text-white">Factuurgegevens</h3>
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <p className="text-[10px] text-white/30 uppercase tracking-wider mb-1">Klant</p>
+                <p className="text-[10px] text-white/50 uppercase tracking-wider mb-1">Klant</p>
                 <p className="text-sm text-white font-medium">{invoice.customer?.name ?? 'Onbekend'}</p>
               </div>
               <div>
-                <p className="text-[10px] text-white/30 uppercase tracking-wider mb-1">Bedrag incl. BTW</p>
+                <p className="text-[10px] text-white/50 uppercase tracking-wider mb-1">Bedrag incl. BTW</p>
                 <p className="text-sm text-white font-medium">{fmt(invoice.amount_incl)}</p>
               </div>
               <div>
-                <p className="text-[10px] text-white/30 uppercase tracking-wider mb-1">Uitgifte datum</p>
+                <p className="text-[10px] text-white/50 uppercase tracking-wider mb-1">Uitgifte datum</p>
                 <p className="text-sm text-white/70">{invoice.issued_at}</p>
               </div>
               <div>
-                <p className="text-[10px] text-white/30 uppercase tracking-wider mb-1">Vervaldatum</p>
+                <p className="text-[10px] text-white/50 uppercase tracking-wider mb-1">Vervaldatum</p>
                 <p className={`text-sm font-medium ${invoice.days_overdue > 0 ? 'text-red-400' : 'text-white/70'}`}>
                   {invoice.due_date}
                 </p>
               </div>
               <div>
-                <p className="text-[10px] text-white/30 uppercase tracking-wider mb-1">Bedrag excl. BTW</p>
+                <p className="text-[10px] text-white/50 uppercase tracking-wider mb-1">Bedrag excl. BTW</p>
                 <p className="text-sm text-white/70">{fmt(invoice.amount_excl)}</p>
               </div>
               <div>
-                <p className="text-[10px] text-white/30 uppercase tracking-wider mb-1">BTW</p>
+                <p className="text-[10px] text-white/50 uppercase tracking-wider mb-1">BTW</p>
                 <p className="text-sm text-white/70">{fmt(invoice.amount_vat)}</p>
               </div>
               {invoice.description && (
                 <div className="col-span-2">
-                  <p className="text-[10px] text-white/30 uppercase tracking-wider mb-1">Omschrijving</p>
+                  <p className="text-[10px] text-white/50 uppercase tracking-wider mb-1">Omschrijving</p>
                   <p className="text-sm text-white/60">{invoice.description}</p>
                 </div>
               )}
@@ -207,10 +207,10 @@ export default function InvoiceDetailPage() {
           </div>
 
           {/* Timeline */}
-          <div className="bg-white/[0.03] border border-white/5 rounded-xl p-4">
+          <div className="bg-white/[0.06] border border-white/5 rounded-xl p-4">
             <h3 className="text-xs font-semibold text-white mb-4">Tijdlijn</h3>
             {timeline.length === 0 ? (
-              <p className="text-xs text-white/30 py-4 text-center">Geen activiteiten</p>
+              <p className="text-xs text-white/50 py-4 text-center">Geen activiteiten</p>
             ) : (
               <div className="space-y-4">
                 {timeline.map((ev) => (
@@ -223,15 +223,15 @@ export default function InvoiceDetailPage() {
                         <div>
                           <p className="text-xs font-medium text-white">{ev.title}</p>
                           {ev.description && (
-                            <p className="text-xs text-white/40 mt-0.5">{ev.description}</p>
+                            <p className="text-xs text-white/65 mt-0.5">{ev.description}</p>
                           )}
                         </div>
                         <div className="text-right flex-shrink-0">
-                          <p className="text-[10px] text-white/30">{new Date(ev.created_at).toLocaleDateString('nl-NL')}</p>
-                          <p className="text-[10px] text-white/20">{new Date(ev.created_at).toLocaleTimeString('nl-NL', { hour: '2-digit', minute: '2-digit' })}</p>
+                          <p className="text-[10px] text-white/50">{new Date(ev.created_at).toLocaleDateString('nl-NL')}</p>
+                          <p className="text-[10px] text-white/38">{new Date(ev.created_at).toLocaleTimeString('nl-NL', { hour: '2-digit', minute: '2-digit' })}</p>
                         </div>
                       </div>
-                      <span className="inline-block mt-1 bg-white/[0.04] text-white/30 text-[10px] px-2 py-0.5 rounded-full">
+                      <span className="inline-block mt-1 bg-white/[0.04] text-white/50 text-[10px] px-2 py-0.5 rounded-full">
                         {ev.performed_by}
                       </span>
                     </div>
@@ -245,17 +245,17 @@ export default function InvoiceDetailPage() {
         {/* Right column */}
         <div className="space-y-4">
           {/* Payments */}
-          <div className="bg-white/[0.03] border border-white/5 rounded-xl p-4">
+          <div className="bg-white/[0.06] border border-white/5 rounded-xl p-4">
             <h3 className="text-xs font-semibold text-white mb-3">Betalingen</h3>
             {payments.length === 0 ? (
-              <p className="text-xs text-white/30 py-2 text-center">Geen betalingen ontvangen</p>
+              <p className="text-xs text-white/50 py-2 text-center">Geen betalingen ontvangen</p>
             ) : (
               <div className="space-y-2">
                 {payments.map((pay) => (
                   <div key={pay.id} className="flex items-center justify-between">
                     <div>
                       <p className="text-xs text-white/70">{pay.paid_at}</p>
-                      <p className="text-[10px] text-white/30">{pay.method}</p>
+                      <p className="text-[10px] text-white/50">{pay.method}</p>
                     </div>
                     <p className="text-xs font-medium text-green-400">{fmt(pay.amount)}</p>
                   </div>
@@ -263,7 +263,7 @@ export default function InvoiceDetailPage() {
               </div>
             )}
             <div className="mt-3 pt-3 border-t border-white/5 flex justify-between">
-              <span className="text-xs text-white/40">Openstaand</span>
+              <span className="text-xs text-white/65">Openstaand</span>
               <span className="text-xs font-semibold text-amber-400">
                 {fmt(invoice.amount_incl - invoice.amount_paid)}
               </span>
@@ -271,7 +271,7 @@ export default function InvoiceDetailPage() {
           </div>
 
           {/* Customer info */}
-          <div className="bg-white/[0.03] border border-white/5 rounded-xl p-4">
+          <div className="bg-white/[0.06] border border-white/5 rounded-xl p-4">
             <h3 className="text-xs font-semibold text-white mb-3">Klantgegevens</h3>
             {invoice.customer ? (
               <div className="space-y-2.5">
@@ -289,7 +289,7 @@ export default function InvoiceDetailPage() {
                   </div>
                 )}
                 <div className="flex items-center justify-between pt-1">
-                  <span className="text-[10px] text-white/30">Score</span>
+                  <span className="text-[10px] text-white/50">Score</span>
                   <span
                     className={`text-xs font-semibold ${
                       invoice.customer.score >= 80
@@ -304,12 +304,12 @@ export default function InvoiceDetailPage() {
                 </div>
               </div>
             ) : (
-              <p className="text-xs text-white/30">Geen klantgegevens</p>
+              <p className="text-xs text-white/50">Geen klantgegevens</p>
             )}
           </div>
 
           {/* Workflow stage */}
-          <div className="bg-white/[0.03] border border-white/5 rounded-xl p-4">
+          <div className="bg-white/[0.06] border border-white/5 rounded-xl p-4">
             <h3 className="text-xs font-semibold text-white mb-3">Workflow Stadium</h3>
             <div className="space-y-1.5">
               {WORKFLOW_STAGES.map((stage, i) => (
@@ -325,7 +325,7 @@ export default function InvoiceDetailPage() {
                   />
                   <span
                     className={`text-[11px] ${
-                      i === stageIndex ? 'text-white font-medium' : i < stageIndex ? 'text-indigo-400/60' : 'text-white/25'
+                      i === stageIndex ? 'text-white font-medium' : i < stageIndex ? 'text-indigo-400/60' : 'text-white/45'
                     }`}
                   >
                     {stage.replace(/_/g, ' ')}
@@ -337,13 +337,13 @@ export default function InvoiceDetailPage() {
 
           {/* Reminders */}
           {reminders.length > 0 && (
-            <div className="bg-white/[0.03] border border-white/5 rounded-xl p-4">
+            <div className="bg-white/[0.06] border border-white/5 rounded-xl p-4">
               <h3 className="text-xs font-semibold text-white mb-3">Herinneringen</h3>
               <div className="space-y-2">
                 {reminders.map((r) => (
                   <div key={r.id} className="space-y-0.5">
                     <p className="text-xs text-white/60">{r.subject}</p>
-                    <div className="flex items-center gap-3 text-[10px] text-white/30">
+                    <div className="flex items-center gap-3 text-[10px] text-white/50">
                       <span>{r.sent_at}</span>
                       {r.opened_at && (
                         <span className="bg-green-500/10 text-green-400 px-1.5 py-0.5 rounded-full">Geopend</span>

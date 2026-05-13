@@ -24,7 +24,7 @@ const projects = [
     bv: 'BEHEER',
     bvColor: '#0ea5e9',
     status: 'Gepland',
-    statusClass: 'bg-white/5 text-white/30',
+    statusClass: 'bg-white/5 text-white/50',
     progress: 0,
     repo: null,
   },
@@ -49,7 +49,7 @@ export default function ProjectsPage() {
           </div>
           <div>
             <h1 className="text-base font-semibold text-white">Projecten</h1>
-            <p className="text-xs text-white/30">Alle lopende en geplande projecten over alle BV&apos;s.</p>
+            <p className="text-xs text-white/50">Alle lopende en geplande projecten over alle BV&apos;s.</p>
           </div>
         </div>
         <button className="bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-medium px-4 py-2 rounded-lg transition-colors">
@@ -59,7 +59,7 @@ export default function ProjectsPage() {
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {projects.map((p) => (
-          <div key={p.name} className="bg-white/[0.03] border border-white/5 rounded-xl p-5 flex flex-col gap-4">
+          <div key={p.name} className="bg-white/[0.06] border border-white/5 rounded-xl p-5 flex flex-col gap-4">
             <div className="flex items-start justify-between">
               <div>
                 <p className="text-sm font-semibold text-white">{p.name}</p>
@@ -76,7 +76,7 @@ export default function ProjectsPage() {
                 </div>
               </div>
               {p.repo && (
-                <button className="flex items-center gap-1 text-[11px] text-white/30 hover:text-white/60 transition-colors">
+                <button className="flex items-center gap-1 text-[11px] text-white/50 hover:text-white/60 transition-colors">
                   <GitBranch size={11} />
                   <ExternalLink size={11} />
                 </button>
@@ -85,7 +85,7 @@ export default function ProjectsPage() {
 
             <div>
               <div className="flex items-center justify-between mb-1.5">
-                <span className="text-[11px] text-white/30">Voortgang</span>
+                <span className="text-[11px] text-white/50">Voortgang</span>
                 <span className="text-[11px] text-white/50 font-medium">{p.progress}%</span>
               </div>
               <div className="h-1.5 bg-white/5 rounded-full overflow-hidden">
@@ -97,7 +97,7 @@ export default function ProjectsPage() {
             </div>
 
             {p.repo && (
-              <p className="text-[11px] text-white/20 font-mono">{p.repo}</p>
+              <p className="text-[11px] text-white/38 font-mono">{p.repo}</p>
             )}
           </div>
         ))}

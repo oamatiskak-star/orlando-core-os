@@ -23,7 +23,7 @@ export default function FinancienPage() {
         </div>
         <div>
           <h1 className="text-base font-semibold text-white">Financiën</h1>
-          <p className="text-xs text-white/30">Cashflow, omzet, BTW en financieel overzicht per BV.</p>
+          <p className="text-xs text-white/50">Cashflow, omzet, BTW en financieel overzicht per BV.</p>
         </div>
       </div>
 
@@ -32,9 +32,9 @@ export default function FinancienPage() {
         {statCards.map((card) => {
           const Icon = card.icon
           return (
-            <div key={card.label} className="bg-white/[0.03] border border-white/5 rounded-xl p-4">
+            <div key={card.label} className="bg-white/[0.06] border border-white/5 rounded-xl p-4">
               <div className="flex items-center justify-between mb-3">
-                <p className="text-[11px] text-white/30">{card.label}</p>
+                <p className="text-[11px] text-white/50">{card.label}</p>
                 <div className={`w-7 h-7 rounded-lg border flex items-center justify-center ${card.bg}`}>
                   <Icon size={13} className={card.color} />
                 </div>
@@ -46,20 +46,20 @@ export default function FinancienPage() {
       </div>
 
       {/* Omzet per BV */}
-      <div className="bg-white/[0.03] border border-white/5 rounded-xl p-5">
+      <div className="bg-white/[0.06] border border-white/5 rounded-xl p-5">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-sm font-semibold text-white">Omzet per BV</h2>
-          <span className="text-[11px] text-white/30">2026 YTD</span>
+          <span className="text-[11px] text-white/50">2026 YTD</span>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead>
               <tr className="border-b border-white/5">
-                <th className="px-4 py-2.5 text-left text-[10px] font-medium text-white/30 uppercase tracking-wider">BV</th>
-                <th className="px-4 py-2.5 text-left text-[10px] font-medium text-white/30 uppercase tracking-wider">Omzet</th>
-                <th className="px-4 py-2.5 text-left text-[10px] font-medium text-white/30 uppercase tracking-wider">Kosten</th>
-                <th className="px-4 py-2.5 text-left text-[10px] font-medium text-white/30 uppercase tracking-wider">Marge</th>
-                <th className="px-4 py-2.5 text-left text-[10px] font-medium text-white/30 uppercase tracking-wider">Status</th>
+                <th className="px-4 py-2.5 text-left text-[10px] font-medium text-white/50 uppercase tracking-wider">BV</th>
+                <th className="px-4 py-2.5 text-left text-[10px] font-medium text-white/50 uppercase tracking-wider">Omzet</th>
+                <th className="px-4 py-2.5 text-left text-[10px] font-medium text-white/50 uppercase tracking-wider">Kosten</th>
+                <th className="px-4 py-2.5 text-left text-[10px] font-medium text-white/50 uppercase tracking-wider">Marge</th>
+                <th className="px-4 py-2.5 text-left text-[10px] font-medium text-white/50 uppercase tracking-wider">Status</th>
               </tr>
             </thead>
             <tbody>
@@ -75,7 +75,7 @@ export default function FinancienPage() {
                   <td className="px-4 py-3 text-xs text-white/50 font-mono">{row.kosten}</td>
                   <td className="px-4 py-3 text-xs text-white/50">{row.marge}</td>
                   <td className="px-4 py-3">
-                    <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-white/5 text-white/30">
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-white/5 text-white/50">
                       {row.status}
                     </span>
                   </td>
@@ -87,7 +87,7 @@ export default function FinancienPage() {
       </div>
 
       {/* Openstaande Facturen */}
-      <div className="bg-white/[0.03] border border-white/5 rounded-xl p-5">
+      <div className="bg-white/[0.06] border border-white/5 rounded-xl p-5">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-sm font-semibold text-white">Openstaande Facturen</h2>
           <button className="bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-medium px-4 py-2 rounded-lg transition-colors">
@@ -96,10 +96,10 @@ export default function FinancienPage() {
         </div>
         <div className="flex flex-col items-center justify-center py-12 gap-3">
           <div className="w-10 h-10 rounded-xl bg-white/5 flex items-center justify-center">
-            <FileText size={18} className="text-white/20" />
+            <FileText size={18} className="text-white/38" />
           </div>
-          <p className="text-sm text-white/30">Geen openstaande facturen</p>
-          <p className="text-[11px] text-white/20">Facturen worden hier zichtbaar zodra er koppelingen actief zijn.</p>
+          <p className="text-sm text-white/50">Geen openstaande facturen</p>
+          <p className="text-[11px] text-white/38">Facturen worden hier zichtbaar zodra er koppelingen actief zijn.</p>
         </div>
       </div>
     </div>

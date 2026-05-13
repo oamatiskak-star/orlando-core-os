@@ -31,7 +31,7 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#0a0a14] flex items-center justify-center px-4">
+    <div className="min-h-screen bg-[#121220] flex items-center justify-center px-4">
       <div className="w-full max-w-sm">
 
         {/* Logo */}
@@ -40,7 +40,7 @@ export default function LoginPage() {
             O
           </div>
           <h1 className="text-white text-xl font-semibold tracking-tight">Orlando Core OS</h1>
-          <p className="text-white/30 text-sm mt-1">AI Operating System</p>
+          <p className="text-white/50 text-sm mt-1">AI Operating System</p>
         </div>
 
         {/* Form card */}
@@ -78,7 +78,7 @@ export default function LoginPage() {
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-white/25 hover:text-white/50 transition-colors"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-white/45 hover:text-white/50 transition-colors"
                 >
                   {showPassword ? <EyeOff size={15} /> : <Eye size={15} />}
                 </button>
@@ -108,7 +108,7 @@ export default function LoginPage() {
           </form>
         </div>
 
-        <p className="text-center text-white/20 text-xs mt-5">
+        <p className="text-center text-white/38 text-xs mt-5">
           Beveiligd door Supabase Auth · Orlando Core OS
         </p>
       </div>

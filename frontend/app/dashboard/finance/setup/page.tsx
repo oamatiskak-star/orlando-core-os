@@ -200,7 +200,7 @@ export default function SetupPage() {
       {/* Header */}
       <div>
         <h1 className="text-lg font-semibold text-white">Finance OS — Database Setup</h1>
-        <p className="text-xs text-white/30 mt-0.5">
+        <p className="text-xs text-white/50 mt-0.5">
           Voer de onderstaande SQL uit in de Supabase SQL Editor om de Finance OS database tabellen aan te maken.
         </p>
       </div>
@@ -223,7 +223,7 @@ export default function SetupPage() {
       </div>
 
       {/* Table status checklist */}
-      <div className="bg-white/[0.03] border border-white/5 rounded-xl p-5">
+      <div className="bg-white/[0.06] border border-white/5 rounded-xl p-5">
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-xs font-semibold text-white">Database Status</h3>
           <button
@@ -247,7 +247,7 @@ export default function SetupPage() {
                 ) : (
                   <div className="w-3.5 h-3.5 rounded-full border-2 border-white/20 border-t-white/60 animate-spin flex-shrink-0" />
                 )}
-                <span className={`text-xs font-mono ${status === 'ok' ? 'text-white/60' : status === 'missing' ? 'text-red-400/80' : 'text-white/30'}`}>
+                <span className={`text-xs font-mono ${status === 'ok' ? 'text-white/60' : status === 'missing' ? 'text-red-400/80' : 'text-white/50'}`}>
                   {table}
                 </span>
               </div>
@@ -257,9 +257,9 @@ export default function SetupPage() {
       </div>
 
       {/* SQL block */}
-      <div className="bg-white/[0.03] border border-white/5 rounded-xl overflow-hidden">
+      <div className="bg-white/[0.06] border border-white/5 rounded-xl overflow-hidden">
         <div className="flex items-center justify-between px-4 py-3 border-b border-white/5">
-          <span className="text-xs font-medium text-white/40">SQL Migration</span>
+          <span className="text-xs font-medium text-white/65">SQL Migration</span>
           <div className="flex gap-2">
             <button
               onClick={handleCopy}

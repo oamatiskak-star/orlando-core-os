@@ -98,11 +98,11 @@ export default function InstellingenPage() {
       {/* Header */}
       <div>
         <h1 className="text-lg font-semibold text-white">Finance Instellingen</h1>
-        <p className="text-xs text-white/30 mt-0.5">Betaalbeleid en automatisering per bedrijf</p>
+        <p className="text-xs text-white/50 mt-0.5">Betaalbeleid en automatisering per bedrijf</p>
       </div>
 
       {/* Company tabs */}
-      <div className="flex gap-1 bg-white/[0.03] border border-white/5 rounded-lg p-1 w-fit">
+      <div className="flex gap-1 bg-white/[0.06] border border-white/5 rounded-lg p-1 w-fit">
         {COMPANIES.map((company) => (
           <button
             key={company}
@@ -110,7 +110,7 @@ export default function InstellingenPage() {
             className={`px-4 py-1.5 rounded-md text-xs font-medium transition-colors ${
               activeCompany === company
                 ? 'bg-indigo-600/30 text-indigo-400'
-                : 'text-white/40 hover:text-white/70'
+                : 'text-white/65 hover:text-white/70'
             }`}
           >
             {company}
@@ -121,7 +121,7 @@ export default function InstellingenPage() {
       {/* Form sections */}
       <div className="space-y-4">
         {/* Bedrijfsgegevens */}
-        <div className="bg-white/[0.03] border border-white/5 rounded-xl p-5">
+        <div className="bg-white/[0.06] border border-white/5 rounded-xl p-5">
           <h3 className="text-xs font-semibold text-white mb-4">Bedrijfsgegevens</h3>
           <div className="grid grid-cols-2 gap-4">
             {[
@@ -131,7 +131,7 @@ export default function InstellingenPage() {
               { label: 'IBAN', key: 'iban' as const, type: 'text' },
             ].map((field) => (
               <div key={field.key}>
-                <label className="block text-[10px] font-medium text-white/30 uppercase tracking-wider mb-1.5">
+                <label className="block text-[10px] font-medium text-white/50 uppercase tracking-wider mb-1.5">
                   {field.label}
                 </label>
                 <input
@@ -146,7 +146,7 @@ export default function InstellingenPage() {
         </div>
 
         {/* Betaalbeleid */}
-        <div className="bg-white/[0.03] border border-white/5 rounded-xl p-5">
+        <div className="bg-white/[0.06] border border-white/5 rounded-xl p-5">
           <h3 className="text-xs font-semibold text-white mb-4">Betaalbeleid</h3>
           <div className="grid grid-cols-2 gap-4">
             {[
@@ -156,7 +156,7 @@ export default function InstellingenPage() {
               { label: 'Aanmaningskosten (€)', key: 'late_fee' as const },
             ].map((field) => (
               <div key={field.key}>
-                <label className="block text-[10px] font-medium text-white/30 uppercase tracking-wider mb-1.5">
+                <label className="block text-[10px] font-medium text-white/50 uppercase tracking-wider mb-1.5">
                   {field.label}
                 </label>
                 <input
@@ -171,7 +171,7 @@ export default function InstellingenPage() {
         </div>
 
         {/* Automatisering */}
-        <div className="bg-white/[0.03] border border-white/5 rounded-xl p-5">
+        <div className="bg-white/[0.06] border border-white/5 rounded-xl p-5">
           <h3 className="text-xs font-semibold text-white mb-4">Automatisering</h3>
           <div className="space-y-3">
             {[
@@ -181,7 +181,7 @@ export default function InstellingenPage() {
               <div key={toggle.key} className="flex items-center justify-between py-2">
                 <div>
                   <p className="text-xs font-medium text-white">{toggle.label}</p>
-                  <p className="text-[10px] text-white/30 mt-0.5">{toggle.desc}</p>
+                  <p className="text-[10px] text-white/50 mt-0.5">{toggle.desc}</p>
                 </div>
                 <button
                   onClick={() => updateField(toggle.key, !form[toggle.key])}
@@ -197,7 +197,7 @@ export default function InstellingenPage() {
         </div>
 
         {/* Tone of voice */}
-        <div className="bg-white/[0.03] border border-white/5 rounded-xl p-5">
+        <div className="bg-white/[0.06] border border-white/5 rounded-xl p-5">
           <h3 className="text-xs font-semibold text-white mb-4">Tone of Voice</h3>
           <div className="grid grid-cols-4 gap-2">
             {['vriendelijk', 'zakelijk', 'formeel', 'streng'].map((tone) => (
@@ -207,7 +207,7 @@ export default function InstellingenPage() {
                 className={`px-3 py-2 rounded-lg text-xs font-medium capitalize transition-colors border ${
                   form.tone_of_voice === tone
                     ? 'bg-indigo-600/20 border-indigo-500/30 text-indigo-400'
-                    : 'bg-white/[0.02] border-white/5 text-white/40 hover:text-white/70'
+                    : 'bg-white/[0.02] border-white/5 text-white/65 hover:text-white/70'
                 }`}
               >
                 {tone}

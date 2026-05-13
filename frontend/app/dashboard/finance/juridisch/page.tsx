@@ -15,10 +15,10 @@ function StatusBadge({ status }: { status: string }) {
     ingediend: 'bg-blue-500/10 text-blue-400',
     vonnis: 'bg-green-500/10 text-green-400',
     verloren: 'bg-red-500/10 text-red-400',
-    gesloten: 'bg-white/5 text-white/40',
+    gesloten: 'bg-white/5 text-white/65',
   }
   return (
-    <span className={`${map[status] ?? 'bg-white/5 text-white/40'} px-2 py-0.5 rounded-full text-[10px] font-medium`}>
+    <span className={`${map[status] ?? 'bg-white/5 text-white/65'} px-2 py-0.5 rounded-full text-[10px] font-medium`}>
       {status.replace(/_/g, ' ')}
     </span>
   )
@@ -63,7 +63,7 @@ export default function JuridischPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-lg font-semibold text-white">Juridische Dossiers</h1>
-          <p className="text-xs text-white/30 mt-0.5">{cases.length} dossiers</p>
+          <p className="text-xs text-white/50 mt-0.5">{cases.length} dossiers</p>
         </div>
       </div>
 
@@ -75,28 +75,28 @@ export default function JuridischPage() {
           { label: 'Vonnissen', value: vonnissen.toString(), color: 'text-green-400' },
           { label: 'Totaal gevorderd', value: fmt(totalClaimed), color: 'text-white' },
         ].map((s) => (
-          <div key={s.label} className="bg-white/[0.03] border border-white/5 rounded-xl p-4">
-            <p className="text-[10px] font-medium text-white/30 uppercase tracking-wider mb-1">{s.label}</p>
+          <div key={s.label} className="bg-white/[0.06] border border-white/5 rounded-xl p-4">
+            <p className="text-[10px] font-medium text-white/50 uppercase tracking-wider mb-1">{s.label}</p>
             <p className={`text-xl font-semibold ${s.color}`}>{s.value}</p>
           </div>
         ))}
       </div>
 
       {/* Table */}
-      <div className="bg-white/[0.03] border border-white/5 rounded-xl overflow-hidden">
+      <div className="bg-white/[0.06] border border-white/5 rounded-xl overflow-hidden">
         {loading ? (
-          <div className="py-12 text-center text-xs text-white/30">Laden...</div>
+          <div className="py-12 text-center text-xs text-white/50">Laden...</div>
         ) : cases.length === 0 ? (
           <div className="py-16 text-center">
-            <p className="text-sm text-white/40 mb-1">Geen juridische dossiers</p>
-            <p className="text-xs text-white/20">Juridische zaken worden aangemaakt vanuit incasso dossiers</p>
+            <p className="text-sm text-white/65 mb-1">Geen juridische dossiers</p>
+            <p className="text-xs text-white/38">Juridische zaken worden aangemaakt vanuit incasso dossiers</p>
           </div>
         ) : (
           <table className="w-full">
             <thead>
               <tr className="border-b border-white/5">
                 {['Zaak #', 'Klant', 'Bedrag', 'Advocaat', 'Status', 'Gestart', 'Actie'].map((h) => (
-                  <th key={h} className="px-4 py-3 text-left text-[10px] font-medium text-white/30 uppercase tracking-wider">{h}</th>
+                  <th key={h} className="px-4 py-3 text-left text-[10px] font-medium text-white/50 uppercase tracking-wider">{h}</th>
                 ))}
               </tr>
             </thead>
@@ -108,7 +108,7 @@ export default function JuridischPage() {
                   <td className="px-4 py-3 text-xs font-semibold text-red-400">{fmt(c.amount_claimed)}</td>
                   <td className="px-4 py-3 text-xs text-white/50">{c.lawyer ?? '—'}</td>
                   <td className="px-4 py-3"><StatusBadge status={c.status} /></td>
-                  <td className="px-4 py-3 text-xs text-white/40">{c.started_at}</td>
+                  <td className="px-4 py-3 text-xs text-white/65">{c.started_at}</td>
                   <td className="px-4 py-3">
                     <button className="border border-white/10 text-white/50 hover:text-white text-xs px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1.5">
                       <Download size={11} />

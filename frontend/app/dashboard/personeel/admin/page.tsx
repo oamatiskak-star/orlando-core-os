@@ -7,11 +7,11 @@ export default function PersoneelAdminPage() {
     <div className="space-y-6">
       <div>
         <h1 className="text-lg font-bold text-white">HR Administratie</h1>
-        <p className="text-sm text-white/40 mt-0.5">HR-dossiers en personeelsadministratie</p>
+        <p className="text-sm text-white/65 mt-0.5">HR-dossiers en personeelsadministratie</p>
       </div>
-      <div className="bg-white/[0.03] border border-white/8 rounded-xl p-8 flex flex-col items-center gap-3">
-        <FileText size={32} className="text-white/15" />
-        <p className="text-sm text-white/30">Geen administratie-items gevonden</p>
+      <div className="bg-white/[0.06] border border-white/8 rounded-xl p-8 flex flex-col items-center gap-3">
+        <FileText size={32} className="text-white/50" />
+        <p className="text-sm text-white/50">Geen administratie-items gevonden</p>
       </div>
     </div>
   )

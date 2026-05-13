@@ -8,15 +8,15 @@ export default function MedewerkersPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-lg font-bold text-white">Medewerkers</h1>
-          <p className="text-sm text-white/40 mt-0.5">Actieve medewerkers en ZZP-ers</p>
+          <p className="text-sm text-white/65 mt-0.5">Actieve medewerkers en ZZP-ers</p>
         </div>
         <button className="flex items-center gap-2 px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold rounded-lg transition-colors">
           <Plus size={13} /> Toevoegen
         </button>
       </div>
-      <div className="bg-white/[0.03] border border-white/8 rounded-xl p-8 flex flex-col items-center gap-3">
-        <Users size={32} className="text-white/15" />
-        <p className="text-sm text-white/30">Nog geen medewerkers geregistreerd</p>
+      <div className="bg-white/[0.06] border border-white/8 rounded-xl p-8 flex flex-col items-center gap-3">
+        <Users size={32} className="text-white/50" />
+        <p className="text-sm text-white/50">Nog geen medewerkers geregistreerd</p>
       </div>
     </div>
   )

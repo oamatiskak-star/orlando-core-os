@@ -75,7 +75,7 @@ export default function RapportPage({ params }: { params: Promise<{ id: string }
       </div>
       <div className="text-center">
         <p className="text-sm font-semibold text-white">AI rapport genereren...</p>
-        <p className="text-xs text-white/30 mt-1">Claude analyseert de deal — even geduld</p>
+        <p className="text-xs text-white/50 mt-1">Claude analyseert de deal — even geduld</p>
       </div>
     </div>
   )
@@ -100,17 +100,17 @@ export default function RapportPage({ params }: { params: Promise<{ id: string }
       {/* Top bar */}
       <div className="flex items-center justify-between">
         <button onClick={() => router.push('/dashboard/vastgoed')}
-          className="flex items-center gap-2 text-xs text-white/40 hover:text-white transition-colors">
+          className="flex items-center gap-2 text-xs text-white/65 hover:text-white transition-colors">
           <ArrowLeft size={14} /> Vastgoed Deals
         </button>
         <button onClick={() => window.print()}
-          className="text-xs text-white/30 hover:text-white/60 transition-colors">
+          className="text-xs text-white/50 hover:text-white/60 transition-colors">
           Print rapport
         </button>
       </div>
 
       {/* ── HERO ── */}
-      <div className={`bg-white/[0.03] border ${cls.glow} rounded-2xl overflow-hidden`}>
+      <div className={`bg-white/[0.06] border ${cls.glow} rounded-2xl overflow-hidden`}>
         <div className="px-6 py-5">
           <div className="flex items-start justify-between gap-4 mb-5">
             <div>
@@ -118,10 +118,10 @@ export default function RapportPage({ params }: { params: Promise<{ id: string }
                 <span className={`text-[10px] font-black px-2.5 py-1 rounded-lg border tracking-widest ${cls.badge}`}>
                   {deal.class}-DEAL
                 </span>
-                <span className="text-[10px] font-bold text-white/30 uppercase tracking-widest">{report.dealType}</span>
+                <span className="text-[10px] font-bold text-white/50 uppercase tracking-widest">{report.dealType}</span>
               </div>
               <h1 className="text-xl font-black text-white">{deal.address ?? 'Onbekend adres'}</h1>
-              <p className="text-sm text-white/40 mt-0.5">{deal.city}{deal.energy_label ? ` · Label ${deal.energy_label}` : ''}{deal.sqm ? ` · ${deal.sqm}m²` : ''}</p>
+              <p className="text-sm text-white/65 mt-0.5">{deal.city}{deal.energy_label ? ` · Label ${deal.energy_label}` : ''}{deal.sqm ? ` · ${deal.sqm}m²` : ''}</p>
             </div>
             <div className={`text-xs font-bold px-3 py-1.5 rounded-lg border ${SEV_STYLE[report.riskScore] ?? SEV_STYLE.Gemiddeld}`}>
               Risico: {report.riskScore}
@@ -136,10 +136,10 @@ export default function RapportPage({ params }: { params: Promise<{ id: string }
               { label: 'Eindwaarde',      value: fmt(report.endValue),       sub: 'na ontwikkeling' },
               { label: 'Netto winst',     value: fmt(report.netProfit),      sub: `ROI ${report.roiPercentage.toFixed(1)}%`, hi: report.netProfit > 0 },
             ].map(t => (
-              <div key={t.label} className={`rounded-xl border p-4 ${t.hi ? 'bg-emerald-500/8 border-emerald-500/20' : 'bg-white/[0.03] border-white/8'}`}>
-                <p className="text-[9px] font-semibold text-white/30 uppercase tracking-wider mb-1">{t.label}</p>
+              <div key={t.label} className={`rounded-xl border p-4 ${t.hi ? 'bg-emerald-500/8 border-emerald-500/20' : 'bg-white/[0.06] border-white/8'}`}>
+                <p className="text-[9px] font-semibold text-white/50 uppercase tracking-wider mb-1">{t.label}</p>
                 <p className={`text-lg font-black ${t.hi ? 'text-emerald-300' : 'text-white'}`}>{t.value}</p>
-                {t.sub && <p className="text-[9px] text-white/25 mt-0.5">{t.sub}</p>}
+                {t.sub && <p className="text-[9px] text-white/45 mt-0.5">{t.sub}</p>}
               </div>
             ))}
           </div>
@@ -154,8 +154,8 @@ export default function RapportPage({ params }: { params: Promise<{ id: string }
               { label: 'Score',     value: `${score}/10`,             color: score >= 7 ? 'text-emerald-400' : 'text-white' },
               { label: 'Type',      value: report.dealType,           color: 'text-indigo-400' },
             ].map(t => (
-              <div key={t.label} className="bg-white/[0.03] rounded-lg border border-white/8 px-3 py-2.5">
-                <p className="text-[9px] font-semibold text-white/30 uppercase tracking-wider mb-0.5">{t.label}</p>
+              <div key={t.label} className="bg-white/[0.06] rounded-lg border border-white/8 px-3 py-2.5">
+                <p className="text-[9px] font-semibold text-white/50 uppercase tracking-wider mb-0.5">{t.label}</p>
                 <p className={`text-xs font-bold truncate ${t.color}`}>{t.value}</p>
               </div>
             ))}
@@ -164,7 +164,7 @@ export default function RapportPage({ params }: { params: Promise<{ id: string }
           {/* Score bar */}
           <div className="mt-4">
             <div className="flex items-center justify-between mb-1">
-              <span className="text-[9px] text-white/30 uppercase tracking-wider">AI Deal Score</span>
+              <span className="text-[9px] text-white/50 uppercase tracking-wider">AI Deal Score</span>
               <span className="text-xs font-black text-amber-400">{score}/10</span>
             </div>
             <div className="h-1.5 bg-white/5 rounded-full overflow-hidden">
@@ -176,20 +176,20 @@ export default function RapportPage({ params }: { params: Promise<{ id: string }
       </div>
 
       {/* ── EXECUTIVE SUMMARY ── */}
-      <div className="bg-white/[0.03] border border-white/8 rounded-2xl p-6 space-y-3">
+      <div className="bg-white/[0.06] border border-white/8 rounded-2xl p-6 space-y-3">
         <div className="flex items-center gap-2 mb-1">
           <FileBarChart size={16} className="text-indigo-400" />
           <h2 className="text-sm font-bold text-white">Executive Summary</h2>
         </div>
-        <div className="bg-white/[0.03] rounded-xl border border-white/5 p-4">
-          <p className="text-[10px] font-semibold text-white/30 uppercase tracking-wider mb-2">Waarom interessant</p>
+        <div className="bg-white/[0.06] rounded-xl border border-white/5 p-4">
+          <p className="text-[10px] font-semibold text-white/50 uppercase tracking-wider mb-2">Waarom interessant</p>
           <p className="text-sm text-white/70 leading-relaxed">{report.whyInteresting}</p>
         </div>
         <p className="text-sm text-white/50 leading-relaxed">{report.executiveSummary}</p>
       </div>
 
       {/* ── ONTWIKKELPLAN ── */}
-      <div className="bg-white/[0.03] border border-white/8 rounded-2xl overflow-hidden">
+      <div className="bg-white/[0.06] border border-white/8 rounded-2xl overflow-hidden">
         <div className="px-6 py-4 border-b border-white/5 flex items-center gap-2">
           <Zap size={16} className="text-amber-400" />
           <h2 className="text-sm font-bold text-white">AI Ontwikkelplan</h2>
@@ -201,7 +201,7 @@ export default function RapportPage({ params }: { params: Promise<{ id: string }
               <p className="text-sm font-bold text-white">{report.developmentPlan.recommendedStrategy}</p>
             </div>
             <div>
-              <p className="text-[9px] font-bold text-white/30 uppercase tracking-wider mb-3">Stappenplan</p>
+              <p className="text-[9px] font-bold text-white/50 uppercase tracking-wider mb-3">Stappenplan</p>
               <div className="space-y-2">
                 {report.developmentPlan.steps.map((step, i) => (
                   <div key={i} className="flex items-start gap-3">
@@ -213,12 +213,12 @@ export default function RapportPage({ params }: { params: Promise<{ id: string }
                 ))}
               </div>
             </div>
-            <p className="text-xs text-white/40 leading-relaxed border-t border-white/5 pt-4">
+            <p className="text-xs text-white/65 leading-relaxed border-t border-white/5 pt-4">
               {report.developmentPlan.reasoning}
             </p>
           </div>
           <div className="lg:col-span-2 p-6 bg-white/[0.02] border-t lg:border-t-0 lg:border-l border-white/5 space-y-3">
-            <p className="text-[9px] font-bold text-white/30 uppercase tracking-wider">Onderbouwing</p>
+            <p className="text-[9px] font-bold text-white/50 uppercase tracking-wider">Onderbouwing</p>
             {report.developmentPlan.keyDataPoints.map((pt, i) => (
               <div key={i} className="flex items-start gap-2 py-2 border-b border-white/5 last:border-0">
                 <CheckCircle size={12} className="text-emerald-400 flex-shrink-0 mt-0.5" />
@@ -230,7 +230,7 @@ export default function RapportPage({ params }: { params: Promise<{ id: string }
       </div>
 
       {/* ── FINANCIEEL ── */}
-      <div className="bg-white/[0.03] border border-white/8 rounded-2xl overflow-hidden">
+      <div className="bg-white/[0.06] border border-white/8 rounded-2xl overflow-hidden">
         <div className="px-6 py-4 border-b border-white/5 flex items-center gap-2">
           <TrendingUp size={16} className="text-emerald-400" />
           <h2 className="text-sm font-bold text-white">Financiële Analyse</h2>
@@ -240,7 +240,7 @@ export default function RapportPage({ params }: { params: Promise<{ id: string }
           <div className="p-6">
             <div className="flex items-center gap-1.5 mb-4">
               <TrendingDown size={14} className="text-red-400" />
-              <p className="text-[9px] font-bold text-white/30 uppercase tracking-wider">Kostenkant</p>
+              <p className="text-[9px] font-bold text-white/50 uppercase tracking-wider">Kostenkant</p>
             </div>
             <div className="space-y-0">
               {report.financialAnalysis.costs.map((c, i) => (
@@ -259,7 +259,7 @@ export default function RapportPage({ params }: { params: Promise<{ id: string }
           <div className="p-6">
             <div className="flex items-center gap-1.5 mb-4">
               <TrendingUp size={14} className="text-emerald-400" />
-              <p className="text-[9px] font-bold text-white/30 uppercase tracking-wider">Opbrengsten</p>
+              <p className="text-[9px] font-bold text-white/50 uppercase tracking-wider">Opbrengsten</p>
             </div>
             <div className="space-y-0">
               {report.financialAnalysis.revenues.map((r, i) => (
@@ -270,7 +270,7 @@ export default function RapportPage({ params }: { params: Promise<{ id: string }
               ))}
             </div>
             <div className={`mt-4 p-4 rounded-xl border ${report.netProfit >= 0 ? 'bg-emerald-500/8 border-emerald-500/20' : 'bg-red-500/8 border-red-500/20'}`}>
-              <p className="text-[9px] text-white/30 uppercase font-medium mb-1">Netto resultaat</p>
+              <p className="text-[9px] text-white/50 uppercase font-medium mb-1">Netto resultaat</p>
               <div className="flex items-end justify-between">
                 <p className={`text-2xl font-black ${report.netProfit >= 0 ? 'text-emerald-300' : 'text-red-300'}`}>{fmt(report.netProfit)}</p>
                 <p className={`text-sm font-bold ${report.netProfit >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>ROI {report.roiPercentage.toFixed(1)}%</p>
@@ -280,7 +280,7 @@ export default function RapportPage({ params }: { params: Promise<{ id: string }
         </div>
         {/* KPI blok */}
         <div className="border-t border-white/5 px-6 py-5">
-          <p className="text-[9px] font-bold text-white/30 uppercase tracking-wider mb-3">Key Performance Indicators</p>
+          <p className="text-[9px] font-bold text-white/50 uppercase tracking-wider mb-3">Key Performance Indicators</p>
           <div className="grid grid-cols-3 lg:grid-cols-7 gap-2">
             {Object.entries(report.financialAnalysis.kpis).map(([key, val]) => {
               const labels: Record<string, string> = { roi: 'ROI', roe: 'ROE', irr: 'IRR', netProfit: 'Winst', breakEvenMonths: 'Break-even', profitPerSqm: 'Winst/m²', riskIndex: 'Risico' }
@@ -288,8 +288,8 @@ export default function RapportPage({ params }: { params: Promise<{ id: string }
               const isMnd = key === 'breakEvenMonths'
               const display = isEur ? fmt(val) : isMnd ? `${val}mnd` : `${typeof val === 'number' ? val.toFixed(1) : val}${key !== 'riskIndex' && !isMnd ? '%' : ''}`
               return (
-                <div key={key} className="bg-white/[0.03] rounded-lg border border-white/5 p-2.5 text-center">
-                  <p className="text-[8px] text-white/25 uppercase font-medium mb-1">{labels[key] ?? key}</p>
+                <div key={key} className="bg-white/[0.06] rounded-lg border border-white/5 p-2.5 text-center">
+                  <p className="text-[8px] text-white/45 uppercase font-medium mb-1">{labels[key] ?? key}</p>
                   <p className="text-xs font-black text-white">{display}</p>
                 </div>
               )
@@ -299,7 +299,7 @@ export default function RapportPage({ params }: { params: Promise<{ id: string }
       </div>
 
       {/* ── RISICO ── */}
-      <div className="bg-white/[0.03] border border-white/8 rounded-2xl overflow-hidden">
+      <div className="bg-white/[0.06] border border-white/8 rounded-2xl overflow-hidden">
         <div className="px-6 py-4 border-b border-white/5 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Shield size={16} className="text-red-400" />
@@ -324,7 +324,7 @@ export default function RapportPage({ params }: { params: Promise<{ id: string }
                         {item.level}
                       </span>
                     </div>
-                    <p className="text-[11px] text-white/35 leading-relaxed">{item.description}</p>
+                    <p className="text-[11px] text-white/58 leading-relaxed">{item.description}</p>
                   </div>
                 ))}
               </div>
@@ -334,7 +334,7 @@ export default function RapportPage({ params }: { params: Promise<{ id: string }
       </div>
 
       {/* ── CONCLUSIE ── */}
-      <div className="bg-white/[0.03] border border-white/8 rounded-2xl p-6">
+      <div className="bg-white/[0.06] border border-white/8 rounded-2xl p-6">
         <div className="flex items-center gap-2 mb-4">
           <CheckCircle size={16} className="text-indigo-400" />
           <h2 className="text-sm font-bold text-white">AI Conclusie</h2>
@@ -349,13 +349,13 @@ export default function RapportPage({ params }: { params: Promise<{ id: string }
         <div className="bg-gradient-to-r from-amber-500/10 to-white/[0.02] border border-amber-500/20 rounded-2xl p-5 flex items-center justify-between">
           <div>
             <p className="text-sm font-black text-white mb-1">Direct laten uitwerken?</p>
-            <p className="text-xs text-white/40">Van rapport naar volledige ontwikkelstraat</p>
+            <p className="text-xs text-white/65">Van rapport naar volledige ontwikkelstraat</p>
           </div>
-          <div className="hidden lg:flex items-center gap-1 text-[10px] text-white/30">
+          <div className="hidden lg:flex items-center gap-1 text-[10px] text-white/50">
             {['Calculatie', 'Tekeningen', 'Vergunning', 'Bouw', 'Exit'].map((s, i, a) => (
               <span key={s} className="flex items-center gap-1">
                 <span className="text-white/50">{s}</span>
-                {i < a.length - 1 && <ArrowRight size={10} className="text-white/20" />}
+                {i < a.length - 1 && <ArrowRight size={10} className="text-white/38" />}
               </span>
             ))}
           </div>
@@ -369,12 +369,12 @@ export default function RapportPage({ params }: { params: Promise<{ id: string }
             { title: '3D Renders',           price: '€750 – €5.000',   desc: 'Fotorealistische visualisaties' },
             { title: 'Vergunningstraject',   price: '€2.500 – €15.000', desc: 'Omgevingsvergunning van A tot Z' },
           ].map(s => (
-            <div key={s.title} className={`bg-white/[0.03] rounded-xl border p-4 hover:border-white/15 transition-colors ${s.hi ? 'border-amber-500/25' : 'border-white/8'}`}>
+            <div key={s.title} className={`bg-white/[0.06] rounded-xl border p-4 hover:border-white/15 transition-colors ${s.hi ? 'border-amber-500/25' : 'border-white/8'}`}>
               <p className="text-xs font-bold text-white mb-0.5">{s.title}</p>
-              <p className="text-[10px] text-white/35 mb-3">{s.desc}</p>
+              <p className="text-[10px] text-white/58 mb-3">{s.desc}</p>
               <div className="flex items-center justify-between">
                 <span className={`text-xs font-black ${s.hi ? 'text-amber-400' : 'text-white/60'}`}>{s.price}</span>
-                <button className={`flex items-center gap-1 text-[10px] font-semibold px-2.5 py-1 rounded-lg transition-colors ${s.hi ? 'bg-amber-500/20 text-amber-300 hover:bg-amber-500/30' : 'bg-white/5 text-white/40 hover:bg-white/10 hover:text-white/70'}`}>
+                <button className={`flex items-center gap-1 text-[10px] font-semibold px-2.5 py-1 rounded-lg transition-colors ${s.hi ? 'bg-amber-500/20 text-amber-300 hover:bg-amber-500/30' : 'bg-white/5 text-white/65 hover:bg-white/10 hover:text-white/70'}`}>
                   Aanvragen <ArrowRight size={10} />
                 </button>
               </div>

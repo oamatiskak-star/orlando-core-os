@@ -13,10 +13,10 @@ function StatusBadge({ status }: { status: string }) {
   const map: Record<string, string> = {
     actief: 'bg-amber-500/10 text-amber-400',
     afgerond: 'bg-green-500/10 text-green-400',
-    ingetrokken: 'bg-white/5 text-white/40',
+    ingetrokken: 'bg-white/5 text-white/65',
   }
   return (
-    <span className={`${map[status] ?? 'bg-white/5 text-white/40'} px-2 py-0.5 rounded-full text-[10px] font-medium capitalize`}>
+    <span className={`${map[status] ?? 'bg-white/5 text-white/65'} px-2 py-0.5 rounded-full text-[10px] font-medium capitalize`}>
       {status}
     </span>
   )
@@ -75,7 +75,7 @@ export default function IncassoPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-lg font-semibold text-white">Incasso Dossiers</h1>
-          <p className="text-xs text-white/30 mt-0.5">{cases.length} dossiers</p>
+          <p className="text-xs text-white/50 mt-0.5">{cases.length} dossiers</p>
         </div>
         <button className="bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-medium px-4 py-2 rounded-lg transition-colors">
           + Nieuw Dossier
@@ -90,28 +90,28 @@ export default function IncassoPage() {
           { label: 'Gemiddeld dossier', value: fmt(avgAmount), color: 'text-white' },
           { label: 'Afgerond', value: done.toString(), color: 'text-green-400' },
         ].map((s) => (
-          <div key={s.label} className="bg-white/[0.03] border border-white/5 rounded-xl p-4">
-            <p className="text-[10px] font-medium text-white/30 uppercase tracking-wider mb-1">{s.label}</p>
+          <div key={s.label} className="bg-white/[0.06] border border-white/5 rounded-xl p-4">
+            <p className="text-[10px] font-medium text-white/50 uppercase tracking-wider mb-1">{s.label}</p>
             <p className={`text-xl font-semibold ${s.color}`}>{s.value}</p>
           </div>
         ))}
       </div>
 
       {/* Table */}
-      <div className="bg-white/[0.03] border border-white/5 rounded-xl overflow-hidden">
+      <div className="bg-white/[0.06] border border-white/5 rounded-xl overflow-hidden">
         {loading ? (
-          <div className="py-12 text-center text-xs text-white/30">Laden...</div>
+          <div className="py-12 text-center text-xs text-white/50">Laden...</div>
         ) : cases.length === 0 ? (
           <div className="py-16 text-center">
-            <p className="text-sm text-white/40 mb-1">Geen actieve incasso dossiers</p>
-            <p className="text-xs text-white/20">Dossiers worden automatisch aangemaakt bij escalatie via de workflow engine</p>
+            <p className="text-sm text-white/65 mb-1">Geen actieve incasso dossiers</p>
+            <p className="text-xs text-white/38">Dossiers worden automatisch aangemaakt bij escalatie via de workflow engine</p>
           </div>
         ) : (
           <table className="w-full">
             <thead>
               <tr className="border-b border-white/5">
                 {['Dossier #', 'Klant', 'Factuur', 'Hoofdsom', 'Rente', 'Kosten', 'Totaal', 'Incassobureau', 'Status', 'Dagen open'].map((h) => (
-                  <th key={h} className="px-4 py-3 text-left text-[10px] font-medium text-white/30 uppercase tracking-wider">{h}</th>
+                  <th key={h} className="px-4 py-3 text-left text-[10px] font-medium text-white/50 uppercase tracking-wider">{h}</th>
                 ))}
               </tr>
             </thead>
@@ -125,7 +125,7 @@ export default function IncassoPage() {
                   <td className="px-4 py-3 text-xs text-white/50">{fmt(c.amount_interest ?? 0)}</td>
                   <td className="px-4 py-3 text-xs text-white/50">{fmt(c.amount_costs ?? 0)}</td>
                   <td className="px-4 py-3 text-xs font-semibold text-red-400">{fmt(c.amount_total)}</td>
-                  <td className="px-4 py-3 text-xs text-white/40">{c.incasso_party ?? '—'}</td>
+                  <td className="px-4 py-3 text-xs text-white/65">{c.incasso_party ?? '—'}</td>
                   <td className="px-4 py-3"><StatusBadge status={c.status} /></td>
                   <td className="px-4 py-3">
                     <span className="bg-amber-500/10 text-amber-400 px-2 py-0.5 rounded-full text-[10px] font-medium">

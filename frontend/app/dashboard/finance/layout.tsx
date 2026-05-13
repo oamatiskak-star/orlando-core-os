@@ -27,7 +27,7 @@ export default function FinanceLayout({ children }: { children: React.ReactNode 
           <div className="w-5 h-5 rounded bg-emerald-500/20 flex items-center justify-center">
             <span className="text-emerald-400 text-[10px] font-bold">F</span>
           </div>
-          <span className="text-white/30 text-[10px] font-semibold uppercase tracking-wider">Finance OS</span>
+          <span className="text-white/50 text-[10px] font-semibold uppercase tracking-wider">Finance OS</span>
         </div>
         {FINANCE_NAV.map((item) => {
           const active =
@@ -42,7 +42,7 @@ export default function FinanceLayout({ children }: { children: React.ReactNode 
                 'px-3 py-1.5 rounded-lg text-xs font-medium transition-colors',
                 active
                   ? 'bg-indigo-600/20 text-indigo-400 border border-indigo-500/20'
-                  : 'text-white/40 hover:text-white/70 hover:bg-white/5'
+                  : 'text-white/65 hover:text-white/70 hover:bg-white/5'
               )}
             >
               {item.label}

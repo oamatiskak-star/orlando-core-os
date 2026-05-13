@@ -46,10 +46,10 @@ function StatCard({
               : 'text-white'
 
   return (
-    <div className={`bg-white/[0.03] border ${borderColor} rounded-xl p-4`}>
-      <p className="text-[10px] font-medium text-white/30 uppercase tracking-wider mb-2">{label}</p>
+    <div className={`bg-white/[0.06] border ${borderColor} rounded-xl p-4`}>
+      <p className="text-[10px] font-medium text-white/50 uppercase tracking-wider mb-2">{label}</p>
       <p className={`text-xl font-semibold ${valueColor}`}>{value}</p>
-      {sub && <p className="text-xs text-white/40 mt-1">{sub}</p>}
+      {sub && <p className="text-xs text-white/65 mt-1">{sub}</p>}
     </div>
   )
 }
@@ -169,19 +169,19 @@ export default async function FinanceDashboardPage() {
       {/* Middle row */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         {/* Critical invoices */}
-        <div className="bg-white/[0.03] border border-white/5 rounded-xl p-4">
+        <div className="bg-white/[0.06] border border-white/5 rounded-xl p-4">
           <h3 className="text-xs font-semibold text-white mb-3">Kritieke Facturen</h3>
           {criticalInvoices.length === 0 ? (
-            <p className="text-xs text-white/30 py-4 text-center">Geen kritieke facturen</p>
+            <p className="text-xs text-white/50 py-4 text-center">Geen kritieke facturen</p>
           ) : (
             <table className="w-full">
               <thead>
                 <tr>
-                  <th className="text-left text-[10px] font-medium text-white/30 uppercase tracking-wider pb-2">Factuur</th>
-                  <th className="text-left text-[10px] font-medium text-white/30 uppercase tracking-wider pb-2">Klant</th>
-                  <th className="text-right text-[10px] font-medium text-white/30 uppercase tracking-wider pb-2">Bedrag</th>
-                  <th className="text-right text-[10px] font-medium text-white/30 uppercase tracking-wider pb-2">Te laat</th>
-                  <th className="text-right text-[10px] font-medium text-white/30 uppercase tracking-wider pb-2">Stadium</th>
+                  <th className="text-left text-[10px] font-medium text-white/50 uppercase tracking-wider pb-2">Factuur</th>
+                  <th className="text-left text-[10px] font-medium text-white/50 uppercase tracking-wider pb-2">Klant</th>
+                  <th className="text-right text-[10px] font-medium text-white/50 uppercase tracking-wider pb-2">Bedrag</th>
+                  <th className="text-right text-[10px] font-medium text-white/50 uppercase tracking-wider pb-2">Te laat</th>
+                  <th className="text-right text-[10px] font-medium text-white/50 uppercase tracking-wider pb-2">Stadium</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-white/5">
@@ -197,7 +197,7 @@ export default async function FinanceDashboardPage() {
                         {inv.days_overdue}d
                       </span>
                     </td>
-                    <td className="py-2 text-xs text-white/40 text-right">{inv.workflow_stage}</td>
+                    <td className="py-2 text-xs text-white/65 text-right">{inv.workflow_stage}</td>
                   </tr>
                 ))}
               </tbody>
@@ -206,7 +206,7 @@ export default async function FinanceDashboardPage() {
         </div>
 
         {/* Cashflow */}
-        <div className="bg-white/[0.03] border border-white/5 rounded-xl p-4">
+        <div className="bg-white/[0.06] border border-white/5 rounded-xl p-4">
           <h3 className="text-xs font-semibold text-white mb-3">Cashflow Verwachting</h3>
           <div className="space-y-3">
             {[
@@ -228,38 +228,38 @@ export default async function FinanceDashboardPage() {
       </div>
 
       {/* Workflow status */}
-      <div className="bg-white/[0.03] border border-white/5 rounded-xl p-4">
+      <div className="bg-white/[0.06] border border-white/5 rounded-xl p-4">
         <h3 className="text-xs font-semibold text-white mb-3">Workflow Status</h3>
         <table className="w-full">
           <thead>
             <tr>
-              <th className="text-left text-[10px] font-medium text-white/30 uppercase tracking-wider pb-2">Naam</th>
-              <th className="text-left text-[10px] font-medium text-white/30 uppercase tracking-wider pb-2">Bedrijf</th>
-              <th className="text-left text-[10px] font-medium text-white/30 uppercase tracking-wider pb-2">Trigger</th>
-              <th className="text-left text-[10px] font-medium text-white/30 uppercase tracking-wider pb-2">Actie</th>
-              <th className="text-right text-[10px] font-medium text-white/30 uppercase tracking-wider pb-2">Facturen</th>
-              <th className="text-right text-[10px] font-medium text-white/30 uppercase tracking-wider pb-2">Status</th>
+              <th className="text-left text-[10px] font-medium text-white/50 uppercase tracking-wider pb-2">Naam</th>
+              <th className="text-left text-[10px] font-medium text-white/50 uppercase tracking-wider pb-2">Bedrijf</th>
+              <th className="text-left text-[10px] font-medium text-white/50 uppercase tracking-wider pb-2">Trigger</th>
+              <th className="text-left text-[10px] font-medium text-white/50 uppercase tracking-wider pb-2">Actie</th>
+              <th className="text-right text-[10px] font-medium text-white/50 uppercase tracking-wider pb-2">Facturen</th>
+              <th className="text-right text-[10px] font-medium text-white/50 uppercase tracking-wider pb-2">Status</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-white/5">
             {workflowRules.slice(0, 6).map((rule) => (
               <tr key={rule.id}>
                 <td className="py-2 text-xs text-white/70">{rule.name}</td>
-                <td className="py-2 text-xs text-white/40">{rule.company_id}</td>
+                <td className="py-2 text-xs text-white/65">{rule.company_id}</td>
                 <td className="py-2 text-xs text-white/50">
                   {rule.trigger_type === 'days_before_due'
                     ? `${rule.trigger_days}d voor vervaldatum`
                     : `${rule.trigger_days}d te laat`}
                 </td>
                 <td className="py-2 text-xs text-white/50">{rule.action_type.replace(/_/g, ' ')}</td>
-                <td className="py-2 text-xs text-white/40 text-right">
+                <td className="py-2 text-xs text-white/65 text-right">
                   {statusCounts[rule.action_type] ?? 0}
                 </td>
                 <td className="py-2 text-right">
                   {rule.active ? (
                     <span className="bg-green-500/10 text-green-400 px-2 py-0.5 rounded-full text-[10px] font-medium">Actief</span>
                   ) : (
-                    <span className="bg-white/5 text-white/30 px-2 py-0.5 rounded-full text-[10px] font-medium">Inactief</span>
+                    <span className="bg-white/5 text-white/50 px-2 py-0.5 rounded-full text-[10px] font-medium">Inactief</span>
                   )}
                 </td>
               </tr>

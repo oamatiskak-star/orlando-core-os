@@ -74,7 +74,7 @@ export default function WorkflowsPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-lg font-semibold text-white">Workflow Automatisering</h1>
-          <p className="text-xs text-white/30 mt-0.5">Automatische opvolging per bedrijf. Elke trigger voert een actie uit.</p>
+          <p className="text-xs text-white/50 mt-0.5">Automatische opvolging per bedrijf. Elke trigger voert een actie uit.</p>
         </div>
         <button className="bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-medium px-4 py-2 rounded-lg transition-colors">
           + Nieuwe Regel
@@ -82,7 +82,7 @@ export default function WorkflowsPage() {
       </div>
 
       {/* Flow diagram */}
-      <div className="bg-white/[0.03] border border-white/5 rounded-xl p-5">
+      <div className="bg-white/[0.06] border border-white/5 rounded-xl p-5">
         <h3 className="text-xs font-semibold text-white mb-4">Escalatie Flow</h3>
         <div className="flex items-center gap-0 overflow-x-auto pb-2">
           {FLOW_STEPS.map((step, i) => (
@@ -103,28 +103,28 @@ export default function WorkflowsPage() {
       </div>
 
       {loading ? (
-        <div className="py-8 text-center text-xs text-white/30">Laden...</div>
+        <div className="py-8 text-center text-xs text-white/50">Laden...</div>
       ) : (
         <>
           {/* STRKBEHEER rules */}
-          <div className="bg-white/[0.03] border border-white/5 rounded-xl overflow-hidden">
+          <div className="bg-white/[0.06] border border-white/5 rounded-xl overflow-hidden">
             <div className="px-4 py-3 border-b border-white/5 flex items-center gap-2">
               <div className="w-2 h-2 rounded-full bg-indigo-400" />
               <h3 className="text-xs font-semibold text-white">STRKBEHEER</h3>
-              <span className="text-[10px] text-white/30">{strkbeheerRules.length} regels</span>
+              <span className="text-[10px] text-white/50">{strkbeheerRules.length} regels</span>
             </div>
             <table className="w-full">
               <thead>
                 <tr className="border-b border-white/5">
                   {['#', 'Naam', 'Trigger', 'Actie', 'Status', 'Toggle'].map((h) => (
-                    <th key={h} className="px-4 py-3 text-left text-[10px] font-medium text-white/30 uppercase tracking-wider">{h}</th>
+                    <th key={h} className="px-4 py-3 text-left text-[10px] font-medium text-white/50 uppercase tracking-wider">{h}</th>
                   ))}
                 </tr>
               </thead>
               <tbody className="divide-y divide-white/5">
                 {strkbeheerRules.map((rule, i) => (
                   <tr key={rule.id} className="hover:bg-white/[0.02] transition-colors">
-                    <td className="px-4 py-3 text-xs text-white/30">{i + 1}</td>
+                    <td className="px-4 py-3 text-xs text-white/50">{i + 1}</td>
                     <td className="px-4 py-3 text-xs text-white/70 font-medium">{rule.name}</td>
                     <td className="px-4 py-3 text-xs text-white/50">{triggerLabel(rule)}</td>
                     <td className="px-4 py-3 text-xs text-white/50">{actionLabel(rule.action_type)}</td>
@@ -132,7 +132,7 @@ export default function WorkflowsPage() {
                       {rule.active ? (
                         <span className="bg-green-500/10 text-green-400 px-2 py-0.5 rounded-full text-[10px] font-medium">Actief</span>
                       ) : (
-                        <span className="bg-white/5 text-white/30 px-2 py-0.5 rounded-full text-[10px] font-medium">Inactief</span>
+                        <span className="bg-white/5 text-white/50 px-2 py-0.5 rounded-full text-[10px] font-medium">Inactief</span>
                       )}
                     </td>
                     <td className="px-4 py-3">
@@ -152,24 +152,24 @@ export default function WorkflowsPage() {
           </div>
 
           {/* STRKBOUW rules */}
-          <div className="bg-white/[0.03] border border-white/5 rounded-xl overflow-hidden">
+          <div className="bg-white/[0.06] border border-white/5 rounded-xl overflow-hidden">
             <div className="px-4 py-3 border-b border-white/5 flex items-center gap-2">
               <div className="w-2 h-2 rounded-full bg-emerald-400" />
               <h3 className="text-xs font-semibold text-white">STRKBOUW</h3>
-              <span className="text-[10px] text-white/30">{strkbouwRules.length} regels</span>
+              <span className="text-[10px] text-white/50">{strkbouwRules.length} regels</span>
             </div>
             <table className="w-full">
               <thead>
                 <tr className="border-b border-white/5">
                   {['#', 'Naam', 'Trigger', 'Actie', 'Status', 'Toggle'].map((h) => (
-                    <th key={h} className="px-4 py-3 text-left text-[10px] font-medium text-white/30 uppercase tracking-wider">{h}</th>
+                    <th key={h} className="px-4 py-3 text-left text-[10px] font-medium text-white/50 uppercase tracking-wider">{h}</th>
                   ))}
                 </tr>
               </thead>
               <tbody className="divide-y divide-white/5">
                 {strkbouwRules.map((rule, i) => (
                   <tr key={rule.id} className="hover:bg-white/[0.02] transition-colors">
-                    <td className="px-4 py-3 text-xs text-white/30">{i + 1}</td>
+                    <td className="px-4 py-3 text-xs text-white/50">{i + 1}</td>
                     <td className="px-4 py-3 text-xs text-white/70 font-medium">{rule.name}</td>
                     <td className="px-4 py-3 text-xs text-white/50">{triggerLabel(rule)}</td>
                     <td className="px-4 py-3 text-xs text-white/50">{actionLabel(rule.action_type)}</td>
@@ -177,7 +177,7 @@ export default function WorkflowsPage() {
                       {rule.active ? (
                         <span className="bg-green-500/10 text-green-400 px-2 py-0.5 rounded-full text-[10px] font-medium">Actief</span>
                       ) : (
-                        <span className="bg-white/5 text-white/30 px-2 py-0.5 rounded-full text-[10px] font-medium">Inactief</span>
+                        <span className="bg-white/5 text-white/50 px-2 py-0.5 rounded-full text-[10px] font-medium">Inactief</span>
                       )}
                     </td>
                     <td className="px-4 py-3">

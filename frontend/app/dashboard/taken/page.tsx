@@ -22,13 +22,13 @@ const taken = [
 const prioriteitBadge = (p: string) => {
   if (p === 'HOOG') return 'bg-red-500/10 text-red-400'
   if (p === 'MIDDEN') return 'bg-amber-500/10 text-amber-400'
-  return 'bg-white/5 text-white/30'
+  return 'bg-white/5 text-white/50'
 }
 
 const statusBadge = (s: string) => {
   if (s === 'Afgerond') return 'bg-green-500/10 text-green-400'
   if (s === 'In behandeling') return 'bg-amber-500/10 text-amber-400'
-  return 'bg-white/[0.08] text-white/40'
+  return 'bg-white/[0.08] text-white/65'
 }
 
 export default function TakenPage() {
@@ -42,7 +42,7 @@ export default function TakenPage() {
         </div>
         <div>
           <h1 className="text-base font-semibold text-white">Taken</h1>
-          <p className="text-xs text-white/30">Openstaande taken, acties en prioriteiten over alle BV&apos;s.</p>
+          <p className="text-xs text-white/50">Openstaande taken, acties en prioriteiten over alle BV&apos;s.</p>
         </div>
       </div>
 
@@ -54,15 +54,15 @@ export default function TakenPage() {
           { label: 'Deze week', value: '7', color: 'text-amber-400' },
           { label: 'Afgerond', value: '24', color: 'text-green-400' },
         ].map((s) => (
-          <div key={s.label} className="bg-white/[0.03] border border-white/5 rounded-xl p-4">
-            <p className="text-[11px] text-white/30 mb-1">{s.label}</p>
+          <div key={s.label} className="bg-white/[0.06] border border-white/5 rounded-xl p-4">
+            <p className="text-[11px] text-white/50 mb-1">{s.label}</p>
             <p className={`text-2xl font-semibold ${s.color}`}>{s.value}</p>
           </div>
         ))}
       </div>
 
       {/* Filter tabs */}
-      <div className="flex items-center gap-1 p-1 bg-white/[0.03] border border-white/5 rounded-xl w-fit">
+      <div className="flex items-center gap-1 p-1 bg-white/[0.06] border border-white/5 rounded-xl w-fit">
         {tabs.map((tab) => (
           <button
             key={tab}
@@ -71,7 +71,7 @@ export default function TakenPage() {
               'px-3 py-1.5 rounded-lg text-xs font-medium transition-colors',
               activeTab === tab
                 ? 'bg-indigo-600 text-white'
-                : 'text-white/40 hover:text-white/70'
+                : 'text-white/65 hover:text-white/70'
             )}
           >
             {tab}
@@ -80,17 +80,17 @@ export default function TakenPage() {
       </div>
 
       {/* Tasks Table */}
-      <div className="bg-white/[0.03] border border-white/5 rounded-xl overflow-hidden">
+      <div className="bg-white/[0.06] border border-white/5 rounded-xl overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead>
               <tr className="border-b border-white/5">
-                <th className="px-4 py-2.5 text-left text-[10px] font-medium text-white/30 uppercase tracking-wider">Prioriteit</th>
-                <th className="px-4 py-2.5 text-left text-[10px] font-medium text-white/30 uppercase tracking-wider">Taak</th>
-                <th className="px-4 py-2.5 text-left text-[10px] font-medium text-white/30 uppercase tracking-wider">BV</th>
-                <th className="px-4 py-2.5 text-left text-[10px] font-medium text-white/30 uppercase tracking-wider">Toegewezen</th>
-                <th className="px-4 py-2.5 text-left text-[10px] font-medium text-white/30 uppercase tracking-wider">Deadline</th>
-                <th className="px-4 py-2.5 text-left text-[10px] font-medium text-white/30 uppercase tracking-wider">Status</th>
+                <th className="px-4 py-2.5 text-left text-[10px] font-medium text-white/50 uppercase tracking-wider">Prioriteit</th>
+                <th className="px-4 py-2.5 text-left text-[10px] font-medium text-white/50 uppercase tracking-wider">Taak</th>
+                <th className="px-4 py-2.5 text-left text-[10px] font-medium text-white/50 uppercase tracking-wider">BV</th>
+                <th className="px-4 py-2.5 text-left text-[10px] font-medium text-white/50 uppercase tracking-wider">Toegewezen</th>
+                <th className="px-4 py-2.5 text-left text-[10px] font-medium text-white/50 uppercase tracking-wider">Deadline</th>
+                <th className="px-4 py-2.5 text-left text-[10px] font-medium text-white/50 uppercase tracking-wider">Status</th>
               </tr>
             </thead>
             <tbody>
@@ -102,7 +102,7 @@ export default function TakenPage() {
                     </span>
                   </td>
                   <td className="px-4 py-3 text-xs text-white/80 max-w-[260px]">{row.taak}</td>
-                  <td className="px-4 py-3 text-xs text-white/40">{row.bv}</td>
+                  <td className="px-4 py-3 text-xs text-white/65">{row.bv}</td>
                   <td className="px-4 py-3 text-xs text-white/50">{row.toegewezen}</td>
                   <td className="px-4 py-3 text-xs text-white/50 whitespace-nowrap">{row.deadline}</td>
                   <td className="px-4 py-3">
