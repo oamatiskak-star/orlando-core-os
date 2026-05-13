@@ -121,7 +121,7 @@ export function startYouTubeRecoveryWorker(): Worker {
             break
           }
 
-          const auth = buildOAuthClient(channel as Parameters<typeof buildOAuthClient>[0])
+          const auth = buildOAuthClient(channel as unknown as Parameters<typeof buildOAuthClient>[0])
           await setVideoPublic(auth, youtubeVideoId)
           await db.from('youtube_videos').update({ privacy_status: 'public', updated_at: new Date().toISOString() }).eq('id', videoId)
           await addLog(queueId, videoId, 'success', 'Video forced public after scheduled publish failure')

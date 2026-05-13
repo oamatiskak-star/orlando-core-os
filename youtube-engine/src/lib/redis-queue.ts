@@ -19,13 +19,13 @@ export function getRedis(): IORedis {
 }
 
 export const QUEUE_NAMES = {
-  UPLOAD:       'youtube:upload',
-  VERIFY:       'youtube:verify',
-  RECOVER:      'youtube:recover',
-  THUMBNAIL:    'youtube:thumbnail',
-  ANALYTICS:    'youtube:analytics',
-  NORMALIZE:    'youtube:normalize',
-  BROWSER_VERIFY: 'youtube:browser_verify',
+  UPLOAD:         'youtube_upload',
+  VERIFY:         'youtube_verify',
+  RECOVER:        'youtube_recover',
+  THUMBNAIL:      'youtube_thumbnail',
+  ANALYTICS:      'youtube_analytics',
+  NORMALIZE:      'youtube_normalize',
+  BROWSER_VERIFY: 'youtube_browser_verify',
 } as const
 
 export type QueueName = typeof QUEUE_NAMES[keyof typeof QUEUE_NAMES]
