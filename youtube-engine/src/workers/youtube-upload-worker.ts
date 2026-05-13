@@ -91,6 +91,23 @@ export function startYouTubeUploadWorker(): Worker {
       const auth = buildOAuthClient(channel)
       const attemptNumber = (queueEntry.retry_count ?? 0) + 1
 
+      // Determine effective privacy and schedule based on queue slot timing
+      const slotTime = queueEntry.scheduled_publish_at
+        ? new Date(queueEntry.scheduled_publish_at)
+        : null
+      const PUBLISH_BUFFER_MS = 10 * 60 * 1000 // 10 min: if slot is within 10 min or past → publish now
+      let effectivePrivacy: 'public' | 'private' | 'unlisted' = 'private'
+      let effectiveScheduledAt: string | undefined = undefined
+
+      if (slotTime && slotTime <= new Date(Date.now() + PUBLISH_BUFFER_MS)) {
+        effectivePrivacy = 'public'
+        log.info('Slot time is past/imminent — uploading as public', { queueId, slotTime: slotTime.toISOString() })
+      } else if (slotTime) {
+        effectivePrivacy = 'private'
+        effectiveScheduledAt = slotTime.toISOString()
+        log.info('Slot in future — uploading as scheduled private', { queueId, publishAt: effectiveScheduledAt })
+      }
+
       const { data: attempt } = await db.from('youtube_upload_attempts').insert({
         queue_id: queueId,
         attempt_number: attemptNumber,
@@ -110,8 +127,8 @@ export function startYouTubeUploadWorker(): Worker {
         description: video.description ?? '',
         tags: video.tags ?? [],
         categoryId: video.category_id ?? '22',
-        privacyStatus: video.privacy_status ?? 'private',
-        scheduledPublishAt: video.scheduled_publish_at ?? undefined,
+        privacyStatus: effectivePrivacy,
+        scheduledPublishAt: effectiveScheduledAt,
         madeForKids: video.made_for_kids ?? false,
         thumbnailPath: video.thumbnail_path ?? undefined,
         onProgress: (bytesUploaded, totalBytes) => {
@@ -135,6 +152,7 @@ export function startYouTubeUploadWorker(): Worker {
       await db.from('youtube_videos').update({
         youtube_video_id: result.youtubeVideoId,
         status: 'uploaded',
+        privacy_status: effectivePrivacy,
         updated_at: new Date().toISOString(),
       }).eq('id', videoId)
 
