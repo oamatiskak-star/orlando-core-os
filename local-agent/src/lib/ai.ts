@@ -31,6 +31,7 @@ async function callOllama(prompt: string, model: string): Promise<string> {
     model,
     prompt,
     stream: false,
+    format: 'json',
     options: { temperature: 0.7, num_predict: 8192, num_ctx: 8192 },
   }, { timeout: 300_000 })
   return res.data.response as string
