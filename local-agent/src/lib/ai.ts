@@ -31,8 +31,8 @@ async function callOllama(prompt: string, model: string): Promise<string> {
     model,
     prompt,
     stream: false,
-    options: { temperature: 0.8, num_predict: 4096 },
-  }, { timeout: 180_000 })
+    options: { temperature: 0.7, num_predict: 8192, num_ctx: 8192 },
+  }, { timeout: 300_000 })
   return res.data.response as string
 }
 
@@ -105,8 +105,9 @@ Geef ALLEEN geldige JSON terug (geen markdown, geen code blocks):
     }
   }
 
-  // Extract JSON from response (model soms met extra tekst)
-  const jsonMatch = raw.match(/\{[\s\S]*\}/)
+  // Extract JSON — strip markdown code blocks first
+  const stripped = raw.replace(/```(?:json)?/g, '').replace(/```/g, '')
+  const jsonMatch = stripped.match(/\{[\s\S]*\}/)
   if (!jsonMatch) throw new Error('AI gaf geen geldige JSON terug')
 
   const result = JSON.parse(jsonMatch[0]) as ContentResult

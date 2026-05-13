@@ -154,7 +154,7 @@ async function poll(): Promise<void> {
     .from('agent_tasks')
     .select('*')
     .eq('task_type', 'generate_content')
-    .eq('status', 'pending')
+    .in('status', ['claimed', 'pending'])
     .order('priority', { ascending: false })
     .order('created_at', { ascending: true })
     .limit(1)
