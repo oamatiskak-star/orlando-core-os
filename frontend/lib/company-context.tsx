@@ -15,7 +15,6 @@ const CompanyContext = createContext<CompanyContextValue | null>(null)
 
 export function CompanyProvider({ children }: { children: ReactNode }) {
   const [activeCompany, setActiveCompanyState] = useState<Company>(COMPANIES[0])
-  const [hydrated, setHydrated] = useState(false)
 
   useEffect(() => {
     const stored = localStorage.getItem(STORAGE_KEY)
@@ -23,15 +22,12 @@ export function CompanyProvider({ children }: { children: ReactNode }) {
       const found = COMPANIES.find((c) => c.id === stored)
       if (found) setActiveCompanyState(found)
     }
-    setHydrated(true)
   }, [])
 
   function setActiveCompany(company: Company) {
     localStorage.setItem(STORAGE_KEY, company.id)
     setActiveCompanyState(company)
   }
-
-  if (!hydrated) return null
 
   return (
     <CompanyContext.Provider value={{ activeCompany, setActiveCompany }}>
