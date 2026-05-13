@@ -12,25 +12,26 @@ export function buildOAuthClient(channel: ChannelRecord): OAuth2Client {
 
   const oauth2 = new google.auth.OAuth2(clientId, clientSecret, redirectUri)
 
-  if (channel.access_token && channel.refresh_token) {
+  if (channel.refresh_token) {
     oauth2.setCredentials({
-      access_token: channel.access_token,
+      access_token:  channel.access_token ?? undefined,
       refresh_token: channel.refresh_token,
-      expiry_date: channel.access_token_expires_at
-        ? new Date(channel.access_token_expires_at).getTime()
+      expiry_date:   channel.token_expires
+        ? new Date(channel.token_expires).getTime()
         : undefined,
     })
 
     oauth2.on('tokens', async (tokens) => {
       const db = getSupabase()
-      await db.from('youtube_channels').update({
-        access_token: tokens.access_token,
-        access_token_expires_at: tokens.expiry_date
-          ? new Date(tokens.expiry_date).toISOString()
-          : null,
-        updated_at: new Date().toISOString(),
-      }).eq('id', channel.id)
-      logger.debug(`Token refreshed for channel ${channel.naam}`)
+      const updates: Record<string, unknown> = {}
+      if (tokens.access_token) updates.access_token = tokens.access_token
+      if (tokens.expiry_date)  updates.token_expires = new Date(tokens.expiry_date).toISOString()
+      if (tokens.refresh_token) updates.refresh_token = tokens.refresh_token
+      if (Object.keys(updates).length) {
+        updates.oauth_status = 'connected'
+        await db.from('youtube_channels').update(updates).eq('id', channel.id)
+        logger.info(`Token auto-refreshed for channel ${channel.naam}`)
+      }
     })
   }
 

@@ -68,7 +68,8 @@ export interface ChannelRecord {
   oauth_client_secret: string | null
   access_token: string | null
   refresh_token: string | null
-  access_token_expires_at: string | null
+  token_expires: string | null
+  oauth_status: string | null
   upload_quota_used: number
   status: string
 }
