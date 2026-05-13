@@ -74,3 +74,4 @@ services:
     name: orlando-redis
     plan: starter
     maxmemoryPolicy: noeviction
+    ipAllowList: []
