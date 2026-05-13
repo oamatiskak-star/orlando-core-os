@@ -7,6 +7,25 @@ import { workerLogger } from '../lib/logger'
 import { v4 as uuidv4 } from 'uuid'
 import path from 'path'
 import fs from 'fs'
+import https from 'https'
+import http from 'http'
+
+async function downloadToTemp(url: string, dest: string): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const file = fs.createWriteStream(dest)
+    const client = url.startsWith('https') ? https : http
+    client.get(url, (res) => {
+      if (res.statusCode && res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
+        file.close()
+        fs.unlinkSync(dest)
+        return downloadToTemp(res.headers.location, dest).then(resolve).catch(reject)
+      }
+      res.pipe(file)
+      file.on('finish', () => file.close(() => resolve()))
+      file.on('error', (err) => { fs.unlinkSync(dest); reject(err) })
+    }).on('error', (err) => { fs.unlinkSync(dest); reject(err) })
+  })
+}
 
 const log = workerLogger('upload-worker')
 const CONCURRENCY = parseInt(process.env.UPLOAD_WORKER_CONCURRENCY ?? '2')
@@ -36,15 +55,31 @@ export function startYouTubeUploadWorker(): Worker {
       if (!channel) throw new Error(`Channel ${channelId} not found`)
       if (!queueEntry) throw new Error(`Queue entry ${queueId} not found`)
 
-      const filePath = video.normalized_path ?? video.file_path
+      const rawPath = video.normalized_path ?? video.file_path
+      if (!rawPath) throw new Error(`Video ${videoId} has no file_path — bestand al verwijderd?`)
+      const isStorageUrl = rawPath.startsWith('http')
 
-      if (!fs.existsSync(filePath)) {
+      let filePath: string = rawPath
+      let tempDownloaded: string | null = null
+
+      if (isStorageUrl) {
+        const tmpDir = process.env.VIDEO_OUTPUT_DIR ?? '/tmp/orlando-videos'
+        fs.mkdirSync(tmpDir, { recursive: true })
+        const tmpFile = path.join(tmpDir, `download_${videoId}_${Date.now()}.mp4`)
+        log.info('Downloading video from storage', { queueId, url: rawPath })
+        await addLog(queueId, videoId, 'info', 'Downloaden van Supabase Storage...', { url: rawPath })
+        await downloadToTemp(rawPath, tmpFile)
+        filePath = tmpFile
+        tempDownloaded = tmpFile
+        log.info('Download complete', { queueId, localPath: filePath })
+      } else if (!fs.existsSync(filePath)) {
         log.info('File not normalized yet, queuing normalization', { queueId })
         const normalizedPath = filePath.replace(/\.mp4$/i, '_normalized.mp4')
         await updateQueueStatus(queueId, 'normalizing')
         await enqueueNormalize({
           queueId,
           videoId,
+          channelId,
           inputPath: filePath,
           outputPath: normalizedPath,
         })
@@ -146,6 +181,11 @@ export function startYouTubeUploadWorker(): Worker {
         queueId,
         youtubeVideoId: result.youtubeVideoId,
       })
+
+      if (tempDownloaded && fs.existsSync(tempDownloaded)) {
+        fs.unlinkSync(tempDownloaded)
+        log.info('Temp download file removed', { path: tempDownloaded })
+      }
 
       return result
     },

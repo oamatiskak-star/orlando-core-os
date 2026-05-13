@@ -52,7 +52,7 @@ export interface VideoRecord {
   scheduled_publish_at: string | null
   made_for_kids: boolean
   thumbnail_path: string | null
-  file_path: string
+  file_path: string | null
   file_size_bytes: number | null
   duration_seconds: number | null
   normalized_path: string | null

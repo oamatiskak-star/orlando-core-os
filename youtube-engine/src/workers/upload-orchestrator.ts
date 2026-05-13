@@ -79,7 +79,6 @@ async function scheduleAnalyticsForLiveVideos(): Promise<void> {
     .from('youtube_upload_queue')
     .select('video_id, channel_id, youtube_video_id')
     .eq('status', 'verified_live')
-    .eq('youtube_videos.status', 'live')
     .not('youtube_video_id', 'is', null)
     .limit(20)
 

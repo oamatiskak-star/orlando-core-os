@@ -101,7 +101,7 @@ export function startFfmpegNormalizerWorker(): Worker {
           updated_at: new Date().toISOString(),
         }).eq('id', videoId)
 
-        await enqueueUpload({ queueId, videoId, channelId: job.data.queueId })
+        await enqueueUpload({ queueId, videoId, channelId: job.data.channelId })
         return { skipped: true, path: inputPath }
       }
 

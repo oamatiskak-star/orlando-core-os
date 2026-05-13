@@ -87,6 +87,7 @@ export interface AnalyticsJobData {
 export interface NormalizeJobData {
   queueId: string
   videoId: string
+  channelId: string
   inputPath: string
   outputPath: string
 }
