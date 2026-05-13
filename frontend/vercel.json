@@ -11,6 +11,10 @@
     {
       "path": "/api/youtube/cron/snapshot-daily-stats",
       "schedule": "55 23 * * *"
+    },
+    {
+      "path": "/api/youtube/cron/run-pipeline",
+      "schedule": "0 2 * * *"
     }
   ]
 }
