@@ -44,6 +44,32 @@ services:
       - key: VIDEO_OUTPUT_DIR
         value: "/tmp/orlando-videos"
 
+  - type: worker
+    name: orlando-executor
+    runtime: node
+    rootDir: planning-engine
+    buildCommand: npm ci && npm run build
+    startCommand: node dist/index.js
+    plan: starter
+    autoDeploy: true
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+      - key: MACHINE_ID
+        value: render-executor-1
+      - key: CLICKUP_API_TOKEN
+        sync: false
+      - key: TELEGRAM_BOT_TOKEN
+        sync: false
+      - key: TELEGRAM_CHAT_ID
+        sync: false
+      - key: LOG_LEVEL
+        value: "info"
+
   - type: redis
     name: orlando-redis
     plan: starter
