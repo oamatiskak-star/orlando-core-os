@@ -99,7 +99,7 @@ async function processTask(task: any): Promise<void> {
       file_path:        signedUrl,
       storage_bucket:   'yt-videos',
       storage_path:     storagePath,
-      status:           'draft',
+      status:           'queued',
       upload_status:    'pending',
       is_short:         p.video_type === 'short',
     }).select('id').single()
