@@ -1,0 +1,147 @@
+import { Worker, Job } from 'bullmq'
+import ffmpeg from 'fluent-ffmpeg'
+import path from 'path'
+import fs from 'fs'
+import { getRedis, QUEUE_NAMES, NormalizeJobData, enqueueUpload } from '../lib/redis-queue'
+import { getSupabase, updateQueueStatus, addLog } from '../lib/supabase'
+import { workerLogger } from '../lib/logger'
+
+const log = workerLogger('ffmpeg-normalizer')
+
+const THREADS = parseInt(process.env.FFMPEG_THREADS ?? '2')
+
+function normalizeVideo(inputPath: string, outputPath: string): Promise<void> {
+  return new Promise((resolve, reject) => {
+    ffmpeg(inputPath)
+      .outputOptions([
+        '-c:v libx264',
+        '-preset slow',
+        '-crf 18',
+        '-c:a aac',
+        '-b:a 192k',
+        '-ar 44100',
+        '-ac 2',
+        '-movflags +faststart',
+        '-pix_fmt yuv420p',
+        `-threads ${THREADS}`,
+        '-profile:v high',
+        '-level 4.0',
+        '-vf scale=trunc(iw/2)*2:trunc(ih/2)*2',
+      ])
+      .output(outputPath)
+      .on('start', (cmd) => log.debug('ffmpeg started', { cmd }))
+      .on('progress', (progress) => {
+        if (progress.percent) {
+          log.debug(`Encoding ${Math.round(progress.percent)}%`)
+        }
+      })
+      .on('end', () => resolve())
+      .on('error', (err) => reject(err))
+      .run()
+  })
+}
+
+function probeVideo(inputPath: string): Promise<ffmpeg.FfprobeData> {
+  return new Promise((resolve, reject) => {
+    ffmpeg.ffprobe(inputPath, (err, data) => {
+      if (err) reject(err)
+      else resolve(data)
+    })
+  })
+}
+
+function isYouTubeSafe(probeData: ffmpeg.FfprobeData): boolean {
+  const videoStream = probeData.streams.find(s => s.codec_type === 'video')
+  const audioStream = probeData.streams.find(s => s.codec_type === 'audio')
+  if (!videoStream || !audioStream) return false
+  const validVideoCodecs = ['h264', 'hevc', 'vp9', 'av1']
+  const validAudioCodecs = ['aac', 'mp3', 'opus']
+  return (
+    validVideoCodecs.includes(videoStream.codec_name ?? '') &&
+    validAudioCodecs.includes(audioStream.codec_name ?? '')
+  )
+}
+
+export function startFfmpegNormalizerWorker(): Worker {
+  const worker = new Worker<NormalizeJobData>(
+    QUEUE_NAMES.NORMALIZE,
+    async (job: Job<NormalizeJobData>) => {
+      const { queueId, videoId, inputPath, outputPath } = job.data
+      log.info('Starting normalization', { queueId, inputPath })
+
+      await updateQueueStatus(queueId, 'normalizing')
+      await addLog(queueId, videoId, 'info', 'ffmpeg normalization started', { inputPath, outputPath })
+
+      if (!fs.existsSync(inputPath)) {
+        throw new Error(`Input file not found: ${inputPath}`)
+      }
+
+      const probeData = await probeVideo(inputPath)
+      const videoStream = probeData.streams.find(s => s.codec_type === 'video')
+      const duration = probeData.format.duration ? Math.round(Number(probeData.format.duration)) : null
+
+      await addLog(queueId, videoId, 'info', 'Video probed', {
+        codec: videoStream?.codec_name,
+        width: videoStream?.width,
+        height: videoStream?.height,
+        duration,
+      })
+
+      const outputDir = path.dirname(outputPath)
+      if (!fs.existsSync(outputDir)) fs.mkdirSync(outputDir, { recursive: true })
+
+      if (isYouTubeSafe(probeData) && fs.statSync(inputPath).size < 128 * 1024 * 1024) {
+        log.info('Video already YouTube-safe, skipping transcode', { queueId })
+        await addLog(queueId, videoId, 'info', 'Skipped transcode — already YouTube-safe')
+
+        const db = getSupabase()
+        await db.from('youtube_videos').update({
+          normalized_path: inputPath,
+          duration_seconds: duration,
+          updated_at: new Date().toISOString(),
+        }).eq('id', videoId)
+
+        await enqueueUpload({ queueId, videoId, channelId: job.data.queueId })
+        return { skipped: true, path: inputPath }
+      }
+
+      await normalizeVideo(inputPath, outputPath)
+      log.info('Normalization complete', { queueId, outputPath })
+
+      const outputStats = fs.statSync(outputPath)
+      const outputProbe = await probeVideo(outputPath)
+      const outputDuration = outputProbe.format.duration ? Math.round(Number(outputProbe.format.duration)) : duration
+
+      const db = getSupabase()
+      await db.from('youtube_videos').update({
+        normalized_path: outputPath,
+        file_size_bytes: outputStats.size,
+        duration_seconds: outputDuration,
+        updated_at: new Date().toISOString(),
+      }).eq('id', videoId)
+
+      await addLog(queueId, videoId, 'success', 'Normalization complete', {
+        outputPath,
+        sizeBytes: outputStats.size,
+        duration: outputDuration,
+      })
+
+      return { outputPath, sizeBytes: outputStats.size }
+    },
+    {
+      connection: getRedis(),
+      concurrency: 1,
+    }
+  )
+
+  worker.on('failed', async (job, err) => {
+    if (!job) return
+    const { queueId, videoId } = job.data
+    log.error('ffmpeg normalization failed', { queueId, error: err.message })
+    await updateQueueStatus(queueId, 'failed', { last_error: `ffmpeg: ${err.message}` })
+    await addLog(queueId, videoId, 'error', `Normalization failed: ${err.message}`)
+  })
+
+  log.info('ffmpeg normalizer worker started')
+  return worker
+}

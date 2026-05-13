@@ -1,0 +1,48 @@
+services:
+  - type: worker
+    name: orlando-youtube-engine
+    runtime: node
+    rootDir: youtube-engine
+    buildCommand: npm ci && npx playwright install chromium --with-deps && npm run build
+    startCommand: node dist/index.js
+    plan: starter
+    autoDeploy: true
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PLAYWRIGHT_HEADLESS
+        value: "true"
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+      - key: REDIS_URL
+        fromService:
+          type: redis
+          name: orlando-redis
+          property: connectionString
+      - key: YOUTUBE_OAUTH_CLIENT_ID
+        sync: false
+      - key: YOUTUBE_OAUTH_CLIENT_SECRET
+        sync: false
+      - key: YOUTUBE_OAUTH_REDIRECT_URI
+        value: https://dashboard.strkbeheer.nl/api/youtube/oauth/callback
+      - key: TELEGRAM_BOT_TOKEN
+        sync: false
+      - key: TELEGRAM_CHAT_ID
+        sync: false
+      - key: UPLOAD_WORKER_CONCURRENCY
+        value: "2"
+      - key: VERIFICATION_INTERVAL_MS
+        value: "30000"
+      - key: MAX_UPLOAD_RETRIES
+        value: "5"
+      - key: LOG_TO_FILE
+        value: "false"
+      - key: LOG_LEVEL
+        value: "info"
+
+  - type: redis
+    name: orlando-redis
+    plan: starter
+    maxmemoryPolicy: noeviction
