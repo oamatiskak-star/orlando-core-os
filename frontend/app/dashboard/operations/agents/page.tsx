@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { Bot, Zap, CheckCircle2, XCircle } from 'lucide-react'
 import AgentGrid from './AgentGrid'
+import AIWorkerStatus from './AIWorkerStatus'
 
 export default async function AgentsPage() {
   const supabase = await createClient()
@@ -46,6 +47,7 @@ export default async function AgentsPage() {
         })}
       </div>
 
+      <AIWorkerStatus />
       <AgentGrid agents={agents ?? []} />
     </div>
   )
