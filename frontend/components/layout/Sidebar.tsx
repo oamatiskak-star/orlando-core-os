@@ -4,72 +4,69 @@ import { useState } from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import {
-  LayoutDashboard,
-  Building2,
-  FileText,
-  Bot,
-  Workflow,
-  FolderKanban,
-  Home,
-  Calculator,
-  Users,
-  CreditCard,
-  Calendar,
-  CheckSquare,
-  Files,
-  Bell,
-  Settings,
-  Activity,
-  ChevronLeft,
-  ChevronRight,
-  LogOut,
-  TrendingUp,
-  Banknote,
-  X,
-} from 'lucide-react'
+import { ChevronLeft, ChevronRight, LogOut, X } from 'lucide-react'
 import CompanySwitcher from './CompanySwitcher'
-import { COMPANIES } from '@/lib/companies'
-import { Company } from '@/types'
+import { useCompany } from '@/lib/company-context'
+import { getCompanyNav, NAV_MODULES, NavModuleDef } from '@/lib/nav-config'
 import clsx from 'clsx'
 
-const NAV_ITEMS = [
-  { label: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
-  { label: 'Bedrijven', href: '/dashboard/companies', icon: Building2 },
-  { label: 'Administratie', href: '/dashboard/admin', icon: FileText },
-  { label: 'AI Agents', href: '/dashboard/agents', icon: Bot, badge: 3 },
-  { label: 'Workflow Engine', href: '/dashboard/workflows', icon: Workflow },
-  { label: 'Projecten', href: '/dashboard/projects', icon: FolderKanban },
-  { label: 'Vastgoed Deals', href: '/dashboard/vastgoed', icon: Home },
-  { label: 'Calculaties', href: '/dashboard/calculaties', icon: Calculator },
-  { label: 'Finance OS', href: '/dashboard/finance', icon: Banknote },
-  { label: 'CRM', href: '/dashboard/crm', icon: Users },
-  { label: 'Agenda', href: '/dashboard/agenda', icon: Calendar },
-  { label: 'Taken', href: '/dashboard/taken', icon: CheckSquare, badge: 7 },
-  { label: 'Documenten', href: '/dashboard/documenten', icon: Files },
-  { label: 'Abonnementen', href: '/dashboard/abonnementen', icon: CreditCard },
-  { label: 'Financiën', href: '/dashboard/financien', icon: TrendingUp },
-  { label: 'Gebruikers', href: '/dashboard/gebruikers', icon: Users },
-  { label: 'Meldingen', href: '/dashboard/meldingen', icon: Bell, badge: 2 },
-  { label: 'System Health', href: '/dashboard/health', icon: Activity },
-  { label: 'Instellingen', href: '/dashboard/instellingen', icon: Settings },
-]
-
-interface SidebarProps {
-  isOpen: boolean
-  onClose: () => void
-}
-
-export default function Sidebar({ isOpen, onClose }: SidebarProps) {
+export default function Sidebar({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) {
   const pathname = usePathname()
   const router = useRouter()
   const [collapsed, setCollapsed] = useState(false)
-  const [activeCompany, setActiveCompany] = useState<Company>(COMPANIES[0])
+  const { activeCompany, setActiveCompany } = useCompany()
+
+  const nav = getCompanyNav(activeCompany.id)
 
   async function handleLogout() {
     const supabase = createClient()
     await supabase.auth.signOut()
     router.replace('/login')
+  }
+
+  function renderModule(mod: NavModuleDef) {
+    const Icon = mod.icon
+    const active =
+      pathname === mod.href ||
+      (mod.href !== '/dashboard' && pathname.startsWith(mod.href))
+
+    return (
+      <Link
+        key={mod.key}
+        href={mod.href}
+        onClick={onClose}
+        title={collapsed ? mod.label : undefined}
+        className={clsx(
+          'flex items-center gap-2.5 px-2 py-1.5 rounded-md text-xs transition-colors relative',
+          active
+            ? 'bg-indigo-500/15 text-indigo-400'
+            : 'text-white/40 hover:text-white/70 hover:bg-white/5'
+        )}
+      >
+        <Icon size={15} className="flex-shrink-0" />
+        {!collapsed && <span className="flex-1 truncate">{mod.label}</span>}
+        {collapsed && active && (
+          <span className="absolute top-0.5 right-0.5 w-1.5 h-1.5 bg-indigo-500 rounded-full" />
+        )}
+      </Link>
+    )
+  }
+
+  function renderSection(modules: string[], title?: string, idx?: number) {
+    const defs = modules.map((k) => NAV_MODULES[k]).filter(Boolean) as NavModuleDef[]
+    if (!defs.length) return null
+
+    return (
+      <div key={idx} className={idx && idx > 0 ? 'mt-0.5' : ''}>
+        {title && !collapsed && (
+          <p className="px-2 pt-3 pb-1 text-[9px] uppercase tracking-widest text-white/20 font-semibold select-none">
+            {title}
+          </p>
+        )}
+        {title && collapsed && <div className="mt-2 mx-2 h-px bg-white/5" />}
+        {defs.map(renderModule)}
+      </div>
+    )
   }
 
   return (
@@ -84,29 +81,25 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
     >
       {/* Logo + collapse */}
       <div className="flex items-center justify-between px-3 py-4 border-b border-white/5">
-        {!collapsed && (
+        {!collapsed ? (
           <div className="flex items-center gap-2">
-            <div className="w-7 h-7 rounded-lg bg-indigo-500 flex items-center justify-center text-white text-xs font-bold">
+            <div className="w-7 h-7 rounded-lg bg-indigo-500 flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
               O
             </div>
             <span className="text-white text-sm font-semibold tracking-tight">Orlando OS</span>
           </div>
-        )}
-        {collapsed && (
+        ) : (
           <div className="w-7 h-7 rounded-lg bg-indigo-500 flex items-center justify-center text-white text-xs font-bold mx-auto">
             O
           </div>
         )}
         <div className="flex items-center gap-1">
-          {/* Close button — mobile only */}
           <button
             onClick={onClose}
             className="md:hidden text-white/30 hover:text-white/60 transition-colors p-1"
-            aria-label="Sluit menu"
           >
             <X size={16} />
           </button>
-          {/* Collapse button — desktop only */}
           {!collapsed && (
             <button
               onClick={() => setCollapsed(true)}
@@ -119,65 +112,48 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
       </div>
 
       {/* Company switcher */}
-      {!collapsed && (
+      {!collapsed ? (
         <div className="px-3 py-3 border-b border-white/5">
           <CompanySwitcher active={activeCompany} onChange={setActiveCompany} />
         </div>
+      ) : (
+        <div className="px-2 py-3 border-b border-white/5 flex justify-center">
+          <span
+            className="w-2.5 h-2.5 rounded-full"
+            style={{ backgroundColor: activeCompany.color }}
+            title={activeCompany.name}
+          />
+        </div>
       )}
 
-      {/* Navigation */}
-      <nav className="flex-1 overflow-y-auto py-2 px-2 space-y-0.5">
-        {NAV_ITEMS.map((item) => {
-          const Icon = item.icon
-          const active = pathname === item.href || (item.href !== '/dashboard' && pathname.startsWith(item.href))
-
-          return (
-            <Link
-              key={item.href}
-              href={item.href}
-              onClick={onClose}
-              title={collapsed ? item.label : undefined}
-              className={clsx(
-                'flex items-center gap-2.5 px-2 py-1.5 rounded-md text-xs transition-colors group relative',
-                active
-                  ? 'bg-indigo-500/15 text-indigo-400'
-                  : 'text-white/40 hover:text-white/70 hover:bg-white/5'
-              )}
-            >
-              <Icon size={15} className="flex-shrink-0" />
-              {!collapsed && (
-                <>
-                  <span className="flex-1 truncate">{item.label}</span>
-                  {item.badge && (
-                    <span className="ml-auto bg-indigo-500 text-white text-[10px] font-medium px-1.5 py-0.5 rounded-full leading-none">
-                      {item.badge}
-                    </span>
-                  )}
-                </>
-              )}
-              {collapsed && item.badge && (
-                <span className="absolute top-0.5 right-0.5 w-2 h-2 bg-indigo-500 rounded-full" />
-              )}
-            </Link>
-          )
-        })}
+      {/* Navigation — dynamic per company */}
+      <nav className="flex-1 overflow-y-auto py-2 px-2 space-y-0 scrollbar-none">
+        {nav.sections.map((section, i) =>
+          renderSection(section.modules, section.title, i)
+        )}
       </nav>
 
-      {/* Bottom: expand + logout */}
-      <div className="px-2 py-3 border-t border-white/5 space-y-1">
+      {/* Bottom: global items + collapse + logout */}
+      <div className="px-2 py-3 border-t border-white/5 space-y-0.5">
+        {nav.globalBottom.map((k) => {
+          const mod = NAV_MODULES[k]
+          return mod ? renderModule(mod) : null
+        })}
+
         {collapsed && (
           <button
             onClick={() => setCollapsed(false)}
-            className="hidden md:flex items-center justify-center w-full py-1.5 text-white/30 hover:text-white/60 transition-colors"
+            className="hidden md:flex items-center justify-center w-full py-1.5 text-white/30 hover:text-white/60 transition-colors mt-1"
           >
             <ChevronRight size={16} />
           </button>
         )}
+
         <button
           onClick={handleLogout}
           title={collapsed ? 'Uitloggen' : undefined}
           className={clsx(
-            'flex items-center gap-2.5 px-2 py-1.5 rounded-md text-xs text-white/30 hover:text-white/60 hover:bg-white/5 transition-colors w-full',
+            'flex items-center gap-2.5 px-2 py-1.5 rounded-md text-xs text-white/30 hover:text-white/60 hover:bg-white/5 transition-colors w-full mt-1',
             collapsed && 'justify-center'
           )}
         >
