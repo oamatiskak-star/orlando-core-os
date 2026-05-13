@@ -112,5 +112,14 @@ Geef ALLEEN geldige JSON terug (geen markdown, geen code blocks):
   if (!jsonMatch) throw new Error('AI gaf geen geldige JSON terug')
 
   const result = JSON.parse(jsonMatch[0]) as ContentResult
+  // Normalize — Ollama occasionally returns arrays for string fields
+  const asStr = (v: unknown) => Array.isArray(v) ? (v as string[]).join(' ') : String(v ?? '')
+  result.title             = asStr(result.title)
+  result.description       = asStr(result.description)
+  result.full_script       = asStr(result.full_script)
+  result.hook              = asStr(result.hook)
+  result.cta               = asStr(result.cta)
+  result.thumbnail_concept = asStr(result.thumbnail_concept)
+  if (!Array.isArray(result.tags)) result.tags = []
   return result
 }
