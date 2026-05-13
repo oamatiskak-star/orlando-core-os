@@ -12,6 +12,7 @@ import SyncButton from './SyncButton'
 import PlanningButton from './PlanningButton'
 import OAuthBanner from './OAuthBanner'
 import TokenAutoRefresh from './TokenAutoRefresh'
+import WorkerStatusBar from './WorkerStatusBar'
 
 function num(n: number) {
   if (n >= 1_000_000) return (n / 1_000_000).toFixed(1) + 'M'
@@ -85,6 +86,9 @@ export default async function YouTubePage() {
           )
         })}
       </div>
+
+      {/* Worker Status */}
+      <WorkerStatusBar />
 
       {/* Channel Health */}
       <div className="bg-white/[0.06] border border-white/5 rounded-xl p-5 space-y-4">
