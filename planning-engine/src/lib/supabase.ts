@@ -47,6 +47,7 @@ export interface DailyPlan {
   revenue_tasks: unknown[]
   deployment_schedule: unknown[]
   completion_pct: number
+  notes?: string
 }
 
 export async function getActiveSprint() {

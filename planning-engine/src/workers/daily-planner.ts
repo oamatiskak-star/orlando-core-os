@@ -144,7 +144,7 @@ export async function runDailyPlanner(): Promise<void> {
 
   const tasks = (openTasks ?? []) as Record<string, unknown>[]
 
-  const enrichedTasks = tasks.map(t => ({
+  const enrichedTasks: Record<string, unknown>[] = tasks.map(t => ({
     ...t,
     roi_score: t.roi_score ?? calcRoiScore({ priority: (t.priority as number) ?? 5 }),
   }))
