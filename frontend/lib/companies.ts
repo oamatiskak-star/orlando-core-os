@@ -5,7 +5,7 @@ export const COMPANIES: Company[] = [
     id: 'osm',
     name: 'O.S.M. AMATISKAK',
     short: 'O.S.M.',
-    role: 'holding',
+    role: 'persoon',
     color: '#a855f7',
     modules: [],
   },

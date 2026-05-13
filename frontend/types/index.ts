@@ -2,7 +2,7 @@ export type Company = {
   id: string
   name: string
   short: string
-  role: 'holding' | 'werkmaatschappij' | 'reserve'
+  role: 'persoon' | 'holding' | 'werkmaatschappij'
   color: string
   modules: string[]
 }

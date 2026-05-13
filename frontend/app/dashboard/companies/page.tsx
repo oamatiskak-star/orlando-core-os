@@ -18,9 +18,9 @@ const taskCounts: Record<string, number> = {
 }
 
 const roleBadge: Record<string, { label: string; className: string }> = {
-  holding: { label: 'Holding', className: 'bg-indigo-500/10 text-indigo-400' },
-  werkmaatschappij: { label: 'Werkmaatschappij', className: 'bg-sky-500/10 text-sky-400' },
-  reserve: { label: 'Reserve', className: 'bg-white/5 text-white/30' },
+  persoon:          { label: 'Eigenaar',         className: 'bg-violet-500/10 text-violet-400' },
+  holding:          { label: 'Holding',           className: 'bg-indigo-500/10 text-indigo-400' },
+  werkmaatschappij: { label: 'Werkmaatschappij',  className: 'bg-sky-500/10 text-sky-400' },
 }
 
 export default function CompaniesPage() {
@@ -49,8 +49,8 @@ export default function CompaniesPage() {
                     <p className="text-[11px] text-white/30 leading-tight mt-0.5">{company.name}</p>
                   </div>
                 </div>
-                <span className={`px-2 py-0.5 rounded-full text-[10px] font-medium ${badge.className}`}>
-                  {badge.label}
+                <span className={`px-2 py-0.5 rounded-full text-[10px] font-medium ${badge?.className ?? 'bg-white/5 text-white/30'}`}>
+                  {badge?.label ?? company.role}
                 </span>
               </div>
 
