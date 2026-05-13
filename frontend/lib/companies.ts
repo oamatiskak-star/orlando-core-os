@@ -2,12 +2,20 @@ import { Company } from '@/types'
 
 export const COMPANIES: Company[] = [
   {
+    id: 'osm',
+    name: 'O.S.M. AMATISKAK',
+    short: 'O.S.M.',
+    role: 'holding',
+    color: '#a855f7',
+    modules: [],
+  },
+  {
     id: 'modiwerijo',
     name: 'Modiwerijo Financial Management BV',
     short: 'MODIWÉ',
     role: 'holding',
     color: '#6366f1',
-    modules: ['Core OS', 'AI Agents', 'Workflow Engine', 'YouTube Automation', 'Mail Automation', 'Administratie', 'Belasting'],
+    modules: [],
   },
   {
     id: 'modiwe-media',
@@ -15,7 +23,15 @@ export const COMPANIES: Company[] = [
     short: 'MEDIA',
     role: 'werkmaatschappij',
     color: '#8b5cf6',
-    modules: ['YouTube Automation', 'Content Studio', 'Mail Automation', 'Analytics', 'CRM Marketing'],
+    modules: [],
+  },
+  {
+    id: 'modiwe-software',
+    name: 'Modiwe Software BV',
+    short: 'SOFTWARE',
+    role: 'werkmaatschappij',
+    color: '#06b6d4',
+    modules: [],
   },
   {
     id: 'strkbeheer',
@@ -23,7 +39,7 @@ export const COMPANIES: Company[] = [
     short: 'BEHEER',
     role: 'holding',
     color: '#0ea5e9',
-    modules: ['VastgoedScalper', 'CRM', 'Finance', 'Projectontwikkeling', 'Dealflow', 'Investeerders', 'Asset Management'],
+    modules: [],
   },
   {
     id: 'strkbouw',
@@ -31,14 +47,14 @@ export const COMPANIES: Company[] = [
     short: 'BOUW',
     role: 'werkmaatschappij',
     color: '#f59e0b',
-    modules: ['SterkCalc', 'BouwplaatsApp', 'Planning', 'Inkoop', 'Werkbonnen', 'Projecten'],
+    modules: [],
   },
   {
     id: 'bouwproffs',
     name: 'Bouwproffs BV',
     short: 'PROFFS',
-    role: 'reserve',
-    color: '#6b7280',
+    role: 'werkmaatschappij',
+    color: '#10b981',
     modules: [],
   },
 ]

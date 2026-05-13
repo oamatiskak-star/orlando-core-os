@@ -4,7 +4,9 @@ import {
   Calendar, Bell, Settings, Activity, CreditCard, CheckSquare,
   FileText, Layers, Zap, BarChart3, Package, Hammer,
   ClipboardList, ShoppingCart, Wrench, PlusCircle, ReceiptText,
-  Wallet, Scale, BookOpen, LucideIcon,
+  Wallet, Scale, BookOpen, Clock, Truck, HardHat, Landmark,
+  Archive, ScrollText, Inbox, ArrowRightLeft,
+  UserCheck, LucideIcon, Globe, Key, Coins, BadgeDollarSign,
 } from 'lucide-react'
 
 export type NavModuleDef = {
@@ -12,6 +14,7 @@ export type NavModuleDef = {
   label: string
   href: string
   icon: LucideIcon
+  badge?: number
 }
 
 export type NavSection = {
@@ -24,109 +27,198 @@ export type CompanyNav = {
   globalBottom: string[]
 }
 
-// ── Master module registry ─────────────────────────────────────────────────
+// ── Master module registry — gebaseerd op Drive mapstructuur ───────────────
 export const NAV_MODULES: Record<string, NavModuleDef> = {
-  // Globaal
-  dashboard:          { key: 'dashboard',          label: 'Dashboard',           href: '/dashboard',                      icon: LayoutDashboard },
-  meldingen:          { key: 'meldingen',           label: 'Meldingen',           href: '/dashboard/meldingen',            icon: Bell },
-  instellingen:       { key: 'instellingen',        label: 'Instellingen',        href: '/dashboard/instellingen',         icon: Settings },
-  health:             { key: 'health',              label: 'System Health',       href: '/dashboard/health',               icon: Activity },
-  bedrijven:          { key: 'bedrijven',           label: 'Bedrijven',           href: '/dashboard/companies',            icon: Building2 },
-  gebruikers:         { key: 'gebruikers',          label: 'Gebruikers',          href: '/dashboard/gebruikers',           icon: Users },
-  documenten:         { key: 'documenten',          label: 'Documenten',          href: '/dashboard/documenten',           icon: Files },
-  agenda:             { key: 'agenda',              label: 'Agenda',              href: '/dashboard/agenda',               icon: Calendar },
-  taken:              { key: 'taken',               label: 'Taken',               href: '/dashboard/taken',                icon: CheckSquare },
 
-  // AI & Automatisering
-  agents:             { key: 'agents',              label: 'AI Agents',           href: '/dashboard/agents',               icon: Bot },
-  workflows:          { key: 'workflows',           label: 'Workflow Engine',     href: '/dashboard/workflows',            icon: Workflow },
+  // ── GLOBAAL (aanwezig bij alle bedrijven) ─────────────────────────────────
+  dashboard:            { key: 'dashboard',            label: 'Dashboard',               href: '/dashboard',                       icon: LayoutDashboard },
+  administratie:        { key: 'administratie',        label: 'Administratie',           href: '/dashboard/admin',                 icon: FileText },
+  agenda:               { key: 'agenda',               label: 'Agenda',                  href: '/dashboard/agenda',                icon: Calendar },
+  agents:               { key: 'agents',               label: 'AI Agents',               href: '/dashboard/agents',                icon: Bot },
+  belasting:            { key: 'belasting',            label: 'Belasting',               href: '/dashboard/finance/rapportages',   icon: BookOpen },
+  crm:                  { key: 'crm',                  label: 'CRM',                     href: '/dashboard/crm',                   icon: Users },
+  documenten:           { key: 'documenten',           label: 'Documenten',              href: '/dashboard/documenten',            icon: Files },
+  finance_incasso:      { key: 'finance_incasso',      label: 'Finance & Incasso',       href: '/dashboard/finance',               icon: Banknote },
+  financien:            { key: 'financien',            label: 'Financiën',               href: '/dashboard/financien',             icon: Wallet },
+  gebruikers:           { key: 'gebruikers',           label: 'Gebruikers',              href: '/dashboard/gebruikers',            icon: Users },
+  instellingen:         { key: 'instellingen',         label: 'Instellingen',            href: '/dashboard/instellingen',          icon: Settings },
+  meldingen:            { key: 'meldingen',            label: 'Meldingen',               href: '/dashboard/meldingen',             icon: Bell },
+  planning:             { key: 'planning',             label: 'Planning',                href: '/dashboard/planning',              icon: ClipboardList },
+  projecten:            { key: 'projecten',            label: 'Projecten',               href: '/dashboard/projects',              icon: FolderKanban },
+  health:               { key: 'health',               label: 'System Health',           href: '/dashboard/health',                icon: Activity },
+  taken:                { key: 'taken',                label: 'Taken',                   href: '/dashboard/taken',                 icon: CheckSquare },
+  workflows:            { key: 'workflows',            label: 'Workflow Engine',         href: '/dashboard/workflows',             icon: Workflow },
+  abonnementen:         { key: 'abonnementen',         label: 'Abonnementen',            href: '/dashboard/abonnementen',          icon: CreditCard },
 
-  // Vastgoed — STRKBEHEER
-  vastgoed:           { key: 'vastgoed',            label: 'Vastgoed Deals',      href: '/dashboard/vastgoed',             icon: Home },
-  projecten:          { key: 'projecten',           label: 'Projectontwikkeling', href: '/dashboard/projects',             icon: FolderKanban },
-  crm:                { key: 'crm',                 label: 'CRM / Leads',         href: '/dashboard/crm',                  icon: Users },
-  investor_os:        { key: 'investor_os',         label: 'Investor OS',         href: '/dashboard/investors',            icon: TrendingUp },
-  portfolio:          { key: 'portfolio',           label: 'Portfolio',           href: '/dashboard/portfolio',            icon: Layers },
+  // ── BEDRIJFSSTRUCTUUR ─────────────────────────────────────────────────────
+  bedrijven:            { key: 'bedrijven',            label: 'Bedrijven',               href: '/dashboard/companies',             icon: Building2 },
 
-  // Finance — MODIWERIJO
-  finance:            { key: 'finance',             label: 'Finance OS',          href: '/dashboard/finance',              icon: Banknote },
-  debiteuren:         { key: 'debiteuren',          label: 'Debiteuren',          href: '/dashboard/finance/debiteuren',   icon: Users },
-  facturen:           { key: 'facturen',            label: 'Facturen',            href: '/dashboard/finance/facturen',     icon: ReceiptText },
-  incasso:            { key: 'incasso',             label: 'Incasso',             href: '/dashboard/finance/incasso',      icon: Scale },
-  cashflow:           { key: 'cashflow',            label: 'Cashflow',            href: '/dashboard/financien',            icon: Wallet },
-  moneybird:          { key: 'moneybird',           label: 'Moneybird',           href: '/dashboard/admin',                icon: BookOpen },
-  belasting:          { key: 'belasting',           label: 'Belastingen',         href: '/dashboard/finance/rapportages',  icon: FileText },
-  abonnementen:       { key: 'abonnementen',        label: 'Abonnementen',        href: '/dashboard/abonnementen',         icon: CreditCard },
-  admin:              { key: 'admin',               label: 'Administratie',       href: '/dashboard/admin',                icon: FileText },
+  // ── PERSONEEL ─────────────────────────────────────────────────────────────
+  personeel:            { key: 'personeel',            label: 'Personeel',               href: '/dashboard/personeel',             icon: Users },
+  personeel_admini:     { key: 'personeel_admini',     label: 'Administratie',           href: '/dashboard/personeel/admin',       icon: FileText },
+  personeel_contract:   { key: 'personeel_contract',   label: 'Contracten',              href: '/dashboard/personeel/contracten',  icon: ScrollText },
+  personeel_docs:       { key: 'personeel_docs',       label: 'Documenten',              href: '/dashboard/personeel/documenten',  icon: Files },
+  personeel_loon:       { key: 'personeel_loon',       label: 'Loonstroken',             href: '/dashboard/personeel/loonstroken', icon: ReceiptText },
+  personeel_medew:      { key: 'personeel_medew',      label: 'Medewerkers',             href: '/dashboard/personeel/medewerkers', icon: UserCheck },
+  personeel_ubo:        { key: 'personeel_ubo',        label: 'UBO Register',            href: '/dashboard/personeel/ubo',         icon: Key },
 
-  // YouTube / Media — MODIWE MEDIA
-  youtube:            { key: 'youtube',             label: 'YouTube Engine',      href: '/dashboard/youtube',              icon: Video },
-  youtube_analytics:  { key: 'youtube_analytics',  label: 'Analytics',           href: '/dashboard/youtube/analytics',    icon: BarChart3 },
-  youtube_queue:      { key: 'youtube_queue',       label: 'Upload Queue',        href: '/dashboard/youtube/queue',        icon: Package },
-  youtube_automation: { key: 'youtube_automation',  label: 'Automation',          href: '/dashboard/youtube/automation',   icon: Zap },
-  youtube_scheduled:  { key: 'youtube_scheduled',   label: 'Gepland',             href: '/dashboard/youtube/scheduled',    icon: Calendar },
-  youtube_logs:       { key: 'youtube_logs',        label: 'Logs',                href: '/dashboard/youtube/logs',         icon: FileText },
+  // ── O.S.M. AMATISKAK specifiek ────────────────────────────────────────────
+  dyme_os:              { key: 'dyme_os',              label: 'Dyme OS',                 href: '/dashboard/dyme',                  icon: Coins },
+  personal_finance:     { key: 'personal_finance',     label: 'Personal Finance OS',     href: '/dashboard/personal-finance',      icon: BadgeDollarSign },
+  loonstroken:          { key: 'loonstroken',          label: 'Loonstroken',             href: '/dashboard/loonstroken',           icon: ReceiptText },
 
-  // Bouw — STRKBOUW
-  calculaties:        { key: 'calculaties',         label: 'SterkCalc',           href: '/dashboard/calculaties',          icon: Calculator },
-  bouwplaats:         { key: 'bouwplaats',          label: 'Bouwplaats',          href: '/dashboard/bouwplaats',           icon: Wrench },
-  planning:           { key: 'planning',            label: 'Planning',            href: '/dashboard/planning',             icon: ClipboardList },
-  uitvoering:         { key: 'uitvoering',          label: 'Uitvoering',          href: '/dashboard/uitvoering',           icon: Hammer },
-  werkbonnen:         { key: 'werkbonnen',          label: 'Werkbonnen',          href: '/dashboard/werkbonnen',           icon: ClipboardList },
-  inkoop:             { key: 'inkoop',              label: 'Inkoop',              href: '/dashboard/inkoop',               icon: ShoppingCart },
-  meerwerk:           { key: 'meerwerk',            label: 'Meerwerk',            href: '/dashboard/meerwerk',             icon: PlusCircle },
+  // ── STRKBEHEER — VASTGOED ─────────────────────────────────────────────────
+  vastgoed:             { key: 'vastgoed',             label: 'Vastgoed Deals',          href: '/dashboard/vastgoed',              icon: Home },
+  calculaties:          { key: 'calculaties',          label: 'Calculaties',             href: '/dashboard/calculaties',           icon: Calculator },
+
+  // ── STRKBOUW — BOUW ───────────────────────────────────────────────────────
+  bouwplaats:           { key: 'bouwplaats',           label: 'BouwplaatsApp',           href: '/dashboard/bouwplaats',            icon: HardHat },
+  kopers_portaal:       { key: 'kopers_portaal',       label: 'Kopers & Huurders',       href: '/dashboard/kopers-portaal',        icon: UserCheck },
+
+  // ── MODIWE MEDIA — YOUTUBE & SOCIAL ──────────────────────────────────────
+  youtube:              { key: 'youtube',              label: 'YouTube Engine',          href: '/dashboard/youtube',               icon: Video },
+  youtube_beleggingstv: { key: 'youtube_beleggingstv', label: 'BeleggingsTv',            href: '/dashboard/youtube/channel/beleggingstv',    icon: Video },
+  youtube_crypto:       { key: 'youtube_crypto',       label: 'CryptoVermogen',          href: '/dashboard/youtube/channel/cryptovermogen',  icon: Video },
+  youtube_investor:     { key: 'youtube_investor',     label: 'Private InvestorTv',      href: '/dashboard/youtube/channel/investortv',      icon: Video },
+  youtube_spaartv:      { key: 'youtube_spaartv',      label: 'SpaarTv',                 href: '/dashboard/youtube/channel/spaartv',         icon: Video },
+  youtube_vastgoed:     { key: 'youtube_vastgoed',     label: 'VastgoedTv',              href: '/dashboard/youtube/channel/vastgoedtv',      icon: Video },
+  youtube_vermogen:     { key: 'youtube_vermogen',     label: 'VermogenTv',              href: '/dashboard/youtube/channel/vermogentv',      icon: Video },
+  instagram:            { key: 'instagram',            label: 'Instagram',               href: '/dashboard/social/instagram',      icon: Globe },
+  tiktok:               { key: 'tiktok',               label: 'TikTok',                  href: '/dashboard/social/tiktok',         icon: Globe },
+  fb_offmarket:         { key: 'fb_offmarket',         label: 'FB Off Market NL',        href: '/dashboard/social/fb-offmarket',   icon: Globe },
+  fb_property:          { key: 'fb_property',          label: 'FB Private Property NL',  href: '/dashboard/social/fb-property',    icon: Globe },
+  youtube_analytics:    { key: 'youtube_analytics',    label: 'Analytics',               href: '/dashboard/youtube/analytics',     icon: BarChart3 },
+  youtube_queue:        { key: 'youtube_queue',        label: 'Upload Queue',            href: '/dashboard/youtube/queue',         icon: Package },
+  youtube_automation:   { key: 'youtube_automation',   label: 'Automation',              href: '/dashboard/youtube/automation',    icon: Zap },
+  youtube_scheduled:    { key: 'youtube_scheduled',    label: 'Gepland',                 href: '/dashboard/youtube/scheduled',     icon: Calendar },
+  youtube_logs:         { key: 'youtube_logs',         label: 'Logs',                    href: '/dashboard/youtube/logs',          icon: FileText },
 }
 
-// ── Per-company navigatiestructuur ─────────────────────────────────────────
+// ── Per-company nav — exact op basis van Drive mapstructuur ────────────────
 export const COMPANY_NAV: Record<string, CompanyNav> = {
-  strkbeheer: {
-    sections: [
-      { modules: ['dashboard'] },
-      { title: 'Vastgoed', modules: ['vastgoed', 'projecten', 'portfolio', 'investor_os'] },
-      { title: 'CRM', modules: ['crm'] },
-      { title: 'Finance', modules: ['finance', 'abonnementen'] },
-      { title: 'Systeem', modules: ['agents', 'workflows', 'documenten', 'agenda', 'taken'] },
-    ],
-    globalBottom: ['meldingen', 'instellingen'],
-  },
 
-  strkbouw: {
+  // O.S.M. AMATISKAK
+  osm: {
     sections: [
       { modules: ['dashboard'] },
-      { title: 'Calculatie', modules: ['calculaties'] },
-      { title: 'Bouwplaats', modules: ['projecten', 'bouwplaats', 'planning', 'uitvoering', 'werkbonnen'] },
-      { title: 'Inkoop', modules: ['inkoop', 'meerwerk'] },
-      { title: 'Finance', modules: ['finance'] },
-      { title: 'Systeem', modules: ['documenten', 'agenda', 'taken'] },
-    ],
-    globalBottom: ['meldingen', 'instellingen'],
-  },
-
-  'modiwe-media': {
-    sections: [
-      { modules: ['dashboard'] },
-      { title: 'YouTube', modules: ['youtube', 'youtube_analytics', 'youtube_queue', 'youtube_automation', 'youtube_scheduled', 'youtube_logs'] },
-      { title: 'Automatisering', modules: ['agents', 'workflows'] },
-      { title: 'Marketing', modules: ['crm'] },
-    ],
-    globalBottom: ['meldingen', 'instellingen'],
-  },
-
-  modiwerijo: {
-    sections: [
-      { modules: ['dashboard'] },
-      { title: 'AI OS', modules: ['agents', 'workflows'] },
-      { title: 'Finance', modules: ['finance', 'debiteuren', 'facturen', 'incasso', 'cashflow', 'moneybird', 'belasting'] },
-      { title: 'Beheer', modules: ['admin', 'abonnementen', 'documenten', 'bedrijven', 'gebruikers'] },
+      { title: 'Persoonlijk', modules: ['dyme_os', 'personal_finance', 'loonstroken', 'financien'] },
+      { title: 'Bedrijven', modules: ['bedrijven'] },
+      { title: 'Operationeel', modules: ['agenda', 'taken', 'planning', 'crm'] },
+      { title: 'AI & Workflow', modules: ['agents', 'workflows'] },
+      { title: 'Systeem', modules: ['administratie', 'belasting', 'abonnementen', 'documenten'] },
     ],
     globalBottom: ['health', 'meldingen', 'instellingen'],
   },
 
+  // Modiwerijo Financial Management BV
+  modiwerijo: {
+    sections: [
+      { modules: ['dashboard'] },
+      { title: 'Finance', modules: ['finance_incasso', 'financien', 'belasting', 'abonnementen'] },
+      { title: 'Bedrijven', modules: ['bedrijven'] },
+      {
+        title: 'Personeel', modules: [
+          'personeel', 'personeel_medew', 'personeel_contract',
+          'personeel_loon', 'personeel_admini', 'personeel_ubo',
+        ],
+      },
+      { title: 'Operationeel', modules: ['projecten', 'planning', 'crm', 'documenten', 'agenda', 'taken'] },
+      { title: 'AI & Workflow', modules: ['agents', 'workflows'] },
+      { title: 'Systeem', modules: ['administratie', 'gebruikers'] },
+    ],
+    globalBottom: ['health', 'meldingen', 'instellingen'],
+  },
+
+  // Modiwe Media BV
+  'modiwe-media': {
+    sections: [
+      { modules: ['dashboard'] },
+      {
+        title: 'YouTube', modules: [
+          'youtube',
+          'youtube_vermogen', 'youtube_spaartv', 'youtube_vastgoed',
+          'youtube_crypto', 'youtube_beleggingstv', 'youtube_investor',
+        ],
+      },
+      { title: 'YouTube Tools', modules: ['youtube_analytics', 'youtube_queue', 'youtube_automation', 'youtube_scheduled', 'youtube_logs'] },
+      { title: 'Social Media', modules: ['instagram', 'tiktok', 'fb_offmarket', 'fb_property'] },
+      { title: 'Vastgoed', modules: ['vastgoed'] },
+      { title: 'Operationeel', modules: ['projecten', 'planning', 'crm', 'documenten', 'agenda', 'taken'] },
+      { title: 'Finance', modules: ['finance_incasso', 'financien', 'belasting', 'abonnementen'] },
+      { title: 'AI & Workflow', modules: ['agents', 'workflows'] },
+      { title: 'Systeem', modules: ['administratie', 'gebruikers'] },
+    ],
+    globalBottom: ['meldingen', 'instellingen'],
+  },
+
+  // Modiwe Software BV
+  'modiwe-software': {
+    sections: [
+      { modules: ['dashboard'] },
+      { title: 'SaaS', modules: ['calculaties', 'vastgoed', 'projecten'] },
+      {
+        title: 'YouTube', modules: [
+          'youtube',
+          'youtube_vermogen', 'youtube_spaartv', 'youtube_vastgoed',
+          'youtube_crypto', 'youtube_beleggingstv', 'youtube_investor',
+        ],
+      },
+      { title: 'Operationeel', modules: ['planning', 'crm', 'documenten', 'agenda', 'taken'] },
+      { title: 'Finance', modules: ['finance_incasso', 'financien', 'belasting', 'abonnementen'] },
+      { title: 'AI & Workflow', modules: ['agents', 'workflows'] },
+      { title: 'Systeem', modules: ['administratie', 'gebruikers'] },
+    ],
+    globalBottom: ['meldingen', 'instellingen'],
+  },
+
+  // STRKBEHEER BV
+  strkbeheer: {
+    sections: [
+      { modules: ['dashboard'] },
+      { title: 'Vastgoed', modules: ['vastgoed', 'calculaties', 'projecten', 'planning'] },
+      { title: 'Bedrijven', modules: ['bedrijven'] },
+      {
+        title: 'Personeel', modules: [
+          'personeel', 'personeel_medew', 'personeel_contract',
+          'personeel_loon', 'personeel_admini', 'personeel_ubo',
+        ],
+      },
+      { title: 'CRM', modules: ['crm'] },
+      { title: 'Finance', modules: ['finance_incasso', 'financien', 'belasting', 'abonnementen'] },
+      { title: 'Operationeel', modules: ['documenten', 'agenda', 'taken'] },
+      { title: 'AI & Workflow', modules: ['agents', 'workflows'] },
+      { title: 'Systeem', modules: ['administratie', 'gebruikers'] },
+    ],
+    globalBottom: ['health', 'meldingen', 'instellingen'],
+  },
+
+  // STRKBOUW BV
+  strkbouw: {
+    sections: [
+      { modules: ['dashboard'] },
+      { title: 'Bouw', modules: ['calculaties', 'bouwplaats', 'projecten', 'planning'] },
+      { title: 'Portaal', modules: ['kopers_portaal'] },
+      { title: 'CRM', modules: ['crm'] },
+      { title: 'Finance', modules: ['finance_incasso', 'financien', 'belasting', 'abonnementen'] },
+      { title: 'Operationeel', modules: ['documenten', 'agenda', 'taken'] },
+      { title: 'AI & Workflow', modules: ['agents', 'workflows'] },
+      { title: 'Systeem', modules: ['administratie', 'gebruikers'] },
+    ],
+    globalBottom: ['health', 'meldingen', 'instellingen'],
+  },
+
+  // Bouwproffs BV
   bouwproffs: {
     sections: [
       { modules: ['dashboard'] },
+      { title: 'Calculatie', modules: ['calculaties', 'projecten', 'planning'] },
+      { title: 'CRM', modules: ['crm'] },
+      { title: 'Finance', modules: ['finance_incasso', 'financien', 'belasting', 'abonnementen'] },
+      { title: 'Operationeel', modules: ['documenten', 'agenda', 'taken'] },
+      { title: 'AI & Workflow', modules: ['agents', 'workflows'] },
+      { title: 'Systeem', modules: ['administratie', 'gebruikers'] },
     ],
-    globalBottom: ['instellingen'],
+    globalBottom: ['health', 'meldingen', 'instellingen'],
   },
 }
 
