@@ -37,6 +37,13 @@ async function callOllama(prompt: string, model: string): Promise<string> {
   return res.data.response as string
 }
 
+// Dutch words that virtually never appear in English text
+const DUTCH_PATTERN = /\b(voor|naar|van|bij|zijn|wordt|worden|hebben|maar|ook|dan|als|met|aan|wat|hoe|dit|dat|zo|jouw|mijn|ons|onze|beste|welke|werd|waren|zou|zal|kan|mag|moet|geen|wel|nog|toch|door|over|onder|boven|naast|tussen|buiten|binnen|tijdens|hierbij|hierdoor|hiervan|hierin|hiermee|daarmee|daarin|daarvoor|daarna|waarmee|waarbij|wanneer|terwijl|omdat|indien|hoewel|echter|tevens|namelijk|immers)\b/gi
+
+function dutchWordCount(text: string): number {
+  return (text.match(DUTCH_PATTERN) ?? []).length
+}
+
 export async function generateContent(payload: {
   channel_name:  string
   topic:         string
@@ -93,36 +100,61 @@ Geef ALLEEN geldige JSON terug (geen markdown, geen code blocks):
   "thumbnail_concept": "visuele omschrijving voor thumbnail"
 }`
 
-  let raw: string
-  try {
-    if (USE_LM_STUDIO) {
-      raw = await callLMStudio(prompt, payload.lm_studio_model)
-    } else {
-      raw = await callOllama(prompt, payload.ollama_model)
+  const MAX_ATTEMPTS = 3
+  for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+    // On retry for English channels: prepend hard override to prompt
+    const finalPrompt = (isEnglish && attempt > 1)
+      ? `CRITICAL OVERRIDE: You MUST respond in English ONLY. Every single word must be English. No Dutch. No exceptions.\n\n${prompt}`
+      : prompt
+
+    let raw: string
+    try {
+      if (USE_LM_STUDIO) {
+        raw = await callLMStudio(finalPrompt, payload.lm_studio_model)
+      } else {
+        raw = await callOllama(finalPrompt, payload.ollama_model)
+      }
+    } catch (primaryErr) {
+      console.warn('Primaire AI mislukt, fallback naar andere:', (primaryErr as Error).message)
+      if (USE_LM_STUDIO) {
+        raw = await callOllama(finalPrompt, payload.ollama_model)
+      } else {
+        raw = await callLMStudio(finalPrompt, payload.lm_studio_model)
+      }
     }
-  } catch (primaryErr) {
-    console.warn('Primaire AI mislukt, fallback naar andere:', (primaryErr as Error).message)
-    if (USE_LM_STUDIO) {
-      raw = await callOllama(prompt, payload.ollama_model)
-    } else {
-      raw = await callLMStudio(prompt, payload.lm_studio_model)
+
+    // Extract JSON — strip markdown code blocks first
+    const stripped = raw.replace(/```(?:json)?/g, '').replace(/```/g, '')
+    const jsonMatch = stripped.match(/\{[\s\S]*\}/)
+    if (!jsonMatch) {
+      if (attempt < MAX_ATTEMPTS) { console.warn(`Poging ${attempt}: geen JSON, opnieuw...`); continue }
+      throw new Error('AI gaf geen geldige JSON terug')
     }
+
+    const result = JSON.parse(jsonMatch[0]) as ContentResult
+    // Normalize — Ollama occasionally returns arrays for string fields
+    const asStr = (v: unknown) => Array.isArray(v) ? (v as string[]).join(' ') : String(v ?? '')
+    result.title             = asStr(result.title)
+    result.description       = asStr(result.description)
+    result.full_script       = asStr(result.full_script)
+    result.hook              = asStr(result.hook)
+    result.cta               = asStr(result.cta)
+    result.thumbnail_concept = asStr(result.thumbnail_concept)
+    if (!Array.isArray(result.tags)) result.tags = []
+
+    // Language guard: English channels must not contain Dutch output
+    if (isEnglish) {
+      const sample = `${result.title} ${result.hook} ${result.full_script.slice(0, 300)}`
+      const dutchCount = dutchWordCount(sample)
+      if (dutchCount >= 3) {
+        console.warn(`Poging ${attempt}: Dutch gedetecteerd (${dutchCount} woorden) in English content — opnieuw genereren`)
+        if (attempt < MAX_ATTEMPTS) continue
+        throw new Error(`AI blijft Dutch genereren voor English kanaal na ${MAX_ATTEMPTS} pogingen (${dutchCount} Dutch woorden). Taak gefaald.`)
+      }
+    }
+
+    return result
   }
 
-  // Extract JSON — strip markdown code blocks first
-  const stripped = raw.replace(/```(?:json)?/g, '').replace(/```/g, '')
-  const jsonMatch = stripped.match(/\{[\s\S]*\}/)
-  if (!jsonMatch) throw new Error('AI gaf geen geldige JSON terug')
-
-  const result = JSON.parse(jsonMatch[0]) as ContentResult
-  // Normalize — Ollama occasionally returns arrays for string fields
-  const asStr = (v: unknown) => Array.isArray(v) ? (v as string[]).join(' ') : String(v ?? '')
-  result.title             = asStr(result.title)
-  result.description       = asStr(result.description)
-  result.full_script       = asStr(result.full_script)
-  result.hook              = asStr(result.hook)
-  result.cta               = asStr(result.cta)
-  result.thumbnail_concept = asStr(result.thumbnail_concept)
-  if (!Array.isArray(result.tags)) result.tags = []
-  return result
+  throw new Error('generateContent: onverwacht einde van retry-loop')
 }
