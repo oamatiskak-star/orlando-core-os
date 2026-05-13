@@ -57,19 +57,22 @@ export async function generateContent(payload: {
 
   const prompt = isEnglish ? `
 ${systemContext}
-Create a complete YouTube ${isShort ? 'Short (max 60s)' : 'video (~${payload.target_seconds}s)'} about: "${payload.topic}"
+IMPORTANT: Write ALL content in English only. Do NOT use Dutch or any other language.
+
+Create a complete YouTube ${isShort ? 'Short (max 60s)' : `video (~${payload.target_seconds}s)`} about: "${payload.topic}"
 
 Style: ${payload.style}
 Channel: ${payload.channel_name}
+Language: English only
 
 Return ONLY valid JSON (no markdown, no code blocks):
 {
-  "title": "catchy SEO title max 70 chars",
-  "description": "SEO description 300-500 chars with keywords",
+  "title": "catchy SEO title max 70 chars in English",
+  "description": "SEO description 300-500 chars with keywords in English",
   "tags": ["tag1","tag2",...20 tags],
-  "hook": "first 3 seconds hook sentence",
-  "full_script": "complete word-for-word script ~${words} words",
-  "cta": "call to action closing sentence",
+  "hook": "first 3 seconds hook sentence in English",
+  "full_script": "complete word-for-word script ~${words} words in English",
+  "cta": "call to action closing sentence in English",
   "thumbnail_concept": "visual description for thumbnail"
 }` : `
 ${systemContext}
