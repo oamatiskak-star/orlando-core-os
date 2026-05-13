@@ -103,46 +103,46 @@ export interface BrowserVerifyJobData {
 export async function enqueueUpload(data: UploadJobData): Promise<Job> {
   return getQueue(QUEUE_NAMES.UPLOAD).add('upload', data, {
     priority: data.priority ?? 5,
-    jobId: `upload:${data.queueId}`,
+    jobId: `upload_${data.queueId}`,
   })
 }
 
 export async function enqueueVerification(data: VerifyJobData, delayMs = 30_000): Promise<Job> {
   return getQueue(QUEUE_NAMES.VERIFY).add('verify', data, {
     delay: delayMs,
-    jobId: `verify:${data.queueId}:${data.attemptCount ?? 0}`,
+    jobId: `verify_${data.queueId}_${data.attemptCount ?? 0}`,
   })
 }
 
 export async function enqueueRecovery(data: RecoverJobData, delayMs = 5_000): Promise<Job> {
   return getQueue(QUEUE_NAMES.RECOVER).add('recover', data, {
     delay: delayMs,
-    jobId: `recover:${data.failureId}`,
+    jobId: `recover_${data.failureId}`,
   })
 }
 
 export async function enqueueThumbnail(data: ThumbnailJobData): Promise<Job> {
   return getQueue(QUEUE_NAMES.THUMBNAIL).add('thumbnail', data, {
-    jobId: `thumbnail:${data.queueId}`,
+    jobId: `thumbnail_${data.queueId}`,
   })
 }
 
 export async function enqueueAnalytics(data: AnalyticsJobData, delayMs = 0): Promise<Job> {
   return getQueue(QUEUE_NAMES.ANALYTICS).add('analytics', data, {
     delay: delayMs,
-    jobId: `analytics:${data.videoId}:${Date.now()}`,
+    jobId: `analytics_${data.videoId}_${Date.now()}`,
   })
 }
 
 export async function enqueueNormalize(data: NormalizeJobData): Promise<Job> {
   return getQueue(QUEUE_NAMES.NORMALIZE).add('normalize', data, {
-    jobId: `normalize:${data.queueId}`,
+    jobId: `normalize_${data.queueId}`,
   })
 }
 
 export async function enqueueBrowserVerify(data: BrowserVerifyJobData): Promise<Job> {
   return getQueue(QUEUE_NAMES.BROWSER_VERIFY).add('browser_verify', data, {
-    jobId: `browser_verify:${data.queueId}`,
+    jobId: `browser_verify_${data.queueId}`,
   })
 }
 
