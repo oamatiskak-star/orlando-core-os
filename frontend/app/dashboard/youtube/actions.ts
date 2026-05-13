@@ -21,6 +21,7 @@ export async function queueVideoUpload(formData: FormData) {
     .from('youtube_videos')
     .insert({
       channel_id: channelId,
+      video_id: `pending_${crypto.randomUUID()}`,
       title,
       description,
       tags,

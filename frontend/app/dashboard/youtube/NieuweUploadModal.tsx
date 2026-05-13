@@ -11,14 +11,21 @@ interface Props {
 export default function NieuweUploadModal({ channels }: Props) {
   const [open, setOpen] = useState(false)
   const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
     setLoading(true)
+    setError(null)
     const formData = new FormData(e.currentTarget)
-    await queueVideoUpload(formData)
-    setLoading(false)
-    setOpen(false)
+    try {
+      await queueVideoUpload(formData)
+      setOpen(false)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Upload toevoegen mislukt')
+    } finally {
+      setLoading(false)
+    }
   }
 
   return (
@@ -102,6 +109,12 @@ export default function NieuweUploadModal({ channels }: Props) {
                     className="w-full bg-white/[0.09] border border-white/10 rounded-lg px-3 py-2 text-xs text-white placeholder-white/20 outline-none focus:border-red-500/50" />
                 </div>
               </div>
+
+              {error && (
+                <div className="bg-red-500/10 border border-red-500/20 rounded-lg px-3 py-2 text-xs text-red-400">
+                  {error}
+                </div>
+              )}
 
               <div className="flex gap-2 pt-2">
                 <button type="submit" disabled={loading}
