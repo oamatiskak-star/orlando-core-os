@@ -88,7 +88,7 @@ async function processTask(task: any): Promise<void> {
     const signedUrl   = await uploadVideoToStorage(videoPath, storagePath)
 
     // Registreer video in youtube_videos
-    const { data: video } = await db.from('youtube_videos').insert({
+    const { data: video, error: videoInsertError } = await db.from('youtube_videos').insert({
       channel_id:       p.channel_id,
       video_id:         `pending_${Date.now()}`,
       title:            content.title,
@@ -99,11 +99,12 @@ async function processTask(task: any): Promise<void> {
       file_path:        signedUrl,
       storage_bucket:   'yt-videos',
       storage_path:     storagePath,
-      status:           'queued',
+      status:           'draft',
+      upload_status:    'pending',
       is_short:         p.video_type === 'short',
     }).select('id').single()
 
-    if (!video?.id) throw new Error('youtube_videos insert mislukt')
+    if (!video?.id) throw new Error(`youtube_videos insert mislukt: ${videoInsertError?.message ?? 'geen data'}`)
 
     // Koppel aan calendar
     await db.from('yt_content_calendar').update({
