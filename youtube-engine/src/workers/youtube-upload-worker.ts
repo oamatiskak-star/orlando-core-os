@@ -7,23 +7,15 @@ import { workerLogger } from '../lib/logger'
 import { v4 as uuidv4 } from 'uuid'
 import path from 'path'
 import fs from 'fs'
-import https from 'https'
-import http from 'http'
+import axios from 'axios'
 
 async function downloadToTemp(url: string, dest: string): Promise<void> {
+  const response = await axios.get<NodeJS.ReadableStream>(url, { responseType: 'stream' })
   return new Promise((resolve, reject) => {
     const file = fs.createWriteStream(dest)
-    const client = url.startsWith('https') ? https : http
-    client.get(url, (res) => {
-      if (res.statusCode && res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
-        file.close()
-        fs.unlinkSync(dest)
-        return downloadToTemp(res.headers.location, dest).then(resolve).catch(reject)
-      }
-      res.pipe(file)
-      file.on('finish', () => file.close(() => resolve()))
-      file.on('error', (err) => { fs.unlinkSync(dest); reject(err) })
-    }).on('error', (err) => { fs.unlinkSync(dest); reject(err) })
+    ;(response.data as NodeJS.ReadableStream).pipe(file)
+    file.on('finish', () => file.close((err) => (err ? reject(err) : resolve())))
+    file.on('error', (err) => { try { fs.unlinkSync(dest) } catch (_) { /* ignore */ }; reject(err) })
   })
 }
 

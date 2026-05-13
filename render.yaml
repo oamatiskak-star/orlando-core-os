@@ -41,6 +41,8 @@ services:
         value: "false"
       - key: LOG_LEVEL
         value: "info"
+      - key: VIDEO_OUTPUT_DIR
+        value: "/tmp/orlando-videos"
 
   - type: redis
     name: orlando-redis
