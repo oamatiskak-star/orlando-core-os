@@ -37,16 +37,18 @@ function num(n: number) {
 
 export default function ChannelHealth() {
   const [channels, setChannels] = useState<Channel[]>([])
+  const [dbError, setDbError] = useState<string | null>(null)
 
   useEffect(() => {
     const supabase = createClient()
 
     async function load() {
-      const { data: chs } = await supabase
+      const { data: chs, error } = await supabase
         .from('youtube_channels')
         .select('id, naam, handle, channel_id, status, oauth_status, upload_quota_used, access_token, subscriber_count, view_count')
         .order('naam', { ascending: true })
 
+      if (error) { setDbError(error.message); return }
       if (!chs) return
 
       const enriched = await Promise.all(chs.map(async (ch) => {
@@ -67,6 +69,16 @@ export default function ChannelHealth() {
     const timer = setInterval(load, 60_000)
     return () => clearInterval(timer)
   }, [])
+
+  if (dbError) return (
+    <div className="text-xs text-red-400 bg-red-500/10 border border-red-500/20 rounded-xl px-4 py-3">
+      Supabase fout: {dbError}
+    </div>
+  )
+
+  if (channels.length === 0) return (
+    <div className="text-xs text-white/45 text-center py-6">Kanalen laden…</div>
+  )
 
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-6 gap-3">

@@ -17,13 +17,13 @@ export default async function ChannelDetailPage({ params }: Props) {
   const { id } = await params
   const supabase = await createClient()
 
-  const { data: ch } = await supabase
+  const { data: ch, error: chError } = await supabase
     .from('youtube_channels')
     .select('*')
     .eq('id', id)
-    .single()
+    .maybeSingle()
 
-  if (!ch) notFound()
+  if (chError || !ch) notFound()
 
   const [
     { count: totalUploads },

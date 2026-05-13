@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
 
 const SCOPES = [
   'https://www.googleapis.com/auth/youtube.upload',
@@ -15,18 +14,17 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'channel_uuid vereist' }, { status: 400 })
   }
 
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) {
-    return NextResponse.redirect(new URL('/login', request.url))
-  }
-
   const clientId = process.env.YOUTUBE_CLIENT_ID
   if (!clientId) {
-    return NextResponse.json({ error: 'YOUTUBE_CLIENT_ID niet geconfigureerd' }, { status: 500 })
+    return NextResponse.json({ error: 'YOUTUBE_CLIENT_ID niet geconfigureerd op Vercel' }, { status: 500 })
   }
 
-  const redirectUri = `${process.env.NEXT_PUBLIC_APP_URL}/api/youtube/oauth/callback`
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL
+  if (!appUrl) {
+    return NextResponse.json({ error: 'NEXT_PUBLIC_APP_URL niet geconfigureerd op Vercel' }, { status: 500 })
+  }
+
+  const redirectUri = `${appUrl}/api/youtube/oauth/callback`
 
   const params = new URLSearchParams({
     client_id:     clientId,
