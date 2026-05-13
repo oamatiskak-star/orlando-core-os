@@ -48,7 +48,7 @@ services:
     name: orlando-executor
     runtime: node
     rootDir: planning-engine
-    buildCommand: npm install && npm run build
+    buildCommand: npm install --include=dev && npm run build
     startCommand: node dist/index.js
     plan: starter
     autoDeploy: true
