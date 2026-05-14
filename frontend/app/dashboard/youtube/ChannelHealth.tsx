@@ -13,10 +13,7 @@ type Channel = {
   channel_id: string
   status: string
   oauth_status: string
-  upload_quota_used: number
   access_token: string | null
-  subscriber_count: number
-  view_count: number
   _scheduled?: number
 }
 
@@ -29,12 +26,6 @@ const CHANNEL_COLORS: Record<string, string> = {
   PropertyInvestorTv:'#ec4899',
 }
 
-function num(n: number) {
-  if (n >= 1_000_000) return (n / 1_000_000).toFixed(1) + 'M'
-  if (n >= 1_000)     return (n / 1_000).toFixed(1) + 'K'
-  return String(n)
-}
-
 export default function ChannelHealth() {
   const [channels, setChannels] = useState<Channel[]>([])
   const [dbError, setDbError]   = useState<string | null>(null)
@@ -44,7 +35,7 @@ export default function ChannelHealth() {
     const supabase = createClient()
     const { data: chs, error } = await supabase
       .from('youtube_channels')
-      .select('id, naam, handle, channel_id, status, oauth_status, upload_quota_used, access_token, subscriber_count, view_count')
+      .select('id, naam, handle, channel_id, status, oauth_status, access_token')
       .order('naam', { ascending: true })
 
     if (error) { setDbError(error.message); return }
@@ -95,7 +86,6 @@ export default function ChannelHealth() {
     <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-6 gap-3">
       {channels.map(ch => {
         const color = CHANNEL_COLORS[ch.naam] ?? '#6366f1'
-        const quotaPct = Math.round(((ch.upload_quota_used ?? 0) / 6) * 100)
         const hasError = ch.status === 'error' || ch.oauth_status === 'expired'
         const isPaused = ch.status === 'paused'
         const isActive = !hasError && !isPaused && ch.oauth_status === 'connected'
@@ -129,30 +119,14 @@ export default function ChannelHealth() {
               <p className="text-[10px] text-white/45 font-mono truncate">{ch.handle}</p>
             )}
 
-            <div className="grid grid-cols-3 gap-1.5 text-center">
-              {[
-                { label: 'Views',     value: num(ch.view_count ?? 0),       color: 'text-sky-400' },
-                { label: 'Abonnees',  value: num(ch.subscriber_count ?? 0), color: 'text-indigo-400' },
-                { label: 'Gepland',   value: ch._scheduled ?? 0,            color: (ch._scheduled ?? 0) > 0 ? 'text-violet-400' : 'text-red-400' },
-              ].map(s => (
-                <div key={s.label} className="bg-white/[0.06] rounded-lg py-1.5">
-                  <p className={clsx('text-sm font-bold tabular-nums', s.color)}>{s.value}</p>
-                  <p className="text-[9px] text-white/45">{s.label}</p>
-                </div>
-              ))}
-            </div>
-
-            <div className="space-y-1">
-              <div className="flex items-center justify-between text-[10px] text-white/50">
-                <span>Quota ({ch.upload_quota_used ?? 0}/6)</span>
-                <span>{quotaPct}%</span>
-              </div>
-              <div className="h-1 bg-white/5 rounded-full overflow-hidden">
-                <div
-                  className={clsx('h-full rounded-full transition-all', quotaPct > 80 ? 'bg-red-500' : quotaPct > 50 ? 'bg-amber-500' : 'bg-green-500')}
-                  style={{ width: `${quotaPct}%` }}
-                />
-              </div>
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <span className={clsx('text-[10px] px-2 py-0.5 rounded-full border font-medium',
+                (ch._scheduled ?? 0) > 0
+                  ? 'bg-violet-500/10 border-violet-500/20 text-violet-400'
+                  : 'bg-red-500/10 border-red-500/20 text-red-400'
+              )}>
+                {ch._scheduled ?? 0} gepland
+              </span>
             </div>
 
             {ch.oauth_status === 'connected' && ch.access_token ? (

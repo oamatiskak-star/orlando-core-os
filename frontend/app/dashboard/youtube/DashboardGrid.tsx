@@ -2,14 +2,13 @@
 
 import { useState, useEffect } from 'react'
 import {
-  GripVertical, RotateCcw, Tv2, TrendingUp, Upload, ShieldCheck,
+  GripVertical, RotateCcw, Tv2, TrendingUp, Upload,
   Play, AlertCircle, Gauge, CalendarClock,
 } from 'lucide-react'
 import clsx from 'clsx'
 import ChannelHealth     from './ChannelHealth'
 import ChannelStatsTable from './ChannelStatsTable'
 import UploadQueue       from './UploadQueue'
-import VerificationStatus from './VerificationStatus'
 import LiveVideos        from './LiveVideos'
 import RetryMonitor      from './RetryMonitor'
 import AnalyticsInsights from './AnalyticsInsights'
@@ -31,7 +30,6 @@ const BOARDS: Board[] = [
   { id: 'schedule',       title: 'Upload Schema',         sub: '48u',         Icon: CalendarClock,iconColor: 'text-sky-400',      Component: TodaySchedule },
   { id: 'channel-stats',  title: 'Kanaal Overzicht',      sub: 'stats',       Icon: TrendingUp,   iconColor: 'text-white/65',    Component: ChannelStatsTable },
   { id: 'upload-queue',   title: 'Upload Queue',          Icon: Upload,       iconColor: 'text-white/65',    Component: UploadQueue },
-  { id: 'verification',   title: 'Verificatie Status',    Icon: ShieldCheck,  iconColor: 'text-white/65',    Component: VerificationStatus },
   { id: 'live-videos',    title: 'Live Videos',           Icon: Play,         iconColor: 'text-green-400',   Component: LiveVideos },
   { id: 'retry',          title: 'Retry Monitor',         Icon: AlertCircle,  iconColor: 'text-red-400/70',  Component: RetryMonitor },
   { id: 'analytics',      title: 'Analytics Insights',    sub: 'CTR · retentie · viral', Icon: TrendingUp, iconColor: 'text-violet-400', Component: AnalyticsInsights },

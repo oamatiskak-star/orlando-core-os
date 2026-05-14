@@ -53,7 +53,7 @@ export default function UploadQueue() {
         .from('youtube_upload_queue')
         .select('*, youtube_videos(title, thumbnail_path), youtube_channels(naam)')
         .not('video_id', 'is', null)
-        .not('status', 'in', '("planned","verified_live")')
+        .not('status', 'in', '("planned","verified_live","failed","manual_review_required")')
         .order('scheduled_publish_at', { ascending: true })
         .limit(50)
       setItems((data as QueueItem[]) ?? [])
