@@ -150,19 +150,36 @@ async function processTask(task: any): Promise<void> {
   }
 }
 
-async function poll(): Promise<void> {
-  const { data: tasks } = await db
+async function claimTask(): Promise<any | null> {
+  const { data: candidates } = await db
     .from('agent_tasks')
-    .select('*')
+    .select('id')
     .eq('task_type', 'generate_content')
-    .in('status', ['claimed', 'pending'])
+    .eq('status', 'pending')
     .order('priority', { ascending: false })
     .order('created_at', { ascending: true })
-    .limit(1)
+    .limit(5)
 
-  if (!tasks?.length) return
+  if (!candidates?.length) return null
 
-  await processTask(tasks[0])
+  for (const c of candidates) {
+    const { data: claimed } = await db
+      .from('agent_tasks')
+      .update({ status: 'claimed', started_at: new Date().toISOString() })
+      .eq('id', c.id)
+      .eq('status', 'pending')
+      .select('*')
+      .single()
+
+    if (claimed) return claimed
+  }
+  return null
+}
+
+async function poll(): Promise<void> {
+  const task = await claimTask()
+  if (!task) return
+  await processTask(task)
 }
 
 async function main() {
