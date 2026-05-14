@@ -219,6 +219,11 @@ export function startYouTubeUploadWorker(): Worker {
     const retryCount = (queueEntry?.retry_count ?? 0) + 1
     const maxRetries = queueEntry?.max_retries ?? 5
 
+    const { data: video } = await db.from('youtube_videos').select('title').eq('id', videoId).single()
+    const { data: channel } = await db.from('youtube_channels').select('naam').eq('id', channelId).single()
+    const videoTitle = video?.title ?? videoId
+    const channelName = channel?.naam ?? channelId
+
     if (retryCount < maxRetries) {
       await updateQueueStatus(queueId, 'retrying', {
         retry_count: retryCount,
@@ -227,6 +232,8 @@ export function startYouTubeUploadWorker(): Worker {
       await addLog(queueId, videoId, 'warn', `Upload failed, retry ${retryCount}/${maxRetries}`, {
         error: err.message,
       })
+      // Notify on every failure so nothing is missed
+      await notifyUploadFailure(videoTitle, channelName, `Poging ${retryCount}/${maxRetries}: ${err.message}`)
     } else {
       const failureId = await recordFailure(queueId, videoId, 'upload_stuck', err.message)
       await updateQueueStatus(queueId, 'manual_review_required', {
@@ -234,10 +241,7 @@ export function startYouTubeUploadWorker(): Worker {
         last_error: err.message,
       })
       await addLog(queueId, videoId, 'error', 'Max retries reached — manual review required')
-
-      const { data: video } = await db.from('youtube_videos').select('title').eq('id', videoId).single()
-      const { data: channel } = await db.from('youtube_channels').select('naam').eq('id', channelId).single()
-      await notifyUploadFailure(video?.title ?? videoId, channel?.naam ?? channelId, err.message)
+      await notifyUploadFailure(videoTitle, channelName, `❌ MAX RETRIES BEREIKT — Handmatige review vereist\n${err.message}`)
     }
   })
 

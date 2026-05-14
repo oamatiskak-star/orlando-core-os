@@ -34,16 +34,27 @@ async function checkPublicPage(page: Page, youtubeUrl: string): Promise<Partial<
   const thumbnail = await page.$('img.video-thumbnail-img, ytd-thumbnail img[src]')
   const thumbnailVisible = !!thumbnail
 
-  const processingWarning = await page.$('[aria-label*="processing"], #reason[contains(text(),"processing")]')
-  const noProcessingWarning = !processingWarning
+  // Read #reason once — check specific text to avoid false positives
+  const reasonEl = await page.$('#reason')
+  const reasonText = (await reasonEl?.textContent() ?? '').toLowerCase().trim()
 
-  const copyrightBlock = await page.$('[class*="copyright"], #reason')
-  const noCopyrightBlock = !copyrightBlock
+  // Processing warning: check text + aria-label (no XPath — use :has-text() or textContent)
+  const ariaProcessing = await page.$('[aria-label*="processing"]')
+  const noProcessingWarning = !ariaProcessing && !reasonText.includes('processing')
 
-  const ageGate = await page.$('#age-gate, [data-ytid="confirm-button"]')
-  const noAgeRestriction = !ageGate
+  // Copyright block: only flag when text specifically mentions copyright/blocked/unavailable
+  const copyrightEl = await page.$('[class*="copyright-notice"]')
+  const noCopyrightBlock = !copyrightEl &&
+    !reasonText.includes('copyright') &&
+    !reasonText.includes('blocked') &&
+    !reasonText.includes('removed')
 
-  const errorBanner = await page.$('[id*="error"], .yt-playability-error-supported-renderers')
+  // Age restriction: dedicated gate elements only
+  const ageGate = await page.$('#age-gate, ytd-age-gate-renderer, [data-ytid="confirm-button"]')
+  const noAgeRestriction = !ageGate && !reasonText.includes('age-restricted')
+
+  // Upload failure: only specific playability error container, not generic id*="error"
+  const errorBanner = await page.$('.yt-playability-error-supported-renderers, ytd-player-error-message-renderer')
   const noUploadFailureBanner = !errorBanner
 
   const durationEl = await page.$('.ytp-time-duration, span.ytp-time-duration')

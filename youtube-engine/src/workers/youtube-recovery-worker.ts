@@ -85,7 +85,7 @@ export function startYouTubeRecoveryWorker(): Worker {
           }).eq('id', videoId)
 
           await updateQueueStatus(queueId, 'normalizing', { retry_count: retryCount })
-          await enqueueNormalize({ queueId, videoId, inputPath: filePath, outputPath: normalizedPath })
+          await enqueueNormalize({ queueId, videoId, channelId, inputPath: filePath, outputPath: normalizedPath })
           await logRecoveryAction(failureId, queueId, 'retranscode', true, `Re-encoding attempt ${retryCount}`)
           break
         }
