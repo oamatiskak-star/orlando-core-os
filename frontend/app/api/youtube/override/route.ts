@@ -21,25 +21,59 @@ export async function POST(req: NextRequest) {
 
     case 'upload_now': {
       if (!queue_id) return NextResponse.json({ error: 'queue_id required' }, { status: 400 })
+      // Set scheduled_publish_at to NOW so orchestrator picks it up in next 30s poll
+      const now = new Date().toISOString()
       await supabase.from('youtube_upload_queue').update({
-        status:      'queued',
-        retry_count: 0,
-        last_error:  null,
-        updated_at:  new Date().toISOString(),
+        status:               'queued',
+        retry_count:          0,
+        last_error:           null,
+        priority:             10,
+        scheduled_publish_at: now,
+        updated_at:           now,
       }).eq('id', queue_id)
-      await log('Manual upload_now triggered', 'info', { queue_id })
+      await log('Manual upload_now triggered — rescheduled to now', 'info', { queue_id })
       return NextResponse.json({ ok: true })
     }
 
     case 'retry': {
       if (!queue_id) return NextResponse.json({ error: 'queue_id required' }, { status: 400 })
+      const now = new Date().toISOString()
       await supabase.from('youtube_upload_queue').update({
-        status:      'queued',
-        retry_count: 0,
-        last_error:  null,
-        updated_at:  new Date().toISOString(),
+        status:               'queued',
+        retry_count:          0,
+        last_error:           null,
+        priority:             8,
+        scheduled_publish_at: now,
+        updated_at:           now,
       }).eq('id', queue_id)
-      await log('Manual retry triggered', 'info', { queue_id })
+      await log('Manual retry triggered — rescheduled to now', 'info', { queue_id })
+      return NextResponse.json({ ok: true })
+    }
+
+    case 'push_all': {
+      // Push all queued/failed/paused/planned items to upload now
+      const now = new Date().toISOString()
+      const statuses = ['queued', 'failed', 'paused', 'manual_review_required']
+      if (channel_id) {
+        await supabase.from('youtube_upload_queue').update({
+          status:               'queued',
+          retry_count:          0,
+          last_error:           null,
+          priority:             9,
+          scheduled_publish_at: now,
+          updated_at:           now,
+        }).eq('channel_id', channel_id).in('status', statuses)
+      } else {
+        await supabase.from('youtube_upload_queue').update({
+          status:               'queued',
+          retry_count:          0,
+          last_error:           null,
+          priority:             9,
+          scheduled_publish_at: now,
+          updated_at:           now,
+        }).in('status', statuses)
+      }
+      await log('Bulk push_all triggered', 'info', { channel_id: channel_id ?? 'all' })
       return NextResponse.json({ ok: true })
     }
 
