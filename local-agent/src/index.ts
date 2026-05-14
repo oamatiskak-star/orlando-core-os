@@ -151,6 +151,19 @@ async function processTask(task: any): Promise<void> {
 }
 
 async function claimTask(): Promise<any | null> {
+  // Pick up tasks pre-claimed by factory (status='claimed') or newly pending
+  const { data: claimed } = await db
+    .from('agent_tasks')
+    .select('*')
+    .eq('task_type', 'generate_content')
+    .eq('status', 'claimed')
+    .order('priority', { ascending: false })
+    .order('created_at', { ascending: true })
+    .limit(1)
+
+  if (claimed?.length) return claimed[0]
+
+  // Fallback: pick up pending and claim atomically (optimistic lock)
   const { data: candidates } = await db
     .from('agent_tasks')
     .select('id')
@@ -163,7 +176,7 @@ async function claimTask(): Promise<any | null> {
   if (!candidates?.length) return null
 
   for (const c of candidates) {
-    const { data: claimed } = await db
+    const { data: locked } = await db
       .from('agent_tasks')
       .update({ status: 'claimed', started_at: new Date().toISOString() })
       .eq('id', c.id)
@@ -171,7 +184,7 @@ async function claimTask(): Promise<any | null> {
       .select('*')
       .single()
 
-    if (claimed) return claimed
+    if (locked) return locked
   }
   return null
 }

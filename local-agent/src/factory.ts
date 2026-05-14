@@ -546,7 +546,7 @@ async function createTask(
   await db.from('agent_tasks').insert({
     id:        taskId,
     task_type: 'generate_content',
-    status:    'pending',
+    status:    'claimed',   // bypass Python executor which only polls 'pending'
     priority:  videoType === 'longform' ? 5 : 4,
     payload: {
       channel_name:    ch.naam,
