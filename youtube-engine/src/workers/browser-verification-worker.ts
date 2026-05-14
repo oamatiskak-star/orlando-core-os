@@ -84,6 +84,10 @@ export function startBrowserVerificationWorker(): Worker {
   const worker = new Worker<BrowserVerifyJobData>(
     QUEUE_NAMES.BROWSER_VERIFY,
     async (job: Job<BrowserVerifyJobData>) => {
+      // Hard timeout: kill job after 90s — prevents Playwright from hanging forever
+      const jobTimeout = setTimeout(() => {
+        throw new Error('Browser verification timeout after 90s')
+      }, 90_000)
       const { queueId, videoId, youtubeVideoId, youtubeUrl, channelId } = job.data
       const db = getSupabase()
 
@@ -101,6 +105,8 @@ export function startBrowserVerificationWorker(): Worker {
       const page = await context.newPage()
 
       try {
+        // Set default timeout on page so all selectors/waits honour it
+        page.setDefaultTimeout(TIMEOUT)
         const publicChecks = await checkPublicPage(page, youtubeUrl)
         const studioChecks = await checkStudioPage(page, youtubeVideoId)
 
@@ -180,12 +186,14 @@ export function startBrowserVerificationWorker(): Worker {
         return { success: true, allChecksPassed, result }
 
       } finally {
+        clearTimeout(jobTimeout)
         await context.close()
       }
     },
     {
       connection: getRedis(),
       concurrency: 1,
+      lockDuration: 120_000,   // BullMQ job lock: 2 min max
     }
   )
 
