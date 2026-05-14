@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { google } from 'googleapis'
 
 export async function POST(req: NextRequest) {
   const { action, queue_id, video_id, channel_id, target_id } = await req.json()
@@ -89,19 +90,65 @@ export async function POST(req: NextRequest) {
 
     case 'force_publish': {
       if (!queue_id) return NextResponse.json({ error: 'queue_id required' }, { status: 400 })
-      if (video_id) {
+
+      // Fetch queue entry → youtube_video_id + channel credentials
+      const { data: qEntry } = await supabase
+        .from('youtube_upload_queue')
+        .select('youtube_video_id, channel_id, video_id')
+        .eq('id', queue_id).single()
+
+      if (!qEntry?.youtube_video_id) {
+        return NextResponse.json({ error: 'No youtube_video_id on queue entry' }, { status: 422 })
+      }
+
+      const { data: channel } = await supabase
+        .from('youtube_channels')
+        .select('refresh_token, access_token, token_expires, oauth_client_id, oauth_client_secret')
+        .eq('id', qEntry.channel_id).single()
+
+      if (!channel?.refresh_token) {
+        return NextResponse.json({ error: 'Channel has no OAuth credentials' }, { status: 422 })
+      }
+
+      // Build OAuth2 client and set video public via YouTube API
+      const clientId     = channel.oauth_client_id     ?? process.env.YOUTUBE_OAUTH_CLIENT_ID!
+      const clientSecret = channel.oauth_client_secret ?? process.env.YOUTUBE_OAUTH_CLIENT_SECRET!
+      const redirectUri  = process.env.YOUTUBE_OAUTH_REDIRECT_URI ?? 'https://dashboard.strkbeheer.nl/api/youtube/oauth/callback'
+
+      const oauth2 = new google.auth.OAuth2(clientId, clientSecret, redirectUri)
+      oauth2.setCredentials({
+        access_token:  channel.access_token ?? undefined,
+        refresh_token: channel.refresh_token,
+        expiry_date:   channel.token_expires ? new Date(channel.token_expires).getTime() : undefined,
+      })
+
+      const yt = google.youtube({ version: 'v3', auth: oauth2 })
+      await yt.videos.update({
+        part: ['status'],
+        requestBody: {
+          id:     qEntry.youtube_video_id,
+          status: { privacyStatus: 'public' },
+        },
+      })
+
+      // Update Supabase records
+      const resolvedVideoId = qEntry.video_id ?? video_id
+      if (resolvedVideoId) {
         await supabase.from('youtube_videos').update({
           privacy_status: 'public',
-          upload_status:  'uploaded',
+          status:         'live',
           updated_at:     new Date().toISOString(),
-        }).eq('id', video_id)
+        }).eq('id', resolvedVideoId)
       }
       await supabase.from('youtube_upload_queue').update({
         status:     'verified_live',
         updated_at: new Date().toISOString(),
       }).eq('id', queue_id)
-      await log('Force publish override applied', 'info', { queue_id, video_id })
-      return NextResponse.json({ ok: true })
+
+      await log('Force publish — video set public via YouTube API', 'info', {
+        queue_id, youtube_video_id: qEntry.youtube_video_id,
+      })
+      return NextResponse.json({ ok: true, youtube_video_id: qEntry.youtube_video_id })
     }
 
     case 'pause_channel': {
