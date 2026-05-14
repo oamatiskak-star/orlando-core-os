@@ -1,6 +1,7 @@
 import cron from 'node-cron'
 import { getSupabase, updateQueueStatus, addLog } from '../lib/supabase'
 import { enqueueUpload, enqueueAnalytics } from '../lib/redis-queue'
+import { buildOAuthClient, setVideoPublic } from '../lib/youtube-api'
 import { workerLogger } from '../lib/logger'
 
 const log = workerLogger('orchestrator')
@@ -128,6 +129,71 @@ async function updateChannelQuotas(): Promise<void> {
   }
 }
 
+async function publishOverdueVideos(): Promise<void> {
+  const db = getSupabase()
+
+  // Find all uploaded videos whose scheduled time has passed but are still private
+  const { data: overdue } = await db
+    .from('youtube_upload_queue')
+    .select('id, video_id, channel_id, youtube_video_id')
+    .in('status', ['uploaded_pending_processing', 'verified_live', 'verifying'])
+    .not('youtube_video_id', 'is', null)
+    .lte('scheduled_publish_at', new Date().toISOString())
+
+  if (!overdue || overdue.length === 0) return
+
+  // Filter to only those whose video is still private in our DB
+  const videoIds = overdue.map(i => i.video_id)
+  const { data: privateVideos } = await db
+    .from('youtube_videos')
+    .select('id')
+    .in('id', videoIds)
+    .eq('privacy_status', 'private')
+
+  if (!privateVideos || privateVideos.length === 0) return
+
+  const privateSet = new Set(privateVideos.map(v => v.id))
+  const toPublish = overdue.filter(i => privateSet.has(i.video_id))
+
+  log.info(`publishOverdueVideos: ${toPublish.length} videos to make public`)
+
+  for (const item of toPublish) {
+    try {
+      const { data: channel } = await db
+        .from('youtube_channels')
+        .select('*')
+        .eq('id', item.channel_id)
+        .single()
+
+      if (!channel?.refresh_token) {
+        log.warn('No OAuth token for channel', { channelId: item.channel_id })
+        continue
+      }
+
+      const auth = buildOAuthClient(channel)
+      await setVideoPublic(auth, item.youtube_video_id)
+
+      await db.from('youtube_videos').update({
+        privacy_status: 'public',
+        status: 'live',
+        updated_at: new Date().toISOString(),
+      }).eq('id', item.video_id)
+
+      await updateQueueStatus(item.id, 'verified_live', {
+        verification_finished_at: new Date().toISOString(),
+      })
+
+      await addLog(item.id, item.video_id, 'success', 'Scheduled publish executed — video is now public')
+      log.info('Video published', { queueId: item.id, youtubeVideoId: item.youtube_video_id })
+    } catch (err) {
+      log.error('publishOverdueVideos failed for item', {
+        queueId: item.id,
+        error: (err as Error).message,
+      })
+    }
+  }
+}
+
 export function startUploadOrchestrator(): void {
   log.info('Upload orchestrator starting')
 
@@ -152,6 +218,13 @@ export function startUploadOrchestrator(): void {
   cron.schedule('0 0 * * *', async () => {
     try { await updateChannelQuotas() } catch (err) {
       log.error('updateChannelQuotas error', { error: (err as Error).message })
+    }
+  })
+
+  // Every 2 minutes: publish videos whose scheduled time has passed
+  cron.schedule('*/2 * * * *', async () => {
+    try { await publishOverdueVideos() } catch (err) {
+      log.error('publishOverdueVideos error', { error: (err as Error).message })
     }
   })
 
