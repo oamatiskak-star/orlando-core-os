@@ -9,6 +9,7 @@ import { RefreshCw, X, Clock, CheckCircle, AlertCircle, Loader2, Play, Eye } fro
 type QueueItem = {
   id: string
   status: string
+  title: string | null
   retry_count: number
   max_retries: number
   last_error: string | null
@@ -17,6 +18,7 @@ type QueueItem = {
   upload_started_at: string | null
   upload_finished_at: string | null
   verification_finished_at: string | null
+  scheduled_publish_at: string | null
   created_at: string
   updated_at: string
   youtube_videos: { title: string; thumbnail_path: string | null } | null
@@ -52,7 +54,7 @@ export default function UploadQueue() {
         .select('*, youtube_videos(title, thumbnail_path), youtube_channels(naam)')
         .not('video_id', 'is', null)
         .not('status', 'in', '("planned","verified_live")')
-        .order('updated_at', { ascending: false })
+        .order('scheduled_publish_at', { ascending: true })
         .limit(50)
       setItems((data as QueueItem[]) ?? [])
     }
@@ -94,7 +96,7 @@ export default function UploadQueue() {
                 {cfg.label}
               </span>
               <span className="text-xs text-white/70 flex-1 truncate">
-                {item.youtube_videos?.title ?? 'Onbekend'}
+                {item.youtube_videos?.title ?? item.title ?? <span className="text-white/30 italic">geen titel</span>}
               </span>
               <span className="text-[11px] text-white/38 flex-shrink-0 hidden sm:block">
                 {item.youtube_channels?.naam}
@@ -112,9 +114,15 @@ export default function UploadQueue() {
             {expanded === item.id && (
               <div className="px-4 pb-3 pt-2 border-t border-white/5 bg-[#07070f] space-y-3">
                 <div className="grid grid-cols-2 gap-3 text-[11px]">
+                  {item.scheduled_publish_at && (
+                    <div>
+                      <p className="text-white/45">Gepland</p>
+                      <p className="text-white/70">{new Date(item.scheduled_publish_at).toLocaleString('nl-NL', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}</p>
+                    </div>
+                  )}
                   <div>
-                    <p className="text-white/45">ID</p>
-                    <p className="text-white/50 font-mono text-[10px]">{item.id.slice(0, 16)}…</p>
+                    <p className="text-white/45">Queue ID</p>
+                    <p className="text-white/35 font-mono text-[10px]">{item.id.slice(0, 16)}…</p>
                   </div>
                   {item.upload_started_at && (
                     <div>
