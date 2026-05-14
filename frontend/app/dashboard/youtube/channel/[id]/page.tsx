@@ -60,11 +60,14 @@ export default async function ChannelDetailPage({ params }: Props) {
   const now = new Date().toISOString()
   const in7d = new Date(Date.now() + 7 * 86_400_000).toISOString()
 
+  const DONE = '("verified_live","failed","manual_review_required")'
+  const ACTIVE_STATUSES = ['preparing', 'normalizing', 'uploading', 'uploaded_pending_processing', 'processing', 'verifying', 'retrying']
+
   const [
-    { count: productieKlaar },
-    { count: publishedCount },
+    { count: liveCount },
+    { count: queuedCount },
+    { count: activeCount },
     { count: failedCount },
-    { count: activeQueue },
     { count: totalSlots },
     { data: upcomingSlots },
     { data: topVideos },
@@ -72,42 +75,48 @@ export default async function ChannelDetailPage({ params }: Props) {
     { data: health },
     { data: dailyStats },
   ] = await Promise.all([
-    // Videos with file ready, not yet uploaded
-    supabase.from('youtube_videos').select('*', { count: 'exact', head: true })
-      .eq('channel_id', channelUuid).eq('status', 'queued').not('file_path', 'is', null),
-    // Published / live on YouTube
-    supabase.from('youtube_videos').select('*', { count: 'exact', head: true })
-      .eq('channel_id', channelUuid).eq('status', 'published'),
+    // Verified live on YouTube
+    supabase.from('youtube_upload_queue').select('*', { count: 'exact', head: true })
+      .eq('channel_id', channelUuid).eq('status', 'verified_live'),
+    // In queue (waiting to upload)
+    supabase.from('youtube_upload_queue').select('*', { count: 'exact', head: true })
+      .eq('channel_id', channelUuid).eq('status', 'queued'),
+    // Currently uploading/processing
+    supabase.from('youtube_upload_queue').select('*', { count: 'exact', head: true })
+      .eq('channel_id', channelUuid).in('status', ACTIVE_STATUSES),
     // Failed uploads
-    supabase.from('youtube_videos').select('*', { count: 'exact', head: true })
-      .eq('channel_id', channelUuid).eq('status', 'failed'),
-    // Active in upload engine
     supabase.from('youtube_upload_queue').select('*', { count: 'exact', head: true })
-      .eq('channel_id', channelUuid).in('status', ['queued', 'retrying', 'uploading']),
-    // Planned future slots total
+      .eq('channel_id', channelUuid).in('status', ['failed', 'manual_review_required']),
+    // Future slots (not done/failed)
     supabase.from('youtube_upload_queue').select('*', { count: 'exact', head: true })
-      .eq('channel_id', channelUuid).eq('status', 'planned').gt('scheduled_publish_at', now),
+      .eq('channel_id', channelUuid)
+      .not('status', 'in', DONE)
+      .not('scheduled_publish_at', 'is', null)
+      .gt('scheduled_publish_at', now),
     // Next 7 days schedule
     supabase.from('youtube_upload_queue')
-      .select('id, title, status, scheduled_publish_at, privacy_status')
-      .eq('channel_id', channelUuid).eq('status', 'planned')
+      .select('id, title, status, scheduled_publish_at, youtube_videos(title)')
+      .eq('channel_id', channelUuid)
+      .not('status', 'in', DONE)
+      .not('scheduled_publish_at', 'is', null)
       .gt('scheduled_publish_at', now)
       .lte('scheduled_publish_at', in7d)
       .order('scheduled_publish_at', { ascending: true })
       .limit(40),
-    // Top videos by views
-    supabase.from('youtube_videos')
-      .select('id, title, views, likes, youtube_video_id, published_at, duration_seconds')
-      .eq('channel_id', channelUuid).eq('status', 'published')
-      .order('views', { ascending: false })
-      .limit(5),
-    // Most recent video entries
-    supabase.from('youtube_videos')
-      .select('id, title, status, upload_status, created_at, published_at, youtube_video_id, views, file_path')
+    // Top videos by views (from queue items that are live)
+    supabase.from('youtube_upload_queue')
+      .select('id, youtube_video_id, youtube_url, youtube_videos(id, title, views, likes, published_at, duration_seconds)')
       .eq('channel_id', channelUuid)
-      .order('created_at', { ascending: false })
+      .eq('status', 'verified_live')
+      .order('updated_at', { ascending: false })
+      .limit(5),
+    // Most recent queue entries (all statuses for full picture)
+    supabase.from('youtube_upload_queue')
+      .select('id, status, updated_at, scheduled_publish_at, youtube_video_id, youtube_url, youtube_videos(id, title, views)')
+      .eq('channel_id', channelUuid)
+      .order('updated_at', { ascending: false })
       .limit(8),
-    // Channel health
+    // Channel health - latest only
     admin.from('youtube_channel_health')
       .select('*')
       .eq('channel_id', channelUuid)
@@ -187,9 +196,9 @@ export default async function ChannelDetailPage({ params }: Props) {
           { label: 'Views vandaag',   value: num(ch.today_views),      icon: TrendingUp,color: 'text-emerald-400'},
           { label: 'Views 7 dagen',   value: num(ch.weekly_views),     icon: BarChart2, color: 'text-teal-400'   },
           { label: 'Views 30 dagen',  value: num(ch.monthly_views),    icon: BarChart2, color: 'text-cyan-400'   },
-          { label: 'In productie',    value: productieKlaar ?? 0,      icon: Zap,       color: 'text-violet-400' },
-          { label: 'Live op YT',      value: publishedCount ?? 0,      icon: Play,      color: 'text-green-400'  },
-          { label: 'Geplande slots',  value: totalSlots ?? 0,          icon: Calendar,  color: 'text-amber-400'  },
+          { label: 'In queue',        value: queuedCount ?? 0,         icon: Zap,       color: 'text-violet-400' },
+          { label: 'Live op YT',     value: liveCount ?? 0,           icon: Play,      color: 'text-green-400'  },
+          { label: 'Geplande slots', value: totalSlots ?? 0,          icon: Calendar,  color: 'text-amber-400'  },
         ].map(s => {
           const Icon = s.icon
           return (
@@ -213,7 +222,7 @@ export default async function ChannelDetailPage({ params }: Props) {
               { label: 'Status',        value: ch.status },
               { label: 'OAuth',         value: ch.oauth_status },
               { label: 'Token verloopt',value: tokenExp ? tokenExp.toLocaleString('nl-NL', { day:'2-digit', month:'short', hour:'2-digit', minute:'2-digit' }) : '—' },
-              { label: 'Queue actief',  value: `${activeQueue ?? 0} in upload` },
+              { label: 'Actief',        value: `${activeCount ?? 0} aan het uploaden` },
               { label: 'Fouten',        value: failedCount ?? 0,    warn: (failedCount ?? 0) > 0 },
               { label: "Video's live",  value: ch.video_count ?? 0 },
               { label: 'Quota gebruikt',value: `${ch.upload_quota_used ?? 0} / 6` },
@@ -284,8 +293,11 @@ export default async function ChannelDetailPage({ params }: Props) {
                   </p>
                   <div className="space-y-1">
                     {slots!.map(slot => {
-                      const isShort = slot.title?.includes('[Short]')
+                      const rawTitle = (slot as any).youtube_videos?.title ?? slot.title ?? ''
+                      const isShort = rawTitle.includes('[Short]')
+                      const displayTitle = rawTitle.replace(/\[Short\]\s*/i, '').replace(/— .+$/, '').trim() || 'Slot zonder titel'
                       const time = new Date(slot.scheduled_publish_at!).toLocaleTimeString('nl-NL', { hour: '2-digit', minute: '2-digit' })
+                      const isQueued = slot.status === 'queued'
                       return (
                         <div key={slot.id} className="flex items-center gap-2.5 py-1 px-2 rounded-lg hover:bg-white/[0.04] transition-colors">
                           <span className="text-[11px] font-mono text-white/30 w-10 shrink-0">{time}</span>
@@ -294,11 +306,9 @@ export default async function ChannelDetailPage({ params }: Props) {
                           ) : (
                             <span className="text-[9px] px-1.5 py-0.5 rounded bg-sky-500/15 text-sky-400 font-medium shrink-0">LONG</span>
                           )}
-                          <span className="text-xs text-white/55 truncate">
-                            {slot.title?.replace(/\[Short\]\s*/, '').replace(/— .+$/, '').trim() || 'Slot zonder titel'}
-                          </span>
-                          <span className={`ml-auto text-[9px] shrink-0 font-mono ${slot.status === 'queued' ? 'text-emerald-400' : 'text-white/20'}`}>
-                            {slot.status === 'queued' ? '● klaar' : '○ gepland'}
+                          <span className="text-xs text-white/55 truncate">{displayTitle}</span>
+                          <span className={`ml-auto text-[9px] shrink-0 font-mono ${isQueued ? 'text-emerald-400' : 'text-white/20'}`}>
+                            {isQueued ? '● klaar' : '○ gepland'}
                           </span>
                         </div>
                       )
@@ -315,77 +325,71 @@ export default async function ChannelDetailPage({ params }: Props) {
 
           {/* Top videos */}
           <div className="bg-white/[0.05] border border-white/5 rounded-xl p-4">
-            <h3 className="text-[11px] font-semibold text-white/40 uppercase tracking-wide mb-3">Top video's</h3>
+            <h3 className="text-[11px] font-semibold text-white/40 uppercase tracking-wide mb-3">Live video's</h3>
             {!topVideos?.length ? (
-              <p className="text-xs text-white/30 text-center py-4">Geen gepubliceerde video's</p>
+              <p className="text-xs text-white/30 text-center py-4">Geen live video's</p>
             ) : (
               <div className="space-y-2">
-                {topVideos.map((v, i) => (
-                  <div key={v.id} className="flex items-start gap-2">
-                    <span className="text-[10px] text-white/20 font-mono w-4 shrink-0 mt-0.5">{i + 1}</span>
-                    <div className="flex-1 min-w-0">
-                      {v.youtube_video_id ? (
-                        <a href={`https://youtube.com/watch?v=${v.youtube_video_id}`}
-                          target="_blank" rel="noopener noreferrer"
-                          className="text-xs text-white/65 hover:text-white truncate block">
-                          {v.title}
-                        </a>
-                      ) : (
-                        <p className="text-xs text-white/65 truncate">{v.title}</p>
-                      )}
-                      <div className="flex items-center gap-3 mt-0.5">
-                        <span className="text-[10px] text-sky-400 font-mono">{num(v.views)} views</span>
-                        {v.likes ? <span className="text-[10px] text-white/30 font-mono">{num(v.likes)} likes</span> : null}
+                {topVideos.map((item: any, i: number) => {
+                  const v = item.youtube_videos ?? {}
+                  const ytId = item.youtube_video_id
+                  const url = item.youtube_url ?? (ytId ? `https://youtube.com/watch?v=${ytId}` : null)
+                  return (
+                    <div key={item.id} className="flex items-start gap-2">
+                      <span className="text-[10px] text-white/20 font-mono w-4 shrink-0 mt-0.5">{i + 1}</span>
+                      <div className="flex-1 min-w-0">
+                        {url ? (
+                          <a href={url} target="_blank" rel="noopener noreferrer"
+                            className="text-xs text-white/65 hover:text-white truncate block">
+                            {v.title ?? 'Zonder titel'}
+                          </a>
+                        ) : (
+                          <p className="text-xs text-white/65 truncate">{v.title ?? 'Zonder titel'}</p>
+                        )}
+                        <div className="flex items-center gap-3 mt-0.5">
+                          {v.views ? <span className="text-[10px] text-sky-400 font-mono">{num(v.views)} views</span> : null}
+                          {v.likes ? <span className="text-[10px] text-white/30 font-mono">{num(v.likes)} likes</span> : null}
+                        </div>
                       </div>
+                      {url && <a href={url} target="_blank" rel="noopener noreferrer" className="text-white/20 hover:text-white/60 shrink-0 mt-0.5"><ExternalLink size={10} /></a>}
                     </div>
-                    {v.youtube_video_id && (
-                      <a href={`https://youtube.com/watch?v=${v.youtube_video_id}`}
-                        target="_blank" rel="noopener noreferrer"
-                        className="text-white/20 hover:text-white/60 shrink-0 mt-0.5">
-                        <ExternalLink size={10} />
-                      </a>
-                    )}
-                  </div>
-                ))}
+                  )
+                })}
               </div>
             )}
           </div>
 
-          {/* Recent videos */}
+          {/* Recent queue entries */}
           <div className="bg-white/[0.05] border border-white/5 rounded-xl p-4">
-            <h3 className="text-[11px] font-semibold text-white/40 uppercase tracking-wide mb-3">Recente uploads</h3>
+            <h3 className="text-[11px] font-semibold text-white/40 uppercase tracking-wide mb-3">Recente activiteit</h3>
             {!recentVideos?.length ? (
-              <p className="text-xs text-white/30 text-center py-4">Geen video's</p>
+              <p className="text-xs text-white/30 text-center py-4">Geen activiteit</p>
             ) : (
               <div className="space-y-1.5">
-                {recentVideos.map(v => {
+                {(recentVideos as any[]).map(item => {
                   const SC: Record<string, string> = {
-                    published: 'text-green-400', failed: 'text-red-400',
+                    verified_live: 'text-green-400', failed: 'text-red-400',
                     queued: 'text-sky-400', uploading: 'text-indigo-400',
+                    uploaded_pending_processing: 'text-violet-400',
+                    verifying: 'text-amber-400', preparing: 'text-sky-300',
+                    manual_review_required: 'text-orange-400',
                   }
-                  const statusColor = SC[v.status ?? ''] ?? 'text-white/30'
-
+                  const sc = SC[item.status] ?? 'text-white/30'
+                  const title = item.youtube_videos?.title ?? 'Zonder titel'
+                  const url = item.youtube_url ?? (item.youtube_video_id ? `https://youtube.com/watch?v=${item.youtube_video_id}` : null)
                   return (
-                    <div key={v.id} className="flex items-center gap-2 py-1 border-b border-white/[0.04] last:border-0">
+                    <div key={item.id} className="flex items-center gap-2 py-1 border-b border-white/[0.04] last:border-0">
                       <div className="flex-1 min-w-0">
-                        <p className="text-xs text-white/60 truncate">{v.title ?? 'Zonder titel'}</p>
+                        <p className="text-xs text-white/60 truncate">{title}</p>
                         <div className="flex items-center gap-2 mt-0.5">
-                          <span className={`text-[9px] font-mono ${statusColor}`}>{v.upload_status ?? v.status}</span>
+                          <span className={`text-[9px] font-mono ${sc}`}>{item.status}</span>
                           <span className="text-[9px] text-white/25 font-mono">
-                            {new Date(v.published_at ?? v.created_at).toLocaleDateString('nl-NL', { day:'2-digit', month:'short' })}
+                            {new Date(item.updated_at).toLocaleDateString('nl-NL', { day:'2-digit', month:'short' })}
                           </span>
-                          {v.views ? <span className="text-[9px] text-sky-400/70 font-mono">{num(v.views)}</span> : null}
+                          {item.youtube_videos?.views ? <span className="text-[9px] text-sky-400/70 font-mono">{num(item.youtube_videos.views)}</span> : null}
                         </div>
                       </div>
-                      {v.youtube_video_id ? (
-                        <a href={`https://youtube.com/watch?v=${v.youtube_video_id}`}
-                          target="_blank" rel="noopener noreferrer"
-                          className="text-white/20 hover:text-white/60 shrink-0">
-                          <ExternalLink size={9} />
-                        </a>
-                      ) : v.file_path ? (
-                        <span className="text-[9px] text-violet-400/60 font-mono shrink-0">bestand✓</span>
-                      ) : null}
+                      {url && <a href={url} target="_blank" rel="noopener noreferrer" className="text-white/20 hover:text-white/60 shrink-0"><ExternalLink size={9} /></a>}
                     </div>
                   )
                 })}
