@@ -94,6 +94,25 @@ export function startBrowserVerificationWorker(): Worker {
       log.info('Browser verification started', { queueId, youtubeUrl })
       await addLog(queueId, videoId, 'info', 'Browser verification started', { youtubeUrl })
 
+      // Fetch privacy status — private/scheduled videos are not publicly viewable
+      const { data: videoRow } = await db.from('youtube_videos').select('privacy_status').eq('id', videoId).single()
+      const privacyStatus = videoRow?.privacy_status ?? 'public'
+      const isPrivateOrScheduled = privacyStatus === 'private'
+
+      if (isPrivateOrScheduled) {
+        log.info('Video is private/scheduled — skipping public page check', { queueId, privacyStatus })
+        await addLog(queueId, videoId, 'info', 'Video is private — marked verified (not yet public)', { privacyStatus })
+        await updateQueueStatus(queueId, 'verified_live', {
+          verification_finished_at: new Date().toISOString(),
+        })
+        await db.from('youtube_videos').update({
+          status: 'live',
+          updated_at: new Date().toISOString(),
+        }).eq('id', videoId)
+        clearTimeout(jobTimeout)
+        return { success: true, skipped: 'private_video' }
+      }
+
       if (!browser || !browser.isConnected()) {
         browser = await chromium.launch({ headless: HEADLESS })
       }
