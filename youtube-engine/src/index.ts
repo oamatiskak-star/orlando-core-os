@@ -10,6 +10,7 @@ import { startYouTubeRecoveryWorker } from './workers/youtube-recovery-worker'
 import { startThumbnailWorker } from './workers/thumbnail-worker'
 import { startAnalyticsFeedbackWorker } from './workers/analytics-feedback-worker'
 import { startSlotFillerWorker } from './workers/slot-filler-worker'
+import { startAutoPlanner } from './workers/auto-planner-worker'
 import { startFileCleanupWorker } from './workers/file-cleanup-worker'
 
 async function main() {
@@ -32,6 +33,7 @@ async function main() {
   ]
 
   startUploadOrchestrator()
+  startAutoPlanner()
   startSlotFillerWorker()
   startFileCleanupWorker()
 

@@ -9,45 +9,38 @@ type ChannelPlan = {
   priority: 'high' | 'normal'
 }
 
-// VermogenTv & PropertyInvestorTv: 10/dag — 6 long-form + 4 Shorts
-// Productie mag nooit stilstaan: 60 dagen horizon
+// 6 uploads per dag per kanaal — gespreide uren, 30 dagen horizon
 const CHANNEL_PLANS: Record<string, ChannelPlan> = {
-  VermogenTv: {
-    horizonDays: 60,
-    priority: 'high',
-    slots: [
-      { hour: 6,  type: 'longform' },
-      { hour: 8,  type: 'longform' },
-      { hour: 9,  type: 'short' },
-      { hour: 11, type: 'longform' },
-      { hour: 13, type: 'short' },
-      { hour: 15, type: 'longform' },
-      { hour: 16, type: 'short' },
-      { hour: 18, type: 'longform' },
-      { hour: 19, type: 'short' },
-      { hour: 21, type: 'longform' },
-    ],
-  },
-  PropertyInvestorTv: {
-    horizonDays: 60,
-    priority: 'high',
-    slots: [
-      { hour: 7,  type: 'longform' },
-      { hour: 9,  type: 'longform' },
-      { hour: 10, type: 'short' },
-      { hour: 12, type: 'longform' },
-      { hour: 14, type: 'short' },
-      { hour: 16, type: 'longform' },
-      { hour: 17, type: 'short' },
-      { hour: 19, type: 'longform' },
-      { hour: 20, type: 'short' },
-      { hour: 22, type: 'longform' },
-    ],
-  },
-  VastgoedTv:     { horizonDays: 30, priority: 'normal', slots: [{ hour: 10, type: 'longform' }] },
-  SpaarTv:        { horizonDays: 30, priority: 'normal', slots: [{ hour: 11, type: 'longform' }] },
-  CryptoVermogen: { horizonDays: 30, priority: 'normal', slots: [{ hour: 12, type: 'longform' }] },
-  BeleggingsTv:   { horizonDays: 30, priority: 'normal', slots: [{ hour: 14, type: 'longform' }] },
+  VermogenTv:         { horizonDays: 30, priority: 'normal', slots: [
+    { hour: 6, type: 'longform' }, { hour: 9,  type: 'longform' },
+    { hour: 12, type: 'longform' }, { hour: 15, type: 'longform' },
+    { hour: 18, type: 'longform' }, { hour: 21, type: 'longform' },
+  ]},
+  PropertyInvestorTv: { horizonDays: 30, priority: 'normal', slots: [
+    { hour: 7, type: 'longform' }, { hour: 10, type: 'longform' },
+    { hour: 13, type: 'longform' }, { hour: 16, type: 'longform' },
+    { hour: 19, type: 'longform' }, { hour: 22, type: 'longform' },
+  ]},
+  VastgoedTv:         { horizonDays: 30, priority: 'normal', slots: [
+    { hour: 6, type: 'longform' }, { hour: 9,  type: 'longform' },
+    { hour: 12, type: 'longform' }, { hour: 15, type: 'longform' },
+    { hour: 18, type: 'longform' }, { hour: 21, type: 'longform' },
+  ]},
+  SpaarTv:            { horizonDays: 30, priority: 'normal', slots: [
+    { hour: 7, type: 'longform' }, { hour: 10, type: 'longform' },
+    { hour: 13, type: 'longform' }, { hour: 16, type: 'longform' },
+    { hour: 19, type: 'longform' }, { hour: 22, type: 'longform' },
+  ]},
+  CryptoVermogen:     { horizonDays: 30, priority: 'normal', slots: [
+    { hour: 8, type: 'longform' }, { hour: 11, type: 'longform' },
+    { hour: 14, type: 'longform' }, { hour: 17, type: 'longform' },
+    { hour: 20, type: 'longform' }, { hour: 23, type: 'longform' },
+  ]},
+  BeleggingsTv:       { horizonDays: 30, priority: 'normal', slots: [
+    { hour: 8, type: 'longform' }, { hour: 11, type: 'longform' },
+    { hour: 14, type: 'longform' }, { hour: 17, type: 'longform' },
+    { hour: 20, type: 'longform' }, { hour: 23, type: 'longform' },
+  ]},
 }
 
 export async function POST() {
@@ -56,10 +49,9 @@ export async function POST() {
   const { data: channels } = await supabase
     .from('youtube_channels')
     .select('id, naam')
-    .eq('status', 'active')
 
   if (!channels?.length) {
-    return NextResponse.json({ error: 'Geen actieve kanalen' }, { status: 400 })
+    return NextResponse.json({ error: 'Geen kanalen gevonden' }, { status: 400 })
   }
 
   const now = new Date()

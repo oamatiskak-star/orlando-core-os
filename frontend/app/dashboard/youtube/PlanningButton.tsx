@@ -14,40 +14,18 @@ type SummaryItem = {
 }
 
 const PREVIEW = [
-  {
-    naam: 'VermogenTv',
-    priority: 'high',
-    perDay: 10,
-    longform: 6,
-    shorts: 4,
-    horizonDays: 60,
-    schedule: [
-      { hour: '06:00', type: 'longform' }, { hour: '08:00', type: 'longform' },
-      { hour: '09:00', type: 'short' },   { hour: '11:00', type: 'longform' },
-      { hour: '13:00', type: 'short' },   { hour: '15:00', type: 'longform' },
-      { hour: '16:00', type: 'short' },   { hour: '18:00', type: 'longform' },
-      { hour: '19:00', type: 'short' },   { hour: '21:00', type: 'longform' },
-    ],
-  },
-  {
-    naam: 'PropertyInvestorTv',
-    priority: 'high',
-    perDay: 10,
-    longform: 6,
-    shorts: 4,
-    horizonDays: 60,
-    schedule: [
-      { hour: '07:00', type: 'longform' }, { hour: '09:00', type: 'longform' },
-      { hour: '10:00', type: 'short' },   { hour: '12:00', type: 'longform' },
-      { hour: '14:00', type: 'short' },   { hour: '16:00', type: 'longform' },
-      { hour: '17:00', type: 'short' },   { hour: '19:00', type: 'longform' },
-      { hour: '20:00', type: 'short' },   { hour: '22:00', type: 'longform' },
-    ],
-  },
-  { naam: 'VastgoedTv',     priority: 'normal', perDay: 1, longform: 1, shorts: 0, horizonDays: 30, schedule: [{ hour: '10:00', type: 'longform' }] },
-  { naam: 'SpaarTv',        priority: 'normal', perDay: 1, longform: 1, shorts: 0, horizonDays: 30, schedule: [{ hour: '11:00', type: 'longform' }] },
-  { naam: 'CryptoVermogen', priority: 'normal', perDay: 1, longform: 1, shorts: 0, horizonDays: 30, schedule: [{ hour: '12:00', type: 'longform' }] },
-  { naam: 'BeleggingsTv',   priority: 'normal', perDay: 1, longform: 1, shorts: 0, horizonDays: 30, schedule: [{ hour: '14:00', type: 'longform' }] },
+  { naam: 'VermogenTv',         priority: 'normal', perDay: 6, longform: 6, shorts: 0, horizonDays: 30,
+    schedule: [{ hour: '06:00', type: 'longform' }, { hour: '09:00', type: 'longform' }, { hour: '12:00', type: 'longform' }, { hour: '15:00', type: 'longform' }, { hour: '18:00', type: 'longform' }, { hour: '21:00', type: 'longform' }] },
+  { naam: 'PropertyInvestorTv', priority: 'normal', perDay: 6, longform: 6, shorts: 0, horizonDays: 30,
+    schedule: [{ hour: '07:00', type: 'longform' }, { hour: '10:00', type: 'longform' }, { hour: '13:00', type: 'longform' }, { hour: '16:00', type: 'longform' }, { hour: '19:00', type: 'longform' }, { hour: '22:00', type: 'longform' }] },
+  { naam: 'VastgoedTv',         priority: 'normal', perDay: 6, longform: 6, shorts: 0, horizonDays: 30,
+    schedule: [{ hour: '06:00', type: 'longform' }, { hour: '09:00', type: 'longform' }, { hour: '12:00', type: 'longform' }, { hour: '15:00', type: 'longform' }, { hour: '18:00', type: 'longform' }, { hour: '21:00', type: 'longform' }] },
+  { naam: 'SpaarTv',            priority: 'normal', perDay: 6, longform: 6, shorts: 0, horizonDays: 30,
+    schedule: [{ hour: '07:00', type: 'longform' }, { hour: '10:00', type: 'longform' }, { hour: '13:00', type: 'longform' }, { hour: '16:00', type: 'longform' }, { hour: '19:00', type: 'longform' }, { hour: '22:00', type: 'longform' }] },
+  { naam: 'CryptoVermogen',     priority: 'normal', perDay: 6, longform: 6, shorts: 0, horizonDays: 30,
+    schedule: [{ hour: '08:00', type: 'longform' }, { hour: '11:00', type: 'longform' }, { hour: '14:00', type: 'longform' }, { hour: '17:00', type: 'longform' }, { hour: '20:00', type: 'longform' }, { hour: '23:00', type: 'longform' }] },
+  { naam: 'BeleggingsTv',       priority: 'normal', perDay: 6, longform: 6, shorts: 0, horizonDays: 30,
+    schedule: [{ hour: '08:00', type: 'longform' }, { hour: '11:00', type: 'longform' }, { hour: '14:00', type: 'longform' }, { hour: '17:00', type: 'longform' }, { hour: '20:00', type: 'longform' }, { hour: '23:00', type: 'longform' }] },
 ] as const
 
 const TOTAL_SLOTS = PREVIEW.reduce((s, c) => s + c.perDay * c.horizonDays, 0)

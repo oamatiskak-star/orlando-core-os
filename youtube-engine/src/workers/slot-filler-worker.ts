@@ -12,12 +12,12 @@ const log = workerLogger('slot-filler')
 async function fillSlots(): Promise<void> {
   const db = getSupabase()
 
-  // Alle videos klaar voor upload, per kanaal gegroepeerd
+  // Alle videos klaar voor upload (file_path of storage_path aanwezig)
   const { data: readyVideos } = await db
     .from('youtube_videos')
-    .select('id, channel_id, title, privacy_status, scheduled_publish_at, file_path')
+    .select('id, channel_id, title, privacy_status, scheduled_publish_at, file_path, storage_path')
     .eq('status', 'queued')
-    .not('file_path', 'is', null)
+    .or('file_path.not.is.null,storage_path.not.is.null')
     .order('created_at', { ascending: true })
     .limit(50)
 
