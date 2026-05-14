@@ -1,5 +1,6 @@
 import cron from 'node-cron'
 import { getSupabase } from '../lib/supabase'
+import { notifySlotFilled } from '../lib/notifications'
 import { workerLogger } from '../lib/logger'
 
 const log = workerLogger('slot-filler')
@@ -84,6 +85,10 @@ async function fillSlots(): Promise<void> {
         videoId: video.id,
         slotId:  slot.id,
       })
+
+      // Telegram: notify slot filled
+      const { data: ch } = await getSupabase().from('youtube_channels').select('naam').eq('id', channelId).maybeSingle()
+      await notifySlotFilled(video.title ?? 'Onbekend', ch?.naam ?? channelId, slot.scheduled_publish_at!)
 
       filled++
     }

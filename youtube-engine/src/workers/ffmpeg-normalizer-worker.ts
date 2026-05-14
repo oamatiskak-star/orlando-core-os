@@ -4,6 +4,7 @@ import path from 'path'
 import fs from 'fs'
 import { getRedis, QUEUE_NAMES, NormalizeJobData, enqueueUpload } from '../lib/redis-queue'
 import { getSupabase, updateQueueStatus, addLog } from '../lib/supabase'
+import { notifyUploadFailure } from '../lib/notifications'
 import { workerLogger } from '../lib/logger'
 
 const log = workerLogger('ffmpeg-normalizer')
@@ -136,10 +137,14 @@ export function startFfmpegNormalizerWorker(): Worker {
 
   worker.on('failed', async (job, err) => {
     if (!job) return
-    const { queueId, videoId } = job.data
+    const { queueId, videoId, channelId } = job.data
     log.error('ffmpeg normalization failed', { queueId, error: err.message })
     await updateQueueStatus(queueId, 'failed', { last_error: `ffmpeg: ${err.message}` })
     await addLog(queueId, videoId, 'error', `Normalization failed: ${err.message}`)
+    const db = getSupabase()
+    const { data: v } = await db.from('youtube_videos').select('title').eq('id', videoId).maybeSingle()
+    const { data: c } = await db.from('youtube_channels').select('naam').eq('id', channelId).maybeSingle()
+    await notifyUploadFailure(v?.title ?? videoId, c?.naam ?? channelId, `ffmpeg mislukt: ${err.message}`)
   })
 
   log.info('ffmpeg normalizer worker started')

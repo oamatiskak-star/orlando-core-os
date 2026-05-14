@@ -2,6 +2,7 @@ import cron from 'node-cron'
 import { getSupabase, updateQueueStatus, addLog } from '../lib/supabase'
 import { enqueueUpload, enqueueAnalytics } from '../lib/redis-queue'
 import { buildOAuthClient, setVideoPublic } from '../lib/youtube-api'
+import { notifyUploadStarted, notifyQuotaLimit } from '../lib/notifications'
 import { workerLogger } from '../lib/logger'
 
 const log = workerLogger('orchestrator')
@@ -59,8 +60,19 @@ async function pollQueuedItems(): Promise<void> {
         uploadedToday,
         limit: MAX_UPLOADS_PER_DAY_PER_CHANNEL,
       })
+      const { data: ch } = await db.from('youtube_channels').select('naam').eq('id', item.channel_id).maybeSingle()
+      await notifyQuotaLimit(ch?.naam ?? item.channel_id, uploadedToday, MAX_UPLOADS_PER_DAY_PER_CHANNEL)
       continue
     }
+
+    // Fetch title + scheduled_at for notification
+    const { data: queueRow } = await db
+      .from('youtube_upload_queue')
+      .select('title, scheduled_publish_at, youtube_channels(naam), youtube_videos(title)')
+      .eq('id', item.id)
+      .maybeSingle()
+    const videoTitle = (queueRow?.youtube_videos as any)?.title ?? queueRow?.title ?? 'Onbekend'
+    const channelName = (queueRow?.youtube_channels as any)?.naam ?? item.channel_id
 
     await updateQueueStatus(item.id, 'preparing')
     await enqueueUpload({
@@ -69,6 +81,7 @@ async function pollQueuedItems(): Promise<void> {
       channelId: item.channel_id,
       priority: item.priority,
     })
+    await notifyUploadStarted(videoTitle, channelName, queueRow?.scheduled_publish_at ?? null)
     log.info('Dispatched to upload queue', {
       queueId: item.id,
       uploadedToday: uploadedToday + 1,

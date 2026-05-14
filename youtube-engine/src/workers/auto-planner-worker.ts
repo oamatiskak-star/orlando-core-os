@@ -1,5 +1,6 @@
 import cron from 'node-cron'
 import { getSupabase } from '../lib/supabase'
+import { notifyPlannerRun } from '../lib/notifications'
 import { workerLogger } from '../lib/logger'
 
 const log = workerLogger('auto-planner')
@@ -29,6 +30,7 @@ async function runAutoPlanner(): Promise<void> {
 
   const now = new Date()
   let totalCreated = 0
+  const perChannel: Record<string, number> = {}
 
   for (const ch of channels) {
     const schedule = CHANNEL_SCHEDULE[ch.naam]
@@ -113,11 +115,13 @@ async function runAutoPlanner(): Promise<void> {
     }
 
     log.info(`${ch.naam}: ${newSlots.length} nieuwe slots aangemaakt (buffer was ${futureCount ?? 0})`)
+    perChannel[ch.naam] = newSlots.length
     totalCreated += newSlots.length
   }
 
   if (totalCreated > 0) {
     log.info(`Auto-planner klaar: ${totalCreated} slots aangemaakt over alle kanalen`)
+    await notifyPlannerRun(totalCreated, perChannel)
   }
 }
 
