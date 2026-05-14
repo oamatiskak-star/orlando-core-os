@@ -6,6 +6,34 @@ import { workerLogger } from '../lib/logger'
 
 const log = workerLogger('orchestrator')
 
+// YouTube Data API quota resets at midnight Pacific Time (07:00 UTC in summer, 08:00 UTC in winter).
+// We use 07:00 UTC as a safe reset anchor.
+function quotaResetToday(): Date {
+  const now = new Date()
+  const reset = new Date(now)
+  reset.setUTCHours(7, 0, 0, 0)
+  if (reset > now) reset.setUTCDate(reset.getUTCDate() - 1)
+  return reset
+}
+
+// Max uploads dispatched per channel per quota day. Each upload costs 1,600 units.
+// Default 6 → 9,600 units, leaves ~400 units for verification + analytics.
+const MAX_UPLOADS_PER_DAY_PER_CHANNEL = parseInt(
+  process.env.MAX_UPLOADS_PER_DAY_PER_CHANNEL ?? '6'
+)
+
+async function getChannelUploadsToday(channelId: string): Promise<number> {
+  const db = getSupabase()
+  const { count } = await db
+    .from('youtube_upload_queue')
+    .select('id', { count: 'exact', head: true })
+    .eq('channel_id', channelId)
+    .in('status', ['preparing', 'uploading', 'uploaded_pending_processing', 'verifying', 'verified_live', 'retrying'])
+    .gte('updated_at', quotaResetToday().toISOString())
+
+  return count ?? 0
+}
+
 async function pollQueuedItems(): Promise<void> {
   const db = getSupabase()
 
@@ -23,6 +51,17 @@ async function pollQueuedItems(): Promise<void> {
   log.info(`Polling: found ${queued.length} queued items`)
 
   for (const item of queued) {
+    const uploadedToday = await getChannelUploadsToday(item.channel_id)
+
+    if (uploadedToday >= MAX_UPLOADS_PER_DAY_PER_CHANNEL) {
+      log.info('Channel daily upload limit reached — skipping', {
+        channelId: item.channel_id,
+        uploadedToday,
+        limit: MAX_UPLOADS_PER_DAY_PER_CHANNEL,
+      })
+      continue
+    }
+
     await updateQueueStatus(item.id, 'preparing')
     await enqueueUpload({
       queueId: item.id,
@@ -30,7 +69,11 @@ async function pollQueuedItems(): Promise<void> {
       channelId: item.channel_id,
       priority: item.priority,
     })
-    log.info('Dispatched to upload queue', { queueId: item.id })
+    log.info('Dispatched to upload queue', {
+      queueId: item.id,
+      uploadedToday: uploadedToday + 1,
+      limit: MAX_UPLOADS_PER_DAY_PER_CHANNEL,
+    })
   }
 }
 
