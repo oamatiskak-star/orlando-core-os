@@ -168,14 +168,41 @@ export function startYouTubeUploadWorker(): Worker {
         durationMs,
       })
 
-      if (video.thumbnail_path && fs.existsSync(video.thumbnail_path)) {
-        try {
-          await uploadThumbnail(auth, result.youtubeVideoId, video.thumbnail_path)
-          await addLog(queueId, videoId, 'success', 'Thumbnail uploaded')
-        } catch (thumbErr) {
-          await addLog(queueId, videoId, 'warn', 'Thumbnail upload failed — will retry', {
-            error: (thumbErr as Error).message,
-          })
+      if (video.thumbnail_path) {
+        let thumbPath: string | null = null
+        let tempThumb: string | null = null
+
+        if (video.thumbnail_path.startsWith('http')) {
+          const tmpDir = process.env.VIDEO_OUTPUT_DIR ?? '/tmp/orlando-videos'
+          fs.mkdirSync(tmpDir, { recursive: true })
+          const ext = video.thumbnail_path.split('?')[0].split('.').pop() ?? 'jpg'
+          const tmpFile = path.join(tmpDir, `thumb_${videoId}_${Date.now()}.${ext}`)
+          try {
+            await downloadToTemp(video.thumbnail_path, tmpFile)
+            thumbPath = tmpFile
+            tempThumb = tmpFile
+          } catch (dlErr) {
+            await addLog(queueId, videoId, 'warn', 'Thumbnail download failed — skipping', {
+              error: (dlErr as Error).message,
+            })
+          }
+        } else if (fs.existsSync(video.thumbnail_path)) {
+          thumbPath = video.thumbnail_path
+        }
+
+        if (thumbPath) {
+          try {
+            await uploadThumbnail(auth, result.youtubeVideoId, thumbPath)
+            await addLog(queueId, videoId, 'success', 'Thumbnail uploaded')
+          } catch (thumbErr) {
+            await addLog(queueId, videoId, 'warn', 'Thumbnail upload failed — skipping', {
+              error: (thumbErr as Error).message,
+            })
+          } finally {
+            if (tempThumb && fs.existsSync(tempThumb)) {
+              fs.unlinkSync(tempThumb)
+            }
+          }
         }
       }
 
