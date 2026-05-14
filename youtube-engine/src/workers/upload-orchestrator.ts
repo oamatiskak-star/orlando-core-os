@@ -132,11 +132,11 @@ async function updateChannelQuotas(): Promise<void> {
 async function publishOverdueVideos(): Promise<void> {
   const db = getSupabase()
 
-  // Find all uploaded videos whose scheduled time has passed but are still private
+  // Only statuses that genuinely need a publish call — verified_live is already live
   const { data: overdue } = await db
     .from('youtube_upload_queue')
     .select('id, video_id, channel_id, youtube_video_id')
-    .in('status', ['uploaded_pending_processing', 'verified_live', 'verifying'])
+    .in('status', ['uploaded_pending_processing', 'verifying'])
     .not('youtube_video_id', 'is', null)
     .lte('scheduled_publish_at', new Date().toISOString())
 
@@ -175,7 +175,6 @@ async function publishOverdueVideos(): Promise<void> {
 
       await db.from('youtube_videos').update({
         privacy_status: 'public',
-        status: 'live',
         updated_at: new Date().toISOString(),
       }).eq('id', item.video_id)
 
@@ -186,10 +185,13 @@ async function publishOverdueVideos(): Promise<void> {
       await addLog(item.id, item.video_id, 'success', 'Scheduled publish executed — video is now public')
       log.info('Video published', { queueId: item.id, youtubeVideoId: item.youtube_video_id })
     } catch (err) {
-      log.error('publishOverdueVideos failed for item', {
-        queueId: item.id,
-        error: (err as Error).message,
-      })
+      const msg = (err as Error).message
+      // Quota exhausted — stop immediately, no point hammering remaining items
+      if (msg.includes('quota')) {
+        log.warn('publishOverdueVideos: quota exhausted, stopping run', { remaining: toPublish.length })
+        return
+      }
+      log.error('publishOverdueVideos failed for item', { queueId: item.id, error: msg })
     }
   }
 }
