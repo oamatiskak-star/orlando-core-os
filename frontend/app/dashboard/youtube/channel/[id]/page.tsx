@@ -48,14 +48,15 @@ export default async function ChannelDetailPage({ params }: Props) {
   const supabase = await createClient()
   const admin    = createAdminClient()
 
-  const { data: ch, error: chError } = await supabase
-    .from('youtube_channels')
-    .select('*')
-    .eq('id', id)
-    .maybeSingle()
+  const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)
+  const { data: ch, error: chError } = await (isUuid
+    ? supabase.from('youtube_channels').select('*').eq('id', id)
+    : supabase.from('youtube_channels').select('*').ilike('naam', id)
+  ).maybeSingle()
 
   if (chError || !ch) notFound()
 
+  const channelUuid = ch.id
   const now = new Date().toISOString()
   const in7d = new Date(Date.now() + 7 * 86_400_000).toISOString()
 
@@ -73,23 +74,23 @@ export default async function ChannelDetailPage({ params }: Props) {
   ] = await Promise.all([
     // Videos with file ready, not yet uploaded
     supabase.from('youtube_videos').select('*', { count: 'exact', head: true })
-      .eq('channel_id', id).eq('status', 'queued').not('file_path', 'is', null),
+      .eq('channel_id', channelUuid).eq('status', 'queued').not('file_path', 'is', null),
     // Published / live on YouTube
     supabase.from('youtube_videos').select('*', { count: 'exact', head: true })
-      .eq('channel_id', id).eq('status', 'published'),
+      .eq('channel_id', channelUuid).eq('status', 'published'),
     // Failed uploads
     supabase.from('youtube_videos').select('*', { count: 'exact', head: true })
-      .eq('channel_id', id).eq('status', 'failed'),
+      .eq('channel_id', channelUuid).eq('status', 'failed'),
     // Active in upload engine
     supabase.from('youtube_upload_queue').select('*', { count: 'exact', head: true })
-      .eq('channel_id', id).in('status', ['queued', 'retrying', 'uploading']),
+      .eq('channel_id', channelUuid).in('status', ['queued', 'retrying', 'uploading']),
     // Planned future slots total
     supabase.from('youtube_upload_queue').select('*', { count: 'exact', head: true })
-      .eq('channel_id', id).eq('status', 'planned').gt('scheduled_publish_at', now),
+      .eq('channel_id', channelUuid).eq('status', 'planned').gt('scheduled_publish_at', now),
     // Next 7 days schedule
     supabase.from('youtube_upload_queue')
       .select('id, title, status, scheduled_publish_at, privacy_status')
-      .eq('channel_id', id).eq('status', 'planned')
+      .eq('channel_id', channelUuid).eq('status', 'planned')
       .gt('scheduled_publish_at', now)
       .lte('scheduled_publish_at', in7d)
       .order('scheduled_publish_at', { ascending: true })
@@ -97,26 +98,26 @@ export default async function ChannelDetailPage({ params }: Props) {
     // Top videos by views
     supabase.from('youtube_videos')
       .select('id, title, views, likes, youtube_video_id, published_at, duration_seconds')
-      .eq('channel_id', id).eq('status', 'published')
+      .eq('channel_id', channelUuid).eq('status', 'published')
       .order('views', { ascending: false })
       .limit(5),
     // Most recent video entries
     supabase.from('youtube_videos')
       .select('id, title, status, upload_status, created_at, published_at, youtube_video_id, views, file_path')
-      .eq('channel_id', id)
+      .eq('channel_id', channelUuid)
       .order('created_at', { ascending: false })
       .limit(8),
     // Channel health
     admin.from('youtube_channel_health')
       .select('*')
-      .eq('channel_id', id)
+      .eq('channel_id', channelUuid)
       .order('created_at', { ascending: false })
       .limit(1)
       .maybeSingle(),
     // Daily stats last 14 days
     admin.from('youtube_daily_stats')
       .select('date, views, estimated_revenue')
-      .eq('channel_id', id)
+      .eq('channel_id', channelUuid)
       .order('date', { ascending: false })
       .limit(14),
   ])
@@ -429,7 +430,7 @@ export default async function ChannelDetailPage({ params }: Props) {
       </div>
 
       {/* Live sync */}
-      <ChannelDetailStats channelId={id} />
+      <ChannelDetailStats channelId={channelUuid} />
     </div>
   )
 }
