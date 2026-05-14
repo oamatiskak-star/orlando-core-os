@@ -24,13 +24,13 @@ export async function GET() {
     // Channel names + status
     supabase
       .from('youtube_channels')
-      .select('id, name, oauth_status, last_upload_at'),
+      .select('id, naam, oauth_status, last_upload_at'),
   ])
 
   const slots = slotsRes.data ?? []
   const channels = channelsRes.data ?? []
   const idToChannel: Record<string, string> = {}
-  for (const ch of channels) idToChannel[ch.id] = ch.name
+  for (const ch of channels) idToChannel[ch.id] = ch.naam
 
   // Per-channel stats for today
   const channelStats: Record<string, { name: string; uploaded: number; planned: number; failed: number; uploading: number }> = {}
@@ -63,7 +63,7 @@ export async function GET() {
     })),
     daemon: { active: daemonActive, lastActivity },
     channels: channels.map(ch => ({
-      id: ch.id, name: ch.name,
+      id: ch.id, name: ch.naam,
       oauth_status: ch.oauth_status,
       last_upload_at: ch.last_upload_at,
     })),

@@ -72,12 +72,38 @@ export async function POST(req: NextRequest) {
 
     case 'pause_channel': {
       if (!channel_id) return NextResponse.json({ error: 'channel_id required' }, { status: 400 })
-      // Set all queued items for this channel to 'paused' (custom status)
+      await supabase.from('youtube_channels').update({
+        status:     'paused',
+        updated_at: new Date().toISOString(),
+      }).eq('id', channel_id)
       await supabase.from('youtube_upload_queue').update({
         status:     'paused',
         updated_at: new Date().toISOString(),
       }).eq('channel_id', channel_id).in('status', ['queued', 'preparing'])
       await log('Channel paused manually', 'warning', { channel_id })
+      return NextResponse.json({ ok: true })
+    }
+
+    case 'resume_channel': {
+      if (!channel_id) return NextResponse.json({ error: 'channel_id required' }, { status: 400 })
+      await supabase.from('youtube_channels').update({
+        status:     'active',
+        updated_at: new Date().toISOString(),
+      }).eq('id', channel_id)
+      await supabase.from('youtube_upload_queue').update({
+        status:     'queued',
+        updated_at: new Date().toISOString(),
+      }).eq('channel_id', channel_id).eq('status', 'paused')
+      await log('Channel resumed manually', 'info', { channel_id })
+      return NextResponse.json({ ok: true })
+    }
+
+    case 'sync_channel': {
+      if (!channel_id) return NextResponse.json({ error: 'channel_id required' }, { status: 400 })
+      await supabase.from('youtube_channels').update({
+        updated_at: new Date().toISOString(),
+      }).eq('id', channel_id)
+      await log('Channel sync triggered', 'info', { channel_id })
       return NextResponse.json({ ok: true })
     }
 

@@ -318,8 +318,20 @@ function RecentUploads({ uploads }: { uploads: RecentUpload[] }) {
 }
 
 function FailedSlots({ slots }: { slots: Slot[] }) {
-  const failed = slots.filter(s => s.status === 'failed')
+  const [busy, setBusy] = useState<Record<string, boolean>>({})
+  const failed = slots.filter(s => s.status === 'failed' || s.status === 'manual_review_required')
   if (failed.length === 0) return null
+
+  async function act(action: string, id: string) {
+    setBusy(b => ({ ...b, [`${id}_${action}`]: true }))
+    await fetch('/api/youtube/override', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action, queue_id: id }),
+    })
+    setBusy(b => ({ ...b, [`${id}_${action}`]: false }))
+  }
+
   return (
     <div className="bg-red-500/[0.03] border border-red-500/15 rounded-xl p-5">
       <h2 className="text-xs font-semibold text-red-400 flex items-center gap-2 mb-3">
@@ -336,6 +348,41 @@ function FailedSlots({ slots }: { slots: Slot[] }) {
             {slot.last_error && (
               <p className="text-[10px] text-red-400/70 mt-1 font-mono truncate">{slot.last_error.slice(0, 120)}</p>
             )}
+            <div className="flex items-center gap-2 mt-2.5">
+              <button
+                onClick={() => act('retry', slot.id)}
+                disabled={busy[`${slot.id}_retry`]}
+                className="flex items-center gap-1 px-2.5 py-1 rounded-md bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 text-[10px] font-medium hover:bg-indigo-500/20 transition-colors disabled:opacity-40"
+              >
+                <RefreshCw size={9} className={busy[`${slot.id}_retry`] ? 'animate-spin' : ''} />
+                Retry
+              </button>
+              <button
+                onClick={() => act('upload_now', slot.id)}
+                disabled={busy[`${slot.id}_upload_now`]}
+                className="flex items-center gap-1 px-2.5 py-1 rounded-md bg-green-500/10 border border-green-500/20 text-green-400 text-[10px] font-medium hover:bg-green-500/20 transition-colors disabled:opacity-40"
+              >
+                <Zap size={9} className={busy[`${slot.id}_upload_now`] ? 'animate-pulse' : ''} />
+                Upload Nu
+              </button>
+              <button
+                onClick={() => act('force_publish', slot.id)}
+                disabled={busy[`${slot.id}_force_publish`]}
+                className="flex items-center gap-1 px-2.5 py-1 rounded-md bg-violet-500/10 border border-violet-500/20 text-violet-400 text-[10px] font-medium hover:bg-violet-500/20 transition-colors disabled:opacity-40"
+              >
+                ✓ Force Publish
+              </button>
+              {slot.youtube_url && (
+                <a
+                  href={slot.youtube_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-1 px-2.5 py-1 rounded-md border border-white/10 text-white/50 text-[10px] hover:text-white/70 hover:border-white/20 transition-colors"
+                >
+                  <ExternalLink size={9} /> YouTube
+                </a>
+              )}
+            </div>
           </div>
         ))}
       </div>
