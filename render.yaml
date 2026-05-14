@@ -3,7 +3,7 @@ services:
     name: orlando-youtube-engine
     runtime: node
     rootDir: youtube-engine
-    buildCommand: npm ci && npx playwright install chromium --with-deps && npm run build
+    buildCommand: npm ci && npx playwright install chromium && npm run build
     startCommand: node dist/index.js
     plan: starter
     autoDeploy: true
