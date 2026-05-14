@@ -76,3 +76,85 @@ export async function deleteQueueItem(queueId: string) {
   await supabase.from('youtube_upload_queue').delete().eq('id', queueId)
   revalidatePath('/dashboard/youtube')
 }
+
+// ── Mission Control actions ───────────────────────────────────────────────────
+
+export async function forcePublishQueue(queueId: string, videoId?: string) {
+  const supabase = await createClient()
+  if (videoId) {
+    await supabase.from('youtube_videos').update({
+      privacy_status: 'public',
+      upload_status:  'uploaded',
+      updated_at:     new Date().toISOString(),
+    }).eq('id', videoId)
+  }
+  await supabase.from('youtube_upload_queue').update({
+    status:     'verified_live',
+    updated_at: new Date().toISOString(),
+  }).eq('id', queueId)
+  await supabase.from('media_audit_log').insert({
+    queue_id: queueId,
+    video_id: videoId ?? null,
+    action:   'force_publish',
+    status:   'info',
+    message:  'Force publish via server action',
+  })
+  revalidatePath('/dashboard/youtube/mission-control')
+}
+
+export async function pauseChannel(channelId: string) {
+  const supabase = await createClient()
+  await supabase.from('youtube_upload_queue').update({
+    status:     'paused',
+    updated_at: new Date().toISOString(),
+  }).eq('channel_id', channelId).in('status', ['queued', 'preparing'])
+  await supabase.from('media_audit_log').insert({
+    channel_id: channelId,
+    action:     'pause_channel',
+    status:     'warning',
+    message:    'Channel paused via server action',
+  })
+  revalidatePath('/dashboard/youtube/mission-control')
+}
+
+export async function reverifyQueueItem(queueId: string) {
+  const supabase = await createClient()
+  await supabase.from('youtube_upload_queue').update({
+    status:     'verifying',
+    updated_at: new Date().toISOString(),
+  }).eq('id', queueId)
+  await supabase.from('media_audit_log').insert({
+    queue_id: queueId,
+    action:   'reverify',
+    status:   'info',
+    message:  'Manual reverify triggered',
+  })
+  revalidatePath('/dashboard/youtube/mission-control')
+}
+
+export async function registerMediaAsset(data: {
+  channel_id:    string
+  channel_name:  string
+  title:         string
+  topic?:        string
+  video_type:    string
+  video_path?:   string
+  audio_path?:   string
+  storage_url?:  string
+  storage_path?: string
+  local_worker?: string
+  agent_task_id?: string
+  calendar_id?:   string
+  publish_date?:  string
+}) {
+  const supabase = await createClient()
+  const { data: media } = await supabase.from('generated_media').insert({
+    ...data,
+    render_status: 'pending',
+    upload_status: 'pending',
+    verification_status: 'pending',
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  }).select('id').single()
+  return media?.id
+}

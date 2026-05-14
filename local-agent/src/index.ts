@@ -32,6 +32,15 @@ async function processTask(task: any): Promise<void> {
     started_at: new Date().toISOString(),
   }).eq('id', task.id)
 
+  // Worker registry — markeer als busy
+  await db.from('worker_registry').update({
+    status:                   'busy',
+    current_task_id:          task.id,
+    current_task_description: `${p.channel_name} — ${p.topic?.slice(0, 70)}`,
+    last_heartbeat:           new Date().toISOString(),
+    updated_at:               new Date().toISOString(),
+  }).eq('id', process.env.WORKER_ID ?? 'W1')
+
   const tmpDir = path.join(OUTPUT_DIR, task.id)
   fs.mkdirSync(tmpDir, { recursive: true })
 
@@ -114,6 +123,38 @@ async function processTask(task: any): Promise<void> {
       updated_at:       new Date().toISOString(),
     }).eq('id', p.calendar_id)
 
+    // Registreer in generated_media voor Mission Control file tracking
+    await db.from('generated_media').insert({
+      channel_id:          p.channel_id,
+      channel_name:        p.channel_name,
+      title:               content.title,
+      topic:               p.topic,
+      video_type:          p.video_type,
+      audio_path:          audioPath,
+      video_path:          storagePath,
+      storage_provider:    'supabase',
+      storage_bucket:      'yt-videos',
+      storage_path:        storagePath,
+      storage_url:         signedUrl,
+      local_worker:        process.env.WORKER_ID ?? 'W1',
+      render_status:       'complete',
+      upload_status:       'pending',
+      verification_status: 'pending',
+      agent_task_id:       task.id,
+      calendar_id:         p.calendar_id,
+      publish_date:        p.publish_date,
+      created_at:          new Date().toISOString(),
+      updated_at:          new Date().toISOString(),
+    })
+
+    // Worker registry — markeer worker als idle na taak
+    await db.from('worker_registry').update({
+      status:                   'online',
+      current_task_id:          null,
+      current_task_description: null,
+      updated_at:               new Date().toISOString(),
+    }).eq('id', process.env.WORKER_ID ?? 'W1')
+
     // Taak afronden
     await db.from('agent_tasks').update({
       status:       'completed',
@@ -124,6 +165,16 @@ async function processTask(task: any): Promise<void> {
         title:        content.title,
       },
     }).eq('id', task.id)
+
+    // Audit log
+    await db.from('media_audit_log').insert({
+      action:    'render_complete',
+      status:    'success',
+      channel_id: p.channel_id,
+      worker_id: process.env.WORKER_ID ?? 'W1',
+      message:   `"${content.title}" gegenereerd en geüpload naar ${storagePath}`,
+      metadata:  { storage_path: storagePath, video_id: video.id },
+    })
 
     log(`✓ Klaar: "${content.title}" → ${storagePath}`)
 

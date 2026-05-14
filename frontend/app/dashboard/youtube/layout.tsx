@@ -3,15 +3,16 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import clsx from 'clsx'
-import { LayoutGrid, Upload, Clock, BarChart2, Zap, ScrollText, Settings } from 'lucide-react'
+import { LayoutGrid, Upload, Clock, BarChart2, Zap, ScrollText, Radar } from 'lucide-react'
 
 const TABS = [
-  { label: 'Overzicht',   href: '/dashboard/youtube',            icon: LayoutGrid },
-  { label: 'Queue',       href: '/dashboard/youtube/queue',      icon: Upload },
-  { label: 'Scheduled',   href: '/dashboard/youtube/scheduled',  icon: Clock },
-  { label: 'Analytics',   href: '/dashboard/youtube/analytics',  icon: BarChart2 },
-  { label: 'Automation',  href: '/dashboard/youtube/automation', icon: Zap },
-  { label: 'Logs',        href: '/dashboard/youtube/logs',       icon: ScrollText },
+  { label: 'Overzicht',        href: '/dashboard/youtube',                    icon: LayoutGrid },
+  { label: 'Mission Control',  href: '/dashboard/youtube/mission-control',    icon: Radar },
+  { label: 'Queue',            href: '/dashboard/youtube/queue',              icon: Upload },
+  { label: 'Scheduled',        href: '/dashboard/youtube/scheduled',          icon: Clock },
+  { label: 'Analytics',        href: '/dashboard/youtube/analytics',          icon: BarChart2 },
+  { label: 'Automation',       href: '/dashboard/youtube/automation',         icon: Zap },
+  { label: 'Logs',             href: '/dashboard/youtube/logs',               icon: ScrollText },
 ]
 
 export default function YouTubeLayout({ children }: { children: React.ReactNode }) {
