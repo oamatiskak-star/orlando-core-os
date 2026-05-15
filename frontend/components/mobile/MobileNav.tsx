@@ -2,13 +2,14 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { Home, Play, GitBranch, Bell, Settings } from 'lucide-react'
+import { Home, Play, GitBranch, Bell, Settings, Mail } from 'lucide-react'
 import clsx from 'clsx'
 
 const TABS = [
   { href: '/mobile',               exact: true,  label: 'Home',       icon: Home },
   { href: '/mobile/youtube',       exact: false, label: 'YouTube',    icon: Play },
   { href: '/mobile/workflows',     exact: false, label: 'Flows',      icon: GitBranch },
+  { href: '/mobile/mail',          exact: false, label: 'Mail',       icon: Mail },
   { href: '/mobile/notifications', exact: false, label: 'Meldingen',  icon: Bell },
   { href: '/mobile/settings',      exact: false, label: 'Instellingen', icon: Settings },
 ]

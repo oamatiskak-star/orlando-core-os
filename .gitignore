@@ -1,3 +1,6 @@
 .vercel
 .env*.local
 youtube-engine/.env
+mail-engine/.env
+mail-engine/node_modules/
+mail-engine/dist/

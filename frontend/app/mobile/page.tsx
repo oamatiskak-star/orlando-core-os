@@ -1,7 +1,7 @@
 import type { Metadata } from 'next'
 import { createClient } from '@/lib/supabase/server'
 import Link from 'next/link'
-import { Bell } from 'lucide-react'
+import { Bell, Mail, AlertTriangle, FileText, Clock } from 'lucide-react'
 import { Play, GitBranch, Activity, Cpu } from 'lucide-react'
 import CommandCenterClient from '@/components/mobile/CommandCenterClient'
 
@@ -26,6 +26,10 @@ export default async function CommandCenter() {
     qRunningRes,
     qFailedRes,
     notifsRes,
+    mailUnreadRes,
+    mailUrgentRes,
+    mailDraftsRes,
+    mailMoneybirdRes,
   ] = await Promise.allSettled([
     supabase.from('worker_registry').select('id,worker_type,status,last_heartbeat,description').order('worker_type'),
     supabase.from('youtube_channels').select('id,naam,oauth_connected,subscriber_count'),
@@ -36,6 +40,10 @@ export default async function CommandCenter() {
     supabase.from('oc_queue_jobs').select('id', { count: 'exact', head: true }).eq('status', 'running'),
     supabase.from('oc_queue_jobs').select('id', { count: 'exact', head: true }).eq('status', 'failed'),
     supabase.from('mobile_notifications').select('id', { count: 'exact', head: true }).eq('read', false),
+    supabase.from('mail_messages').select('id', { count: 'exact', head: true }).eq('is_read', false).eq('is_archived', false),
+    supabase.from('mail_messages').select('id', { count: 'exact', head: true }).eq('priority', 'urgent'),
+    supabase.from('mail_drafts').select('id', { count: 'exact', head: true }).eq('status', 'pending'),
+    supabase.from('mail_messages').select('id', { count: 'exact', head: true }).eq('moneybird_status', 'pending'),
   ])
 
   const workers    = workersRes.status    === 'fulfilled' ? (workersRes.value.data    ?? []) : []
@@ -43,13 +51,17 @@ export default async function CommandCenter() {
   const n = (r: PromiseSettledResult<{ count?: number | null }>) =>
     r.status === 'fulfilled' ? (r.value.count ?? 0) : 0
 
-  const ytActive = n(ytQueueActiveRes as any)
-  const ytFailed = n(ytQueueFailedRes as any)
-  const wfActive = n(wfActiveRes      as any)
-  const wfFailed = n(wfRunsFailedRes  as any)
-  const qRunning = n(qRunningRes      as any)
-  const qFailed  = n(qFailedRes       as any)
-  const unread   = n(notifsRes        as any)
+  const ytActive       = n(ytQueueActiveRes  as any)
+  const ytFailed       = n(ytQueueFailedRes  as any)
+  const wfActive       = n(wfActiveRes       as any)
+  const wfFailed       = n(wfRunsFailedRes   as any)
+  const qRunning       = n(qRunningRes       as any)
+  const qFailed        = n(qFailedRes        as any)
+  const unread         = n(notifsRes         as any)
+  const mailUnread     = n(mailUnreadRes     as any)
+  const mailUrgent     = n(mailUrgentRes     as any)
+  const mailDrafts     = n(mailDraftsRes     as any)
+  const mailMoneybird  = n(mailMoneybirdRes  as any)
 
   const workersOnline  = workers.filter((w: any) => w.status === 'online' || w.status === 'busy').length
   const workersOffline = workers.filter((w: any) => w.status === 'offline').length
@@ -121,6 +133,54 @@ export default async function CommandCenter() {
           )}
         </Link>
       </div>
+
+      {/* Mail OS widget */}
+      <Link
+        href="/mobile/mail"
+        className="block bg-[#0d0d1a] rounded-2xl border border-white/[0.08] p-4 hover:border-white/[0.12] transition-colors"
+      >
+        <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center gap-2">
+            <Mail size={16} className="text-indigo-400" />
+            <span className="text-[13px] font-semibold text-white">Mail OS</span>
+          </div>
+          {mailUnread > 0 && (
+            <span className="px-1.5 py-0.5 rounded-full bg-indigo-500 text-white text-[10px] font-bold">
+              {mailUnread > 99 ? '99+' : mailUnread}
+            </span>
+          )}
+        </div>
+        <div className="grid grid-cols-2 gap-2">
+          <div className="flex items-center gap-2 p-2 bg-white/[0.03] rounded-xl">
+            <Mail size={13} className="text-white/30" />
+            <div>
+              <p className="text-[11px] text-white/40">Ongelezen</p>
+              <p className="text-[14px] font-bold text-white">{mailUnread}</p>
+            </div>
+          </div>
+          <div className={`flex items-center gap-2 p-2 rounded-xl ${mailUrgent > 0 ? 'bg-red-500/10' : 'bg-white/[0.03]'}`}>
+            <AlertTriangle size={13} className={mailUrgent > 0 ? 'text-red-400' : 'text-white/30'} />
+            <div>
+              <p className="text-[11px] text-white/40">Urgent</p>
+              <p className={`text-[14px] font-bold ${mailUrgent > 0 ? 'text-red-400' : 'text-white'}`}>{mailUrgent}</p>
+            </div>
+          </div>
+          <div className={`flex items-center gap-2 p-2 rounded-xl ${mailDrafts > 0 ? 'bg-indigo-500/10' : 'bg-white/[0.03]'}`}>
+            <Clock size={13} className={mailDrafts > 0 ? 'text-indigo-400' : 'text-white/30'} />
+            <div>
+              <p className="text-[11px] text-white/40">Concepten</p>
+              <p className={`text-[14px] font-bold ${mailDrafts > 0 ? 'text-indigo-400' : 'text-white'}`}>{mailDrafts}</p>
+            </div>
+          </div>
+          <div className={`flex items-center gap-2 p-2 rounded-xl ${mailMoneybird > 0 ? 'bg-yellow-500/10' : 'bg-white/[0.03]'}`}>
+            <FileText size={13} className={mailMoneybird > 0 ? 'text-yellow-400' : 'text-white/30'} />
+            <div>
+              <p className="text-[11px] text-white/40">Facturen</p>
+              <p className={`text-[14px] font-bold ${mailMoneybird > 0 ? 'text-yellow-400' : 'text-white'}`}>{mailMoneybird}</p>
+            </div>
+          </div>
+        </div>
+      </Link>
 
       {/* Client component handles sorting + collapsing */}
       <CommandCenterClient
