@@ -2,37 +2,29 @@
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
-import {
-  Play, GitBranch, Bell, Settings, Search, Mail,
-  CreditCard, Cpu, Radio, Activity, AlertCircle,
-  CheckCircle, Clock, Zap, Users,
-} from 'lucide-react'
+import { Play, GitBranch, Bell, Settings, Search, Zap } from 'lucide-react'
 import StatusPill from './StatusPill'
 import SortableSection from './SortableSection'
 
-type SectionId = 'quick-links' | 'systems' | 'workers' | 'yt-channels'
+type SectionId = 'quick-links' | 'systems' | 'yt-channels'
 
 const SECTION_LABELS: Record<SectionId, string> = {
   'quick-links': 'Snelkoppelingen',
   'systems':     'Systemen',
-  'workers':     'Workers',
   'yt-channels': 'YouTube Kanalen',
 }
 
-const DEFAULT_ORDER: SectionId[] = ['quick-links', 'systems', 'workers', 'yt-channels']
+const DEFAULT_ORDER: SectionId[] = ['quick-links', 'systems', 'yt-channels']
 const LS_ORDER     = 'cc-section-order'
 const LS_COLLAPSED = 'cc-section-collapsed'
 
 const QUICK_LINKS = [
-  { href: '/mobile/youtube',       label: 'YouTube',      icon: Play,       color: 'text-red-400    bg-red-500/10    border-red-500/20' },
-  { href: '/mobile/content',       label: 'Content',      icon: Zap,        color: 'text-violet-400 bg-violet-500/10 border-violet-500/20' },
-  { href: '/mobile/scrapers',      label: 'Vastgoed',     icon: Search,     color: 'text-sky-400    bg-sky-500/10    border-sky-500/20' },
+  { href: '/mobile/youtube',       label: 'YouTube',      icon: Play,       color: 'text-red-400     bg-red-500/10     border-red-500/20' },
+  { href: '/mobile/content',       label: 'Content',      icon: Zap,        color: 'text-violet-400  bg-violet-500/10  border-violet-500/20' },
+  { href: '/mobile/scrapers',      label: 'Vastgoed',     icon: Search,     color: 'text-sky-400     bg-sky-500/10     border-sky-500/20' },
   { href: '/mobile/workflows',     label: 'Workflows',    icon: GitBranch,  color: 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20' },
-  { href: '/mobile/settings',      label: 'Mail Agent',   icon: Mail,       color: 'text-amber-400  bg-amber-500/10  border-amber-500/20' },
-  { href: '/mobile/settings',      label: 'Moneybird',    icon: CreditCard, color: 'text-indigo-400 bg-indigo-500/10 border-indigo-500/20' },
-  { href: '/mobile/settings',      label: 'Workers',      icon: Cpu,        color: 'text-pink-400   bg-pink-500/10   border-pink-500/20' },
-  { href: '/mobile/notifications', label: 'Meldingen',    icon: Bell,       color: 'text-orange-400 bg-orange-500/10 border-orange-500/20' },
-  { href: '/mobile/settings',      label: 'Instellingen', icon: Settings,   color: 'text-white/55   bg-white/5       border-white/10' },
+  { href: '/mobile/notifications', label: 'Meldingen',    icon: Bell,       color: 'text-orange-400  bg-orange-500/10  border-orange-500/20' },
+  { href: '/mobile/settings',      label: 'Instellingen', icon: Settings,   color: 'text-white/55    bg-white/5        border-white/10' },
 ]
 
 function fmt(n: number): string {
@@ -67,17 +59,17 @@ interface Props {
 }
 
 export default function CommandCenterClient({ workers, ytChannels, systems, unread }: Props) {
-  const [order, setOrder]       = useState<SectionId[]>(DEFAULT_ORDER)
+  const [order, setOrder]         = useState<SectionId[]>(DEFAULT_ORDER)
   const [collapsed, setCollapsed] = useState<Set<SectionId>>(new Set())
-  const [editing, setEditing]   = useState(false)
-  const [hydrated, setHydrated] = useState(false)
+  const [editing, setEditing]     = useState(false)
+  const [hydrated, setHydrated]   = useState(false)
 
   useEffect(() => {
     try {
       const savedOrder = localStorage.getItem(LS_ORDER)
       if (savedOrder) {
         const parsed: SectionId[] = JSON.parse(savedOrder)
-        // ensure all sections present (in case new sections added later)
+          .filter((id: string) => DEFAULT_ORDER.includes(id as SectionId))
         const merged = [...new Set([...parsed, ...DEFAULT_ORDER])] as SectionId[]
         setOrder(merged)
       }
@@ -117,18 +109,15 @@ export default function CommandCenterClient({ workers, ytChannels, systems, unre
     saveOrder(next)
   }
 
-  // Filter out sections that have no data to show
   const visibleOrder = order.filter(id => {
-    if (id === 'workers'     && workers.length === 0)    return false
     if (id === 'yt-channels' && ytChannels.length === 0) return false
     return true
   })
 
-  if (!hydrated) return null  // avoid hydration mismatch
+  if (!hydrated) return null
 
   return (
     <div className="space-y-6">
-      {/* Edit toggle */}
       <div className="flex justify-end">
         <button
           onClick={() => setEditing(e => !e)}
@@ -160,8 +149,8 @@ export default function CommandCenterClient({ workers, ytChannels, systems, unre
                 const [tc, bg, bc] = link.color.split(' ')
                 const Icon = link.icon
                 return (
-                  <Link key={link.href + link.label} href={link.href}
-                    className={`flex flex-col items-center justify-center gap-1.5 rounded-xl border p-3 min-h-[4.5rem] transition-colors hover:bg-white/[0.06] ${bg} ${bc}`}>
+                  <Link key={link.label} href={link.href}
+                    className={`flex flex-col items-center justify-center gap-1.5 rounded-xl border p-3 min-h-[4.5rem] transition-colors active:scale-95 ${bg} ${bc}`}>
                     <Icon size={20} className={tc} />
                     <span className="text-[11px] text-white/70 font-medium text-center leading-tight">{link.label}</span>
                   </Link>
@@ -176,7 +165,7 @@ export default function CommandCenterClient({ workers, ytChannels, systems, unre
                 const Icon = sys.icon
                 return (
                   <Link key={sys.label} href={sys.href}
-                    className="flex items-center gap-3 bg-white/[0.04] border border-white/[0.06] rounded-xl px-4 py-3 hover:bg-white/[0.06] transition-colors">
+                    className="flex items-center gap-3 bg-white/[0.04] border border-white/[0.06] rounded-xl px-4 py-3 hover:bg-white/[0.06] active:scale-[0.99] transition-all">
                     <div className="w-9 h-9 rounded-xl bg-white/5 flex items-center justify-center flex-shrink-0">
                       <Icon size={16} className={sys.iconColor} />
                     </div>
@@ -200,35 +189,11 @@ export default function CommandCenterClient({ workers, ytChannels, systems, unre
             </div>
           )}
 
-          {id === 'workers' && (
-            <div className="bg-white/[0.04] border border-white/[0.06] rounded-xl divide-y divide-white/[0.04]">
-              {workers.map((w: any) => (
-                <div key={w.id} className="flex items-center gap-3 px-4 py-2.5">
-                  <div className={`w-2 h-2 rounded-full flex-shrink-0 ${
-                    w.status === 'online'  ? 'bg-emerald-400' :
-                    w.status === 'busy'    ? 'bg-amber-400' :
-                    w.status === 'offline' ? 'bg-red-400' : 'bg-white/20'
-                  }`} />
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm text-white/80 font-medium truncate">{w.worker_type ?? w.id}</p>
-                    {w.description && <p className="text-[10px] text-white/35 truncate">{w.description}</p>}
-                  </div>
-                  <div className="flex flex-col items-end gap-0.5">
-                    <StatusPill status={w.status ?? 'unknown'} size="xs" />
-                    {w.last_heartbeat && (
-                      <span className="text-[10px] text-white/25">{timeAgo(w.last_heartbeat)}</span>
-                    )}
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-
           {id === 'yt-channels' && (
             <div className="bg-white/[0.04] border border-white/[0.06] rounded-xl divide-y divide-white/[0.04]">
               {ytChannels.map((ch: any) => (
                 <Link key={ch.id} href="/mobile/youtube"
-                  className="flex items-center gap-3 px-4 py-2.5 hover:bg-white/[0.03] transition-colors">
+                  className="flex items-center gap-3 px-4 py-3 hover:bg-white/[0.03] active:bg-white/[0.06] transition-colors">
                   <div className={`w-2 h-2 rounded-full flex-shrink-0 ${ch.oauth_connected ? 'bg-emerald-400' : 'bg-white/20'}`} />
                   <span className="flex-1 text-sm text-white/75 font-medium">{ch.naam}</span>
                   <div className="flex items-center gap-3 text-right">

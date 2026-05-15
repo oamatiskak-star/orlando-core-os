@@ -21,22 +21,24 @@ export default function SortableSection({
   return (
     <section>
       <div className="flex items-center justify-between mb-3">
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1">
           {editing && (
-            <div className="flex gap-0.5">
+            <div className="flex gap-1 mr-1">
               <button
                 onClick={onMoveUp}
                 disabled={isFirst}
-                className="w-6 h-6 flex items-center justify-center rounded-md bg-white/[0.06] text-white/40 hover:text-white/70 disabled:opacity-20 transition-colors"
+                aria-label="Omhoog"
+                className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-xl bg-white/[0.08] text-white/50 hover:text-white/80 hover:bg-white/[0.12] disabled:opacity-20 disabled:pointer-events-none active:scale-95 transition-all"
               >
-                <ArrowUp size={11} />
+                <ArrowUp size={14} />
               </button>
               <button
                 onClick={onMoveDown}
                 disabled={isLast}
-                className="w-6 h-6 flex items-center justify-center rounded-md bg-white/[0.06] text-white/40 hover:text-white/70 disabled:opacity-20 transition-colors"
+                aria-label="Omlaag"
+                className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-xl bg-white/[0.08] text-white/50 hover:text-white/80 hover:bg-white/[0.12] disabled:opacity-20 disabled:pointer-events-none active:scale-95 transition-all"
               >
-                <ArrowDown size={11} />
+                <ArrowDown size={14} />
               </button>
             </div>
           )}
@@ -46,18 +48,18 @@ export default function SortableSection({
         </div>
         <button
           onClick={onToggleCollapse}
-          className="w-7 h-7 flex items-center justify-center rounded-lg text-white/25 hover:text-white/55 hover:bg-white/[0.05] transition-colors"
           aria-label={collapsed ? 'Uitklappen' : 'Inklappen'}
+          className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-xl text-white/30 hover:text-white/60 hover:bg-white/[0.05] active:scale-95 transition-all"
         >
           <ChevronDown
-            size={14}
+            size={16}
             className={`transition-transform duration-200 ${collapsed ? '-rotate-90' : ''}`}
           />
         </button>
       </div>
 
       <div
-        className={`overflow-hidden transition-all duration-200 ${
+        className={`overflow-hidden transition-[max-height,opacity] duration-200 ease-in-out ${
           collapsed ? 'max-h-0 opacity-0' : 'max-h-[9999px] opacity-100'
         }`}
       >
