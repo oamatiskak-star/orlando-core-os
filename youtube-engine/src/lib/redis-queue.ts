@@ -130,7 +130,7 @@ export async function enqueueThumbnail(data: ThumbnailJobData): Promise<Job> {
 export async function enqueueAnalytics(data: AnalyticsJobData, delayMs = 0): Promise<Job> {
   return getQueue(QUEUE_NAMES.ANALYTICS).add('analytics', data, {
     delay: delayMs,
-    jobId: `analytics_${data.videoId}_${Date.now()}`,
+    jobId: `analytics_${data.videoId}`,
   })
 }
 

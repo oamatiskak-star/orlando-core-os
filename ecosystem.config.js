@@ -11,7 +11,7 @@ module.exports = {
       interpreter: 'none',
       watch:       false,
       autorestart: true,
-      max_restarts: 10,
+      max_restarts: 999,
       restart_delay: 5000,
       env: { NODE_ENV: 'production' },
       log_file:    '/tmp/pm2-local-agent.log',
@@ -28,7 +28,7 @@ module.exports = {
       interpreter: 'none',
       watch:       false,
       autorestart: true,
-      max_restarts: 10,
+      max_restarts: 999,
       restart_delay: 5000,
       env: { NODE_ENV: 'production' },
       log_file:    '/tmp/pm2-youtube-engine.log',
@@ -36,7 +36,25 @@ module.exports = {
       time:        true,
     },
 
-    // ── 3. Daily Scheduler — cron 05:30, maakt dag-taken aan ──
+    // ── 3. YouTube Watchdog — 24/7 monitor, auto-fix vastgelopen uploads & crashes ──
+    {
+      name:         'youtube-watchdog',
+      cwd:          `${BASE}/youtube-engine`,
+      script:       'npx',
+      args:         'ts-node --transpile-only src/watchdog.ts',
+      interpreter:  'none',
+      watch:        false,
+      autorestart:  true,
+      max_restarts: 999,
+      restart_delay: 10000,
+      env: { NODE_ENV: 'production' },
+      log_file:     '/tmp/pm2-youtube-watchdog.log',
+      error_file:   '/tmp/pm2-youtube-watchdog-err.log',
+      out_file:     '/Users/bouwproffsnederlandbv/.pm2/logs/youtube-watchdog-out.log',
+      time:         true,
+    },
+
+    // ── 4. Daily Scheduler — cron 05:30, maakt dag-taken aan ──
     {
       name:          'daily-scheduler',
       cwd:           `${BASE}/local-agent`,
