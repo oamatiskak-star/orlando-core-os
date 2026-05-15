@@ -142,7 +142,7 @@ export default function MobileNotificationsPage() {
         </div>
         <button
           onClick={() => setEditing(e => !e)}
-          className={`px-3 py-1.5 rounded-lg text-[11px] font-medium border transition-colors ${editing ? 'bg-indigo-600/80 border-indigo-500/50 text-white' : 'bg-white/[0.04] border-white/[0.08] text-white/40'}`}
+          className={`px-4 min-h-[44px] rounded-xl text-[11px] font-medium border transition-colors ${editing ? 'bg-indigo-600/80 border-indigo-500/50 text-white' : 'bg-white/[0.04] border-white/[0.08] text-white/40'}`}
         >
           {editing ? 'Klaar' : 'Rangschikken'}
         </button>
@@ -168,7 +168,7 @@ export default function MobileNotificationsPage() {
                   <button
                     key={f}
                     onClick={() => setFilter(f)}
-                    className={`px-3 py-1.5 rounded-lg text-[11px] font-medium transition-colors ${
+                    className={`px-4 min-h-[44px] rounded-xl text-[11px] font-medium transition-colors ${
                       filter === f
                         ? 'bg-white/[0.10] text-white border border-white/[0.12]'
                         : 'text-white/40 border border-transparent'
