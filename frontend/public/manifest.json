@@ -1,0 +1,43 @@
+{
+  "name": "Orlando Core OS",
+  "short_name": "OC OS",
+  "description": "AI-gedreven vastgoed-, bouw- en mediaplatform",
+  "start_url": "/mobile",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#07070f",
+  "theme_color": "#07070f",
+  "orientation": "portrait-primary",
+  "lang": "nl",
+  "icons": [
+    {
+      "src": "/icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["business", "productivity"],
+  "shortcuts": [
+    {
+      "name": "YouTube Engine",
+      "short_name": "YouTube",
+      "description": "Beheer YouTube kanalen",
+      "url": "/mobile/youtube",
+      "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Notificaties",
+      "short_name": "Meldingen",
+      "description": "Bekijk notificaties",
+      "url": "/mobile/notifications",
+      "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192" }]
+    }
+  ]
+}
