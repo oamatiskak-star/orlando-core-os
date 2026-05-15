@@ -26,7 +26,7 @@ const PREVIEW = [
     schedule: [{ hour: '08:00', type: 'longform' }, { hour: '11:00', type: 'longform' }, { hour: '14:00', type: 'longform' }, { hour: '17:00', type: 'longform' }, { hour: '20:00', type: 'longform' }, { hour: '23:00', type: 'longform' }] },
   { naam: 'BeleggingsTv',       priority: 'normal', perDay: 6, longform: 6, shorts: 0, horizonDays: 30,
     schedule: [{ hour: '08:00', type: 'longform' }, { hour: '11:00', type: 'longform' }, { hour: '14:00', type: 'longform' }, { hour: '17:00', type: 'longform' }, { hour: '20:00', type: 'longform' }, { hour: '23:00', type: 'longform' }] },
-] as const
+] satisfies Array<{ naam: string; priority: 'normal' | 'high'; perDay: number; longform: number; shorts: number; horizonDays: number; schedule: { hour: string; type: string }[] }>
 
 const TOTAL_SLOTS = PREVIEW.reduce((s, c) => s + c.perDay * c.horizonDays, 0)
 
