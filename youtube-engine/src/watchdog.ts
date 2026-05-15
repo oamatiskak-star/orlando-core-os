@@ -258,6 +258,60 @@ async function checkQueueDepths(): Promise<void> {
   }
 }
 
+// ─── OAuth token monitor ─────────────────────────────────────────────────────
+
+let lastOAuthAlert = 0
+
+async function checkOAuthTokens(): Promise<void> {
+  const now = Date.now()
+  if (now - lastOAuthAlert < 6 * 60 * 60 * 1000) return // max 1x per 6 uur
+
+  const db = getSupabase()
+  const { data: channels } = await db
+    .from('youtube_channels')
+    .select('id, naam, oauth_status, status, refresh_token, token_expires')
+    .order('naam')
+
+  if (!channels?.length) return
+
+  const missing: string[] = []
+  const expired: string[] = []
+
+  for (const ch of channels) {
+    if (!ch.refresh_token) {
+      missing.push(ch.naam)
+    } else if (ch.oauth_status === 'expired' && ch.status === 'disconnected') {
+      // Only flag if token_expires is more than 2 hours old (access token not refreshed)
+      const expiry = ch.token_expires ? new Date(ch.token_expires).getTime() : 0
+      if (now - expiry > 2 * 60 * 60 * 1000) {
+        expired.push(ch.naam)
+      }
+    }
+  }
+
+  if (missing.length > 0) {
+    lastOAuthAlert = now
+    await sendTelegram(
+      `🔐 <b>WATCHDOG — OAuth Refresh Token Ontbreekt</b>\n\n` +
+      `❌ Kanalen zonder refresh token:\n` +
+      missing.map(n => `  • ${n}`).join('\n') + '\n\n' +
+      `⚠️ Uploads voor deze kanalen zullen falen — opnieuw authenticeren vereist`
+    )
+    log.error('Watchdog: channels missing refresh token', { channels: missing })
+  }
+
+  if (expired.length > 0) {
+    lastOAuthAlert = now
+    await sendTelegram(
+      `⚠️ <b>WATCHDOG — OAuth Token Verlopen (>2u)</b>\n\n` +
+      `Kanalen: ${expired.join(', ')}\n` +
+      `📋 Access token is niet ververst — check of uploads nog lukken\n` +
+      `🔧 Als uploads falen: herverbind via het dashboard`
+    )
+    log.warn('Watchdog: channels with stale expired tokens', { channels: expired })
+  }
+}
+
 // ─── Daily summary ────────────────────────────────────────────────────────────
 
 async function sendDailySummary(): Promise<void> {
@@ -298,6 +352,7 @@ async function runChecks(): Promise<void> {
     checkStuckUploads(),
     checkManualReviewQueue(),
     checkQueueDepths(),
+    checkOAuthTokens(),
   ])
 }
 

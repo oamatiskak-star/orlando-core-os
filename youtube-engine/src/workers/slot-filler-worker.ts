@@ -24,11 +24,23 @@ async function fillSlots(): Promise<void> {
 
   if (!readyVideos?.length) return
 
-  log.debug(`Slot filler: ${readyVideos.length} videos klaar voor koppeling`)
+  // Sluit videos uit die al een actieve queue-entry hebben (race-condition guard)
+  const { data: alreadyActive } = await db
+    .from('youtube_upload_queue')
+    .select('video_id')
+    .not('video_id', 'is', null)
+    .not('status', 'in', '("verified_live","failed","manual_review_required","planned")')
+
+  const activeSet = new Set((alreadyActive ?? []).map(q => q.video_id as string))
+  const safeVideos = readyVideos.filter(v => !activeSet.has(v.id))
+
+  if (!safeVideos.length) return
+
+  log.debug(`Slot filler: ${safeVideos.length} videos klaar voor koppeling (${readyVideos.length - safeVideos.length} al actief in queue)`)
 
   // Groepeer per kanaal
-  const byChannel = new Map<string, typeof readyVideos>()
-  for (const v of readyVideos) {
+  const byChannel = new Map<string, typeof safeVideos>()
+  for (const v of safeVideos) {
     const list = byChannel.get(v.channel_id) ?? []
     list.push(v)
     byChannel.set(v.channel_id, list)
