@@ -1,6 +1,6 @@
-/* Orlando Core OS — Service Worker v1 */
+/* Orlando Core OS — Service Worker v3 */
 
-const CACHE_NAME = 'orlando-core-os-v1'
+const CACHE_NAME = 'orlando-core-os-v3'
 
 const PRECACHE = [
   '/mobile',
