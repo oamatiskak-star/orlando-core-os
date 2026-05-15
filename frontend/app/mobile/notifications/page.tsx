@@ -2,6 +2,18 @@
 
 import { useState, useEffect, useTransition } from 'react'
 import { Bell, CheckCheck, Trash2, Loader2, Info, AlertTriangle, CheckCircle, XCircle } from 'lucide-react'
+import SortableSection from '@/components/mobile/SortableSection'
+
+type SectionId = 'controls' | 'list'
+
+const SECTION_LABELS: Record<SectionId, string> = {
+  controls: 'Filters & acties',
+  list:     'Meldingen',
+}
+
+const DEFAULT_ORDER: SectionId[] = ['controls', 'list']
+const LS_ORDER     = 'no-section-order'
+const LS_COLLAPSED = 'no-section-collapsed'
 
 interface Notification {
   id: string
@@ -10,7 +22,6 @@ interface Notification {
   body: string
   read: boolean
   created_at: string
-  metadata: Record<string, unknown>
 }
 
 function timeAgo(iso: string): string {
@@ -29,23 +40,58 @@ const TYPE_META: Record<string, { icon: typeof Info; color: string; bg: string }
 }
 
 export default function MobileNotificationsPage() {
-  const [notifs, setNotifs]       = useState<Notification[]>([])
-  const [loading, setLoading]     = useState(true)
-  const [filter, setFilter]       = useState<'all' | 'unread'>('all')
-  const [markPending, startMark]  = useTransition()
-  const [delPending, startDel]    = useTransition()
+  const [notifs, setNotifs]         = useState<Notification[]>([])
+  const [loading, setLoading]       = useState(true)
+  const [filter, setFilter]         = useState<'all' | 'unread'>('all')
+  const [order, setOrder]           = useState<SectionId[]>(DEFAULT_ORDER)
+  const [collapsed, setCollapsed]   = useState<Set<SectionId>>(new Set())
+  const [editing, setEditing]       = useState(false)
+  const [markPending, startMark]    = useTransition()
+  const [delPending, startDel]      = useTransition()
 
-  async function load() {
+  useEffect(() => {
     try {
-      const url = filter === 'unread' ? '/api/mobile/notifications?unread=true' : '/api/mobile/notifications'
-      const res = await fetch(url, { cache: 'no-store' })
-      const json = await res.json()
-      setNotifs(json.notifications ?? [])
-    } catch { /* ignore */ }
-    finally { setLoading(false) }
-  }
+      const o = localStorage.getItem(LS_ORDER)
+      if (o) setOrder(JSON.parse(o))
+      const c = localStorage.getItem(LS_COLLAPSED)
+      if (c) setCollapsed(new Set(JSON.parse(c)))
+    } catch {}
+  }, [])
 
-  useEffect(() => { setLoading(true); load() }, [filter])
+  useEffect(() => {
+    setLoading(true)
+    const url = filter === 'unread' ? '/api/mobile/notifications?unread=true' : '/api/mobile/notifications'
+    fetch(url, { cache: 'no-store' })
+      .then(r => r.json())
+      .then(j => setNotifs(j.notifications ?? []))
+      .catch(() => {})
+      .finally(() => setLoading(false))
+  }, [filter])
+
+  function saveOrder(next: SectionId[]) {
+    setOrder(next)
+    try { localStorage.setItem(LS_ORDER, JSON.stringify(next)) } catch {}
+  }
+  function toggleCollapse(id: SectionId) {
+    setCollapsed(prev => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id); else next.add(id)
+      try { localStorage.setItem(LS_COLLAPSED, JSON.stringify([...next])) } catch {}
+      return next
+    })
+  }
+  function moveUp(id: SectionId) {
+    const idx = order.indexOf(id)
+    if (idx <= 0) return
+    const next = [...order]; [next[idx-1], next[idx]] = [next[idx], next[idx-1]]
+    saveOrder(next)
+  }
+  function moveDown(id: SectionId) {
+    const idx = order.indexOf(id)
+    if (idx >= order.length - 1) return
+    const next = [...order]; [next[idx], next[idx+1]] = [next[idx+1], next[idx]]
+    saveOrder(next)
+  }
 
   async function markAllRead() {
     startMark(async () => {
@@ -53,14 +99,12 @@ export default function MobileNotificationsPage() {
       setNotifs(n => n.map(x => ({ ...x, read: true })))
     })
   }
-
   async function deleteAll() {
     startDel(async () => {
       await fetch('/api/mobile/notifications', { method: 'DELETE' })
       setNotifs([])
     })
   }
-
   async function markOne(id: string) {
     await fetch(`/api/mobile/notifications/${id}`, {
       method: 'PATCH',
@@ -69,7 +113,6 @@ export default function MobileNotificationsPage() {
     })
     setNotifs(n => n.map(x => x.id === id ? { ...x, read: true } : x))
   }
-
   async function deleteOne(id: string) {
     await fetch(`/api/mobile/notifications/${id}`, { method: 'DELETE' })
     setNotifs(n => n.filter(x => x.id !== id))
@@ -97,98 +140,122 @@ export default function MobileNotificationsPage() {
             <p className="text-[11px] text-white/40">{unreadCount} ongelezen</p>
           </div>
         </div>
-        <div className="flex gap-2">
-          {unreadCount > 0 && (
-            <button
-              onClick={markAllRead}
-              disabled={markPending}
-              className="flex items-center gap-1.5 px-3 py-1.5 bg-white/[0.06] border border-white/[0.08] rounded-lg text-[11px] text-white/60 disabled:opacity-50"
-            >
-              {markPending ? <Loader2 size={11} className="animate-spin" /> : <CheckCheck size={11} />}
-              Alles gelezen
-            </button>
-          )}
-          {notifs.length > 0 && (
-            <button
-              onClick={deleteAll}
-              disabled={delPending}
-              className="flex items-center gap-1.5 px-3 py-1.5 bg-red-500/10 border border-red-500/20 rounded-lg text-[11px] text-red-400/80 disabled:opacity-50"
-            >
-              {delPending ? <Loader2 size={11} className="animate-spin" /> : <Trash2 size={11} />}
-              Wis alles
-            </button>
-          )}
-        </div>
+        <button
+          onClick={() => setEditing(e => !e)}
+          className={`px-3 py-1.5 rounded-lg text-[11px] font-medium border transition-colors ${editing ? 'bg-indigo-600/80 border-indigo-500/50 text-white' : 'bg-white/[0.04] border-white/[0.08] text-white/40'}`}
+        >
+          {editing ? 'Klaar' : 'Rangschikken'}
+        </button>
       </div>
 
-      {/* Filter tabs */}
-      <div className="flex gap-2">
-        {(['all', 'unread'] as const).map(f => (
-          <button
-            key={f}
-            onClick={() => setFilter(f)}
-            className={`px-3 py-1.5 rounded-lg text-[11px] font-medium transition-colors ${
-              filter === f
-                ? 'bg-white/[0.10] text-white border border-white/[0.12]'
-                : 'text-white/40 border border-transparent'
-            }`}
-          >
-            {f === 'all' ? 'Alle' : 'Ongelezen'}
-          </button>
-        ))}
-      </div>
+      {order.map((id, idx) => (
+        <SortableSection
+          key={id}
+          label={SECTION_LABELS[id]}
+          collapsed={collapsed.has(id)}
+          editing={editing}
+          isFirst={idx === 0}
+          isLast={idx === order.length - 1}
+          onToggleCollapse={() => toggleCollapse(id)}
+          onMoveUp={() => moveUp(id)}
+          onMoveDown={() => moveDown(id)}
+        >
+          {id === 'controls' && (
+            <div className="space-y-3">
+              {/* Filter tabs */}
+              <div className="flex gap-2">
+                {(['all', 'unread'] as const).map(f => (
+                  <button
+                    key={f}
+                    onClick={() => setFilter(f)}
+                    className={`px-3 py-1.5 rounded-lg text-[11px] font-medium transition-colors ${
+                      filter === f
+                        ? 'bg-white/[0.10] text-white border border-white/[0.12]'
+                        : 'text-white/40 border border-transparent'
+                    }`}
+                  >
+                    {f === 'all' ? 'Alle' : 'Ongelezen'}
+                  </button>
+                ))}
+              </div>
+              {/* Action buttons */}
+              <div className="flex gap-2">
+                {unreadCount > 0 && (
+                  <button
+                    onClick={markAllRead}
+                    disabled={markPending}
+                    className="flex items-center gap-1.5 px-3 py-2 bg-white/[0.06] border border-white/[0.08] rounded-xl text-[11px] text-white/60 disabled:opacity-50"
+                  >
+                    {markPending ? <Loader2 size={11} className="animate-spin" /> : <CheckCheck size={11} />}
+                    Alles gelezen
+                  </button>
+                )}
+                {notifs.length > 0 && (
+                  <button
+                    onClick={deleteAll}
+                    disabled={delPending}
+                    className="flex items-center gap-1.5 px-3 py-2 bg-red-500/10 border border-red-500/20 rounded-xl text-[11px] text-red-400/80 disabled:opacity-50"
+                  >
+                    {delPending ? <Loader2 size={11} className="animate-spin" /> : <Trash2 size={11} />}
+                    Wis alles
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
 
-      {/* Notifications list */}
-      {loading ? (
-        <div className="flex items-center justify-center py-12">
-          <Loader2 size={20} className="text-white/30 animate-spin" />
-        </div>
-      ) : notifs.length === 0 ? (
-        <div className="text-center py-12">
-          <Bell size={32} className="text-white/15 mx-auto mb-3" />
-          <p className="text-sm text-white/30">
-            {filter === 'unread' ? 'Geen ongelezen meldingen' : 'Geen meldingen'}
-          </p>
-        </div>
-      ) : (
-        <div className="space-y-2">
-          {notifs.map(notif => {
-            const meta = TYPE_META[notif.type] ?? TYPE_META.info
-            const Icon = meta.icon
-            return (
-              <div
-                key={notif.id}
-                onClick={() => { if (!notif.read) markOne(notif.id) }}
-                className={`flex items-start gap-3 bg-white/[0.04] border rounded-xl px-4 py-3 transition-colors cursor-pointer ${
-                  notif.read ? 'border-white/[0.06]' : 'border-white/[0.10]'
-                }`}
-              >
-                <div className={`w-7 h-7 rounded-lg border flex items-center justify-center flex-shrink-0 mt-0.5 ${meta.bg}`}>
-                  <Icon size={13} className={meta.color} />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2">
-                    <p className={`text-[12px] font-semibold truncate ${notif.read ? 'text-white/55' : 'text-white/85'}`}>
-                      {notif.title}
-                    </p>
-                    {!notif.read && <span className="w-1.5 h-1.5 rounded-full bg-sky-400 flex-shrink-0" />}
-                  </div>
-                  {notif.body && (
-                    <p className="text-[11px] text-white/38 mt-0.5 line-clamp-2">{notif.body}</p>
-                  )}
-                  <p className="text-[10px] text-white/25 mt-1">{timeAgo(notif.created_at)}</p>
-                </div>
-                <button
-                  onClick={e => { e.stopPropagation(); deleteOne(notif.id) }}
-                  className="p-1 text-white/20 hover:text-red-400/60 transition-colors flex-shrink-0"
-                >
-                  <Trash2 size={12} />
-                </button>
+          {id === 'list' && (
+            loading ? (
+              <div className="flex items-center justify-center py-10">
+                <Loader2 size={20} className="text-white/30 animate-spin" />
+              </div>
+            ) : notifs.length === 0 ? (
+              <div className="text-center py-10">
+                <Bell size={28} className="text-white/15 mx-auto mb-2" />
+                <p className="text-sm text-white/30">
+                  {filter === 'unread' ? 'Geen ongelezen meldingen' : 'Geen meldingen'}
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {notifs.map(notif => {
+                  const meta = TYPE_META[notif.type] ?? TYPE_META.info
+                  const Icon = meta.icon
+                  return (
+                    <div
+                      key={notif.id}
+                      onClick={() => { if (!notif.read) markOne(notif.id) }}
+                      className={`flex items-start gap-3 bg-white/[0.04] border rounded-xl px-4 py-3 cursor-pointer transition-colors ${notif.read ? 'border-white/[0.06]' : 'border-white/[0.10]'}`}
+                    >
+                      <div className={`w-7 h-7 rounded-lg border flex items-center justify-center flex-shrink-0 mt-0.5 ${meta.bg}`}>
+                        <Icon size={13} className={meta.color} />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                          <p className={`text-[12px] font-semibold truncate ${notif.read ? 'text-white/55' : 'text-white/85'}`}>
+                            {notif.title}
+                          </p>
+                          {!notif.read && <span className="w-1.5 h-1.5 rounded-full bg-sky-400 flex-shrink-0" />}
+                        </div>
+                        {notif.body && (
+                          <p className="text-[11px] text-white/38 mt-0.5 line-clamp-2">{notif.body}</p>
+                        )}
+                        <p className="text-[10px] text-white/25 mt-1">{timeAgo(notif.created_at)}</p>
+                      </div>
+                      <button
+                        onClick={e => { e.stopPropagation(); deleteOne(notif.id) }}
+                        className="p-1 text-white/20 hover:text-red-400/60 transition-colors flex-shrink-0"
+                      >
+                        <Trash2 size={12} />
+                      </button>
+                    </div>
+                  )
+                })}
               </div>
             )
-          })}
-        </div>
-      )}
+          )}
+        </SortableSection>
+      ))}
     </div>
   )
 }
