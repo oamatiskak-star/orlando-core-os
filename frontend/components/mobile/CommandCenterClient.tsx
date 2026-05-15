@@ -62,7 +62,6 @@ export default function CommandCenterClient({ workers, ytChannels, systems, unre
   const [order, setOrder]         = useState<SectionId[]>(DEFAULT_ORDER)
   const [collapsed, setCollapsed] = useState<Set<SectionId>>(new Set())
   const [editing, setEditing]     = useState(false)
-  const [hydrated, setHydrated]   = useState(false)
 
   useEffect(() => {
     try {
@@ -76,7 +75,6 @@ export default function CommandCenterClient({ workers, ytChannels, systems, unre
       const savedCollapsed = localStorage.getItem(LS_COLLAPSED)
       if (savedCollapsed) setCollapsed(new Set(JSON.parse(savedCollapsed)))
     } catch {}
-    setHydrated(true)
   }, [])
 
   function saveOrder(next: SectionId[]) {
@@ -114,8 +112,6 @@ export default function CommandCenterClient({ workers, ytChannels, systems, unre
     return true
   })
 
-  if (!hydrated) return null
-
   return (
     <div className="space-y-6">
       <div className="flex justify-end">
@@ -124,7 +120,7 @@ export default function CommandCenterClient({ workers, ytChannels, systems, unre
           className={`px-4 min-h-[44px] rounded-xl text-[11px] font-medium transition-colors border ${
             editing
               ? 'bg-indigo-600/80 border-indigo-500/50 text-white'
-              : 'bg-white/[0.04] border-white/[0.08] text-white/40 hover:text-white/60'
+              : 'bg-indigo-500/15 border-indigo-500/40 text-indigo-300'
           }`}
         >
           {editing ? 'Klaar' : 'Rangschikken'}
