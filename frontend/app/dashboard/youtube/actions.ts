@@ -61,6 +61,17 @@ export async function retryQueueItem(queueId: string) {
   revalidatePath('/dashboard/youtube')
 }
 
+export async function retryAllFailed() {
+  const supabase = await createClient()
+  await supabase.from('youtube_upload_queue').update({
+    status: 'queued',
+    retry_count: 0,
+    last_error: null,
+    updated_at: new Date().toISOString(),
+  }).in('status', ['failed', 'manual_review_required'])
+  revalidatePath('/dashboard/youtube')
+}
+
 export async function cancelQueueItem(queueId: string) {
   const supabase = await createClient()
   await supabase.from('youtube_upload_queue').update({

@@ -1,9 +1,9 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useTransition } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { retryQueueItem, deleteQueueItem } from './actions'
-import { RefreshCw, Trash2, ExternalLink } from 'lucide-react'
+import { retryQueueItem, deleteQueueItem, retryAllFailed } from './actions'
+import { RefreshCw, Trash2, ExternalLink, Loader2 } from 'lucide-react'
 import clsx from 'clsx'
 
 type FailedItem = {
@@ -39,13 +39,15 @@ const FAILURE_TYPE_LABELS: Record<string, string> = {
 }
 
 export default function RetryMonitor() {
-  const [items, setItems] = useState<FailedItem[]>([])
+  const [items,    setItems]    = useState<FailedItem[]>([])
   const [expanded, setExpanded] = useState<string | null>(null)
+  const [pending,  setPending]  = useState<string | null>(null)   // item id being acted on
+  const [bulkPending, startBulk] = useTransition()
 
   useEffect(() => {
     const supabase = createClient()
 
-    async function fetch() {
+    async function load() {
       const { data } = await supabase
         .from('youtube_upload_queue')
         .select(`
@@ -60,12 +62,35 @@ export default function RetryMonitor() {
       setItems((data as FailedItem[]) ?? [])
     }
 
-    fetch()
+    load()
     const ch = supabase.channel('yt_failures_live')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'youtube_upload_queue' }, fetch)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'youtube_upload_queue' }, load)
       .subscribe()
     return () => { supabase.removeChannel(ch) }
   }, [])
+
+  async function handleRetry(id: string) {
+    setPending(id)
+    try {
+      await retryQueueItem(id)
+      setExpanded(null)
+    } finally {
+      setPending(null)
+    }
+  }
+
+  async function handleDelete(id: string) {
+    setPending('del_' + id)
+    try {
+      await deleteQueueItem(id)
+    } finally {
+      setPending(null)
+    }
+  }
+
+  function handleRetryAll() {
+    startBulk(() => retryAllFailed())
+  }
 
   if (items.length === 0) {
     return (
@@ -77,7 +102,22 @@ export default function RetryMonitor() {
   }
 
   return (
-    <div className="space-y-1.5">
+    <div className="space-y-2">
+      {/* Bulk retry */}
+      <div className="flex items-center justify-between pb-1">
+        <span className="text-[11px] text-white/40">{items.length} item{items.length !== 1 ? 's' : ''}</span>
+        <button
+          onClick={handleRetryAll}
+          disabled={bulkPending}
+          className="flex items-center gap-1.5 text-[11px] bg-indigo-600/80 hover:bg-indigo-600 disabled:opacity-50 text-white px-3 py-1.5 rounded-lg transition-colors"
+        >
+          {bulkPending
+            ? <Loader2 size={10} className="animate-spin" />
+            : <RefreshCw size={10} />}
+          Retry alle
+        </button>
+      </div>
+
       {items.map(item => (
         <div key={item.id} className="border border-red-500/10 rounded-lg overflow-hidden">
           <div
@@ -134,10 +174,14 @@ export default function RetryMonitor() {
 
               <div className="flex items-center gap-3 pt-1">
                 <button
-                  onClick={() => retryQueueItem(item.id)}
-                  className="flex items-center gap-1.5 text-[11px] bg-indigo-600 hover:bg-indigo-500 text-white px-3 py-1.5 rounded-lg transition-colors"
+                  onClick={() => handleRetry(item.id)}
+                  disabled={pending === item.id}
+                  className="flex items-center gap-1.5 text-[11px] bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white px-3 py-1.5 rounded-lg transition-colors"
                 >
-                  <RefreshCw size={10} /> Opnieuw
+                  {pending === item.id
+                    ? <Loader2 size={10} className="animate-spin" />
+                    : <RefreshCw size={10} />}
+                  Opnieuw
                 </button>
                 {item.youtube_url && (
                   <a href={item.youtube_url} target="_blank" rel="noopener noreferrer"
@@ -146,10 +190,14 @@ export default function RetryMonitor() {
                   </a>
                 )}
                 <button
-                  onClick={() => deleteQueueItem(item.id)}
-                  className="flex items-center gap-1.5 text-[11px] text-red-400/50 hover:text-red-400 transition-colors ml-auto"
+                  onClick={() => handleDelete(item.id)}
+                  disabled={pending === 'del_' + item.id}
+                  className="flex items-center gap-1.5 text-[11px] text-red-400/50 hover:text-red-400 disabled:opacity-50 transition-colors ml-auto"
                 >
-                  <Trash2 size={10} /> Verwijder
+                  {pending === 'del_' + item.id
+                    ? <Loader2 size={10} className="animate-spin" />
+                    : <Trash2 size={10} />}
+                  Verwijder
                 </button>
               </div>
             </div>
