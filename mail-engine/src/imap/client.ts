@@ -117,6 +117,53 @@ export class ImapClient {
     })
   }
 
+  async markReadInFolder(account: MailAccount, uid: number, folder: string): Promise<void> {
+    const serverPath = await this.toServerPath(account, folder)
+    return new Promise((resolve) => {
+      const imap = new Imap(this.buildConfig(account))
+
+      imap.once('ready', () => {
+        imap.openBox(serverPath, false, (err) => {
+          if (err) { imap.end(); return resolve() }
+
+          imap.addFlags(uid, ['\\Seen'], () => {
+            imap.end()
+            resolve()
+          })
+        })
+      })
+
+      imap.once('error', () => resolve())
+      imap.connect()
+    })
+  }
+
+  async deleteFromFolder(account: MailAccount, uid: number, folder: string): Promise<void> {
+    const serverPath = await this.toServerPath(account, folder)
+    return new Promise((resolve) => {
+      const imap = new Imap(this.buildConfig(account))
+
+      imap.once('ready', () => {
+        imap.openBox(serverPath, false, (err) => {
+          if (err) { imap.end(); return resolve() }
+
+          imap.addFlags(uid, ['\\Deleted'], (flagErr) => {
+            if (flagErr) { imap.end(); return resolve() }
+            imap.expunge((expErr) => {
+              imap.end()
+              if (expErr) logger.warn('IMAP expunge failed', { uid, serverPath })
+              else logger.info('IMAP message deleted', { uid, serverPath })
+              resolve()
+            })
+          })
+        })
+      })
+
+      imap.once('error', () => resolve())
+      imap.connect()
+    })
+  }
+
   // Detecteer server delimiter, namespace-prefix en bestaande mappen
   async getServerInfo(account: MailAccount): Promise<{ delimiter: string; prefix: string; folders: string[] }> {
     return new Promise((resolve) => {
