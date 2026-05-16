@@ -117,6 +117,97 @@ export class ImapClient {
     })
   }
 
+  async listFolders(account: MailAccount): Promise<string[]> {
+    return new Promise((resolve, reject) => {
+      const imap = new Imap(this.buildConfig(account))
+
+      imap.once('ready', () => {
+        imap.getBoxes('', (err, boxes) => {
+          imap.end()
+          if (err) return reject(err)
+          const names: string[] = []
+          function collect(tree: Imap.MailBoxes, prefix = '') {
+            for (const [key, box] of Object.entries(tree)) {
+              const full = prefix ? `${prefix}${box.delimiter ?? '/'}${key}` : key
+              names.push(full)
+              if (box.children) collect(box.children, full)
+            }
+          }
+          collect(boxes)
+          resolve(names)
+        })
+      })
+
+      imap.once('error', reject)
+      imap.connect()
+    })
+  }
+
+  async ensureFolder(account: MailAccount, folderPath: string): Promise<void> {
+    return new Promise((resolve, reject) => {
+      const imap = new Imap(this.buildConfig(account))
+
+      imap.once('ready', () => {
+        imap.openBox(folderPath, true, (openErr) => {
+          if (!openErr) {
+            // Folder exists
+            imap.closeBox(false, () => imap.end())
+            return resolve()
+          }
+          // Folder doesn't exist — create it
+          imap.addBox(folderPath, (addErr) => {
+            imap.end()
+            if (addErr) {
+              logger.warn('Could not create IMAP folder', { folder: folderPath, err: addErr })
+              return resolve() // non-fatal
+            }
+            logger.info('IMAP folder created', { folder: folderPath, email: account.email })
+            resolve()
+          })
+        })
+      })
+
+      imap.once('error', (err: Error) => {
+        logger.warn('IMAP ensureFolder error', { err, folder: folderPath })
+        resolve() // non-fatal
+      })
+      imap.connect()
+    })
+  }
+
+  async moveMessage(
+    account: MailAccount,
+    uid: number,
+    fromFolder: string,
+    toFolder: string
+  ): Promise<void> {
+    return new Promise((resolve, reject) => {
+      const imap = new Imap(this.buildConfig(account))
+
+      imap.once('ready', () => {
+        imap.openBox(fromFolder, false, (err) => {
+          if (err) { imap.end(); return reject(err) }
+
+          imap.move(uid, toFolder, (moveErr) => {
+            imap.end()
+            if (moveErr) {
+              logger.warn('IMAP move failed', { uid, fromFolder, toFolder, err: moveErr })
+              return resolve() // non-fatal
+            }
+            logger.info('IMAP message moved', { uid, fromFolder, toFolder })
+            resolve()
+          })
+        })
+      })
+
+      imap.once('error', (err: Error) => {
+        logger.warn('IMAP moveMessage error', { err })
+        resolve() // non-fatal
+      })
+      imap.connect()
+    })
+  }
+
   async countUnread(account: MailAccount): Promise<number> {
     return new Promise((resolve, reject) => {
       const imap = new Imap(this.buildConfig(account))

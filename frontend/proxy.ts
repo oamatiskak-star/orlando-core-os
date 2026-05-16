@@ -5,8 +5,10 @@ export async function proxy(request: NextRequest) {
   const hostname = request.headers.get('host') ?? ''
   const { pathname } = request.nextUrl
 
-  // Domain routing: maildash.strkbeheer.nl → /dashboard/mail
-  if ((hostname === 'maildash.strkbeheer.nl' || hostname.startsWith('maildash.')) && pathname === '/') {
+  // Domain routing: maildash.strkbeheer.nl → altijd /dashboard/mail
+  // Vangt zowel root als post-login /dashboard redirect op
+  const isMailDash = hostname === 'maildash.strkbeheer.nl' || hostname.startsWith('maildash.')
+  if (isMailDash && (pathname === '/' || pathname === '/dashboard')) {
     const url = request.nextUrl.clone()
     url.pathname = '/dashboard/mail'
     return NextResponse.redirect(url)

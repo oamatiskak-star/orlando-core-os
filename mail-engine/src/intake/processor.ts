@@ -10,6 +10,7 @@ import { RelationshipMemory } from '../memory/relationship'
 import { LabelBuilder } from '../labels/builder'
 import { MoneybirdIntegration } from '../moneybird/integration'
 import { LegalAgent } from '../ai/legal-agent'
+import { MappingAgent } from '../ai/mapping-agent'
 import { logger } from '../lib/logger'
 
 const gmailClient      = new GmailClient()
@@ -21,6 +22,7 @@ const relationshipMemory = new RelationshipMemory()
 const labelBuilder     = new LabelBuilder()
 const moneybird        = new MoneybirdIntegration()
 const legalAgent       = new LegalAgent()
+const mappingAgent     = new MappingAgent()
 
 function detectCompany(toEmails: string[], subject: string): string {
   const text = [...toEmails, subject].join(' ').toLowerCase()
@@ -486,7 +488,14 @@ export class IntakeProcessor {
       }
     }
 
-    await labelBuilder.buildSmartLabels(message, classification)
+    // Mapping Agent: IMAP mappen aanmaken + mail verplaatsen + labels
+    try {
+      await mappingAgent.map(account, message, classification)
+      await mappingAgent.incrementStats(true)
+    } catch (mapErr) {
+      await mappingAgent.incrementStats(false)
+      logger.warn('MappingAgent failed (non-fatal)', { err: mapErr, messageId: message.id })
+    }
 
     await supabase.from('mail_audit_log').insert({
       message_id:    message.id,
