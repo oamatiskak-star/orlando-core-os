@@ -117,6 +117,41 @@ export class ImapClient {
     })
   }
 
+  // Markeert alle ongelezen berichten in één map als gelezen. Geeft aantal terug.
+  async markAllReadInFolder(account: MailAccount, serverPath: string): Promise<number> {
+    return new Promise((resolve) => {
+      const imap = new Imap(this.buildConfig(account))
+
+      imap.once('ready', () => {
+        imap.openBox(serverPath, false, (err, box) => {
+          if (err || !box || box.messages.unseen === 0) {
+            imap.end()
+            return resolve(0)
+          }
+
+          imap.search(['UNSEEN'], (searchErr, uids) => {
+            if (searchErr || !uids || uids.length === 0) {
+              imap.end()
+              return resolve(0)
+            }
+
+            imap.addFlags(uids, ['\\Seen'], (flagErr) => {
+              imap.end()
+              if (flagErr) {
+                logger.warn('markAllRead: addFlags failed', { serverPath, flagErr })
+                return resolve(0)
+              }
+              resolve(uids.length)
+            })
+          })
+        })
+      })
+
+      imap.once('error', () => resolve(0))
+      imap.connect()
+    })
+  }
+
   async markReadInFolder(account: MailAccount, uid: number, folder: string): Promise<void> {
     const serverPath = await this.toServerPath(account, folder)
     return new Promise((resolve) => {
