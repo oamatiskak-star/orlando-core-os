@@ -58,7 +58,7 @@ export async function POST() {
         const creditorIban = null
         const debtorIban   = tx.counterparties?.payer?.identifiers?.financialInstitution?.accountNumber ?? null
 
-        const cat = categorize(desc, creditorName, debtorName)
+        const cat = categorize(desc, creditorName ?? undefined, debtorName ?? undefined)
 
         const { error } = await supabase.from('personal_transactions').upsert({
           connection_id:  conn.id,
