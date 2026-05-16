@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { Search, RefreshCw, Plus, Inbox } from 'lucide-react'
+import { Search, RefreshCw, Plus, Inbox, GitBranch } from 'lucide-react'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import MailCard from './MailCard'
@@ -127,6 +127,13 @@ export default function MailInboxClient({
             )}
           </div>
           <div className="flex items-center gap-2">
+            <Link
+              href="/mobile/mail/mapping"
+              className="p-2 text-white/40 hover:text-white/70 transition-colors"
+              title="Mapping regels"
+            >
+              <GitBranch size={18} />
+            </Link>
             <Link
               href="/mobile/mail/drafts"
               className="p-2 text-white/40 hover:text-white/70 transition-colors"
