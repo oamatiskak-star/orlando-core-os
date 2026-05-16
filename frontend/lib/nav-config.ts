@@ -66,8 +66,9 @@ export const NAV_MODULES: Record<string, NavModuleDef> = {
   personeel_ubo:        { key: 'personeel_ubo',        label: 'UBO Register',            href: '/dashboard/personeel/ubo',         icon: Key },
 
   // ── O.S.M. AMATISKAK specifiek ────────────────────────────────────────────
-  dyme_os:              { key: 'dyme_os',              label: 'Dyme OS',                 href: '/dashboard/dyme',                  icon: Coins },
+  dyme_os:              { key: 'dyme_os',              label: 'Dyme OS · ING',           href: '/dashboard/dyme',                  icon: Coins },
   personal_finance:     { key: 'personal_finance',     label: 'Personal Finance OS',     href: '/dashboard/personal-finance',      icon: BadgeDollarSign },
+  dga_loonstrook:       { key: 'dga_loonstrook',       label: 'DGA Loonstroken',         href: '/dashboard/personal-finance/loonstrook', icon: ReceiptText },
   loonstroken:          { key: 'loonstroken',          label: 'Loonstroken',             href: '/dashboard/loonstroken',           icon: ReceiptText },
 
   // ── STRKBEHEER — VASTGOED ─────────────────────────────────────────────────
@@ -143,7 +144,7 @@ export const COMPANY_NAV: Record<string, CompanyNav> = {
     sections: [
       { modules: ['dashboard'] },
       { title: 'OSIL', modules: ['osil_dashboard', 'osil_board', 'osil_kansen', 'osil_recovery', 'osil_optimalisatie', 'osil_fiscalist', 'osil_rapport'] },
-      { title: 'Persoonlijk', modules: ['dyme_os', 'personal_finance', 'loonstroken', 'financien'] },
+      { title: 'Persoonlijk', modules: ['dyme_os', 'personal_finance', 'dga_loonstrook', 'loonstroken', 'financien'] },
       { title: 'Bedrijven', modules: ['bedrijven'] },
       { title: 'Operationeel', modules: ['agenda', 'taken', 'planning', 'crm'] },
       { title: 'Operations Center', modules: ['ops_dashboard', 'ops_workflows', 'ops_routines', 'ops_agents', 'ops_scheduler', 'ops_queue', 'ops_logs', 'ops_errors', 'ops_automations', 'ops_api', 'ops_suggestions', 'ops_manual', 'ops_templates', 'ops_webhooks', 'ops_analytics', 'ops_company_settings', 'ops_global_settings'] },
