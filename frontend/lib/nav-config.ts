@@ -8,6 +8,7 @@ import {
   Archive, ScrollText, Inbox, ArrowRightLeft,
   UserCheck, LucideIcon, Globe, Key, Coins, BadgeDollarSign,
   Cpu, GitBranch, ListChecks, Terminal, Webhook, PlugZap, Lightbulb, BarChart2, SlidersHorizontal, AlertCircle,
+  Mail, Shield, GitMerge, Filter,
 } from 'lucide-react'
 
 export type NavModuleDef = {
@@ -95,6 +96,14 @@ export const NAV_MODULES: Record<string, NavModuleDef> = {
   youtube_scheduled:    { key: 'youtube_scheduled',    label: 'Gepland',                 href: '/dashboard/youtube/scheduled',     icon: Calendar },
   youtube_logs:         { key: 'youtube_logs',         label: 'Logs',                    href: '/dashboard/youtube/logs',          icon: FileText },
 
+  // ── MAIL ENGINE ───────────────────────────────────────────────────────────
+  mail_dashboard:       { key: 'mail_dashboard',       label: 'Mail Engine',             href: '/dashboard/mail',                  icon: Mail },
+  mail_agents:          { key: 'mail_agents',           label: 'Mail Agents',             href: '/dashboard/mail/agents',           icon: Bot },
+  mail_workflows:       { key: 'mail_workflows',        label: 'Mail Workflows',          href: '/dashboard/mail/workflows',        icon: GitMerge },
+  mail_rules:           { key: 'mail_rules',            label: 'Routing Rules',           href: '/dashboard/mail/rules',            icon: Filter },
+  mail_dossiers:        { key: 'mail_dossiers',         label: 'Juridische Dossiers',     href: '/dashboard/mail/dossiers',         icon: Scale },
+  mail_inbox:           { key: 'mail_inbox',            label: 'Inbox',                   href: '/mobile/mail',                     icon: Inbox },
+
   // ── OPERATIONS CENTER ─────────────────────────────────────────────────────
   ops_dashboard:        { key: 'ops_dashboard',        label: 'Operations',          href: '/dashboard/operations',                      icon: Cpu },
   ops_workflows:        { key: 'ops_workflows',        label: 'Workflow Engine',     href: '/dashboard/operations/workflows',             icon: GitBranch },
@@ -127,6 +136,7 @@ export const COMPANY_NAV: Record<string, CompanyNav> = {
       { title: 'Bedrijven', modules: ['bedrijven'] },
       { title: 'Operationeel', modules: ['agenda', 'taken', 'planning', 'crm'] },
       { title: 'Operations Center', modules: ['ops_dashboard', 'ops_workflows', 'ops_routines', 'ops_agents', 'ops_scheduler', 'ops_queue', 'ops_logs', 'ops_errors', 'ops_automations', 'ops_api', 'ops_suggestions', 'ops_manual', 'ops_templates', 'ops_webhooks', 'ops_analytics', 'ops_company_settings', 'ops_global_settings'] },
+      { title: 'Mail Engine', modules: ['mail_dashboard', 'mail_agents', 'mail_workflows', 'mail_rules', 'mail_dossiers', 'mail_inbox'] },
       { title: 'AI & Workflow', modules: ['agents', 'workflows'] },
       { title: 'Systeem', modules: ['administratie', 'belasting', 'abonnementen', 'documenten'] },
     ],
@@ -147,6 +157,7 @@ export const COMPANY_NAV: Record<string, CompanyNav> = {
       },
       { title: 'Operationeel', modules: ['projecten', 'planning', 'crm', 'documenten', 'agenda', 'taken'] },
       { title: 'Operations Center', modules: ['ops_dashboard', 'ops_workflows', 'ops_routines', 'ops_agents', 'ops_scheduler', 'ops_queue', 'ops_logs', 'ops_errors', 'ops_automations', 'ops_api', 'ops_suggestions', 'ops_manual', 'ops_templates', 'ops_webhooks', 'ops_analytics', 'ops_company_settings', 'ops_global_settings'] },
+      { title: 'Mail Engine', modules: ['mail_dashboard', 'mail_agents', 'mail_workflows', 'mail_rules', 'mail_dossiers', 'mail_inbox'] },
       { title: 'AI & Workflow', modules: ['agents', 'workflows'] },
       { title: 'Systeem', modules: ['administratie', 'gebruikers'] },
     ],
@@ -170,6 +181,7 @@ export const COMPANY_NAV: Record<string, CompanyNav> = {
       { title: 'Operationeel', modules: ['projecten', 'planning', 'crm', 'documenten', 'agenda', 'taken'] },
       { title: 'Finance', modules: ['finance_incasso', 'financien', 'belasting', 'abonnementen'] },
       { title: 'Operations Center', modules: ['ops_dashboard', 'ops_workflows', 'ops_routines', 'ops_agents', 'ops_scheduler', 'ops_queue', 'ops_logs', 'ops_errors', 'ops_automations', 'ops_api', 'ops_suggestions', 'ops_manual', 'ops_templates', 'ops_webhooks', 'ops_analytics', 'ops_company_settings', 'ops_global_settings'] },
+      { title: 'Mail Engine', modules: ['mail_dashboard', 'mail_agents', 'mail_workflows', 'mail_rules', 'mail_dossiers', 'mail_inbox'] },
       { title: 'AI & Workflow', modules: ['agents', 'workflows'] },
       { title: 'Systeem', modules: ['administratie', 'gebruikers'] },
     ],
@@ -191,6 +203,7 @@ export const COMPANY_NAV: Record<string, CompanyNav> = {
       { title: 'Operationeel', modules: ['planning', 'crm', 'documenten', 'agenda', 'taken'] },
       { title: 'Finance', modules: ['finance_incasso', 'financien', 'belasting', 'abonnementen'] },
       { title: 'Operations Center', modules: ['ops_dashboard', 'ops_workflows', 'ops_routines', 'ops_agents', 'ops_scheduler', 'ops_queue', 'ops_logs', 'ops_errors', 'ops_automations', 'ops_api', 'ops_suggestions', 'ops_manual', 'ops_templates', 'ops_webhooks', 'ops_analytics', 'ops_company_settings', 'ops_global_settings'] },
+      { title: 'Mail Engine', modules: ['mail_dashboard', 'mail_agents', 'mail_workflows', 'mail_rules', 'mail_dossiers', 'mail_inbox'] },
       { title: 'AI & Workflow', modules: ['agents', 'workflows'] },
       { title: 'Systeem', modules: ['administratie', 'gebruikers'] },
     ],
@@ -213,6 +226,7 @@ export const COMPANY_NAV: Record<string, CompanyNav> = {
       { title: 'Finance', modules: ['finance_incasso', 'financien', 'belasting', 'abonnementen'] },
       { title: 'Operationeel', modules: ['documenten', 'agenda', 'taken'] },
       { title: 'Operations Center', modules: ['ops_dashboard', 'ops_workflows', 'ops_routines', 'ops_agents', 'ops_scheduler', 'ops_queue', 'ops_logs', 'ops_errors', 'ops_automations', 'ops_api', 'ops_suggestions', 'ops_manual', 'ops_templates', 'ops_webhooks', 'ops_analytics', 'ops_company_settings', 'ops_global_settings'] },
+      { title: 'Mail Engine', modules: ['mail_dashboard', 'mail_agents', 'mail_workflows', 'mail_rules', 'mail_dossiers', 'mail_inbox'] },
       { title: 'AI & Workflow', modules: ['agents', 'workflows'] },
       { title: 'Systeem', modules: ['administratie', 'gebruikers'] },
     ],
@@ -229,6 +243,7 @@ export const COMPANY_NAV: Record<string, CompanyNav> = {
       { title: 'Finance', modules: ['finance_incasso', 'financien', 'belasting', 'abonnementen'] },
       { title: 'Operationeel', modules: ['documenten', 'agenda', 'taken'] },
       { title: 'Operations Center', modules: ['ops_dashboard', 'ops_workflows', 'ops_routines', 'ops_agents', 'ops_scheduler', 'ops_queue', 'ops_logs', 'ops_errors', 'ops_automations', 'ops_api', 'ops_suggestions', 'ops_manual', 'ops_templates', 'ops_webhooks', 'ops_analytics', 'ops_company_settings', 'ops_global_settings'] },
+      { title: 'Mail Engine', modules: ['mail_dashboard', 'mail_agents', 'mail_workflows', 'mail_rules', 'mail_dossiers', 'mail_inbox'] },
       { title: 'AI & Workflow', modules: ['agents', 'workflows'] },
       { title: 'Systeem', modules: ['administratie', 'gebruikers'] },
     ],
@@ -244,6 +259,7 @@ export const COMPANY_NAV: Record<string, CompanyNav> = {
       { title: 'Finance', modules: ['finance_incasso', 'financien', 'belasting', 'abonnementen'] },
       { title: 'Operationeel', modules: ['documenten', 'agenda', 'taken'] },
       { title: 'Operations Center', modules: ['ops_dashboard', 'ops_workflows', 'ops_routines', 'ops_agents', 'ops_scheduler', 'ops_queue', 'ops_logs', 'ops_errors', 'ops_automations', 'ops_api', 'ops_suggestions', 'ops_manual', 'ops_templates', 'ops_webhooks', 'ops_analytics', 'ops_company_settings', 'ops_global_settings'] },
+      { title: 'Mail Engine', modules: ['mail_dashboard', 'mail_agents', 'mail_workflows', 'mail_rules', 'mail_dossiers', 'mail_inbox'] },
       { title: 'AI & Workflow', modules: ['agents', 'workflows'] },
       { title: 'Systeem', modules: ['administratie', 'gebruikers'] },
     ],

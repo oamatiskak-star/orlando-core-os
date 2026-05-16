@@ -2,6 +2,16 @@ import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 
 export async function proxy(request: NextRequest) {
+  const hostname = request.headers.get('host') ?? ''
+  const { pathname } = request.nextUrl
+
+  // Domain routing: maildash.strkbeheer.nl → /dashboard/mail
+  if ((hostname === 'maildash.strkbeheer.nl' || hostname.startsWith('maildash.')) && pathname === '/') {
+    const url = request.nextUrl.clone()
+    url.pathname = '/dashboard/mail'
+    return NextResponse.redirect(url)
+  }
+
   let supabaseResponse = NextResponse.next({ request })
 
   const supabase = createServerClient(
@@ -24,8 +34,6 @@ export async function proxy(request: NextRequest) {
   )
 
   const { data: { user } } = await supabase.auth.getUser()
-
-  const { pathname } = request.nextUrl
 
   // Beschermde routes — redirect naar /login als niet ingelogd
   if (!user && pathname.startsWith('/dashboard')) {
