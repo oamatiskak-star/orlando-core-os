@@ -45,7 +45,7 @@ async function upsertTransactions(
 
   for (const tx of txList) {
     // Dyme heeft eigen categorisatie — gebruik die als de categorizer laag scoort
-    const cat        = categorize(tx.description, tx.creditor_name, tx.debtor_name)
+    const cat        = categorize(tx.description, tx.creditor_name ?? undefined, tx.debtor_name ?? undefined)
     const dymecat    = (tx as ParsedTransaction & { _dyme_cat?: string })._dyme_cat
     const finalCat   = dymecat && cat.confidence < 0.7 ? dymecat : cat.category
 
