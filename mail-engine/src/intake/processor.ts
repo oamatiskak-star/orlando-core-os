@@ -9,6 +9,7 @@ import { SpamDetector } from '../spam/detector'
 import { RelationshipMemory } from '../memory/relationship'
 import { LabelBuilder } from '../labels/builder'
 import { MoneybirdIntegration } from '../moneybird/integration'
+import { LegalAgent } from '../ai/legal-agent'
 import { logger } from '../lib/logger'
 
 const gmailClient      = new GmailClient()
@@ -19,6 +20,7 @@ const spamDetector     = new SpamDetector()
 const relationshipMemory = new RelationshipMemory()
 const labelBuilder     = new LabelBuilder()
 const moneybird        = new MoneybirdIntegration()
+const legalAgent       = new LegalAgent()
 
 function detectCompany(toEmails: string[], subject: string): string {
   const text = [...toEmails, subject].join(' ').toLowerCase()
@@ -37,6 +39,7 @@ type RoutingOverride = {
   priority?: string
   isInvoice?: boolean
   isLegalNotice?: boolean
+  agentType?: string
 }
 
 async function applyRoutingRules(
@@ -70,6 +73,7 @@ async function applyRoutingRules(
     if (rule.set_priority)        override.priority       = rule.set_priority
     if (rule.set_is_invoice       != null) override.isInvoice      = rule.set_is_invoice
     if (rule.set_is_legal_notice  != null) override.isLegalNotice  = rule.set_is_legal_notice
+    if (rule.agent_type)          override.agentType      = rule.agent_type
     return override
   }
 
@@ -204,7 +208,7 @@ export class IntakeProcessor {
       return
     }
 
-    await this.postProcess(account, inserted as MailMessage, classification, spamResult, gmailMessage)
+    await this.postProcess(account, inserted as MailMessage, classification, spamResult, gmailMessage, routingOverride.agentType)
   }
 
   // IMAP message handler (iCloud, custom domains)
@@ -291,7 +295,7 @@ export class IntakeProcessor {
       return
     }
 
-    await this.postProcessImap(account, inserted as MailMessage, classification, spamResult, parsed)
+    await this.postProcessImap(account, inserted as MailMessage, classification, spamResult, parsed, routingOverride.agentType)
   }
 
   private async postProcess(
@@ -299,7 +303,8 @@ export class IntakeProcessor {
     message: MailMessage,
     classification: Awaited<ReturnType<AiClassifier['classify']>>,
     spamResult: Awaited<ReturnType<SpamDetector['analyze']>>,
-    gmailMessage: GmailMessage
+    gmailMessage: GmailMessage,
+    agentType?: string
   ): Promise<void> {
     const fromEmail  = message.from_email!
     const fromName   = message.from_name ?? fromEmail
@@ -342,7 +347,7 @@ export class IntakeProcessor {
       }
     }
 
-    await this.sharedPostProcess(account, message, classification, spamResult, fromEmail, fromName, processedAttachments)
+    await this.sharedPostProcess(account, message, classification, spamResult, fromEmail, fromName, processedAttachments, agentType)
   }
 
   private async postProcessImap(
@@ -350,7 +355,8 @@ export class IntakeProcessor {
     message: MailMessage,
     classification: Awaited<ReturnType<AiClassifier['classify']>>,
     spamResult: Awaited<ReturnType<SpamDetector['analyze']>>,
-    parsed: ParsedMail
+    parsed: ParsedMail,
+    agentType?: string
   ): Promise<void> {
     const fromEmail = message.from_email!
     const fromName  = message.from_name ?? fromEmail
@@ -374,17 +380,18 @@ export class IntakeProcessor {
       }
     }
 
-    await this.sharedPostProcess(account, message, classification, spamResult, fromEmail, fromName, processedAttachments)
+    await this.sharedPostProcess(account, message, classification, spamResult, fromEmail, fromName, processedAttachments, agentType)
   }
 
   private async sharedPostProcess(
-    _account: MailAccount,
+    account: MailAccount,
     message: MailMessage,
     classification: Awaited<ReturnType<AiClassifier['classify']>>,
     spamResult: Awaited<ReturnType<SpamDetector['analyze']>>,
     fromEmail: string,
     fromName: string,
-    processedAttachments: Array<{ id: string; analysis: import('../ai/attachment-analyzer').AttachmentAnalysis }>
+    processedAttachments: Array<{ id: string; analysis: import('../ai/attachment-analyzer').AttachmentAnalysis }>,
+    agentType?: string
   ): Promise<void> {
     const existingContact = await relationshipMemory.getContact(fromEmail)
 
@@ -397,6 +404,47 @@ export class IntakeProcessor {
 
     await relationshipMemory.addInteraction(contact.id, message.id, 'inbound', classification.summary)
 
+    // ── Legal Agent — juridische bescherming ──────────────────────────────────
+    const isLegalMail = agentType === 'legal'
+      || classification.isLegalNotice
+      || ['advocaat', 'incasso'].includes(classification.category)
+
+    if (isLegalMail && !spamResult.isThreat) {
+      try {
+        const attachmentTexts = processedAttachments
+          .map(a => a.analysis.extractedData?.text as string ?? '')
+          .filter(Boolean)
+
+        const legalAnalysis = await legalAgent.analyze(account, message, attachmentTexts)
+        await legalAgent.createDossier(message, account, legalAnalysis)
+
+        await supabase.from('mail_audit_log').insert({
+          message_id:    message.id,
+          action:        'legal_agent_processed',
+          actor:         'ai',
+          detail:        {
+            legal_type:   legalAnalysis.legalType,
+            risk_level:   legalAnalysis.riskLevel,
+            deadlines:    legalAnalysis.deadlines.length,
+            party:        legalAnalysis.partyName,
+          },
+          ai_confidence: legalAnalysis.confidence,
+        })
+
+        logger.info('Legal Agent processed', {
+          from:      fromEmail,
+          riskLevel: legalAnalysis.riskLevel,
+          legalType: legalAnalysis.legalType,
+          deadlines: legalAnalysis.deadlines.length,
+        })
+        // Legal Agent maakt zijn eigen drafts — sla generieke reply over
+        return
+      } catch (err) {
+        logger.error('Legal Agent failed, falling back to generic', { err, messageId: message.id })
+      }
+    }
+
+    // ── Generieke reply generator ─────────────────────────────────────────────
     if (!spamResult.isThreat) {
       const history = await relationshipMemory.getContactHistory(fromEmail, 10)
       const draft   = await replyGenerator.generateReply(message, contact, history)
