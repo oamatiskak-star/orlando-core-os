@@ -259,7 +259,7 @@ export default function DymePage() {
             <input
               id="import-file-input"
               type="file"
-              accept=".mt940,.mta,.sta,.mt9,.csv,.txt,.pdf"
+              accept=".mt940,.mta,.sta,.mt9,.csv,.txt,.pdf,.xlsx,.xls"
               className="hidden"
               onChange={e => { const f = e.target.files?.[0]; if (f) { setImportFile(f); setImportResult(null) } }}
             />
@@ -273,7 +273,7 @@ export default function DymePage() {
               <>
                 <Upload size={20} className="mx-auto text-white/30 mb-2" />
                 <p className="text-xs text-white/50">Sleep bestand hierheen of klik om te selecteren</p>
-                <p className="text-[10px] text-white/30 mt-1">.mt940 · .csv · .pdf · .txt</p>
+                <p className="text-[10px] text-white/30 mt-1">.mt940 · .csv · .xlsx · .pdf · .txt</p>
               </>
             )}
           </div>

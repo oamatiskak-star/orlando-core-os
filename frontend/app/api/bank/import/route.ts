@@ -3,6 +3,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { parseMt940 } from '@/lib/bank/parsers/mt940'
 import { parseCsv }   from '@/lib/bank/parsers/csv'
 import { parsePdf }   from '@/lib/bank/parsers/pdf'
+import { parseXlsx }  from '@/lib/bank/parsers/xlsx'
 import { categorize } from '@/lib/bank/categorizer'
 import type { ParsedTransaction } from '@/lib/bank/parsers/mt940'
 
@@ -43,7 +44,10 @@ async function upsertTransactions(
   }
 
   for (const tx of txList) {
-    const cat = categorize(tx.description, tx.creditor_name, tx.debtor_name)
+    // Dyme heeft eigen categorisatie — gebruik die als de categorizer laag scoort
+    const cat        = categorize(tx.description, tx.creditor_name, tx.debtor_name)
+    const dymecat    = (tx as ParsedTransaction & { _dyme_cat?: string })._dyme_cat
+    const finalCat   = dymecat && cat.confidence < 0.7 ? dymecat : cat.category
 
     const { error } = await supabase.from('personal_transactions').upsert({
       connection_id:  connId,
@@ -58,7 +62,7 @@ async function upsertTransactions(
       creditor_iban:  tx.creditor_iban,
       debtor_iban:    tx.debtor_iban,
       direction:      tx.direction,
-      category:       cat.category,
+      category:       finalCat,
       subcategory:    cat.subcategory ?? null,
       ai_confidence:  cat.confidence,
       is_salary:      cat.is_salary,
@@ -107,6 +111,11 @@ export async function POST(req: NextRequest) {
       txList  = result.transactions
       iban    = result.iban
       format  = 'PDF'
+    } else if (fileName.endsWith('.xlsx') || fileName.endsWith('.xls')) {
+      const result = parseXlsx(buffer)
+      txList  = result.transactions
+      iban    = result.iban
+      format  = 'XLSX (Dyme)'
     } else if (fileName.endsWith('.csv') || fileName.endsWith('.txt')) {
       // Probeer UTF-8, dan latin1 (ING exporteert soms latin1)
       let text = buffer.toString('utf-8')
@@ -116,7 +125,7 @@ export async function POST(req: NextRequest) {
       iban    = result.iban
       format  = `CSV (${result.format})`
     } else {
-      return NextResponse.json({ error: `Niet-ondersteund bestandstype: ${fileName.split('.').pop()}` }, { status: 400 })
+      return NextResponse.json({ error: `Niet-ondersteund bestandstype: ${fileName.split('.').pop()}. Gebruik MT940, CSV, XLSX of PDF.` }, { status: 400 })
     }
 
     if (txList.length === 0) {
