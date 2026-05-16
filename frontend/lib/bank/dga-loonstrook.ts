@@ -42,8 +42,8 @@ export type DgaLoonstrook = {
 const PARAMS_2025 = {
   // Belastingschijven (loonbelasting + premie volksverzekeringen gecombineerd)
   schijf1_grens:    38_441,    // t/m €38.441
-  schijf1_tarief:   0.3697,    // 36.97% (IB + premie volksverz. t/m AOW-grens)
-  schijf2_tarief:   0.4950,    // 49.50% (IB alleen boven AOW-grens schijf 2)
+  schijf1_tarief:   0.3697,    // 36.97% (LB 9.32% + PVV 27.65%)
+  schijf2_tarief:   0.3697,    // 36.97% (€38.441 - €76.817 zelfde gecombineerd tarief 2025)
   schijf2_grens:    76_817,    // t/m €76.817
   schijf3_tarief:   0.4950,    // 49.50% boven €76.817
 
