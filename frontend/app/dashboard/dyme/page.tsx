@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react'
 import {
   Coins, RefreshCw, Link, AlertCircle, CheckCircle,
   Settings, ExternalLink, Eye, EyeOff, ChevronRight, Calendar,
+  Upload, FileText, X,
 } from 'lucide-react'
 
 type Connection = {
@@ -57,6 +58,11 @@ export default function DymePage() {
   const [setupError,     setSetupError]     = useState<string | null>(null)
   const [connectingLink, setConnectingLink] = useState<string | null>(null)
   const [hideBalance,    setHideBalance]    = useState(false)
+  const [showImport,     setShowImport]     = useState(false)
+  const [importFile,     setImportFile]     = useState<File | null>(null)
+  const [importing,      setImporting]      = useState(false)
+  const [importResult,   setImportResult]   = useState<{ ok: boolean; inserted?: number; skipped?: number; format?: string; error?: string } | null>(null)
+  const [dragOver,       setDragOver]       = useState(false)
   const [currentMonth,   setCurrentMonth]   = useState(() => {
     const n = new Date()
     return `${n.getFullYear()}-${String(n.getMonth() + 1).padStart(2, '0')}`
@@ -106,6 +112,18 @@ export default function DymePage() {
     await loadStatus()
   }
 
+  async function handleImport() {
+    if (!importFile) return
+    setImporting(true); setImportResult(null)
+    const form = new FormData()
+    form.append('file', importFile)
+    const res  = await fetch('/api/bank/import', { method: 'POST', body: form })
+    const json = await res.json()
+    setImporting(false)
+    setImportResult(json)
+    if (json.ok) { setImportFile(null); await loadData() }
+  }
+
   async function handleSync() {
     setSyncing(true)
     await fetch('/api/bank/sync', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' })
@@ -132,6 +150,10 @@ export default function DymePage() {
         <div className="flex items-center gap-2">
           <button onClick={() => setHideBalance(!hideBalance)} className="text-white/40 hover:text-white/60 p-1.5">
             {hideBalance ? <EyeOff size={15} /> : <Eye size={15} />}
+          </button>
+          <button onClick={() => { setShowImport(!showImport); setImportResult(null) }}
+            className="flex items-center gap-1.5 bg-white/5 hover:bg-white/10 text-white/70 text-xs px-3 py-2 rounded-lg">
+            <Upload size={12} /> Importeren
           </button>
           {activeConn && (
             <button onClick={handleSync} disabled={syncing} className="flex items-center gap-1.5 bg-white/5 hover:bg-white/10 text-white/70 text-xs px-3 py-2 rounded-lg">
@@ -208,6 +230,84 @@ export default function DymePage() {
           {activeConn.last_sync_at && <p className="text-[10px] text-white/40">{new Date(activeConn.last_sync_at).toLocaleDateString('nl-NL')}</p>}
         </div>
       ) : null}
+
+      {/* Import panel */}
+      {showImport && (
+        <div className="bg-white/[0.04] border border-white/10 rounded-xl p-5 space-y-4">
+          <div className="flex items-center justify-between">
+            <p className="text-sm font-medium text-white">Importeer bankafschrift</p>
+            <button onClick={() => { setShowImport(false); setImportFile(null); setImportResult(null) }}>
+              <X size={14} className="text-white/40 hover:text-white/70" />
+            </button>
+          </div>
+          <p className="text-xs text-white/50">Ondersteunt MT940, CSV (ING / ABN AMRO / Dyme) en PDF rekeningafschriften.</p>
+
+          {/* Drag & drop zone */}
+          <div
+            onDragOver={e => { e.preventDefault(); setDragOver(true) }}
+            onDragLeave={() => setDragOver(false)}
+            onDrop={e => {
+              e.preventDefault(); setDragOver(false)
+              const f = e.dataTransfer.files[0]
+              if (f) { setImportFile(f); setImportResult(null) }
+            }}
+            className={`border-2 border-dashed rounded-xl p-8 text-center transition-colors cursor-pointer ${
+              dragOver ? 'border-indigo-500 bg-indigo-500/10' : 'border-white/10 hover:border-white/20'
+            }`}
+            onClick={() => document.getElementById('import-file-input')?.click()}
+          >
+            <input
+              id="import-file-input"
+              type="file"
+              accept=".mt940,.mta,.sta,.mt9,.csv,.txt,.pdf"
+              className="hidden"
+              onChange={e => { const f = e.target.files?.[0]; if (f) { setImportFile(f); setImportResult(null) } }}
+            />
+            {importFile ? (
+              <div className="flex items-center justify-center gap-2">
+                <FileText size={16} className="text-indigo-400" />
+                <span className="text-sm text-white">{importFile.name}</span>
+                <span className="text-xs text-white/40">({(importFile.size / 1024).toFixed(1)} KB)</span>
+              </div>
+            ) : (
+              <>
+                <Upload size={20} className="mx-auto text-white/30 mb-2" />
+                <p className="text-xs text-white/50">Sleep bestand hierheen of klik om te selecteren</p>
+                <p className="text-[10px] text-white/30 mt-1">.mt940 · .csv · .pdf · .txt</p>
+              </>
+            )}
+          </div>
+
+          {/* Resultaat */}
+          {importResult && (
+            <div className={`rounded-lg px-4 py-3 text-xs ${importResult.ok ? 'bg-green-500/10 border border-green-500/20' : 'bg-red-500/10 border border-red-500/20'}`}>
+              {importResult.ok ? (
+                <div className="flex items-center gap-2">
+                  <CheckCircle size={13} className="text-green-400" />
+                  <span className="text-green-300">
+                    {importResult.inserted} transacties geïmporteerd · {importResult.skipped} al aanwezig · Formaat: {importResult.format}
+                  </span>
+                </div>
+              ) : (
+                <div className="flex items-center gap-2">
+                  <AlertCircle size={13} className="text-red-400" />
+                  <span className="text-red-300">{importResult.error}</span>
+                </div>
+              )}
+            </div>
+          )}
+
+          <div className="flex gap-2">
+            <button onClick={() => { setShowImport(false); setImportFile(null); setImportResult(null) }}
+              className="text-xs text-white/50 px-3 py-2">Sluiten</button>
+            <button onClick={handleImport} disabled={importing || !importFile}
+              className="flex items-center gap-1.5 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white text-xs font-medium px-5 py-2 rounded-lg">
+              {importing ? <RefreshCw size={11} className="animate-spin" /> : <Upload size={11} />}
+              {importing ? 'Importeren…' : 'Importeren'}
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Tabs */}
       <div className="flex border-b border-white/5">
