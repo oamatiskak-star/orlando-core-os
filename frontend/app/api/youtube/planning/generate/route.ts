@@ -41,6 +41,10 @@ const CHANNEL_PLANS: Record<string, ChannelPlan> = {
     { hour: 14, type: 'longform' }, { hour: 17, type: 'longform' },
     { hour: 20, type: 'longform' }, { hour: 23, type: 'longform' },
   ]},
+  AquierTv:           { horizonDays: 30, priority: 'normal', slots: [
+    { hour: 9, type: 'longform' }, { hour: 13, type: 'longform' },
+    { hour: 17, type: 'short'   },
+  ]},
 }
 
 export async function POST() {

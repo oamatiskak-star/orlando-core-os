@@ -13,6 +13,8 @@ const OLLAMA_URL     = process.env.OLLAMA_URL       || 'http://localhost:11434'
 const OLLAMA_MODEL   = process.env.OLLAMA_MODEL     || 'llama3:latest'
 const USE_LM_STUDIO  = process.env.USE_LM_STUDIO   !== 'false'
 const INTERVAL_MS    = 15 * 60 * 1000
+const BATCH_SIZE     = 10   // videos per run — verhoogd voor betere dekking
+const FULL_AUDIT     = process.argv.includes('--audit')  // npm run seo -- --audit
 
 function log(msg: string) {
   console.log(`[${new Date().toLocaleTimeString('nl-NL')}] [seo] ${msg}`)
@@ -117,28 +119,90 @@ async function optimizeVideo(video: {
 }
 
 async function runOptimizer(): Promise<void> {
-  const { data: videos } = await db
+  let query = db
     .from('youtube_videos')
-    .select('id, title, description, channel_id')
-    .eq('status', 'queued')
-    .eq('upload_status', 'pending')
+    .select('id, title, description, channel_id, status')
     .is('seo_optimized_at', null)
     .order('created_at', { ascending: true })
-    .limit(5)
+    .limit(BATCH_SIZE)
 
-  if (!videos?.length) return
-  log(`${videos.length} videos te optimaliseren`)
+  if (!FULL_AUDIT) {
+    // Normale modus: alleen video's die nog niet gepubliceerd zijn
+    query = query.in('status', ['queued', 'planned', 'scheduled'])
+  }
+  // --audit modus: alle video's zonder seo_optimized_at, inclusief live
+
+  const { data: videos } = await query
+
+  if (!videos?.length) {
+    if (FULL_AUDIT) log('Audit klaar — alle video\'s geoptimaliseerd')
+    return
+  }
+  log(`${videos.length} videos te optimaliseren${FULL_AUDIT ? ' (audit modus)' : ''}`)
 
   for (const video of videos) {
     await optimizeVideo(video as any)
-    // Mark as optimized regardless of outcome to prevent infinite retries
     await db.from('youtube_videos')
       .update({ seo_optimized_at: new Date().toISOString() } as any)
       .eq('id', video.id)
   }
 }
 
+async function runFullAudit(): Promise<void> {
+  log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━')
+  log('  SEO Full Audit — alle kanalen')
+  log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━')
+
+  const { data: channels } = await db
+    .from('youtube_channels')
+    .select('id, naam')
+    .order('naam')
+
+  if (!channels?.length) { log('Geen kanalen gevonden'); return }
+
+  for (const ch of channels) {
+    const { count } = await db
+      .from('youtube_videos')
+      .select('id', { count: 'exact', head: true })
+      .eq('channel_id', ch.id)
+      .is('seo_optimized_at', null)
+
+    log(`${(ch as any).naam}: ${count ?? 0} videos wachten op SEO`)
+  }
+
+  log('Start batch optimalisatie...')
+  let totalDone = 0
+  let hasMore   = true
+
+  while (hasMore) {
+    const { data: batch } = await db
+      .from('youtube_videos')
+      .select('id, title, description, channel_id, status')
+      .is('seo_optimized_at', null)
+      .order('created_at', { ascending: true })
+      .limit(BATCH_SIZE)
+
+    if (!batch?.length) { hasMore = false; break }
+
+    for (const video of batch) {
+      await optimizeVideo(video as any)
+      await db.from('youtube_videos')
+        .update({ seo_optimized_at: new Date().toISOString() } as any)
+        .eq('id', video.id)
+      totalDone++
+    }
+
+    log(`${totalDone} videos afgerond...`)
+  }
+
+  log(`SEO audit voltooid — ${totalDone} videos geoptimaliseerd`)
+}
+
 async function main() {
+  if (FULL_AUDIT) {
+    await runFullAudit()
+    process.exit(0)
+  }
   log('SEO Optimizer gestart — interval: 15m')
   await runOptimizer()
   setInterval(runOptimizer, INTERVAL_MS)

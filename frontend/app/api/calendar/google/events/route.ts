@@ -8,6 +8,7 @@ const CHANNEL_COLORS: Record<string, string> = {
   SpaarTv:            '#10b981',
   CryptoVermogen:     '#f59e0b',
   BeleggingsTv:       '#8b5cf6',
+  AquierTv:           '#14b8a6',
 }
 
 async function tryRefresh(conn: { id: string; refresh_token: string | null }) {

@@ -13,6 +13,7 @@ const CHANNEL_SCHEDULE: Record<string, { hours: number[]; horizonDays: number }>
   SpaarTv:            { hours: [7, 10, 13, 16, 19, 22], horizonDays: 30 },
   CryptoVermogen:     { hours: [8, 11, 14, 17, 20, 23], horizonDays: 30 },
   BeleggingsTv:       { hours: [8, 11, 14, 17, 20, 23], horizonDays: 30 },
+  AquierTv:           { hours: [9, 13, 17],              horizonDays: 30 },
 }
 
 // Generate new slots when fewer than this many days of buffer remain

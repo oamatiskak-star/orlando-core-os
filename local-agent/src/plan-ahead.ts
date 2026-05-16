@@ -97,6 +97,20 @@ const CHANNELS = [
       short: ['How to calculate rental yield in 60 seconds','BRRRR strategy explained simply','HMO vs single let — which makes more money?','3 mistakes new property investors make','How to find below market value deals','Bridging finance in 45 seconds explained','Buy-to-let in a limited company — yes or no?','Stamp duty — how much will you pay?','EPC rating — new rules for landlords in 2026','Social housing investment — guaranteed income explained'],
     },
   },
+  {
+    id: '0b924f5b-f23f-4e5a-bb00-fe3d5911c925', naam: 'AquierTv',
+    language: 'nl', voice: 'nl-NL-MaartenNeural', bg_color: '#0d3347',
+    style: 'zakelijk, strategisch, gericht op vastgoedacquisitie en dealflow', target_seconds: 480,
+    slots: [
+      { hour: 9,  type: 'longform' },
+      { hour: 13, type: 'longform' },
+      { hour: 17, type: 'short'    },
+    ],
+    topics: {
+      longform: ['Vastgoed aankopen in Nederland — complete gids voor 2026','Off-market vastgoed vinden — zo doe je het zonder makelaar','De Aquier methode — slim aankopen zonder overbieden','Bieden onder vraagprijs — bewezen onderhandelingsstrategie','Vastgoed due diligence — 10 checks voor je bod uitbrengt','Bouwtechnische keuring — wat moet je weten voor aankoop?','Splitsingsvergunning aanvragen — zo vergroot je de waarde','Appartement vs eengezinswoning — welke investering wint in 2026?','Aankoopmakelaar vs zelf kopen — kosten en risico vergeleken','Hoe vind je een goede deal op Funda in een overboden markt?','Verhuurde woning aankopen — rendement en risico berekend','Veiling kopen in Nederland — kansen en valkuilen 2026','Financieringsvoorbehoud slim inzetten — bescherm je bod','Van bezichtiging tot sleuteloverdracht — het volledige koopproces','Erfpacht vs eigendom — wat koop je eigenlijk?'],
+      short: ['Off-market deal vinden in 60 seconden — zo doe je het','3 fouten die kopers maken bij overbieden','Bieden onder vraagprijs — dit werkt écht','Bouwtechnische keuring — waarom het altijd loont','Splitsing aanvragen — zo verdien je €50.000 extra','Aquier — slim aankopen uitgelegd','Due diligence checklist voor vastgoedkopers','Funda alert instellen — zo mis je niks','Verhuurde woning kopen — rendement berekenen','Veiling kopen — dit moet je weten'],
+    },
+  },
 ]
 
 // ── Helpers ───────────────────────────────────────────────────────────────────

@@ -146,6 +146,27 @@ const CHANNELS: ChannelConfig[] = [
       'how to scale from 1 to 10 properties systematically',
     ],
   },
+  {
+    id:             '0b924f5b-f23f-4e5a-bb00-fe3d5911c925',
+    naam:           'AquierTv',
+    language:       'nl',
+    voice:          'nl-NL-MaartenNeural',
+    bg_color:       '#0d3347',
+    style:          'zakelijk, strategisch, gericht op vastgoedacquisitie en dealflow',
+    target_seconds: 480,
+    topics: [
+      'vastgoed aankopen in Nederland — stap voor stap als beginner',
+      'off-market vastgoed vinden — zo doe je het in 2026',
+      'de Aquier methode — slim aankopen zonder overbieden',
+      'bieden onder vraagprijs — onderhandelingsstrategie voor kopers',
+      'vastgoed due diligence checklist — 10 punten voor je bod',
+      'bouwtechnische keuring — wat moet je weten voor aankoop?',
+      'NVM aankoopmakelaar vs zelf aankopen — wat is slimmer?',
+      'appartement vs eengezinswoning als investering in 2026',
+      'hoe scoor je een goede deal op Funda in een overboden markt?',
+      'splitsingsvergunning aanvragen — zo vergroot je de waarde',
+    ],
+  },
 ]
 
 function pickTopic(topics: string[], date: Date): string {

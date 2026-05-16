@@ -111,6 +111,23 @@ const CHANNELS = [
       'how to scale from 1 to 10 properties systematically',
     ],
   },
+  {
+    id: '0b924f5b-f23f-4e5a-bb00-fe3d5911c925', naam: 'AquierTv',
+    language: 'nl', voice: 'nl-NL-MaartenNeural', bg_color: '#0d3347',
+    style: 'zakelijk, strategisch, gericht op vastgoedacquisitie en dealflow', target_seconds: 480,
+    topics: [
+      'vastgoed aankopen in Nederland — stap voor stap 2026',
+      'off-market vastgoed vinden zonder makelaar',
+      'de Aquier methode — slim aankopen zonder overbieden',
+      'bieden onder vraagprijs — bewezen onderhandelingsstrategie',
+      'vastgoed due diligence — 10 checks voor je bod',
+      'bouwtechnische keuring — wat moet je weten?',
+      'splitsingsvergunning — zo verhoog je de waarde direct',
+      'appartement vs eengezinswoning als investering 2026',
+      'aankoopmakelaar vs zelf kopen — kosten vergeleken',
+      'verhuurde woning aankopen — rendement berekend',
+    ],
+  },
 ]
 
 // Extra upload slots for channels that only have 1/day
