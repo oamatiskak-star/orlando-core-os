@@ -9,7 +9,7 @@ import { Queue } from 'bullmq'
 import { logger } from './lib/logger'
 
 const execAsync = promisify(exec)
-const log = logger.child ? (logger as any).child({ module: 'watchdog' }) : logger
+const log = (logger as any).child?.({ module: 'watchdog' }) ?? logger
 
 // Critical PM2 processes that must always be online
 const CRITICAL_PROCESSES = ['youtube-engine', 'video-worker-1', 'video-worker-2', 'content-factory', 'local-agent']
