@@ -15,7 +15,7 @@ const RECENT_TOPIC_WINDOW = 30  // avoid repeating last N topics per channel
 type ChannelConfig = {
   id:                string
   naam:              string
-  language:          'nl' | 'en'
+  language:          'nl' | 'en' | 'es'
   voice:             string
   bg_color:          string
   style:             string
