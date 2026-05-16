@@ -8,7 +8,7 @@ import {
   Archive, ScrollText, Inbox, ArrowRightLeft,
   UserCheck, LucideIcon, Globe, Key, Coins, BadgeDollarSign,
   Cpu, GitBranch, ListChecks, Terminal, Webhook, PlugZap, Lightbulb, BarChart2, SlidersHorizontal, AlertCircle,
-  Mail, Shield, GitMerge, Filter,
+  Mail, Shield, GitMerge, Filter, Brain, ShieldAlert, Link,
 } from 'lucide-react'
 
 export type NavModuleDef = {
@@ -41,6 +41,7 @@ export const NAV_MODULES: Record<string, NavModuleDef> = {
   crm:                  { key: 'crm',                  label: 'CRM',                     href: '/dashboard/crm',                   icon: Users },
   documenten:           { key: 'documenten',           label: 'Documenten',              href: '/dashboard/documenten',            icon: Files },
   finance_incasso:      { key: 'finance_incasso',      label: 'Finance & Incasso',       href: '/dashboard/finance',               icon: Banknote },
+  moneybird_live:       { key: 'moneybird_live',       label: 'Moneybird Live',           href: '/dashboard/finance/moneybird',      icon: Link },
   financien:            { key: 'financien',            label: 'Financiën',               href: '/dashboard/financien',             icon: Wallet },
   gebruikers:           { key: 'gebruikers',           label: 'Gebruikers',              href: '/dashboard/gebruikers',            icon: Users },
   instellingen:         { key: 'instellingen',         label: 'Instellingen',            href: '/dashboard/instellingen',          icon: Settings },
@@ -96,6 +97,15 @@ export const NAV_MODULES: Record<string, NavModuleDef> = {
   youtube_scheduled:    { key: 'youtube_scheduled',    label: 'Gepland',                 href: '/dashboard/youtube/scheduled',     icon: Calendar },
   youtube_logs:         { key: 'youtube_logs',         label: 'Logs',                    href: '/dashboard/youtube/logs',          icon: FileText },
 
+  // ── OSIL — STRATEGIC INTELLIGENCE LAYER ──────────────────────────────────
+  osil_dashboard:    { key: 'osil_dashboard',    label: 'OSIL Command',        href: '/dashboard/osil',                  icon: Brain },
+  osil_board:        { key: 'osil_board',        label: 'Board Sessies',       href: '/dashboard/osil/board',            icon: Users },
+  osil_kansen:       { key: 'osil_kansen',       label: 'Kansen Radar',        href: '/dashboard/osil/kansen',           icon: TrendingUp },
+  osil_recovery:     { key: 'osil_recovery',     label: 'Recovery Agent',      href: '/dashboard/osil/recovery',         icon: ShieldAlert },
+  osil_optimalisatie:{ key: 'osil_optimalisatie',label: 'Financial Optimizer', href: '/dashboard/osil/optimalisatie',    icon: BarChart3 },
+  osil_fiscalist:    { key: 'osil_fiscalist',    label: 'AI Fiscalist',        href: '/dashboard/osil/fiscalist',        icon: Scale },
+  osil_rapport:      { key: 'osil_rapport',      label: 'Strategisch Rapport', href: '/dashboard/osil/rapport',          icon: FileText },
+
   // ── MAIL ENGINE ───────────────────────────────────────────────────────────
   mail_dashboard:       { key: 'mail_dashboard',       label: 'Mail Engine',             href: '/dashboard/mail',                  icon: Mail },
   mail_agents:          { key: 'mail_agents',           label: 'Mail Agents',             href: '/dashboard/mail/agents',           icon: Bot },
@@ -132,6 +142,7 @@ export const COMPANY_NAV: Record<string, CompanyNav> = {
   osm: {
     sections: [
       { modules: ['dashboard'] },
+      { title: 'OSIL', modules: ['osil_dashboard', 'osil_board', 'osil_kansen', 'osil_recovery', 'osil_optimalisatie', 'osil_fiscalist', 'osil_rapport'] },
       { title: 'Persoonlijk', modules: ['dyme_os', 'personal_finance', 'loonstroken', 'financien'] },
       { title: 'Bedrijven', modules: ['bedrijven'] },
       { title: 'Operationeel', modules: ['agenda', 'taken', 'planning', 'crm'] },
@@ -147,7 +158,8 @@ export const COMPANY_NAV: Record<string, CompanyNav> = {
   modiwerijo: {
     sections: [
       { modules: ['dashboard'] },
-      { title: 'Finance', modules: ['finance_incasso', 'financien', 'belasting', 'abonnementen'] },
+      { title: 'OSIL', modules: ['osil_dashboard', 'osil_board', 'osil_kansen', 'osil_recovery', 'osil_optimalisatie', 'osil_fiscalist', 'osil_rapport'] },
+      { title: 'Finance', modules: ['finance_incasso', 'moneybird_live', 'financien', 'belasting', 'abonnementen'] },
       { title: 'Bedrijven', modules: ['bedrijven'] },
       {
         title: 'Personeel', modules: [
@@ -256,7 +268,7 @@ export const COMPANY_NAV: Record<string, CompanyNav> = {
       { modules: ['dashboard'] },
       { title: 'Calculatie', modules: ['calculaties', 'projecten', 'planning'] },
       { title: 'CRM', modules: ['crm'] },
-      { title: 'Finance', modules: ['finance_incasso', 'financien', 'belasting', 'abonnementen'] },
+      { title: 'Finance', modules: ['finance_incasso', 'moneybird_live', 'financien', 'belasting', 'abonnementen'] },
       { title: 'Operationeel', modules: ['documenten', 'agenda', 'taken'] },
       { title: 'Operations Center', modules: ['ops_dashboard', 'ops_workflows', 'ops_routines', 'ops_agents', 'ops_scheduler', 'ops_queue', 'ops_logs', 'ops_errors', 'ops_automations', 'ops_api', 'ops_suggestions', 'ops_manual', 'ops_templates', 'ops_webhooks', 'ops_analytics', 'ops_company_settings', 'ops_global_settings'] },
       { title: 'Mail Engine', modules: ['mail_dashboard', 'mail_agents', 'mail_workflows', 'mail_rules', 'mail_dossiers', 'mail_inbox'] },
