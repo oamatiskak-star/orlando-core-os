@@ -111,6 +111,20 @@ const CHANNELS = [
       short: ['Off-market deal vinden in 60 seconden — zo doe je het','3 fouten die kopers maken bij overbieden','Bieden onder vraagprijs — dit werkt écht','Bouwtechnische keuring — waarom het altijd loont','Splitsing aanvragen — zo verdien je €50.000 extra','Aquier — slim aankopen uitgelegd','Due diligence checklist voor vastgoedkopers','Funda alert instellen — zo mis je niks','Verhuurde woning kopen — rendement berekenen','Veiling kopen — dit moet je weten'],
     },
   },
+  {
+    id: '682d74ab-05e4-466c-b6f1-7cf44e96b2f3', naam: 'AquierTvEs',
+    language: 'es', voice: 'es-ES-AlvaroNeural', bg_color: '#1a0a00',
+    style: 'profesional, estratégico, enfocado en adquisición inmobiliaria en España y LATAM', target_seconds: 480,
+    slots: [
+      { hour: 10, type: 'longform' },
+      { hour: 14, type: 'longform' },
+      { hour: 18, type: 'short'    },
+    ],
+    topics: {
+      longform: ['Cómo comprar inmuebles en España paso a paso 2026','Encontrar propiedades off-market sin agente inmobiliario','El método Aquier — comprar inteligente sin sobrepagar','Negociar el precio de compra — estrategias probadas 2026','Due diligence inmobiliaria — 10 puntos antes de hacer oferta','Inspección técnica antes de comprar — qué debes saber','Agente de compras vs comprar solo — comparativa de costes','Piso vs casa unifamiliar como inversión en 2026','Cómo encontrar oportunidades en Idealista en mercado competitivo','Licencia de división — cómo multiplicar el valor del inmueble','Comprar vivienda en subasta en España — oportunidades 2026','Cómo calcular la rentabilidad bruta y neta de un inmueble','Financiación hipotecaria para inversores en España 2026','Reforma de inmuebles — cómo calcular el margen de beneficio','Plusvalía municipal — todo lo que necesitas saber antes de comprar'],
+      short: ['Encontrar oferta off-market en 60 segundos — así se hace','3 errores que cometen los compradores al pujar','Negociar precio de compra — esto funciona de verdad','Inspección técnica — por qué siempre vale la pena','División de finca — gana €50.000 extra con este truco','Aquier explicado — compra inmuebles de forma inteligente','Checklist due diligence para compradores de inmuebles','Alerta Idealista — no te pierdas ninguna oportunidad','Comprar vivienda alquilada — rentabilidad en 60 segundos','Subasta inmobiliaria — lo que debes saber'],
+    },
+  },
 ]
 
 // ── Helpers ───────────────────────────────────────────────────────────────────

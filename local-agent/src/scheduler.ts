@@ -167,6 +167,27 @@ const CHANNELS: ChannelConfig[] = [
       'splitsingsvergunning aanvragen — zo vergroot je de waarde',
     ],
   },
+  {
+    id:             '682d74ab-05e4-466c-b6f1-7cf44e96b2f3',
+    naam:           'AquierTvEs',
+    language:       'es',
+    voice:          'es-ES-AlvaroNeural',
+    bg_color:       '#1a0a00',
+    style:          'profesional, estratégico, enfocado en adquisición inmobiliaria en España y LATAM',
+    target_seconds: 480,
+    topics: [
+      'cómo comprar inmuebles en España paso a paso 2026',
+      'encontrar propiedades off-market sin agente inmobiliario',
+      'el método Aquier — comprar inteligente sin sobrepagar',
+      'negociar el precio de compra — estrategias probadas',
+      'due diligence inmobiliaria — 10 puntos antes de hacer oferta',
+      'inspección técnica antes de comprar — qué debes saber',
+      'agente de compras vs comprar solo — comparativa de costes',
+      'piso vs casa unifamiliar como inversión en 2026',
+      'cómo encontrar una buena oportunidad en Idealista',
+      'licencia de división — cómo multiplicar el valor del inmueble',
+    ],
+  },
 ]
 
 function pickTopic(topics: string[], date: Date): string {

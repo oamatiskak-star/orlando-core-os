@@ -88,6 +88,7 @@ export const NAV_MODULES: Record<string, NavModuleDef> = {
   youtube_vastgoed:     { key: 'youtube_vastgoed',     label: 'VastgoedTv',              href: '/dashboard/youtube/channel/vastgoedtv',      icon: Video },
   youtube_vermogen:     { key: 'youtube_vermogen',     label: 'VermogenTv',              href: '/dashboard/youtube/channel/vermogentv',      icon: Video },
   youtube_aquier:       { key: 'youtube_aquier',       label: 'AquierTv',                href: '/dashboard/youtube/channel/aquiertv',        icon: Video },
+  youtube_aquieres:     { key: 'youtube_aquieres',     label: 'AquierTv ES',             href: '/dashboard/youtube/channel/aquiertves',      icon: Video },
   instagram:            { key: 'instagram',            label: 'Instagram',               href: '/dashboard/social/instagram',      icon: Globe },
   tiktok:               { key: 'tiktok',               label: 'TikTok',                  href: '/dashboard/social/tiktok',         icon: Globe },
   fb_offmarket:         { key: 'fb_offmarket',         label: 'FB Off Market NL',        href: '/dashboard/social/fb-offmarket',   icon: Globe },
@@ -186,7 +187,7 @@ export const COMPANY_NAV: Record<string, CompanyNav> = {
         title: 'YouTube', modules: [
           'youtube',
           'youtube_vermogen', 'youtube_spaartv', 'youtube_vastgoed',
-          'youtube_crypto', 'youtube_beleggingstv', 'youtube_investor', 'youtube_aquier',
+          'youtube_crypto', 'youtube_beleggingstv', 'youtube_investor', 'youtube_aquier', 'youtube_aquieres',
         ],
       },
       { title: 'YouTube Tools', modules: ['youtube_workflow', 'youtube_analytics', 'youtube_queue', 'youtube_automation', 'youtube_scheduled', 'youtube_logs'] },
@@ -211,7 +212,7 @@ export const COMPANY_NAV: Record<string, CompanyNav> = {
         title: 'YouTube', modules: [
           'youtube',
           'youtube_vermogen', 'youtube_spaartv', 'youtube_vastgoed',
-          'youtube_crypto', 'youtube_beleggingstv', 'youtube_investor', 'youtube_aquier',
+          'youtube_crypto', 'youtube_beleggingstv', 'youtube_investor', 'youtube_aquier', 'youtube_aquieres',
         ],
       },
       { title: 'Operationeel', modules: ['planning', 'crm', 'documenten', 'agenda', 'taken'] },
