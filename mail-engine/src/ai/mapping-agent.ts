@@ -84,28 +84,48 @@ export class MappingAgent {
   async seedFolders(account: MailAccount): Promise<void> {
     if (!account.imap_host || !account.imap_pass_encrypted) return
 
-    const companies = ['STRKBEHEER', 'STRKBOUW', 'BOUWPROFFS', 'MODIWERIJO', 'INTELLIGENCE', 'YOUTUBE', 'PRIVÉ']
+    // Detecteer delimiter + namespace prefix eenmalig
+    const { delimiter, prefix, folders: existing } = await this.imap.getServerInfo(account)
+    const existingSet = new Set(existing)
+
+    const companies = ['STRKBEHEER', 'STRKBOUW', 'BOUWPROFFS', 'MODIWERIJO', 'INTELLIGENCE', 'YOUTUBE', 'PRIVE']
     const categories = Object.values(CATEGORY_FOLDER)
     const years = ['2024', '2025', '2026']
 
     let created = 0
+    let skipped = 0
+
+    // Maak niveau-per-niveau aan: eerst top-level, dan sub, dan jaar
+    const levels: string[] = []
     for (const company of companies) {
+      levels.push(company)
       for (const category of categories) {
+        levels.push(`${company}/${category}`)
         for (const year of years) {
-          const folder = `${company}/${category}/${year}`
-          try {
-            await this.imap.ensureFolder(account, folder)
-            created++
-          } catch {
-            // non-fatal
-          }
+          levels.push(`${company}/${category}/${year}`)
         }
+      }
+    }
+
+    for (const folder of levels) {
+      const serverPath = prefix + (delimiter === '/' ? folder : folder.replace(/\//g, delimiter))
+      if (existingSet.has(serverPath)) {
+        skipped++
+        continue
+      }
+      try {
+        await this.imap.ensureFolder(account, folder)
+        created++
+      } catch {
+        // non-fatal
       }
     }
 
     logger.info('MappingAgent: folder seed complete', {
       email: account.email,
-      foldersAttempted: created,
+      delimiter,
+      created,
+      skipped,
     })
   }
 

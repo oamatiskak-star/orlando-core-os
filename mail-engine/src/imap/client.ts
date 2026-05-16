@@ -117,62 +117,97 @@ export class ImapClient {
     })
   }
 
-  async listFolders(account: MailAccount): Promise<string[]> {
-    return new Promise((resolve, reject) => {
+  // Detecteer server delimiter, namespace-prefix en bestaande mappen
+  async getServerInfo(account: MailAccount): Promise<{ delimiter: string; prefix: string; folders: string[] }> {
+    return new Promise((resolve) => {
       const imap = new Imap(this.buildConfig(account))
 
       imap.once('ready', () => {
         imap.getBoxes('', (err, boxes) => {
           imap.end()
-          if (err) return reject(err)
+          if (err) {
+            resolve({ delimiter: '.', prefix: 'INBOX.', folders: [] })
+            return
+          }
+          let delimiter = '.'
           const names: string[] = []
-          function collect(tree: Imap.MailBoxes, prefix = '') {
+          function collect(tree: Imap.MailBoxes, serverPrefix = '') {
             for (const [key, box] of Object.entries(tree)) {
-              const full = prefix ? `${prefix}${box.delimiter ?? '/'}${key}` : key
+              const sep = box.delimiter ?? '.'
+              delimiter = sep
+              const full = serverPrefix ? `${serverPrefix}${sep}${key}` : key
               names.push(full)
               if (box.children) collect(box.children, full)
             }
           }
           collect(boxes)
-          resolve(names)
+
+          // Bepaal namespace prefix: als INBOX.Sent bestaat → prefix = 'INBOX.'
+          const hasInboxChildren = names.some(n => n.startsWith('INBOX.') || n.startsWith('INBOX/'))
+          const prefix = hasInboxChildren ? `INBOX${delimiter}` : ''
+          resolve({ delimiter, prefix, folders: names })
         })
       })
 
-      imap.once('error', reject)
+      imap.once('error', () => resolve({ delimiter: '.', prefix: 'INBOX.', folders: [] }))
       imap.connect()
     })
   }
 
-  async ensureFolder(account: MailAccount, folderPath: string): Promise<void> {
-    return new Promise((resolve, reject) => {
+  async listFolders(account: MailAccount): Promise<string[]> {
+    const { folders } = await this.getServerInfo(account)
+    return folders
+  }
+
+  // Maakt één map aan. folderPath gebruikt altijd '/' als scheidingsteken — wordt intern omgezet.
+  private async createSingleFolder(
+    account: MailAccount,
+    folderPath: string,
+    delimiter: string,
+    prefix = ''
+  ): Promise<boolean> {
+    const serverPath = prefix + (delimiter === '/' ? folderPath : folderPath.replace(/\//g, delimiter))
+    return new Promise((resolve) => {
       const imap = new Imap(this.buildConfig(account))
 
       imap.once('ready', () => {
-        imap.openBox(folderPath, true, (openErr) => {
+        // Check of map al bestaat
+        imap.openBox(serverPath, true, (openErr) => {
           if (!openErr) {
-            // Folder exists
             imap.closeBox(false, () => imap.end())
-            return resolve()
+            return resolve(false) // al aanwezig
           }
-          // Folder doesn't exist — create it
-          imap.addBox(folderPath, (addErr) => {
+          imap.addBox(serverPath, (addErr) => {
             imap.end()
             if (addErr) {
-              logger.warn('Could not create IMAP folder', { folder: folderPath, err: addErr })
-              return resolve() // non-fatal
+              logger.warn('Could not create IMAP folder', { folder: serverPath, err: addErr })
+              return resolve(false)
             }
-            logger.info('IMAP folder created', { folder: folderPath, email: account.email })
-            resolve()
+            logger.info('IMAP folder created', { folder: serverPath })
+            resolve(true)
           })
         })
       })
 
-      imap.once('error', (err: Error) => {
-        logger.warn('IMAP ensureFolder error', { err, folder: folderPath })
-        resolve() // non-fatal
-      })
+      imap.once('error', () => resolve(false))
       imap.connect()
     })
+  }
+
+  // Maakt map + alle tussenliggende levels aan. folderPath = 'COMPANY/Category/Year'
+  async ensureFolder(account: MailAccount, folderPath: string): Promise<void> {
+    const { delimiter, prefix } = await this.getServerInfo(account)
+    const parts = folderPath.split('/')
+    for (let i = 1; i <= parts.length; i++) {
+      const partial = parts.slice(0, i).join('/')
+      await this.createSingleFolder(account, partial, delimiter, prefix)
+    }
+  }
+
+  // Zet logisch pad (COMPANY/Category/Year) om naar server pad
+  async toServerPath(account: MailAccount, logicalPath: string): Promise<string> {
+    const { delimiter, prefix } = await this.getServerInfo(account)
+    return prefix + logicalPath.replace(/\//g, delimiter)
   }
 
   async moveMessage(
@@ -181,29 +216,32 @@ export class ImapClient {
     fromFolder: string,
     toFolder: string
   ): Promise<void> {
-    return new Promise((resolve, reject) => {
+    const { delimiter, prefix } = await this.getServerInfo(account)
+    // fromFolder is usually already a server path (INBOX, INBOX.Sent etc)
+    const serverFrom = fromFolder
+    // toFolder is a logical path COMPANY/Category/Year — prefix + convert
+    const serverTo = prefix + toFolder.replace(/\//g, delimiter)
+
+    return new Promise((resolve) => {
       const imap = new Imap(this.buildConfig(account))
 
       imap.once('ready', () => {
-        imap.openBox(fromFolder, false, (err) => {
-          if (err) { imap.end(); return reject(err) }
+        imap.openBox(serverFrom, false, (err) => {
+          if (err) { imap.end(); return resolve() }
 
-          imap.move(uid, toFolder, (moveErr) => {
+          imap.move(uid, serverTo, (moveErr) => {
             imap.end()
             if (moveErr) {
-              logger.warn('IMAP move failed', { uid, fromFolder, toFolder, err: moveErr })
-              return resolve() // non-fatal
+              logger.warn('IMAP move failed', { uid, serverFrom, serverTo, err: moveErr })
+              return resolve()
             }
-            logger.info('IMAP message moved', { uid, fromFolder, toFolder })
+            logger.info('IMAP message moved', { uid, serverFrom, serverTo })
             resolve()
           })
         })
       })
 
-      imap.once('error', (err: Error) => {
-        logger.warn('IMAP moveMessage error', { err })
-        resolve() // non-fatal
-      })
+      imap.once('error', () => resolve())
       imap.connect()
     })
   }
