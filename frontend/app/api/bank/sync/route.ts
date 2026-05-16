@@ -1,19 +1,17 @@
-import { NextRequest, NextResponse } from 'next/server'
+import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import {
-  getRequisition,
-  getAccountDetails,
-  getAccountBalances,
-  getAccountTransactions,
-} from '@/lib/bank/gocardless'
+  getTransactions,
+  getAccounts,
+  tinkAmount,
+  updateConnectionIban,
+} from '@/lib/bank/tink'
 import { categorize } from '@/lib/bank/categorizer'
 
-// POST — sync transacties voor actieve bank connection
-export async function POST(req: NextRequest) {
-  const body = await req.json().catch(() => ({}))
+// POST — sync transacties voor actieve Tink bank connection
+export async function POST() {
   const supabase = createAdminClient()
 
-  // Zoek actieve of pending connections
   const { data: connections } = await supabase
     .from('personal_bank_connections')
     .select('*')
@@ -21,49 +19,25 @@ export async function POST(req: NextRequest) {
     .order('created_at', { ascending: false })
 
   if (!connections || connections.length === 0) {
-    return NextResponse.json({ error: 'Geen actieve bank koppeling. Verbind eerst ING.' }, { status: 400 })
+    return NextResponse.json({ error: 'Geen actieve bank koppeling. Verbind eerst ING via Tink.' }, { status: 400 })
   }
 
-  let totalNew     = 0
-  let totalFailed  = 0
+  let totalNew    = 0
+  let totalFailed = 0
   const errors: string[] = []
 
   for (const conn of connections) {
     try {
-      // Haal requisition op en check of geautoriseerd
-      const req = await getRequisition(conn.gocardless_req_id)
-
-      if (req.status !== 'LN' || req.accounts.length === 0) {
-        // LN = Linked = volledig geautoriseerd
-        if (conn.status !== 'pending') continue
-        // Nog niet geautoriseerd door gebruiker
-        errors.push(`ING autorisatie nog niet voltooid — open de autorisatielink in het dashboard`)
-        continue
-      }
-
-      const accountId = req.accounts[0]
-
-      // Update connection met account info
-      let iban = conn.iban
-      if (!iban) {
-        const details = await getAccountDetails(accountId)
-        iban = details.iban
-        await supabase.from('personal_bank_connections').update({
-          gocardless_account_id: accountId,
-          iban,
-          status:               'active',
-          updated_at:           new Date().toISOString(),
-        }).eq('id', conn.id)
-      }
-
-      // Balans ophalen
-      const balances = await getAccountBalances(accountId)
-      const huidigSaldo = balances.find(b => b.balanceType === 'interimAvailable' || b.balanceType === 'closingBooked')
-      if (huidigSaldo) {
-        await supabase.from('personal_bank_connections').update({
-          status:       'active',
-          last_sync_at: new Date().toISOString(),
-        }).eq('id', conn.id)
+      // Haal accounts op als IBAN nog niet bekend is
+      if (!conn.iban) {
+        const accounts = await getAccounts(conn.id)
+        if (accounts.length > 0) {
+          const iban = accounts[0].identifiers?.iban?.iban ?? null
+          if (iban) {
+            await updateConnectionIban(conn.id, iban)
+            conn.iban = iban
+          }
+        }
       }
 
       // Transacties ophalen — max 90 dagen of sinds laatste sync
@@ -71,62 +45,67 @@ export async function POST(req: NextRequest) {
         ? conn.last_sync_at.split('T')[0]
         : new Date(Date.now() - 90 * 86400000).toISOString().split('T')[0]
 
-      const { booked } = await getAccountTransactions(accountId, dateFrom)
+      const txList = await getTransactions(conn.id, undefined, dateFrom)
 
-      for (const tx of booked) {
-        const amount    = parseFloat(tx.transactionAmount.amount)
-        const direction = amount >= 0 ? 'credit' : 'debet'
-        const absAmount = Math.abs(amount)
-        const desc      = tx.remittanceInformationUnstructured ?? tx.remittanceInformationStructured ?? ''
+      for (const tx of txList) {
+        const rawAmount = tinkAmount(tx.amount.value)
+        const direction = rawAmount >= 0 ? 'credit' : 'debet'
+        const absAmount = Math.abs(rawAmount)
 
-        const cat = categorize(desc, tx.creditorName, tx.debtorName)
+        const desc         = tx.descriptions?.original ?? tx.descriptions?.display ?? ''
+        const creditorName = tx.counterparties?.payee?.name?.unstructured ?? tx.merchantInformation?.merchantName ?? null
+        const debtorName   = tx.counterparties?.payer?.name?.unstructured ?? null
+        const creditorIban = null
+        const debtorIban   = tx.counterparties?.payer?.identifiers?.financialInstitution?.accountNumber ?? null
+
+        const cat = categorize(desc, creditorName, debtorName)
 
         const { error } = await supabase.from('personal_transactions').upsert({
-          connection_id:   conn.id,
-          external_id:     tx.transactionId,
-          booking_date:    tx.bookingDate,
-          value_date:      tx.valueDate ?? tx.bookingDate,
-          amount:          absAmount,
-          currency:        tx.transactionAmount.currency,
-          description:     desc,
-          creditor_name:   tx.creditorName ?? null,
-          debtor_name:     tx.debtorName ?? null,
-          creditor_iban:   tx.creditorAccount?.iban ?? null,
-          debtor_iban:     tx.debtorAccount?.iban ?? null,
-          reference:       tx.endToEndId ?? null,
+          connection_id:  conn.id,
+          external_id:    tx.id,
+          booking_date:   tx.dates?.booked ?? new Date().toISOString().split('T')[0],
+          value_date:     tx.dates?.value ?? tx.dates?.booked ?? null,
+          amount:         absAmount,
+          currency:       tx.amount.currencyCode ?? 'EUR',
+          description:    desc,
+          creditor_name:  creditorName,
+          debtor_name:    debtorName,
+          creditor_iban:  creditorIban,
+          debtor_iban:    debtorIban,
+          reference:      null,
           direction,
-          category:        cat.category,
-          subcategory:     cat.subcategory ?? null,
-          ai_confidence:   cat.confidence,
-          is_salary:       cat.is_salary,
-          is_savings:      cat.is_savings,
-          is_investment:   cat.is_investment,
-          is_housing:      cat.is_housing,
-          raw_data:        tx,
+          category:       cat.category,
+          subcategory:    cat.subcategory ?? null,
+          ai_confidence:  cat.confidence,
+          is_salary:      cat.is_salary,
+          is_savings:     cat.is_savings,
+          is_investment:  cat.is_investment,
+          is_housing:     cat.is_housing,
+          raw_data:       tx,
         }, { onConflict: 'external_id' })
 
         if (error) totalFailed++
         else totalNew++
       }
 
-      // Update laatste sync tijd
       await supabase.from('personal_bank_connections').update({
+        status:       'active',
         last_sync_at: new Date().toISOString(),
+        updated_at:   new Date().toISOString(),
       }).eq('id', conn.id)
 
     } catch (e) {
       const msg = e instanceof Error ? e.message : 'Onbekende fout'
       errors.push(msg)
-      totalFailed++
     }
   }
 
   return NextResponse.json({
-    ok:         totalFailed === 0,
-    new_tx:     totalNew,
-    failed:     totalFailed,
+    ok:        totalFailed === 0,
+    new_tx:    totalNew,
+    failed:    totalFailed,
     errors,
-    synced_at:  new Date().toISOString(),
+    synced_at: new Date().toISOString(),
   })
 }
 

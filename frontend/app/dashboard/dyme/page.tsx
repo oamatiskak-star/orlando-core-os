@@ -51,8 +51,8 @@ export default function DymePage() {
   const [syncing,        setSyncing]        = useState(false)
   const [loading,        setLoading]        = useState(true)
   const [showSetup,      setShowSetup]      = useState(false)
-  const [secretId,       setSecretId]       = useState('')
-  const [secretKey,      setSecretKey]      = useState('')
+  const [clientId,       setClientId]       = useState('')
+  const [clientSecret,   setClientSecret]   = useState('')
   const [setupLoading,   setSetupLoading]   = useState(false)
   const [setupError,     setSetupError]     = useState<string | null>(null)
   const [connectingLink, setConnectingLink] = useState<string | null>(null)
@@ -82,11 +82,11 @@ export default function DymePage() {
   useEffect(() => { loadStatus(); loadData() }, [loadStatus, loadData])
 
   async function handleSaveCredentials() {
-    if (!secretId || !secretKey) return
+    if (!clientId || !clientSecret) return
     setSetupLoading(true); setSetupError(null)
     const res  = await fetch('/api/bank/connect', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action: 'save_credentials', secret_id: secretId, secret_key: secretKey }),
+      body: JSON.stringify({ action: 'save_credentials', client_id: clientId, client_secret: clientSecret }),
     })
     const json = await res.json()
     setSetupLoading(false)
@@ -148,29 +148,30 @@ export default function DymePage() {
             <AlertCircle size={16} className="text-amber-400 mt-0.5 flex-shrink-0" />
             <div>
               <p className="text-sm font-medium text-white">ING koppeling configureren</p>
-              <p className="text-xs text-white/55 mt-1">GoCardless Bank Account Data (gratis PSD2) verbinden met je ING-rekening.</p>
+              <p className="text-xs text-white/55 mt-1">Tink (by Visa) PSD2 Open Banking verbinden met je ING privérekening.</p>
             </div>
           </div>
           {!showSetup ? (
             <div className="flex gap-2 flex-wrap">
               <button onClick={() => setShowSetup(true)} className="flex items-center gap-1.5 bg-amber-500 hover:bg-amber-400 text-black text-xs font-medium px-4 py-2 rounded-lg">
-                <Settings size={11} /> GoCardless koppelen
+                <Settings size={11} /> Tink koppelen
               </button>
-              <a href="https://bankaccountdata.gocardless.com/overview/" target="_blank" rel="noopener noreferrer"
+              <a href="https://console.tink.com/register" target="_blank" rel="noopener noreferrer"
                 className="flex items-center gap-1 text-xs text-amber-400 px-3 py-2">
-                Gratis registreren <ExternalLink size={10} />
+                Tink account aanmaken <ExternalLink size={10} />
               </a>
             </div>
           ) : (
             <div className="space-y-3">
-              <input type="text" placeholder="Secret ID" value={secretId} onChange={e => setSecretId(e.target.value)}
+              <p className="text-[10px] text-white/40">Vul je Tink Console credentials in (console.tink.com → App settings → Credentials)</p>
+              <input type="text" placeholder="Client ID" value={clientId} onChange={e => setClientId(e.target.value)}
                 className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-xs text-white placeholder-white/30 focus:outline-none focus:border-indigo-500/50 font-mono" />
-              <input type="password" placeholder="Secret Key" value={secretKey} onChange={e => setSecretKey(e.target.value)}
+              <input type="password" placeholder="Client Secret" value={clientSecret} onChange={e => setClientSecret(e.target.value)}
                 className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-xs text-white placeholder-white/30 focus:outline-none focus:border-indigo-500/50 font-mono" />
               {setupError && <p className="text-xs text-red-400">{setupError}</p>}
               <div className="flex gap-2">
                 <button onClick={() => setShowSetup(false)} className="text-xs text-white/50 px-3 py-2">Annuleren</button>
-                <button onClick={handleSaveCredentials} disabled={setupLoading || !secretId || !secretKey}
+                <button onClick={handleSaveCredentials} disabled={setupLoading || !clientId || !clientSecret}
                   className="flex items-center gap-1.5 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white text-xs font-medium px-4 py-2 rounded-lg">
                   {setupLoading && <RefreshCw size={11} className="animate-spin" />} Opslaan & testen
                 </button>
