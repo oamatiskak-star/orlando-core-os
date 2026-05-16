@@ -4,6 +4,10 @@ import { LabelBuilder } from '../labels/builder'
 import { ClassificationResult } from './classifier'
 import { logger } from '../lib/logger'
 
+function normalizeCompany(name: string): string {
+  return name.normalize('NFD').replace(/[̀-ͯ]/g, '')
+}
+
 const CATEGORY_FOLDER: Record<string, string> = {
   factuur:       'Facturen',
   incasso:       'Incasso',
@@ -26,7 +30,7 @@ export class MappingAgent {
     message: MailMessage,
     classification: ClassificationResult
   ): Promise<void> {
-    const company = message.company ?? classification.company ?? 'Overig'
+    const company = normalizeCompany(message.company ?? classification.company ?? 'Overig')
     const categoryKey = message.category ?? classification.category ?? 'overig'
     const categoryFolder = CATEGORY_FOLDER[categoryKey] ?? 'Overig'
     const year = new Date(message.received_at ?? Date.now()).getFullYear().toString()

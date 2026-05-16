@@ -19,7 +19,7 @@ const CATEGORY_FROM_DB: Record<string, string> = {
 
 function classificationFromMessage(msg: MailMessage): ClassificationResult {
   return {
-    company:         msg.company ?? 'PRIVÉ',
+    company:         msg.company ?? 'PRIVE',
     category:        CATEGORY_FROM_DB[msg.category ?? ''] ?? 'overig',
     priority:        msg.priority ?? 'normal',
     isInvoice:       msg.category === 'factuur',
@@ -84,7 +84,7 @@ async function sortAllMessages(accounts: MailAccount[]) {
 
     for (const message of messages) {
       const classification = classificationFromMessage(message)
-      const company = message.company ?? classification.company ?? 'Overig'
+      const company = (message.company ?? classification.company ?? 'Overig').normalize('NFD').replace(/[̀-ͯ]/g, '')
       const categoryKey = message.category ?? 'overig'
       const categoryFolder: Record<string, string> = {
         factuur: 'Facturen', incasso: 'Incasso', advocaat: 'Juridisch',
