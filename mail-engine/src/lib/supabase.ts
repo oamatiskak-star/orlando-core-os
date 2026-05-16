@@ -14,29 +14,50 @@ export const supabase = createClient(supabaseUrl, supabaseServiceKey, {
   },
 })
 
+export type MailProvider = 'gmail' | 'icloud' | 'outlook' | 'imap' | 'custom'
+
 export type MailAccount = {
   id: string
   user_id: string
-  provider: 'gmail' | 'imap'
+  provider: MailProvider
   email: string
   display_name: string | null
+  // Gmail OAuth
   gmail_access_token: string | null
   gmail_refresh_token: string | null
   gmail_token_expiry: string | null
+  // IMAP (iCloud, custom domains)
   imap_host: string | null
   imap_port: number | null
   imap_user: string | null
   imap_pass_encrypted: string | null
+  // SMTP outgoing (Mailtrap live)
+  smtp_host: string | null
+  smtp_port: number | null
+  smtp_user: string | null
+  smtp_pass_encrypted: string | null
+  // Microsoft Graph (Outlook)
+  graph_access_token: string | null
+  graph_refresh_token: string | null
+  graph_tenant_id: string | null
+  // Mailtrap
+  mailtrap_inbox_id: string | null
+  send_via_mailtrap: boolean
   last_sync_at: string | null
   sync_status: 'idle' | 'syncing' | 'error'
   created_at: string
 }
 
+export type MailDraftStatus = 'pending' | 'sandbox' | 'approved' | 'rejected' | 'sent'
+
 export type MailMessage = {
   id: string
   account_id: string
+  provider: string
   gmail_message_id: string | null
   gmail_thread_id: string | null
+  imap_uid: number | null
+  imap_folder: string | null
   subject: string | null
   from_email: string | null
   from_name: string | null

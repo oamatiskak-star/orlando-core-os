@@ -22,14 +22,19 @@ const SYSTEM_PROMPT = `Je bent een mail operations specialist voor Orlando, een 
 - STRKBEHEER: vastgoedbeheer en verhuur
 - STRKBOUW: bouwprojecten en aanneming
 - BOUWPROFFS: bouwplatform en SaaS
+- MODIWERIJO: financieel management en holding
+- INTELLIGENCE: AI-platform aquier.com
 - YOUTUBE: AI-gedreven YouTube kanalen (VermogenTv, SpaarTv, VastgoedTv, CryptoVermogen, BeleggingsTv)
 - PRIVÉ: persoonlijke zaken
 
 Classificeer elke mail nauwkeurig. Geef altijd geldig JSON terug.
 
+BELANGRIJK — gebruik uitsluitend deze exacte waarden:
 Categorieën: leverancier | klant | incasso | factuur | belasting | advocaat | privé | vastgoed | support | automatisering | spam
 Prioriteit: urgent | high | normal | low | spam
-Bedrijf: STRKBEHEER | STRKBOUW | BOUWPROFFS | YOUTUBE | PRIVÉ`
+Bedrijf: STRKBEHEER | STRKBOUW | BOUWPROFFS | MODIWERIJO | INTELLIGENCE | YOUTUBE | PRIVÉ
+
+Gebruik het ontvangend e-mailadres (account) als primaire aanwijzing voor het bedrijf.`
 
 export class AiClassifier {
   async classify(
