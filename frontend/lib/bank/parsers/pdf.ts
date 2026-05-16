@@ -1,109 +1,121 @@
-// PDF bank statement parser — ING / NL banken
-// Gebruikt pdf-parse voor tekstextractie, dan patroonherkenning
+// ING PDF rekeningafschrift parser — pdftotext layout-based
+// ING formaat: DD-MM-YYYY  Naam  Type  Bedrag (EUR)
 
+import { execSync } from 'child_process'
+import { writeFileSync, unlinkSync } from 'fs'
+import { tmpdir } from 'os'
+import { join } from 'path'
 import type { ParsedTransaction } from './mt940'
 
-// pdf-parse is server-only
-// eslint-disable-next-line @typescript-eslint/no-require-imports
-const pdfParse = require('pdf-parse')
+const TX_TYPES = [
+  'Betaalautomaat','Online bankieren','iDEAL','Incasso','Diversen','Overboeking',
+  'Internetsparen','Spaarrente','Salaris','Storting','Opname',
+  'Periodieke overboeking','Creditcard','Apple Pay','Wero',
+]
 
-function nlDateToIso(raw: string): string | null {
-  // DD-MM-YYYY of DD/MM/YYYY of DD mmmm YYYY (NL)
-  const NL_MONTHS: Record<string, string> = {
-    januari:'01', februari:'02', maart:'03', april:'04',
-    mei:'05', juni:'06', juli:'07', augustus:'08',
-    september:'09', oktober:'10', november:'11', december:'12',
-  }
-  const s = raw.trim().toLowerCase()
-
-  // DD-MM-YYYY
-  let m = s.match(/^(\d{2})[/-](\d{2})[/-](\d{4})$/)
-  if (m) return `${m[3]}-${m[2]}-${m[1]}`
-
-  // DD mmmm YYYY
-  m = s.match(/^(\d{1,2})\s+(\w+)\s+(\d{4})$/)
-  if (m && NL_MONTHS[m[2]]) return `${m[3]}-${NL_MONTHS[m[2]]}-${m[1].padStart(2,'0')}`
-
-  // YYYY-MM-DD al goed
-  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s
-
-  return null
+const CAT_KEYWORDS: Record<string, string[]> = {
+  boodschappen:  ['albert heijn','jumbo','aldi','lidl','plus ','dirk','ah ','c&m','safari supermarkt','spar ','dekamarkt'],
+  horeca:        ['restaurant','cafe ','bar ','mc donalds','mcdonalds','burger king','subway','dominos','pizza','kfc','starbucks','lunch','koffie'],
+  auto:          ['shell','bp ','esso','texaco','total ','q8','parkeer','carwash','rdw','volkswagen'],
+  transport:     ['ns.nl','ovchip','gvb','ret ','htm ','arriva','connexxion','flixbus','ryanair','transavia','klm '],
+  wonen:         ['huur','hypotheek','nuon','vattenfall','eneco','essent','allianz','centraal beheer'],
+  abonnementen:  ['spotify','netflix','disney','amazon','apple.com','google','kpn','t-mobile','vodafone','kosten betaal','kosten oranje','go daddy','godaddy'],
+  gezondheid:    ['apotheek','huisarts','tandarts','ziekenhuis','drogist','etos','kruidvat'],
+  kleding:       ['zara','h&m','primark','c&a','only','we fashion','hema'],
+  entertainment: ['bioscoop','bol.com','steam','playstation','xbox','pathe'],
+  sparen:        ['oranje spaar','van oranje','internetsparen','spaarrente'],
+  investeren:    ['degiro','binck','trading','coinbase','kraken'],
 }
 
-function parseNlAmount(raw: string): number {
-  return parseFloat(raw.replace(/[€\s.]/g, '').replace(',', '.')) || 0
+function categorizePdf(name: string, desc: string): string {
+  const t = (name + ' ' + desc).toLowerCase()
+  for (const [cat, kws] of Object.entries(CAT_KEYWORDS)) {
+    if (kws.some(k => t.includes(k))) return cat
+  }
+  return 'overig'
+}
+
+function parseNlAmount(s: string): number {
+  return parseFloat(s.replace(/\./g, '').replace(',', '.').replace('+', ''))
+}
+
+function nlDateToIso(s: string): string {
+  const [d, m, y] = s.split('-')
+  return `${y}-${m}-${d}`
+}
+
+function splitNameType(raw: string): [string, string] {
+  for (const t of TX_TYPES) {
+    const i = raw.lastIndexOf(t)
+    if (i > 0) return [raw.slice(0, i).trim(), t]
+  }
+  return [raw.trim(), '']
 }
 
 export async function parsePdf(buffer: Buffer): Promise<{ transactions: ParsedTransaction[]; iban: string | null }> {
-  const data = await pdfParse(buffer)
-  const text: string = data.text
+  // Schrijf buffer naar tmp bestand, gebruik pdftotext -layout
+  const tmpFile = join(tmpdir(), `ing-stmt-${Date.now()}.pdf`)
+  const txtFile = tmpFile.replace('.pdf', '.txt')
 
-  const transactions: ParsedTransaction[] = []
+  try {
+    writeFileSync(tmpFile, buffer)
+    execSync(`pdftotext -layout "${tmpFile}" "${txtFile}"`, { timeout: 30000 })
 
-  // IBAN detectie
-  const ibanMatch = text.match(/([A-Z]{2}\d{2}[A-Z]{4}\d{10})/g)
-  const iban = ibanMatch ? ibanMatch[0] : null
+    const { readFileSync } = await import('fs')
+    const text  = readFileSync(txtFile, 'utf-8')
+    const lines = text.split('\n')
 
-  // ING PDF rekeningafschrift patroon:
-  // Datum        Omschrijving                    Bedrag Af/Bij    Saldo
-  // 02-01-2025   ALBERT HEIJN                    50,00  Af        1.234,56
-  const txPattern = /(\d{2}[/-]\d{2}[/-]\d{4})\s+(.+?)\s+([\d.]+,\d{2})\s+(Af|Bij|D|C)\s+([\d.]+,\d{2})/g
-  let match: RegExpExecArray | null
+    // IBAN detectie
+    const ibanMatch = text.match(/([A-Z]{2}\d{2}\s*[A-Z]{4}\s*\d[\d\s]+)/)
+    const iban = ibanMatch ? ibanMatch[1].replace(/\s/g, '') : null
 
-  let idx = 0
-  while ((match = txPattern.exec(text)) !== null) {
-    const [, dateRaw, desc, amtRaw, dirRaw] = match
-    const date = nlDateToIso(dateRaw)
-    if (!date) continue
+    const transactions: ParsedTransaction[] = []
+    let idx = 0
 
-    const amount    = parseNlAmount(amtRaw)
-    const direction: 'credit' | 'debet' = (dirRaw === 'Bij' || dirRaw === 'C') ? 'credit' : 'debet'
+    for (let i = 0; i < lines.length; i++) {
+      const l = lines[i]
+      const m = l.match(/^\s{0,25}(\d{2}-\d{2}-\d{4})\s+(.+)\s{3,}([+-]?\d[\d.]*,\d{2})\s*$/)
+      if (!m) continue
 
-    transactions.push({
-      external_id:   `pdf-${iban ?? 'x'}-${date}-${idx}-${amount}`,
-      booking_date:  date,
-      value_date:    null,
-      amount,
-      direction,
-      description:   desc.trim().slice(0, 500),
-      creditor_name: direction === 'debet' ? desc.trim() : null,
-      debtor_name:   direction === 'credit' ? desc.trim() : null,
-      creditor_iban: null,
-      debtor_iban:   null,
-      currency:      'EUR',
-      raw:           match[0].slice(0, 500),
-    })
-    idx++
-  }
+      const [, dateRaw, nameRaw, amtRaw] = m
+      const date    = nlDateToIso(dateRaw)
+      const rawAmt  = parseNlAmount(amtRaw)
+      const amount  = Math.abs(rawAmt)
+      const dir: 'credit' | 'debet' = rawAmt >= 0 ? 'credit' : 'debet'
+      const [name, txType] = splitNameType(nameRaw)
 
-  // Fallback: generiek patroon voor andere banken
-  if (transactions.length === 0) {
-    const fallback = /(\d{2}[/-]\d{2}[/-]\d{4})\s+([^\d\n]{5,60})\s+([-+]?\s*[\d.]+,\d{2})/g
-    while ((match = fallback.exec(text)) !== null) {
-      const [, dateRaw, desc, amtRaw] = match
-      const date = nlDateToIso(dateRaw)
-      if (!date) continue
-      const rawAmt = parseNlAmount(amtRaw)
-      const amount = Math.abs(rawAmt)
-      const direction: 'credit' | 'debet' = rawAmt >= 0 ? 'credit' : 'debet'
+      let contraIban: string | null = null
+      let omschrijving = ''
+      for (let j = i + 1; j < Math.min(i + 8, lines.length); j++) {
+        const dl = lines[j]
+        if (/^\s{0,25}\d{2}-\d{2}-\d{4}\s/.test(dl)) break
+        const im = dl.match(/IBAN:\s*([A-Z]{2}\d{2}[A-Z0-9 ]+)/)
+        if (im) contraIban = im[1].replace(/\s/g, '')
+        const om = dl.match(/Omschrijving:\s*(.+)/)
+        if (om) omschrijving = om[1].trim()
+      }
+
+      const cat = categorizePdf(name, omschrijving)
 
       transactions.push({
-        external_id:   `pdf-${iban ?? 'x'}-${date}-${idx}-${amount}`,
+        external_id:   `ing-pdf-${iban ?? 'x'}-${date}-${idx++}-${rawAmt}`,
         booking_date:  date,
-        value_date:    null,
+        value_date:    date,
         amount,
-        direction,
-        description:   desc.trim().slice(0, 500),
-        creditor_name: direction === 'debet' ? desc.trim() : null,
-        debtor_name:   null,
-        creditor_iban: null,
-        debtor_iban:   null,
+        direction:     dir,
+        description:   (omschrijving || name).slice(0, 499),
+        creditor_name: dir === 'debet'  ? name.slice(0, 499) : null,
+        debtor_name:   dir === 'credit' ? name.slice(0, 499) : null,
+        creditor_iban: dir === 'debet'  ? contraIban : null,
+        debtor_iban:   dir === 'credit' ? contraIban : null,
         currency:      'EUR',
-        raw:           match[0].slice(0, 500),
+        raw:           `${txType}|${name}`.slice(0, 499),
       })
-      idx++
     }
-  }
 
-  return { transactions, iban }
+    return { transactions, iban }
+  } finally {
+    try { unlinkSync(tmpFile) } catch { /* ignore */ }
+    try { unlinkSync(txtFile) } catch { /* ignore */ }
+  }
 }
