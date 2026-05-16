@@ -1,7 +1,8 @@
 /**
  * cleanup.ts
+ * 0. Markeert ALLE ongelezen IMAP-berichten als gelezen (bulk, alle mappen)
  * 1. Verwijdert spam van IMAP + DB
- * 2. Markeert niet-belangrijke mail als gelezen (IMAP + DB)
+ * 2. Markeert niet-belangrijke mail als gelezen in DB
  *
  * Niet-belangrijk: automatisering, support, overig, privé
  * Spam: verwijderen
@@ -11,11 +12,59 @@ import 'dotenv/config'
 import { supabase, MailAccount, MailMessage } from '../lib/supabase'
 import { ImapClient } from '../imap/client'
 import { logger } from '../lib/logger'
+import Imap from 'node-imap'
 
 const imap = new ImapClient()
 
 const UNIMPORTANT_CATEGORIES = new Set(['automatisering', 'support', 'overig', 'privé', 'prive'])
 const SPAM_CATEGORY = 'spam'
+
+function getAllServerFolders(account: MailAccount): Promise<string[]> {
+  return new Promise((resolve) => {
+    const conn = new Imap({
+      host: account.imap_host!,
+      port: account.imap_port ?? 993,
+      tls: (account.imap_port ?? 993) === 993,
+      tlsOptions: { rejectUnauthorized: false },
+      user: account.imap_user ?? account.email,
+      password: account.imap_pass_encrypted!,
+      connTimeout: 15000,
+      authTimeout: 10000,
+    })
+    conn.once('ready', () => {
+      conn.getBoxes('', (err, boxes) => {
+        conn.end()
+        if (err) return resolve([])
+        const folders: string[] = []
+        function collect(tree: Imap.MailBoxes, prefix = '') {
+          for (const [key, box] of Object.entries(tree)) {
+            const sep = box.delimiter ?? '.'
+            const full = prefix ? `${prefix}${sep}${key}` : key
+            folders.push(full)
+            if (box.children) collect(box.children, full)
+          }
+        }
+        collect(boxes)
+        resolve(folders)
+      })
+    })
+    conn.once('error', () => resolve([]))
+    conn.connect()
+  })
+}
+
+async function markAllReadForAccount(account: MailAccount): Promise<number> {
+  const folders = await getAllServerFolders(account)
+  let total = 0
+  for (const serverPath of folders) {
+    const n = await imap.markAllReadInFolder(account, serverPath)
+    if (n > 0) {
+      console.log(`    ✓ ${account.email} / ${serverPath}: ${n} gelezen`)
+      total += n
+    }
+  }
+  return total
+}
 
 async function getImapAccounts(): Promise<MailAccount[]> {
   const { data, error } = await supabase
@@ -113,7 +162,9 @@ async function cleanAccount(account: MailAccount): Promise<void> {
 async function main() {
   console.log('═══════════════════════════════════════════')
   console.log('  ORLANDO MAIL — Cleanup')
-  console.log('  Spam verwijderen + niet-belangrijk gelezen')
+  console.log('  Stap 0: bulk mark-all-read (IMAP)')
+  console.log('  Stap 1: spam verwijderen')
+  console.log('  Stap 2: niet-belangrijk gelezen (DB)')
   console.log('═══════════════════════════════════════════\n')
 
   const accounts = await getImapAccounts()
@@ -124,19 +175,22 @@ async function main() {
 
   console.log(`Accounts: ${accounts.map(a => a.email).join(', ')}\n`)
 
-  let totalSpam = 0
-  let totalMarked = 0
-
+  // Stap 0: bulk mark-all-read op IMAP (alle mappen, zonder DB)
+  console.log('── Stap 0: Alle ongelezen berichten als gelezen markeren ──')
+  let totalBulkMarked = 0
   for (const account of accounts) {
-    const before = await supabase
-      .from('mail_messages')
-      .select('category, count', { count: 'exact', head: false })
-      .eq('account_id', account.id)
-      .or(`category.eq.spam,and(is_read.eq.false,category.in.(automatisering,support,overig,privé,prive))`)
+    try {
+      const n = await markAllReadForAccount(account)
+      totalBulkMarked += n
+    } catch (err) {
+      console.error(`  ✗ mark-all-read fout bij ${account.email}:`, err)
+    }
+  }
+  console.log(`  → ${totalBulkMarked} berichten als gelezen gemarkeerd\n`)
 
-    const spamCount = (before.data ?? []).filter((r: any) => r.category === 'spam').length
-    totalSpam += spamCount
-
+  // Stap 1+2: spam verwijderen + DB sync
+  console.log('── Stap 1+2: Spam verwijderen + DB opschonen ──')
+  for (const account of accounts) {
     try {
       await cleanAccount(account)
     } catch (err) {
@@ -145,13 +199,14 @@ async function main() {
   }
 
   console.log('\n─────────────────────────────────────────')
+  console.log(`Bulk gelezen: ${totalBulkMarked}`)
 
   const { count: remaining } = await supabase
     .from('mail_messages')
     .select('*', { count: 'exact', head: true })
     .eq('is_read', false)
 
-  console.log(`Ongelezen berichten resterend: ${remaining ?? 0}`)
+  console.log(`Ongelezen in DB resterend: ${remaining ?? 0}`)
   console.log('─────────────────────────────────────────\n')
   console.log('✅ Cleanup klaar\n')
   process.exit(0)
