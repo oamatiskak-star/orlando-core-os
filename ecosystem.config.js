@@ -54,7 +54,24 @@ module.exports = {
       time:         true,
     },
 
-    // ── 4. Daily Scheduler — cron 05:30, maakt dag-taken aan ──
+    // ── 4. Mail Engine — 24/7 mail intake, AI classificatie, drafts ──
+    {
+      name:        'mail-engine',
+      cwd:         `${BASE}/mail-engine`,
+      script:      'node',
+      args:        'dist/index.js',
+      interpreter: 'none',
+      watch:       false,
+      autorestart: true,
+      max_restarts: 999,
+      restart_delay: 5000,
+      env: { NODE_ENV: 'production' },
+      log_file:    '/tmp/pm2-mail-engine.log',
+      error_file:  '/tmp/pm2-mail-engine-err.log',
+      time:        true,
+    },
+
+    // ── 5. Daily Scheduler — cron 05:30, maakt dag-taken aan ──
     {
       name:          'daily-scheduler',
       cwd:           `${BASE}/local-agent`,
