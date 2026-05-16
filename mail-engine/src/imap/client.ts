@@ -328,6 +328,64 @@ export class ImapClient {
     })
   }
 
+  // Fetch all messages from a folder since a given date. Returns parsed mails with UIDs.
+  async fetchAllFromFolder(
+    account: MailAccount,
+    serverPath: string,
+    since?: Date,
+    limit = 200
+  ): Promise<ImapMessage[]> {
+    return new Promise((resolve) => {
+      const imap = new Imap(this.buildConfig(account))
+      const results: ImapMessage[] = []
+
+      imap.once('ready', () => {
+        imap.openBox(serverPath, true, (err) => {
+          if (err) { imap.end(); return resolve([]) }
+
+          // node-imap accepts Date objects or 'DD-Mon-YYYY' strings — pass Date directly
+          const criteria = since ? [['SINCE', since]] : (['ALL'] as string[])
+
+          imap.search(criteria as Parameters<typeof imap.search>[0], (searchErr, uids) => {
+            if (searchErr || !uids || uids.length === 0) {
+              imap.end()
+              return resolve([])
+            }
+
+            const limited = uids.slice(-limit)
+            const fetch = imap.fetch(limited, { bodies: '', struct: true, markSeen: false })
+
+            fetch.on('message', (msg, seqno) => {
+              let uid = seqno
+              const buffers: Buffer[] = []
+
+              msg.on('attributes', (attrs) => { uid = attrs.uid ?? seqno })
+              msg.on('body', (stream) => {
+                stream.on('data', (chunk: Buffer) => buffers.push(chunk))
+                stream.once('end', async () => {
+                  try {
+                    const raw = Buffer.concat(buffers)
+                    const parsed = await simpleParser(raw)
+                    results.push({ uid, parsedMail: parsed })
+                  } catch {
+                    // skip unparseable
+                  }
+                })
+              })
+            })
+
+            fetch.once('error', () => { /* ignore */ })
+            fetch.once('end', () => { imap.end() })
+          })
+        })
+      })
+
+      imap.once('end', () => resolve(results))
+      imap.once('error', () => resolve([]))
+      imap.connect()
+    })
+  }
+
   async countUnread(account: MailAccount): Promise<number> {
     return new Promise((resolve, reject) => {
       const imap = new Imap(this.buildConfig(account))

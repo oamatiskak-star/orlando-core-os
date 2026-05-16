@@ -214,13 +214,14 @@ export class IntakeProcessor {
   }
 
   // IMAP message handler (iCloud, custom domains)
-  async processImapMessage(account: MailAccount, uid: number, parsed: ParsedMail): Promise<void> {
-    // Dedup by imap_uid
+  async processImapMessage(account: MailAccount, uid: number, parsed: ParsedMail, folder = 'INBOX'): Promise<void> {
+    // Dedup by account + uid + folder
     const { data: existing } = await supabase
       .from('mail_messages')
       .select('id')
       .eq('account_id', account.id)
       .eq('imap_uid', uid)
+      .eq('imap_folder', folder)
       .single()
 
     if (existing) return
@@ -266,7 +267,7 @@ export class IntakeProcessor {
       .insert({
         account_id:           account.id,
         imap_uid:             uid,
-        imap_folder:          'INBOX',
+        imap_folder:          folder,
         provider:             account.provider,
         subject,
         from_email:           fromEmail,
