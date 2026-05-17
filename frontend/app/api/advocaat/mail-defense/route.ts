@@ -87,6 +87,7 @@ export async function POST(req: NextRequest) {
     from_name:       body.from_name ?? null,
     subject:         body.subject ?? null,
     received_at:     body.received_at ?? new Date().toISOString(),
+    body_text:       body.body_text ?? null,
     classification,
     urgency,
     risk_score: riskScore,

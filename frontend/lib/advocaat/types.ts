@@ -177,6 +177,7 @@ export interface MailDefenseItem {
   from_name: string | null
   subject: string | null
   received_at: string | null
+  body_text: string | null
   classification: string
   urgency: Priority
   risk_score: number
@@ -185,7 +186,27 @@ export interface MailDefenseItem {
   action_required: boolean
   action_description: string | null
   ai_summary: string | null
+  ai_draft: string | null
+  draft_created_at: string | null
+  suggested_doc_ids: string[] | null
   processed: boolean
+}
+
+export interface SuggestedDoc {
+  id: string
+  title: string
+  document_type: string
+  is_evidence: boolean
+  content_label: string
+}
+
+export interface ComposeResult {
+  draft: string
+  suggested_doc_ids: string[]
+  suggested_docs: SuggestedDoc[]
+  memories_used: number
+  docs_searched: number
+  keywords_found: string[]
 }
 
 export interface DossierStats {
