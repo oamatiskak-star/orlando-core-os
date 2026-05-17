@@ -9,6 +9,7 @@ import {
   UserCheck, LucideIcon, Globe, Key, Coins, BadgeDollarSign,
   Cpu, GitBranch, ListChecks, Terminal, Webhook, PlugZap, Lightbulb, BarChart2, SlidersHorizontal, AlertCircle,
   Mail, Shield, GitMerge, Filter, Brain, ShieldAlert, Link,
+  Gavel, Lock, Eye, Upload,
 } from 'lucide-react'
 
 export type NavModuleDef = {
@@ -99,6 +100,7 @@ export const NAV_MODULES: Record<string, NavModuleDef> = {
   youtube_automation:   { key: 'youtube_automation',   label: 'Automation',              href: '/dashboard/youtube/automation',    icon: Zap },
   youtube_scheduled:    { key: 'youtube_scheduled',    label: 'Gepland',                 href: '/dashboard/youtube/scheduled',     icon: Calendar },
   youtube_logs:         { key: 'youtube_logs',         label: 'Logs',                    href: '/dashboard/youtube/logs',          icon: FileText },
+  youtube_calendar:     { key: 'youtube_calendar',     label: 'Content Calendar',        href: '/dashboard/youtube/calendar',      icon: Calendar },
 
   // ── OSIL — STRATEGIC INTELLIGENCE LAYER ──────────────────────────────────
   osil_dashboard:    { key: 'osil_dashboard',    label: 'OSIL Command',        href: '/dashboard/osil',                  icon: Brain },
@@ -108,6 +110,16 @@ export const NAV_MODULES: Record<string, NavModuleDef> = {
   osil_optimalisatie:{ key: 'osil_optimalisatie',label: 'Financial Optimizer', href: '/dashboard/osil/optimalisatie',    icon: BarChart3 },
   osil_fiscalist:    { key: 'osil_fiscalist',    label: 'AI Fiscalist',        href: '/dashboard/osil/fiscalist',        icon: Scale },
   osil_rapport:      { key: 'osil_rapport',      label: 'Strategisch Rapport', href: '/dashboard/osil/rapport',          icon: FileText },
+
+  // ── AI ADVOCAAT OS ───────────────────────────────────────────────────────
+  advocaat_dashboard:  { key: 'advocaat_dashboard',  label: 'AI Advocaat OS',        href: '/dashboard/advocaat',                  icon: Gavel },
+  advocaat_dossiers:   { key: 'advocaat_dossiers',   label: 'Juridische Dossiers',   href: '/dashboard/advocaat/dossiers',         icon: Scale },
+  advocaat_curator:    { key: 'advocaat_curator',    label: 'Curator Protectie',     href: '/dashboard/advocaat/curator',          icon: Shield },
+  advocaat_tijdlijn:   { key: 'advocaat_tijdlijn',   label: 'Forensische Tijdlijn',  href: '/dashboard/advocaat/tijdlijn',         icon: Clock },
+  advocaat_bewijs:     { key: 'advocaat_bewijs',     label: 'Bewijs Engine',         href: '/dashboard/advocaat/bewijs',           icon: Lock },
+  advocaat_mail_def:   { key: 'advocaat_mail_def',   label: 'Mail Defense',          href: '/dashboard/advocaat/mail-defense',     icon: Eye },
+  advocaat_strategie:  { key: 'advocaat_strategie',  label: 'Strategie Engine',      href: '/dashboard/advocaat/strategie',        icon: Brain },
+  advocaat_imports:    { key: 'advocaat_imports',    label: 'Data Import Center',    href: '/dashboard/advocaat/imports',          icon: Upload },
 
   // ── MAIL ENGINE ───────────────────────────────────────────────────────────
   mail_dashboard:       { key: 'mail_dashboard',       label: 'Mail Engine',             href: '/dashboard/mail',                  icon: Mail },
@@ -145,6 +157,7 @@ export const COMPANY_NAV: Record<string, CompanyNav> = {
   osm: {
     sections: [
       { modules: ['dashboard'] },
+      { title: 'AI ADVOCAAT OS', modules: ['advocaat_dashboard', 'advocaat_dossiers', 'advocaat_curator', 'advocaat_tijdlijn', 'advocaat_bewijs', 'advocaat_mail_def', 'advocaat_strategie', 'advocaat_imports'] },
       { title: 'OSIL', modules: ['osil_dashboard', 'osil_board', 'osil_kansen', 'osil_recovery', 'osil_optimalisatie', 'osil_fiscalist', 'osil_rapport'] },
       { title: 'Persoonlijk', modules: ['dyme_os', 'personal_finance', 'dga_loonstrook', 'loonstroken', 'financien'] },
       { title: 'Bedrijven', modules: ['bedrijven'] },
@@ -190,7 +203,7 @@ export const COMPANY_NAV: Record<string, CompanyNav> = {
           'youtube_crypto', 'youtube_beleggingstv', 'youtube_investor', 'youtube_aquier', 'youtube_aquieres',
         ],
       },
-      { title: 'YouTube Tools', modules: ['youtube_workflow', 'youtube_analytics', 'youtube_queue', 'youtube_automation', 'youtube_scheduled', 'youtube_logs'] },
+      { title: 'YouTube Tools', modules: ['youtube_workflow', 'youtube_analytics', 'youtube_queue', 'youtube_automation', 'youtube_calendar', 'youtube_scheduled', 'youtube_logs'] },
       { title: 'Social Media', modules: ['instagram', 'tiktok', 'fb_offmarket', 'fb_property'] },
       { title: 'Vastgoed', modules: ['vastgoed'] },
       { title: 'Operationeel', modules: ['projecten', 'planning', 'crm', 'documenten', 'agenda', 'taken'] },
