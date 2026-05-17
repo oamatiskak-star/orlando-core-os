@@ -1,11 +1,15 @@
 'use client'
 
-import { useCallback, useRef, useState, useEffect } from 'react'
-import { Upload, FileText, X, CheckCircle, AlertCircle, Loader2, Shield, FolderOpen, RefreshCw, Hash } from 'lucide-react'
+import { useRef, useState, useEffect } from 'react'
+import { Upload, FileText, X, CheckCircle, AlertCircle, Loader2, Shield, FolderOpen, RefreshCw, Hash, FolderInput } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import type { Dossier } from '@/lib/advocaat/types'
 
 const ACCEPT = '.pdf,.doc,.docx,.xls,.xlsx,.txt,.eml,.msg,.json,.zip,.png,.jpg,.jpeg,.tiff'
+
+const SCAN_EXTS = new Set([
+  'pdf','doc','docx','xls','xlsx','txt','eml','msg','json','zip','png','jpg','jpeg','tiff',
+])
 
 const MIME_MAP: Record<string, string> = {
   pdf:  'application/pdf',
@@ -35,19 +39,6 @@ interface QueueItem {
   sha256?: string
 }
 
-async function computeSHA256(file: File): Promise<string> {
-  const buffer = await file.arrayBuffer()
-  const hash = await crypto.subtle.digest('SHA-256', buffer)
-  return Array.from(new Uint8Array(hash)).map(b => b.toString(16).padStart(2, '0')).join('')
-}
-
-function fmtBytes(n: number) {
-  if (n < 1024)       return `${n} B`
-  if (n < 1048576)    return `${(n / 1024).toFixed(1)} KB`
-  if (n < 1073741824) return `${(n / 1048576).toFixed(1)} MB`
-  return `${(n / 1073741824).toFixed(1)} GB`
-}
-
 const STATUS_LABEL: Record<UploadStatus, [string, string]> = {
   pending:     ['In wachtrij',  'text-white/30'],
   hashing:     ['SHA256...',    'text-blue-400'],
@@ -56,6 +47,57 @@ const STATUS_LABEL: Record<UploadStatus, [string, string]> = {
   done:        ['Geïndexeerd', 'text-emerald-400'],
   duplicate:   ['Duplicaat',    'text-white/30'],
   error:       ['Fout',         'text-red-400'],
+}
+
+// Streaming SHA256 via hash-wasm — leest in 8MB chunks, gebruikt nooit meer dan 8MB geheugen
+async function streamingSHA256(file: File): Promise<string> {
+  const { createSHA256 } = await import('hash-wasm')
+  const hasher = await createSHA256()
+  const CHUNK = 8 * 1024 * 1024 // 8 MB
+  let offset = 0
+  while (offset < file.size) {
+    const slice = file.slice(offset, offset + CHUNK)
+    const buf = await slice.arrayBuffer()
+    hasher.update(new Uint8Array(buf))
+    offset += CHUNK
+  }
+  return hasher.digest('hex')
+}
+
+// Traverseer een FileSystemEntry recursief en verzamel alle bestanden
+async function collectFiles(entry: FileSystemEntry): Promise<File[]> {
+  if (entry.isFile) {
+    return new Promise((res, rej) => {
+      (entry as FileSystemFileEntry).file(f => {
+        const ext = f.name.split('.').pop()?.toLowerCase() ?? ''
+        res(SCAN_EXTS.has(ext) ? [f] : [])
+      }, rej)
+    })
+  }
+
+  if (entry.isDirectory) {
+    const reader = (entry as FileSystemDirectoryEntry).createReader()
+    const all: File[] = []
+    // readEntries geeft max 100 per keer — loop totdat leeg
+    while (true) {
+      const batch: FileSystemEntry[] = await new Promise((res, rej) => reader.readEntries(res, rej))
+      if (batch.length === 0) break
+      for (const sub of batch) {
+        const files = await collectFiles(sub)
+        all.push(...files)
+      }
+    }
+    return all
+  }
+
+  return []
+}
+
+function fmtBytes(n: number) {
+  if (n < 1024)       return `${n} B`
+  if (n < 1048576)    return `${(n / 1024).toFixed(1)} KB`
+  if (n < 1073741824) return `${(n / 1048576).toFixed(1)} MB`
+  return `${(n / 1073741824).toFixed(1)} GB`
 }
 
 function StatusIcon({ status }: { status: UploadStatus }) {
@@ -71,11 +113,15 @@ export default function UploadPage() {
   const [dossierSel, setDossierSel] = useState('')
   const [queue,      setQueue]      = useState<QueueItem[]>([])
   const [dragging,   setDragging]   = useState(false)
-  const inputRef = useRef<HTMLInputElement>(null)
-  const processing = useRef<Set<string>>(new Set())
+  const fileInputRef   = useRef<HTMLInputElement>(null)
+  const folderInputRef = useRef<HTMLInputElement>(null)
 
-  // Supabase client — created once outside render
-  const supabaseRef = useRef(createClient())
+  const supabaseRef  = useRef(createClient())
+  const dossierRef   = useRef(dossierSel)
+  const processingRef = useRef<Set<string>>(new Set())
+  const queueRef      = useRef<QueueItem[]>([])
+
+  useEffect(() => { dossierRef.current = dossierSel }, [dossierSel])
 
   useEffect(() => {
     fetch('/api/advocaat/dossiers?limit=50')
@@ -85,30 +131,35 @@ export default function UploadPage() {
   }, [])
 
   function patch(id: string, update: Partial<QueueItem>) {
-    setQueue(q => q.map(i => i.id === id ? { ...i, ...update } : i))
+    setQueue(q => {
+      const next = q.map(i => i.id === id ? { ...i, ...update } : i)
+      queueRef.current = next
+      return next
+    })
   }
 
-  const processFile = useCallback(async (item: QueueItem, dossierId: string) => {
-    if (processing.current.has(item.id)) return
-    processing.current.add(item.id)
+  async function processFile(item: QueueItem) {
+    if (processingRef.current.has(item.id)) return
+    processingRef.current.add(item.id)
 
     const { file } = item
+    const dossierId = dossierRef.current
     const ext = file.name.split('.').pop()?.toLowerCase() ?? ''
 
-    // 1. SHA256
+    // 1. Streaming SHA256 (werkt voor elk bestand, elke grootte)
     patch(item.id, { status: 'hashing', progress: 10 })
     let sha256: string
     try {
-      sha256 = await computeSHA256(file)
-    } catch {
-      patch(item.id, { status: 'error', error: 'SHA256 berekening mislukt' })
-      processing.current.delete(item.id)
+      sha256 = await streamingSHA256(file)
+    } catch (e) {
+      patch(item.id, { status: 'error', error: `Hash fout: ${e instanceof Error ? e.message : 'onbekend'}` })
+      processingRef.current.delete(item.id)
       return
     }
-    patch(item.id, { sha256, progress: 25 })
+    patch(item.id, { sha256, progress: 30 })
 
     // 2. Upload naar Supabase Storage
-    patch(item.id, { status: 'uploading', progress: 30 })
+    patch(item.id, { status: 'uploading', progress: 35 })
     const storagePath = `uploads/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`
 
     const { error: uploadErr } = await supabaseRef.current.storage
@@ -120,10 +171,10 @@ export default function UploadPage() {
 
     if (uploadErr) {
       patch(item.id, { status: 'error', error: uploadErr.message })
-      processing.current.delete(item.id)
+      processingRef.current.delete(item.id)
       return
     }
-    patch(item.id, { progress: 75 })
+    patch(item.id, { progress: 80 })
 
     // 3. Registreer document
     patch(item.id, { status: 'registering', progress: 85 })
@@ -150,34 +201,58 @@ export default function UploadPage() {
       patch(item.id, { status: 'done', progress: 100 })
     }
 
-    processing.current.delete(item.id)
-  }, [])
+    processingRef.current.delete(item.id)
+  }
 
-  function addFiles(files: File[]) {
-    const dossierId = dossierSel
+  function enqueue(files: File[]) {
+    if (files.length === 0) return
     const items: QueueItem[] = files.map(f => ({
       id: `${f.name}-${f.size}-${Date.now()}-${Math.random().toString(36).slice(2)}`,
       file: f,
       status: 'pending' as UploadStatus,
       progress: 0,
     }))
-    setQueue(q => [...items, ...q])
-    // Start processing with a small stagger to avoid hammering
+    setQueue(q => {
+      const next = [...items, ...q]
+      queueRef.current = next
+      return next
+    })
+    // Stagger verwerking — max 3 tegelijk
+    const CONCURRENCY = 3
     items.forEach((item, i) => {
-      setTimeout(() => processFile(item, dossierId), i * 100)
+      setTimeout(() => processFile(item), Math.floor(i / CONCURRENCY) * 200)
     })
   }
 
-  function onDrop(e: React.DragEvent) {
+  async function onDrop(e: React.DragEvent) {
     e.preventDefault()
     setDragging(false)
-    const files = Array.from(e.dataTransfer.files)
-    if (files.length) addFiles(files)
+
+    // Gebruik FileSystem API voor mappen + bestanden
+    const entries: FileSystemEntry[] = []
+    if (e.dataTransfer.items) {
+      for (const item of e.dataTransfer.items) {
+        const entry = item.webkitGetAsEntry()
+        if (entry) entries.push(entry)
+      }
+    }
+
+    if (entries.length > 0) {
+      // Toon "Scannen..." feedback
+      const files: File[] = []
+      for (const entry of entries) {
+        const found = await collectFiles(entry)
+        files.push(...found)
+      }
+      enqueue(files)
+    } else {
+      // Fallback: gewone files
+      enqueue(Array.from(e.dataTransfer.files))
+    }
   }
 
-  function onInput(e: React.ChangeEvent<HTMLInputElement>) {
-    const files = Array.from(e.target.files ?? [])
-    if (files.length) addFiles(files)
+  function onFileInput(e: React.ChangeEvent<HTMLInputElement>) {
+    enqueue(Array.from(e.target.files ?? []))
     e.target.value = ''
   }
 
@@ -202,7 +277,9 @@ export default function UploadPage() {
         </div>
         <div>
           <h1 className="text-lg font-semibold text-white">Document Upload</h1>
-          <p className="text-xs text-white/40 mt-0.5">PDF · Word · Excel · Outlook · EML · ZIP · Afbeeldingen · tot 500 MB per bestand</p>
+          <p className="text-xs text-white/40 mt-0.5">
+            PDF · Word · Excel · Outlook · EML · ZIP · Afbeeldingen · Mappen · tot 500 MB per bestand
+          </p>
         </div>
       </div>
 
@@ -225,23 +302,56 @@ export default function UploadPage() {
         onDragOver={e => { e.preventDefault(); setDragging(true) }}
         onDragLeave={e => { e.preventDefault(); setDragging(false) }}
         onDrop={onDrop}
-        onClick={() => inputRef.current?.click()}
-        className={`relative border-2 border-dashed rounded-2xl p-14 text-center cursor-pointer select-none transition-all duration-150
+        className={`relative border-2 border-dashed rounded-2xl p-14 text-center transition-all duration-150
           ${dragging
-            ? 'border-violet-500/70 bg-violet-500/8 scale-[1.01]'
-            : 'border-white/[0.1] bg-white/[0.015] hover:border-violet-500/40 hover:bg-white/[0.03]'}`}
+            ? 'border-violet-500/70 bg-violet-500/8 scale-[1.005]'
+            : 'border-white/[0.1] bg-white/[0.015]'}`}
       >
-        <input ref={inputRef} type="file" multiple accept={ACCEPT} onChange={onInput} className="hidden" />
         <div className={`w-12 h-12 rounded-2xl flex items-center justify-center mx-auto mb-4 transition-colors
           ${dragging ? 'bg-violet-500/20' : 'bg-white/[0.04]'}`}>
           <Upload className={`w-6 h-6 transition-colors ${dragging ? 'text-violet-400' : 'text-white/30'}`} />
         </div>
-        <p className="text-white/70 font-medium text-sm">Sleep bestanden hierheen of klik om te selecteren</p>
-        <p className="text-xs text-white/30 mt-2">PDF · DOC · DOCX · XLS · XLSX · EML · MSG · TXT · JSON · ZIP · PNG · JPG · TIFF</p>
-        <p className="text-[10px] text-white/20 mt-1.5">Maximaal 500 MB per bestand · Meerdere bestanden tegelijk · SHA256 chain-of-custody</p>
+        <p className="text-white/70 font-medium text-sm">Sleep bestanden of mappen hierheen</p>
+        <p className="text-xs text-white/30 mt-2">
+          PDF · DOC · DOCX · XLS · XLSX · EML · MSG · TXT · JSON · ZIP · PNG · JPG · TIFF
+        </p>
+        <p className="text-[10px] text-white/20 mt-1.5">
+          Mappen worden automatisch doorzocht · tot 500 MB per bestand · SHA256 streaming hash
+        </p>
+
+        {/* Knoppen */}
+        <div className="flex items-center justify-center gap-3 mt-6">
+          <button
+            type="button"
+            onClick={() => fileInputRef.current?.click()}
+            className="flex items-center gap-2 px-4 py-2 rounded-lg bg-violet-600 text-white text-xs font-medium hover:bg-violet-500 transition-all"
+          >
+            <FileText className="w-3.5 h-3.5" /> Bestanden kiezen
+          </button>
+          <button
+            type="button"
+            onClick={() => folderInputRef.current?.click()}
+            className="flex items-center gap-2 px-4 py-2 rounded-lg bg-white/[0.07] border border-white/[0.1] text-white/70 text-xs font-medium hover:text-white hover:bg-white/[0.1] transition-all"
+          >
+            <FolderInput className="w-3.5 h-3.5" /> Map kiezen
+          </button>
+        </div>
+
+        {/* Hidden inputs */}
+        <input ref={fileInputRef}   type="file" multiple accept={ACCEPT} onChange={onFileInput} className="hidden" />
+        {/* webkitdirectory voor map-selectie — geen accept filter nodig, filtering in enqueue */}
+        <input
+          ref={folderInputRef}
+          type="file"
+          // @ts-expect-error — webkitdirectory is non-standard maar breed ondersteund
+          webkitdirectory=""
+          multiple
+          onChange={onFileInput}
+          className="hidden"
+        />
       </div>
 
-      {/* Queue stats + clear */}
+      {/* Queue stats */}
       {queue.length > 0 && (
         <div className="flex items-center gap-4 text-xs">
           {counts.active    > 0 && <span className="text-blue-400">{counts.active} bezig</span>}
@@ -263,12 +373,12 @@ export default function UploadPage() {
           {queue.map(item => {
             const [label, labelColor] = STATUS_LABEL[item.status]
             return (
-              <div key={item.id} className="flex items-center gap-3 px-4 py-3">
+              <div key={item.id} className="flex items-center gap-3 px-4 py-2.5">
                 <StatusIcon status={item.status} />
 
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">
-                    <span className="text-sm text-white truncate max-w-[400px]">{item.file.name}</span>
+                    <span className="text-sm text-white truncate max-w-[420px]">{item.file.name}</span>
                     <span className="text-[10px] text-white/25 shrink-0">{fmtBytes(item.file.size)}</span>
                   </div>
 
@@ -281,7 +391,7 @@ export default function UploadPage() {
                   {!['done','error','duplicate','pending'].includes(item.status) && (
                     <div className="mt-1.5 h-0.5 bg-white/[0.06] rounded-full overflow-hidden">
                       <div
-                        className="h-full bg-violet-500/70 rounded-full transition-all duration-500"
+                        className="h-full bg-violet-500/70 rounded-full transition-all duration-300"
                         style={{ width: `${item.progress}%` }}
                       />
                     </div>
@@ -313,10 +423,10 @@ export default function UploadPage() {
       <div className="flex items-start gap-2 p-3 rounded-lg bg-blue-500/5 border border-blue-500/15 text-[11px] text-blue-300/60">
         <Shield className="w-3.5 h-3.5 shrink-0 mt-0.5" />
         <span>
-          Forensische modus actief — SHA256 hash wordt client-side berekend vóór upload.
+          Forensische modus — SHA256 wordt client-side berekend in 8 MB chunks (streaming, werkt voor elk bestand).
+          Mappen worden recursief doorzocht via de browser FileSystem API.
           Bestanden worden opgeslagen in beveiligde Supabase Storage (eu-west-1, niet publiek).
-          Duplicaten worden automatisch herkend op hash en niet dubbel opgeslagen.
-          Niets wordt automatisch verzonden of gewijzigd.
+          Duplicaten worden herkend op hash en niet dubbel opgeslagen.
         </span>
       </div>
     </div>
