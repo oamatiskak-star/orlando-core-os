@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
-import path from 'path'
 
+// Edge runtime = geen cold start, elke request is direct warm
+export const runtime = 'edge'
 export const dynamic = 'force-dynamic'
 
 const LEGAL_KEYWORDS = [
@@ -21,16 +22,16 @@ const DOC_TYPES: Record<string, string[]> = {
 }
 
 function inferDocType(filename: string): string {
-  const lower = filename.toLowerCase()
+  const l = filename.toLowerCase()
   for (const [type, kws] of Object.entries(DOC_TYPES)) {
-    if (kws.some(k => lower.includes(k))) return type
+    if (kws.some(k => l.includes(k))) return type
   }
   return 'overig'
 }
 
 function isLegal(filename: string): boolean {
-  const lower = filename.toLowerCase()
-  return LEGAL_KEYWORDS.some(k => lower.includes(k))
+  const l = filename.toLowerCase()
+  return LEGAL_KEYWORDS.some(k => l.includes(k))
 }
 
 function classifyContent(filename: string): string {
@@ -42,6 +43,22 @@ function classifyContent(filename: string): string {
   return 'ONBEKEND'
 }
 
+// GET ?hash=xxx — snelle deduplicatiecheck, geen body parsing nodig
+export async function GET(req: NextRequest) {
+  const hash = new URL(req.url).searchParams.get('hash')
+  if (!hash) return NextResponse.json({ exists: false })
+
+  const supabase = await createClient()
+  const { data } = await supabase
+    .from('advocaat_documenten')
+    .select('id')
+    .eq('immutable_hash', hash)
+    .maybeSingle()
+
+  return NextResponse.json({ exists: !!data, id: data?.id ?? null })
+}
+
+// POST — registreer document na upload (storage upload is client-side gedaan)
 export async function POST(req: NextRequest) {
   const supabase = await createClient()
   const { storage_path, original_filename, sha256_hash, file_size, mime_type, dossier_id } = await req.json()
@@ -50,17 +67,9 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'storage_path, original_filename en sha256_hash vereist' }, { status: 400 })
   }
 
-  // Deduplicatie op hash
-  const { data: existing } = await supabase
-    .from('advocaat_documenten')
-    .select('id')
-    .eq('immutable_hash', sha256_hash)
-    .maybeSingle()
-
-  if (existing) return NextResponse.json({ duplicate: true, existing_id: existing.id })
-
-  const ext   = path.extname(original_filename).toLowerCase().replace('.', '')
-  const title = path.basename(original_filename, path.extname(original_filename))
+  const dotIdx  = original_filename.lastIndexOf('.')
+  const ext     = dotIdx > 0 ? original_filename.slice(dotIdx + 1).toLowerCase() : ''
+  const title   = dotIdx > 0 ? original_filename.slice(0, dotIdx) : original_filename
   const legalDoc = isLegal(original_filename)
   const label    = classifyContent(original_filename)
   const docType  = inferDocType(original_filename)
@@ -91,12 +100,13 @@ export async function POST(req: NextRequest) {
       tags:              ['upload', ext].filter(Boolean),
       ai_risk_flags:     aiRiskFlags,
     })
-    .select()
+    .select('id, title, content_label, is_evidence')
     .single()
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
-  await supabase.from('advocaat_audit_log').insert({
+  // Audit log fire-and-forget — blokkeert response niet
+  supabase.from('advocaat_audit_log').insert({
     dossier_id: dossier_id ?? null,
     action: 'document_geupload',
     actor: 'upload_portal',
