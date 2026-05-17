@@ -1,13 +1,184 @@
 'use client'
 
 import { useEffect, useState, useCallback, useRef } from 'react'
-import { Lock, FileText, Search, Shield, AlertTriangle, RefreshCw, Hash, ChevronLeft, ChevronRight, CheckSquare, Square, X, FolderOpen, Tag, Eye, ExternalLink, Download, Copy, Check } from 'lucide-react'
+import { Lock, FileText, Search, Shield, AlertTriangle, RefreshCw, Hash, ChevronLeft, ChevronRight, CheckSquare, Square, X, FolderOpen, Tag, Eye, ExternalLink, Download, Copy, Check, BookOpen, Loader2 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import type { LegalDocument, Dossier } from '@/lib/advocaat/types'
 
-type DocWithMeta = LegalDocument & { source_path?: string; file_size_bytes?: number }
+type DocWithMeta = LegalDocument & { source_path?: string; file_size_bytes?: number; mime_type?: string }
 
 const supabase = createClient()
+
+// ── Viewer Modal ─────────────────────────────────────────────────────────────
+
+function ViewerModal({ doc, onClose }: { doc: DocWithMeta; onClose: () => void }) {
+  const [signedUrl, setSignedUrl]   = useState<string | null>(null)
+  const [textContent, setTextContent] = useState<string | null>(null)
+  const [loading, setLoading]       = useState(true)
+  const [error, setError]           = useState<string | null>(null)
+
+  const mime = doc.mime_type ?? ''
+  const isPdf   = mime === 'application/pdf'
+  const isImage = mime.startsWith('image/')
+  const isText  = mime === 'text/plain' || mime === 'application/json'
+
+  useEffect(() => {
+    async function init() {
+      setLoading(true)
+
+      if (doc.source === 'upload' && doc.source_path) {
+        const { data, error: urlErr } = await supabase.storage
+          .from('advocaat-uploads')
+          .createSignedUrl(doc.source_path, 3600)
+
+        if (urlErr || !data?.signedUrl) {
+          setError(urlErr?.message ?? 'Kan URL niet ophalen')
+          setLoading(false)
+          return
+        }
+
+        if (isText) {
+          // Haal tekst op via signed URL
+          try {
+            const text = await fetch(data.signedUrl).then(r => r.text())
+            setTextContent(text)
+          } catch {
+            setTextContent(doc.raw_text ?? null)
+          }
+        } else {
+          setSignedUrl(data.signedUrl)
+        }
+      } else if (doc.raw_text) {
+        // Lokaal bestand — toon geëxtraheerde tekst uit DB
+        setTextContent(doc.raw_text)
+      } else {
+        setError('Geen bestandsinhoud beschikbaar. Upload het bestand opnieuw om het te bekijken.')
+      }
+
+      setLoading(false)
+    }
+    init()
+  }, [doc.id]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Sluit op Escape
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
+    document.addEventListener('keydown', handler)
+    return () => document.removeEventListener('keydown', handler)
+  }, [onClose])
+
+  return (
+    <div className="fixed inset-0 z-50 flex flex-col bg-[#07070d]">
+      {/* Header */}
+      <div className="flex items-center gap-3 px-5 py-3 border-b border-white/[0.08] shrink-0">
+        <BookOpen className="w-4 h-4 text-violet-400 shrink-0" />
+        <div className="flex-1 min-w-0">
+          <p className="text-sm font-medium text-white truncate">{doc.title}</p>
+          <p className="text-[10px] text-white/30">{doc.source_filename ?? ''} · {doc.mime_type}</p>
+        </div>
+        <div className="flex items-center gap-2">
+          {signedUrl && (
+            <>
+              <a href={signedUrl} target="_blank" rel="noopener noreferrer"
+                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-white/[0.06] border border-white/[0.1] text-white/60 text-xs hover:text-white transition-all">
+                <ExternalLink className="w-3 h-3" /> Nieuw tabblad
+              </a>
+              <a href={signedUrl} download={doc.source_filename ?? doc.title}
+                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-white/[0.06] border border-white/[0.1] text-white/60 text-xs hover:text-white transition-all">
+                <Download className="w-3 h-3" /> Download
+              </a>
+            </>
+          )}
+          <button onClick={onClose}
+            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-white/[0.06] border border-white/[0.1] text-white/60 text-xs hover:text-white transition-all">
+            <X className="w-3 h-3" /> Sluiten
+          </button>
+        </div>
+      </div>
+
+      {/* Content */}
+      <div className="flex-1 overflow-hidden">
+        {loading && (
+          <div className="h-full flex items-center justify-center gap-2 text-white/30">
+            <Loader2 className="w-5 h-5 animate-spin" />
+            <span className="text-sm">Laden...</span>
+          </div>
+        )}
+
+        {!loading && error && (
+          <div className="h-full flex flex-col items-center justify-center text-center p-8">
+            <AlertTriangle className="w-10 h-10 text-orange-400/40 mb-3" />
+            <p className="text-white/40 text-sm max-w-sm">{error}</p>
+            {doc.raw_text && (
+              <button onClick={() => { setError(null); setTextContent(doc.raw_text) }}
+                className="mt-4 px-3 py-1.5 rounded-lg bg-white/[0.06] border border-white/[0.1] text-white/60 text-xs hover:text-white">
+                Toon geëxtraheerde tekst
+              </button>
+            )}
+          </div>
+        )}
+
+        {!loading && !error && isPdf && signedUrl && (
+          <iframe
+            src={signedUrl}
+            className="w-full h-full border-0"
+            title={doc.title}
+          />
+        )}
+
+        {!loading && !error && isImage && signedUrl && (
+          <div className="h-full flex items-center justify-center p-8 overflow-auto">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={signedUrl} alt={doc.title}
+              className="max-w-full max-h-full object-contain rounded-lg shadow-2xl" />
+          </div>
+        )}
+
+        {!loading && !error && !isPdf && !isImage && signedUrl && !textContent && (
+          // DOCX / XLSX / MSG / etc — toon raw_text als die er is
+          doc.raw_text ? (
+            <div className="h-full overflow-auto p-6">
+              <div className="max-w-4xl mx-auto">
+                <div className="mb-3 flex items-center gap-2 text-[10px] text-amber-400/70 bg-amber-500/5 border border-amber-500/15 rounded-lg px-3 py-2">
+                  <AlertTriangle className="w-3 h-3 shrink-0" />
+                  Geëxtraheerde tekst — opmaak en afbeeldingen niet beschikbaar voor dit bestandstype
+                </div>
+                <pre className="text-sm text-white/70 leading-relaxed whitespace-pre-wrap font-mono bg-white/[0.02] border border-white/[0.06] rounded-xl p-5">
+                  {doc.raw_text}
+                </pre>
+              </div>
+            </div>
+          ) : (
+            <div className="h-full flex flex-col items-center justify-center text-center p-8">
+              <FileText className="w-10 h-10 text-white/10 mb-3" />
+              <p className="text-white/30 text-sm">Inhoudsweergave niet beschikbaar voor {mime}</p>
+              <a href={signedUrl} download={doc.source_filename ?? doc.title}
+                className="mt-4 flex items-center gap-2 px-4 py-2 rounded-lg bg-violet-600 text-white text-xs font-medium hover:bg-violet-500 transition-all">
+                <Download className="w-3.5 h-3.5" /> Download om te openen
+              </a>
+            </div>
+          )
+        )}
+
+        {!loading && !error && textContent && (
+          <div className="h-full overflow-auto p-6">
+            <div className="max-w-4xl mx-auto">
+              {!isText && (
+                <div className="mb-3 flex items-center gap-2 text-[10px] text-amber-400/70 bg-amber-500/5 border border-amber-500/15 rounded-lg px-3 py-2">
+                  <AlertTriangle className="w-3 h-3 shrink-0" />
+                  Geëxtraheerde tekst — opmaak niet beschikbaar voor dit bestandstype
+                </div>
+              )}
+              <pre className="text-sm text-white/80 leading-relaxed whitespace-pre-wrap font-mono bg-white/[0.02] border border-white/[0.06] rounded-xl p-5">
+                {textContent}
+              </pre>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
 
 const LABEL_COLOR: Record<string, string> = {
   FEIT:         'text-emerald-400 bg-emerald-500/10 border-emerald-500/20',
@@ -69,6 +240,7 @@ export default function BewijsPage() {
   const [loading,      setLoading]      = useState(false)
   const [saving,       setSaving]       = useState(false)
   const [copied,       setCopied]       = useState(false)
+  const [viewer,       setViewer]       = useState<DocWithMeta | null>(null)
 
   // Filters
   const [search,        setSearch]        = useState('')
@@ -178,6 +350,8 @@ export default function BewijsPage() {
   const someChecked = checked.size > 0
 
   return (
+    <>
+    {viewer && <ViewerModal doc={viewer} onClose={() => setViewer(null)} />}
     <div className="min-h-screen bg-[#0a0a0f] text-white p-6 space-y-4">
 
       {/* Header */}
@@ -382,40 +556,50 @@ export default function BewijsPage() {
                 </div>
 
                 {/* Open / Download / Kopieer pad */}
-                {(selected as DocWithMeta).source_path && (
-                  <div className="flex items-center gap-2 mt-3">
-                    {selected.source === 'upload' ? (
-                      <>
-                        <button
-                          onClick={() => openFile(selected as DocWithMeta, 'open')}
-                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-violet-600 text-white text-xs font-medium hover:bg-violet-500 transition-all"
-                        >
-                          <ExternalLink className="w-3.5 h-3.5" /> Openen
-                        </button>
-                        <button
-                          onClick={() => openFile(selected as DocWithMeta, 'download')}
-                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/[0.06] border border-white/[0.1] text-white/70 text-xs hover:text-white hover:bg-white/[0.1] transition-all"
-                        >
-                          <Download className="w-3.5 h-3.5" /> Download
-                        </button>
-                      </>
-                    ) : (
+                <div className="flex items-center gap-2 mt-3 flex-wrap">
+                  {/* Bekijk inhoud — altijd beschikbaar als er raw_text is of als het een upload is */}
+                  {(selected.source === 'upload' || selected.raw_text) && (
+                    <button
+                      onClick={() => setViewer(selected as DocWithMeta)}
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-violet-600 text-white text-xs font-medium hover:bg-violet-500 transition-all"
+                    >
+                      <BookOpen className="w-3.5 h-3.5" /> Bekijk inhoud
+                    </button>
+                  )}
+
+                  {selected.source === 'upload' && (selected as DocWithMeta).source_path && (
+                    <>
                       <button
-                        onClick={async () => {
-                          await copyPath((selected as DocWithMeta).source_path ?? '')
-                          setCopied(true)
-                          setTimeout(() => setCopied(false), 2000)
-                        }}
-                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/[0.06] border border-white/[0.1] text-white/60 text-xs hover:text-white hover:bg-white/[0.1] transition-all"
+                        onClick={() => openFile(selected as DocWithMeta, 'open')}
+                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/[0.06] border border-white/[0.1] text-white/70 text-xs hover:text-white hover:bg-white/[0.1] transition-all"
                       >
-                        {copied
-                          ? <><Check className="w-3.5 h-3.5 text-emerald-400" /> Gekopieerd</>
-                          : <><Copy className="w-3.5 h-3.5" /> Kopieer pad</>
-                        }
+                        <ExternalLink className="w-3.5 h-3.5" /> Nieuw tabblad
                       </button>
-                    )}
-                  </div>
-                )}
+                      <button
+                        onClick={() => openFile(selected as DocWithMeta, 'download')}
+                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/[0.06] border border-white/[0.1] text-white/70 text-xs hover:text-white hover:bg-white/[0.1] transition-all"
+                      >
+                        <Download className="w-3.5 h-3.5" /> Download
+                      </button>
+                    </>
+                  )}
+
+                  {selected.source !== 'upload' && (selected as DocWithMeta).source_path && (
+                    <button
+                      onClick={async () => {
+                        await copyPath((selected as DocWithMeta).source_path ?? '')
+                        setCopied(true)
+                        setTimeout(() => setCopied(false), 2000)
+                      }}
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/[0.06] border border-white/[0.1] text-white/60 text-xs hover:text-white hover:bg-white/[0.1] transition-all"
+                    >
+                      {copied
+                        ? <><Check className="w-3.5 h-3.5 text-emerald-400" /> Gekopieerd</>
+                        : <><Copy className="w-3.5 h-3.5" /> Kopieer pad</>
+                      }
+                    </button>
+                  )}
+                </div>
               </div>
 
               {/* Edit label */}
@@ -557,5 +741,6 @@ export default function BewijsPage() {
         </div>
       </div>
     </div>
+    </>
   )
 }
