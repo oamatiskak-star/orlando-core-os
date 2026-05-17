@@ -1,8 +1,13 @@
 'use client'
 
 import { useEffect, useState, useCallback, useRef } from 'react'
-import { Lock, FileText, Search, Shield, AlertTriangle, RefreshCw, Hash, ChevronLeft, ChevronRight, CheckSquare, Square, X, FolderOpen, Tag, Eye } from 'lucide-react'
+import { Lock, FileText, Search, Shield, AlertTriangle, RefreshCw, Hash, ChevronLeft, ChevronRight, CheckSquare, Square, X, FolderOpen, Tag, Eye, ExternalLink, Download, Copy, Check } from 'lucide-react'
+import { createClient } from '@/lib/supabase/client'
 import type { LegalDocument, Dossier } from '@/lib/advocaat/types'
+
+type DocWithMeta = LegalDocument & { source_path?: string; file_size_bytes?: number }
+
+const supabase = createClient()
 
 const LABEL_COLOR: Record<string, string> = {
   FEIT:         'text-emerald-400 bg-emerald-500/10 border-emerald-500/20',
@@ -20,6 +25,28 @@ const STRENGTH_COLOR: Record<string, string> = {
 }
 
 const PAGE_SIZE = 100
+
+// Open bestand: uploaded files via Supabase signed URL, lokale files via clipboard
+async function openFile(doc: DocWithMeta, mode: 'open' | 'download' = 'open') {
+  if (doc.source === 'upload' && doc.source_path) {
+    const { data, error } = await supabase.storage
+      .from('advocaat-uploads')
+      .createSignedUrl(doc.source_path, 3600) // 1 uur geldig
+    if (error || !data?.signedUrl) { alert('Kan URL niet genereren: ' + (error?.message ?? 'onbekend')); return }
+    if (mode === 'download') {
+      const a = document.createElement('a')
+      a.href = data.signedUrl
+      a.download = doc.source_filename ?? doc.title
+      a.click()
+    } else {
+      window.open(data.signedUrl, '_blank', 'noopener')
+    }
+  }
+}
+
+async function copyPath(path: string) {
+  await navigator.clipboard.writeText(path)
+}
 
 function fmt(d: string | null) {
   if (!d) return '—'
@@ -41,6 +68,7 @@ export default function BewijsPage() {
   const [checked,      setChecked]      = useState<Set<string>>(new Set())
   const [loading,      setLoading]      = useState(false)
   const [saving,       setSaving]       = useState(false)
+  const [copied,       setCopied]       = useState(false)
 
   // Filters
   const [search,        setSearch]        = useState('')
@@ -352,6 +380,42 @@ export default function BewijsPage() {
                   <span className="text-[10px] text-white/30 capitalize">{selected.document_type}</span>
                   <span className="text-[10px] text-white/30">{selected.source}</span>
                 </div>
+
+                {/* Open / Download / Kopieer pad */}
+                {(selected as DocWithMeta).source_path && (
+                  <div className="flex items-center gap-2 mt-3">
+                    {selected.source === 'upload' ? (
+                      <>
+                        <button
+                          onClick={() => openFile(selected as DocWithMeta, 'open')}
+                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-violet-600 text-white text-xs font-medium hover:bg-violet-500 transition-all"
+                        >
+                          <ExternalLink className="w-3.5 h-3.5" /> Openen
+                        </button>
+                        <button
+                          onClick={() => openFile(selected as DocWithMeta, 'download')}
+                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/[0.06] border border-white/[0.1] text-white/70 text-xs hover:text-white hover:bg-white/[0.1] transition-all"
+                        >
+                          <Download className="w-3.5 h-3.5" /> Download
+                        </button>
+                      </>
+                    ) : (
+                      <button
+                        onClick={async () => {
+                          await copyPath((selected as DocWithMeta).source_path ?? '')
+                          setCopied(true)
+                          setTimeout(() => setCopied(false), 2000)
+                        }}
+                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/[0.06] border border-white/[0.1] text-white/60 text-xs hover:text-white hover:bg-white/[0.1] transition-all"
+                      >
+                        {copied
+                          ? <><Check className="w-3.5 h-3.5 text-emerald-400" /> Gekopieerd</>
+                          : <><Copy className="w-3.5 h-3.5" /> Kopieer pad</>
+                        }
+                      </button>
+                    )}
+                  </div>
+                )}
               </div>
 
               {/* Edit label */}
@@ -395,7 +459,7 @@ export default function BewijsPage() {
               <div className="grid grid-cols-2 gap-2">
                 {[
                   { label: 'Datum', value: fmt(selected.document_date) },
-                  { label: 'Bestandsgrootte', value: fmtBytes((selected as LegalDocument & { file_size_bytes?: number }).file_size_bytes ?? null) },
+                  { label: 'Bestandsgrootte', value: fmtBytes((selected as DocWithMeta).file_size_bytes ?? null) },
                   { label: 'Auteur', value: selected.author ?? '—' },
                   { label: 'OCR', value: selected.ocr_performed ? 'Ja' : 'Nee' },
                 ].map(f => (
@@ -441,12 +505,12 @@ export default function BewijsPage() {
                 </div>
               )}
 
-              {/* Bestandspad */}
-              {(selected as LegalDocument & { source_path?: string }).source_path && (
+              {/* Bronpad — lokale bestanden tonen het volledige pad */}
+              {(selected as DocWithMeta).source_path && selected.source !== 'upload' && (
                 <div className="p-2 rounded-lg bg-white/[0.02] border border-white/[0.06]">
-                  <div className="text-[9px] text-white/30 uppercase mb-1">Bronpad</div>
+                  <div className="text-[9px] text-white/30 uppercase mb-1">Lokaal pad</div>
                   <code className="text-[9px] text-white/30 break-all leading-relaxed">
-                    {(selected as LegalDocument & { source_path?: string }).source_path}
+                    {(selected as DocWithMeta).source_path}
                   </code>
                 </div>
               )}
