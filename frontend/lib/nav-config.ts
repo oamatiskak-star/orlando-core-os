@@ -111,15 +111,19 @@ export const NAV_MODULES: Record<string, NavModuleDef> = {
   osil_fiscalist:    { key: 'osil_fiscalist',    label: 'AI Fiscalist',        href: '/dashboard/osil/fiscalist',        icon: Scale },
   osil_rapport:      { key: 'osil_rapport',      label: 'Strategisch Rapport', href: '/dashboard/osil/rapport',          icon: FileText },
 
-  // ── AI ADVOCAAT OS ───────────────────────────────────────────────────────
-  advocaat_dashboard:  { key: 'advocaat_dashboard',  label: 'AI Advocaat OS',        href: '/dashboard/advocaat',                  icon: Gavel },
-  advocaat_dossiers:   { key: 'advocaat_dossiers',   label: 'Juridische Dossiers',   href: '/dashboard/advocaat/dossiers',         icon: Scale },
-  advocaat_curator:    { key: 'advocaat_curator',    label: 'Curator Protectie',     href: '/dashboard/advocaat/curator',          icon: Shield },
-  advocaat_tijdlijn:   { key: 'advocaat_tijdlijn',   label: 'Forensische Tijdlijn',  href: '/dashboard/advocaat/tijdlijn',         icon: Clock },
-  advocaat_bewijs:     { key: 'advocaat_bewijs',     label: 'Bewijs Engine',         href: '/dashboard/advocaat/bewijs',           icon: Lock },
-  advocaat_mail_def:   { key: 'advocaat_mail_def',   label: 'Mail Defense',          href: '/dashboard/advocaat/mail-defense',     icon: Eye },
-  advocaat_strategie:  { key: 'advocaat_strategie',  label: 'Strategie Engine',      href: '/dashboard/advocaat/strategie',        icon: Brain },
-  advocaat_imports:    { key: 'advocaat_imports',    label: 'Data Import Center',    href: '/dashboard/advocaat/imports',          icon: Upload },
+  // ── AI ADVOCAAT OS ────────────────────────────────────────────────────────
+  ai_advocaat:         { key: 'ai_advocaat',         label: 'AI Advocaat OS',       href: '/dashboard/ai-advocaat',               icon: Scale },
+  ai_adv_dossiers:     { key: 'ai_adv_dossiers',     label: 'Dossiers',             href: '/dashboard/ai-advocaat/dossiers',      icon: Shield },
+  ai_adv_contracten:   { key: 'ai_adv_contracten',   label: 'Contracten',           href: '/dashboard/ai-advocaat/contracten',    icon: ScrollText },
+  ai_adv_deadlines:    { key: 'ai_adv_deadlines',    label: 'Deadlines',            href: '/dashboard/ai-advocaat/deadlines',     icon: Clock },
+  advocaat_dashboard:  { key: 'advocaat_dashboard',  label: 'Advocaat OS (full)',   href: '/dashboard/advocaat',                  icon: Gavel },
+  advocaat_dossiers:   { key: 'advocaat_dossiers',   label: 'Juridische Dossiers',  href: '/dashboard/advocaat/dossiers',         icon: Scale },
+  advocaat_curator:    { key: 'advocaat_curator',    label: 'Curator Protectie',    href: '/dashboard/advocaat/curator',          icon: Shield },
+  advocaat_tijdlijn:   { key: 'advocaat_tijdlijn',   label: 'Forensische Tijdlijn', href: '/dashboard/advocaat/tijdlijn',         icon: Clock },
+  advocaat_bewijs:     { key: 'advocaat_bewijs',     label: 'Bewijs Engine',        href: '/dashboard/advocaat/bewijs',           icon: Lock },
+  advocaat_mail_def:   { key: 'advocaat_mail_def',   label: 'Mail Defense',         href: '/dashboard/advocaat/mail-defense',     icon: Eye },
+  advocaat_strategie:  { key: 'advocaat_strategie',  label: 'Strategie Engine',     href: '/dashboard/advocaat/strategie',        icon: Brain },
+  advocaat_imports:    { key: 'advocaat_imports',    label: 'Data Import Center',   href: '/dashboard/advocaat/imports',          icon: Upload },
 
   // ── MAIL ENGINE ───────────────────────────────────────────────────────────
   mail_dashboard:       { key: 'mail_dashboard',       label: 'Mail Engine',             href: '/dashboard/mail',                  icon: Mail },
@@ -157,7 +161,7 @@ export const COMPANY_NAV: Record<string, CompanyNav> = {
   osm: {
     sections: [
       { modules: ['dashboard'] },
-      { title: 'AI ADVOCAAT OS', modules: ['advocaat_dashboard', 'advocaat_dossiers', 'advocaat_curator', 'advocaat_tijdlijn', 'advocaat_bewijs', 'advocaat_mail_def', 'advocaat_strategie', 'advocaat_imports'] },
+      { title: 'Juridisch', modules: ['ai_advocaat', 'ai_adv_dossiers', 'ai_adv_contracten', 'ai_adv_deadlines', 'advocaat_curator', 'advocaat_tijdlijn', 'advocaat_bewijs', 'advocaat_mail_def', 'advocaat_strategie', 'advocaat_imports'] },
       { title: 'OSIL', modules: ['osil_dashboard', 'osil_board', 'osil_kansen', 'osil_recovery', 'osil_optimalisatie', 'osil_fiscalist', 'osil_rapport'] },
       { title: 'Persoonlijk', modules: ['dyme_os', 'personal_finance', 'dga_loonstrook', 'loonstroken', 'financien'] },
       { title: 'Bedrijven', modules: ['bedrijven'] },
@@ -174,7 +178,7 @@ export const COMPANY_NAV: Record<string, CompanyNav> = {
   modiwerijo: {
     sections: [
       { modules: ['dashboard'] },
-      { title: 'AI ADVOCAAT OS', modules: ['advocaat_dashboard', 'advocaat_dossiers', 'advocaat_curator', 'advocaat_tijdlijn', 'advocaat_bewijs', 'advocaat_mail_def', 'advocaat_strategie', 'advocaat_imports'] },
+      { title: 'Juridisch', modules: ['ai_advocaat', 'ai_adv_dossiers', 'ai_adv_contracten', 'ai_adv_deadlines', 'advocaat_curator', 'advocaat_tijdlijn', 'advocaat_bewijs', 'advocaat_mail_def', 'advocaat_strategie', 'advocaat_imports'] },
       { title: 'OSIL', modules: ['osil_dashboard', 'osil_board', 'osil_kansen', 'osil_recovery', 'osil_optimalisatie', 'osil_fiscalist', 'osil_rapport'] },
       { title: 'Finance', modules: ['finance_incasso', 'moneybird_live', 'financien', 'belasting', 'abonnementen'] },
       { title: 'Bedrijven', modules: ['bedrijven'] },
@@ -197,7 +201,7 @@ export const COMPANY_NAV: Record<string, CompanyNav> = {
   'modiwe-media': {
     sections: [
       { modules: ['dashboard'] },
-      { title: 'AI ADVOCAAT OS', modules: ['advocaat_dashboard', 'advocaat_dossiers', 'advocaat_curator', 'advocaat_tijdlijn', 'advocaat_bewijs', 'advocaat_mail_def', 'advocaat_strategie', 'advocaat_imports'] },
+      { title: 'Juridisch', modules: ['ai_advocaat', 'ai_adv_dossiers', 'ai_adv_contracten', 'ai_adv_deadlines', 'advocaat_curator', 'advocaat_tijdlijn', 'advocaat_bewijs', 'advocaat_mail_def', 'advocaat_strategie', 'advocaat_imports'] },
       {
         title: 'YouTube', modules: [
           'youtube',
@@ -222,7 +226,7 @@ export const COMPANY_NAV: Record<string, CompanyNav> = {
   'modiwe-software': {
     sections: [
       { modules: ['dashboard'] },
-      { title: 'AI ADVOCAAT OS', modules: ['advocaat_dashboard', 'advocaat_dossiers', 'advocaat_curator', 'advocaat_tijdlijn', 'advocaat_bewijs', 'advocaat_mail_def', 'advocaat_strategie', 'advocaat_imports'] },
+      { title: 'Juridisch', modules: ['ai_advocaat', 'ai_adv_dossiers', 'ai_adv_contracten', 'ai_adv_deadlines', 'advocaat_curator', 'advocaat_tijdlijn', 'advocaat_bewijs', 'advocaat_mail_def', 'advocaat_strategie', 'advocaat_imports'] },
       { title: 'SaaS', modules: ['calculaties', 'vastgoed', 'projecten'] },
       {
         title: 'YouTube', modules: [
@@ -245,7 +249,7 @@ export const COMPANY_NAV: Record<string, CompanyNav> = {
   strkbeheer: {
     sections: [
       { modules: ['dashboard'] },
-      { title: 'AI ADVOCAAT OS', modules: ['advocaat_dashboard', 'advocaat_dossiers', 'advocaat_curator', 'advocaat_tijdlijn', 'advocaat_bewijs', 'advocaat_mail_def', 'advocaat_strategie', 'advocaat_imports'] },
+      { title: 'Juridisch', modules: ['ai_advocaat', 'ai_adv_dossiers', 'ai_adv_contracten', 'ai_adv_deadlines', 'advocaat_curator', 'advocaat_tijdlijn', 'advocaat_bewijs', 'advocaat_mail_def', 'advocaat_strategie', 'advocaat_imports'] },
       { title: 'Vastgoed', modules: ['vastgoed', 'calculaties', 'projecten', 'planning'] },
       { title: 'Bedrijven', modules: ['bedrijven'] },
       {
@@ -269,7 +273,7 @@ export const COMPANY_NAV: Record<string, CompanyNav> = {
   strkbouw: {
     sections: [
       { modules: ['dashboard'] },
-      { title: 'AI ADVOCAAT OS', modules: ['advocaat_dashboard', 'advocaat_dossiers', 'advocaat_curator', 'advocaat_tijdlijn', 'advocaat_bewijs', 'advocaat_mail_def', 'advocaat_strategie', 'advocaat_imports'] },
+      { title: 'Juridisch', modules: ['ai_advocaat', 'ai_adv_dossiers', 'ai_adv_contracten', 'ai_adv_deadlines', 'advocaat_curator', 'advocaat_tijdlijn', 'advocaat_bewijs', 'advocaat_mail_def', 'advocaat_strategie', 'advocaat_imports'] },
       { title: 'Bouw', modules: ['calculaties', 'bouwplaats', 'projecten', 'planning'] },
       { title: 'Portaal', modules: ['kopers_portaal'] },
       { title: 'CRM', modules: ['crm'] },
@@ -287,7 +291,7 @@ export const COMPANY_NAV: Record<string, CompanyNav> = {
   bouwproffs: {
     sections: [
       { modules: ['dashboard'] },
-      { title: 'AI ADVOCAAT OS', modules: ['advocaat_dashboard', 'advocaat_dossiers', 'advocaat_curator', 'advocaat_tijdlijn', 'advocaat_bewijs', 'advocaat_mail_def', 'advocaat_strategie', 'advocaat_imports'] },
+      { title: 'Juridisch', modules: ['ai_advocaat', 'ai_adv_dossiers', 'ai_adv_contracten', 'ai_adv_deadlines', 'advocaat_curator', 'advocaat_tijdlijn', 'advocaat_bewijs', 'advocaat_mail_def', 'advocaat_strategie', 'advocaat_imports'] },
       { title: 'Calculatie', modules: ['calculaties', 'projecten', 'planning'] },
       { title: 'CRM', modules: ['crm'] },
       { title: 'Finance', modules: ['finance_incasso', 'moneybird_live', 'financien', 'belasting', 'abonnementen'] },
