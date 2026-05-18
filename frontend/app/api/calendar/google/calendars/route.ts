@@ -6,6 +6,7 @@ export async function GET() {
   const { data: conn } = await supabase
     .from('google_calendar_connections')
     .select('*')
+    .eq('provider', 'google')
     .limit(1)
     .single()
 
@@ -38,6 +39,7 @@ export async function POST(request: NextRequest) {
   await supabase
     .from('google_calendar_connections')
     .update({ selected_calendar_ids: calendarIds, updated_at: new Date().toISOString() })
+    .eq('provider', 'google')
     .eq('status', 'connected')
   return NextResponse.json({ ok: true })
 }

@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { CheckSquare, Plus, X, AlertTriangle } from 'lucide-react'
+import { CheckSquare, Plus, X, AlertTriangle, GitBranch, RefreshCw } from 'lucide-react'
 import clsx from 'clsx'
 
 type PlanningItem = {
@@ -71,8 +71,10 @@ export default function TakenPage() {
   const [showModal, setShowModal] = useState(false)
   const [editing, setEditing] = useState<PlanningItem | null>(null)
   const [form, setForm] = useState({ ...EMPTY_FORM })
-  const [saving, setSaving] = useState(false)
-  const [error, setError] = useState('')
+  const [saving, setSaving]       = useState(false)
+  const [error, setError]         = useState('')
+  const [syncing, setSyncing]     = useState(false)
+  const [syncMsg, setSyncMsg]     = useState('')
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -106,6 +108,18 @@ export default function TakenPage() {
     urgent:    items.filter(i => i.priority === 'urgent').length,
     week:      items.filter(i => isThisWeek(i.due_date) && i.status !== 'gereed').length,
     afgerond:  items.filter(i => i.status === 'gereed').length,
+  }
+
+  async function syncGitHub() {
+    setSyncing(true); setSyncMsg('')
+    try {
+      const res  = await fetch('/api/github/sync-projects', { method: 'POST' })
+      const data = await res.json()
+      setSyncMsg(`${data.synced} repo's gesynchroniseerd`)
+      fetch('/api/projects').then(r => r.ok ? r.json() : { projects: [] }).then(j => setProjects(j.projects ?? []))
+    } finally {
+      setSyncing(false)
+    }
   }
 
   function openNew() {
@@ -179,12 +193,23 @@ export default function TakenPage() {
             <p className="text-xs text-white/50">Openstaande taken, acties en prioriteiten over alle BV&apos;s.</p>
           </div>
         </div>
-        <button
-          onClick={openNew}
-          className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-medium px-4 py-2 rounded-lg transition-colors"
-        >
-          <Plus size={13} /> Nieuwe taak
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={syncGitHub}
+            disabled={syncing}
+            title="GitHub repo's synchroniseren als projecten"
+            className="flex items-center gap-2 bg-white/[0.06] border border-white/10 hover:bg-white/10 text-white/70 text-xs font-medium px-3 py-2 rounded-lg transition-colors disabled:opacity-50"
+          >
+            {syncing ? <RefreshCw size={13} className="animate-spin" /> : <GitBranch size={13} />}
+            {syncMsg || 'Sync GitHub'}
+          </button>
+          <button
+            onClick={openNew}
+            className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-medium px-4 py-2 rounded-lg transition-colors"
+          >
+            <Plus size={13} /> Nieuwe taak
+          </button>
+        </div>
       </div>
 
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
