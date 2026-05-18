@@ -129,7 +129,7 @@ export default function MobileContentPage() {
 
   return (
     <div className="max-w-lg mx-auto px-4 py-5 space-y-6"
-      style={{ paddingTop: 'calc(1.25rem + env(safe-area-inset-top))' }}>
+>
 
       {/* Header */}
       <div className="flex items-center justify-between">

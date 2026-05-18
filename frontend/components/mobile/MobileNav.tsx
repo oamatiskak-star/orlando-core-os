@@ -20,7 +20,6 @@ export default function MobileNav() {
   return (
     <nav
       className="fixed bottom-0 left-0 right-0 z-50 bg-[#0d0d1a]/95 backdrop-blur-xl border-t border-white/[0.08]"
-      style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
     >
       <div className="flex items-center justify-around h-[3.75rem] max-w-lg mx-auto px-1">
         {TABS.map(tab => {
