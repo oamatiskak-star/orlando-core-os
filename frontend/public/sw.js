@@ -1,13 +1,12 @@
-/* Orlando Core OS — Service Worker v3 */
+/* Orlando Core OS — Service Worker v4 */
 
-const CACHE_NAME = 'orlando-core-os-v3'
+const CACHE_NAME = 'orlando-core-os-v4'
 
+// Alleen statische assets precachen — GEEN auth-protected routes
 const PRECACHE = [
-  '/mobile',
-  '/mobile/youtube',
-  '/mobile/workflows',
-  '/mobile/notifications',
-  '/mobile/settings',
+  '/icons/icon-192.png',
+  '/icons/icon-512.png',
+  '/manifest.json',
 ]
 
 // ── Install ───────────────────────────────────────────────────────────────────
@@ -36,7 +35,10 @@ self.addEventListener('activate', event => {
 self.addEventListener('fetch', event => {
   const url = new URL(event.request.url)
 
-  // API calls: network-first, offline fallback
+  // Alleen same-origin requests afhandelen
+  if (url.origin !== self.location.origin) return
+
+  // API calls: altijd network, nooit cachen
   if (url.pathname.startsWith('/api/')) {
     event.respondWith(
       fetch(event.request).catch(() =>
@@ -49,30 +51,37 @@ self.addEventListener('fetch', event => {
     return
   }
 
-  // Navigation requests: network-first
+  // Navigation requests: altijd network-first, nooit cache
+  // iOS standalone mode vereist dit — geen cached redirects serveren
   if (event.request.mode === 'navigate') {
+    event.respondWith(fetch(event.request))
+    return
+  }
+
+  // Statische assets: cache-first (alleen icons, manifest, fonts)
+  const isStatic = url.pathname.startsWith('/icons/') ||
+    url.pathname === '/manifest.json' ||
+    url.pathname.startsWith('/_next/static/')
+
+  if (isStatic) {
     event.respondWith(
-      fetch(event.request).catch(() =>
-        caches.match('/mobile').then(r => r ?? fetch(event.request))
-      )
+      caches.match(event.request).then(cached => {
+        if (cached) return cached
+        return fetch(event.request).then(response => {
+          if (!response || response.status !== 200 || response.type !== 'basic') {
+            return response
+          }
+          const clone = response.clone()
+          caches.open(CACHE_NAME).then(cache => cache.put(event.request, clone))
+          return response
+        })
+      })
     )
     return
   }
 
-  // Static assets: cache-first
-  event.respondWith(
-    caches.match(event.request).then(cached => {
-      if (cached) return cached
-      return fetch(event.request).then(response => {
-        if (!response || response.status !== 200 || response.type !== 'basic') {
-          return response
-        }
-        const clone = response.clone()
-        caches.open(CACHE_NAME).then(cache => cache.put(event.request, clone))
-        return response
-      })
-    })
-  )
+  // Alle andere requests: network
+  event.respondWith(fetch(event.request))
 })
 
 // ── Push ──────────────────────────────────────────────────────────────────────
@@ -92,19 +101,10 @@ self.addEventListener('push', event => {
     payload.body = event.data.text() || payload.body
   }
 
-  const iconMap = {
-    upload_failed: '/icons/icon-192.png',
-    worker_offline: '/icons/icon-192.png',
-    workflow_failed: '/icons/icon-192.png',
-    scraper_error: '/icons/icon-192.png',
-    task_done: '/icons/icon-192.png',
-    info: '/icons/icon-192.png',
-  }
-
   event.waitUntil(
     self.registration.showNotification(payload.title, {
       body: payload.body,
-      icon: iconMap[payload.type] ?? '/icons/icon-192.png',
+      icon: '/icons/icon-192.png',
       badge: '/icons/icon-192.png',
       tag: payload.type,
       renotify: true,
@@ -130,11 +130,4 @@ self.addEventListener('notificationclick', event => {
         return clients.openWindow(targetUrl)
       })
   )
-})
-
-// ── Background sync (future) ──────────────────────────────────────────────────
-self.addEventListener('sync', event => {
-  if (event.tag === 'sync-notifications') {
-    event.waitUntil(Promise.resolve())
-  }
 })

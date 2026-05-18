@@ -2,7 +2,7 @@
   "name": "Orlando Core OS",
   "short_name": "OC OS",
   "description": "AI-gedreven vastgoed-, bouw- en mediaplatform",
-  "start_url": "/mobile",
+  "start_url": "/login",
   "scope": "/",
   "display": "standalone",
   "background_color": "#07070f",
