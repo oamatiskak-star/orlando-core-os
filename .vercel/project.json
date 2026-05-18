@@ -1,0 +1,16 @@
+{
+  "projectId": "prj_PAV5DZsWuMBAggQzuVo1wsLVWYy6",
+  "orgId": "team_1z6CBptSUiqUkuKgpHIDDSch",
+  "projectName": "orlando-core-os",
+  "settings": {
+    "createdAt": 1778321501666,
+    "framework": "nextjs",
+    "devCommand": "npm run dev",
+    "installCommand": "npm install",
+    "buildCommand": "npm run build",
+    "outputDirectory": null,
+    "rootDirectory": "frontend",
+    "directoryListing": false,
+    "nodeVersion": "24.x"
+  }
+}
