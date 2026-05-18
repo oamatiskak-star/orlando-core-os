@@ -16,6 +16,7 @@ import WorkersPanel from './WorkersPanel'
 import WaitingHumanInput from './WaitingHumanInput'
 import RecentFailures from './RecentFailures'
 import SystemEvents from './SystemEvents'
+import FlowSuggestions from './FlowSuggestions'
 
 interface Props {
   initialCounters: SystemStateRow[]
@@ -133,6 +134,8 @@ export default function OrchestratorClient({
         <RecentFailures errors={errors} onRetried={refresh} />
         <SystemEvents events={events} />
       </div>
+
+      <FlowSuggestions />
     </div>
   )
 }
