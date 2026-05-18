@@ -9,10 +9,13 @@
     "lint": "eslint"
   },
   "dependencies": {
+    "@ai-sdk/anthropic": "^3.0.78",
+    "@ai-sdk/react": "^3.0.186",
     "@anthropic-ai/sdk": "^0.95.2",
     "@supabase/ssr": "^0.10.3",
     "@supabase/supabase-js": "^2.105.4",
     "@types/pdfkit": "^0.17.6",
+    "ai": "^6.0.184",
     "clsx": "^2.1.1",
     "googleapis": "^171.4.0",
     "hash-wasm": "^4.12.0",
