@@ -30,7 +30,8 @@ export default async function MobileLayout({ children }: { children: React.React
     >
       <SWRegister />
       <main
-        className="flex-1 overflow-y-auto pb-[3.75rem]"
+        className="flex-1 overflow-y-auto"
+        style={{ paddingBottom: 'calc(3.75rem + env(safe-area-inset-bottom))' }}
       >
         {children}
       </main>
