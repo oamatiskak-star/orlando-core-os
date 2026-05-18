@@ -27,7 +27,9 @@ export default function LoginPage() {
       return
     }
 
-    router.replace('/dashboard')
+    // iOS PWA: gebruik window.location voor betrouwbare cookie-sync na login
+    const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent)
+    window.location.href = isMobile ? '/mobile' : '/dashboard'
   }
 
   return (

@@ -54,11 +54,13 @@ export async function proxy(request: NextRequest) {
     return NextResponse.redirect(loginUrl)
   }
 
-  // Al ingelogd en naar /login — redirect naar dashboard
+  // Al ingelogd en naar /login — redirect naar mobile of dashboard
   if (user && pathname === '/login') {
-    const dashboardUrl = request.nextUrl.clone()
-    dashboardUrl.pathname = '/dashboard'
-    return NextResponse.redirect(dashboardUrl)
+    const ua = request.headers.get('user-agent') ?? ''
+    const isMobile = /iPhone|iPad|iPod|Android/i.test(ua)
+    const target = request.nextUrl.clone()
+    target.pathname = isMobile ? '/mobile' : '/dashboard'
+    return NextResponse.redirect(target)
   }
 
   return supabaseResponse
