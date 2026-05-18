@@ -68,9 +68,10 @@ export async function GET(request: NextRequest) {
     .update({
       access_token,
       refresh_token,
-      token_expires: tokenExpires,
-      oauth_status:  'connected',
-      status:        'active',
+      token_expires:   tokenExpires,
+      oauth_status:    'connected',
+      oauth_connected: true,
+      status:          'active',
     })
     .eq('id', channelUuid)
 

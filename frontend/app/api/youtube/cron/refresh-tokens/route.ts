@@ -1,13 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { createClient } from '@/lib/supabase/server'
 
-export async function GET(request: NextRequest) {
-  // Verify Vercel cron secret
-  const authHeader = request.headers.get('authorization')
-  if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
-
+async function runRefresh() {
   const admin = createAdminClient()
 
   // Fetch all channels that have a refresh token and are connected or expired
@@ -68,8 +63,9 @@ export async function GET(request: NextRequest) {
       await admin.from('youtube_channels').update({
         access_token,
         token_expires,
-        oauth_status: 'connected',
-        status: 'active',
+        oauth_status:    'connected',
+        oauth_connected: true,
+        status:          'active',
       }).eq('id', ch.id)
 
       results.push({ naam: ch.naam, status: 'refreshed' })
@@ -84,5 +80,22 @@ export async function GET(request: NextRequest) {
 
   console.log(`Token cron: ${refreshed} refreshed, ${revoked} revoked`, results)
 
-  return NextResponse.json({ refreshed, revoked, results })
+  return { refreshed, revoked, results }
+}
+
+// Vercel cron job (GET with CRON_SECRET)
+export async function GET(request: NextRequest) {
+  const authHeader = request.headers.get('authorization')
+  if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  }
+  return NextResponse.json(await runRefresh())
+}
+
+// Manual trigger from dashboard (POST with session auth)
+export async function POST(_request: NextRequest) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  return NextResponse.json(await runRefresh())
 }

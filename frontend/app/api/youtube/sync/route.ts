@@ -24,7 +24,7 @@ async function refreshIfNeeded(admin: ReturnType<typeof createAdminClient>, ch: 
   }
   const { access_token, expires_in } = await res.json()
   const token_expires = new Date(Date.now() + (expires_in ?? 3600) * 1000).toISOString()
-  await admin.from('youtube_channels').update({ access_token, token_expires, oauth_status: 'connected' }).eq('id', ch.id)
+  await admin.from('youtube_channels').update({ access_token, token_expires, oauth_status: 'connected', oauth_connected: true }).eq('id', ch.id)
   return access_token
 }
 

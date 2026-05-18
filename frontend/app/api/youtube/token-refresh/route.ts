@@ -42,7 +42,8 @@ export async function POST(request: NextRequest) {
   await admin.from('youtube_channels').update({
     access_token,
     token_expires,
-    oauth_status: 'connected',
+    oauth_status:    'connected',
+    oauth_connected: true,
   }).eq('id', channelId)
 
   return NextResponse.json({ ok: true })
