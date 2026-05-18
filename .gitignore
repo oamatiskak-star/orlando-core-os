@@ -4,3 +4,8 @@ youtube-engine/.env
 mail-engine/.env
 mail-engine/node_modules/
 mail-engine/dist/
+executor/.env
+executor/__pycache__/
+executor/*.log
+.env.prod
+.env.pull
