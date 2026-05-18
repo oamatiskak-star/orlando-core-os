@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { Search, RefreshCw, Plus, Inbox, GitBranch } from 'lucide-react'
+import { Search, RefreshCw, Plus, Inbox, GitBranch, ChevronLeft } from 'lucide-react'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import MailCard from './MailCard'
@@ -119,6 +119,9 @@ export default function MailInboxClient({
       <div className="px-4 mb-4">
         <div className="flex items-center justify-between mb-1">
           <div className="flex items-center gap-2">
+            <Link href="/mobile" className="p-1 -ml-1 text-white/40 hover:text-white/70 transition-colors">
+              <ChevronLeft size={22} />
+            </Link>
             <h1 className="text-lg font-bold text-white">Mail OS</h1>
             {unreadCount > 0 && (
               <span className="px-1.5 py-0.5 rounded-full bg-indigo-500 text-white text-[10px] font-bold">
