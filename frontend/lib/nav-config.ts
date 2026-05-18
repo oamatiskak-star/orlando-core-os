@@ -161,7 +161,7 @@ export const COMPANY_NAV: Record<string, CompanyNav> = {
   osm: {
     sections: [
       { modules: ['dashboard'] },
-      { title: 'Juridisch', modules: ['ai_advocaat', 'ai_adv_dossiers', 'ai_adv_contracten', 'ai_adv_deadlines', 'advocaat_curator', 'advocaat_tijdlijn', 'advocaat_bewijs', 'advocaat_mail_def', 'advocaat_strategie', 'advocaat_imports'] },
+      { title: 'Juridisch', modules: ['advocaat_dashboard', 'advocaat_dossiers', 'advocaat_curator', 'advocaat_mail_def', 'advocaat_bewijs', 'advocaat_tijdlijn', 'advocaat_strategie', 'advocaat_imports', 'ai_advocaat', 'ai_adv_dossiers', 'ai_adv_contracten', 'ai_adv_deadlines'] },
       { title: 'OSIL', modules: ['osil_dashboard', 'osil_board', 'osil_kansen', 'osil_recovery', 'osil_optimalisatie', 'osil_fiscalist', 'osil_rapport'] },
       { title: 'Persoonlijk', modules: ['dyme_os', 'personal_finance', 'dga_loonstrook', 'loonstroken', 'financien'] },
       { title: 'Bedrijven', modules: ['bedrijven'] },
@@ -178,7 +178,7 @@ export const COMPANY_NAV: Record<string, CompanyNav> = {
   modiwerijo: {
     sections: [
       { modules: ['dashboard'] },
-      { title: 'Juridisch', modules: ['ai_advocaat', 'ai_adv_dossiers', 'ai_adv_contracten', 'ai_adv_deadlines', 'advocaat_curator', 'advocaat_tijdlijn', 'advocaat_bewijs', 'advocaat_mail_def', 'advocaat_strategie', 'advocaat_imports'] },
+      { title: 'Juridisch', modules: ['advocaat_dashboard', 'advocaat_dossiers', 'advocaat_curator', 'advocaat_mail_def', 'advocaat_bewijs', 'advocaat_tijdlijn', 'advocaat_strategie', 'advocaat_imports', 'ai_advocaat', 'ai_adv_dossiers', 'ai_adv_contracten', 'ai_adv_deadlines'] },
       { title: 'OSIL', modules: ['osil_dashboard', 'osil_board', 'osil_kansen', 'osil_recovery', 'osil_optimalisatie', 'osil_fiscalist', 'osil_rapport'] },
       { title: 'Finance', modules: ['finance_incasso', 'moneybird_live', 'financien', 'belasting', 'abonnementen'] },
       { title: 'Bedrijven', modules: ['bedrijven'] },
@@ -201,7 +201,7 @@ export const COMPANY_NAV: Record<string, CompanyNav> = {
   'modiwe-media': {
     sections: [
       { modules: ['dashboard'] },
-      { title: 'Juridisch', modules: ['ai_advocaat', 'ai_adv_dossiers', 'ai_adv_contracten', 'ai_adv_deadlines', 'advocaat_curator', 'advocaat_tijdlijn', 'advocaat_bewijs', 'advocaat_mail_def', 'advocaat_strategie', 'advocaat_imports'] },
+      { title: 'Juridisch', modules: ['advocaat_dashboard', 'advocaat_dossiers', 'advocaat_curator', 'advocaat_mail_def', 'advocaat_bewijs', 'advocaat_tijdlijn', 'advocaat_strategie', 'advocaat_imports', 'ai_advocaat', 'ai_adv_dossiers', 'ai_adv_contracten', 'ai_adv_deadlines'] },
       {
         title: 'YouTube', modules: [
           'youtube',
@@ -226,7 +226,7 @@ export const COMPANY_NAV: Record<string, CompanyNav> = {
   'modiwe-software': {
     sections: [
       { modules: ['dashboard'] },
-      { title: 'Juridisch', modules: ['ai_advocaat', 'ai_adv_dossiers', 'ai_adv_contracten', 'ai_adv_deadlines', 'advocaat_curator', 'advocaat_tijdlijn', 'advocaat_bewijs', 'advocaat_mail_def', 'advocaat_strategie', 'advocaat_imports'] },
+      { title: 'Juridisch', modules: ['advocaat_dashboard', 'advocaat_dossiers', 'advocaat_curator', 'advocaat_mail_def', 'advocaat_bewijs', 'advocaat_tijdlijn', 'advocaat_strategie', 'advocaat_imports', 'ai_advocaat', 'ai_adv_dossiers', 'ai_adv_contracten', 'ai_adv_deadlines'] },
       { title: 'SaaS', modules: ['calculaties', 'vastgoed', 'projecten'] },
       {
         title: 'YouTube', modules: [
@@ -249,7 +249,7 @@ export const COMPANY_NAV: Record<string, CompanyNav> = {
   strkbeheer: {
     sections: [
       { modules: ['dashboard'] },
-      { title: 'Juridisch', modules: ['ai_advocaat', 'ai_adv_dossiers', 'ai_adv_contracten', 'ai_adv_deadlines', 'advocaat_curator', 'advocaat_tijdlijn', 'advocaat_bewijs', 'advocaat_mail_def', 'advocaat_strategie', 'advocaat_imports'] },
+      { title: 'Juridisch', modules: ['advocaat_dashboard', 'advocaat_dossiers', 'advocaat_curator', 'advocaat_mail_def', 'advocaat_bewijs', 'advocaat_tijdlijn', 'advocaat_strategie', 'advocaat_imports', 'ai_advocaat', 'ai_adv_dossiers', 'ai_adv_contracten', 'ai_adv_deadlines'] },
       { title: 'Vastgoed', modules: ['vastgoed', 'calculaties', 'projecten', 'planning'] },
       { title: 'Bedrijven', modules: ['bedrijven'] },
       {
@@ -273,7 +273,7 @@ export const COMPANY_NAV: Record<string, CompanyNav> = {
   strkbouw: {
     sections: [
       { modules: ['dashboard'] },
-      { title: 'Juridisch', modules: ['ai_advocaat', 'ai_adv_dossiers', 'ai_adv_contracten', 'ai_adv_deadlines', 'advocaat_curator', 'advocaat_tijdlijn', 'advocaat_bewijs', 'advocaat_mail_def', 'advocaat_strategie', 'advocaat_imports'] },
+      { title: 'Juridisch', modules: ['advocaat_dashboard', 'advocaat_dossiers', 'advocaat_curator', 'advocaat_mail_def', 'advocaat_bewijs', 'advocaat_tijdlijn', 'advocaat_strategie', 'advocaat_imports', 'ai_advocaat', 'ai_adv_dossiers', 'ai_adv_contracten', 'ai_adv_deadlines'] },
       { title: 'Bouw', modules: ['calculaties', 'bouwplaats', 'projecten', 'planning'] },
       { title: 'Portaal', modules: ['kopers_portaal'] },
       { title: 'CRM', modules: ['crm'] },
@@ -291,7 +291,7 @@ export const COMPANY_NAV: Record<string, CompanyNav> = {
   bouwproffs: {
     sections: [
       { modules: ['dashboard'] },
-      { title: 'Juridisch', modules: ['ai_advocaat', 'ai_adv_dossiers', 'ai_adv_contracten', 'ai_adv_deadlines', 'advocaat_curator', 'advocaat_tijdlijn', 'advocaat_bewijs', 'advocaat_mail_def', 'advocaat_strategie', 'advocaat_imports'] },
+      { title: 'Juridisch', modules: ['advocaat_dashboard', 'advocaat_dossiers', 'advocaat_curator', 'advocaat_mail_def', 'advocaat_bewijs', 'advocaat_tijdlijn', 'advocaat_strategie', 'advocaat_imports', 'ai_advocaat', 'ai_adv_dossiers', 'ai_adv_contracten', 'ai_adv_deadlines'] },
       { title: 'Calculatie', modules: ['calculaties', 'projecten', 'planning'] },
       { title: 'CRM', modules: ['crm'] },
       { title: 'Finance', modules: ['finance_incasso', 'moneybird_live', 'financien', 'belasting', 'abonnementen'] },
