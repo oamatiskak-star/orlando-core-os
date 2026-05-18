@@ -78,6 +78,7 @@ export async function GET(request: NextRequest) {
   const { data: conn } = await supabase
     .from('google_calendar_connections')
     .select('*')
+    .eq('provider', 'google')
     .eq('status', 'connected')
     .limit(1)
     .single()

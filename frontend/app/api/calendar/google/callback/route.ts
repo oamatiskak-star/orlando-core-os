@@ -40,10 +40,11 @@ export async function GET(request: NextRequest) {
 
   const supabase = createAdminClient()
 
-  // Single connection — wipe old, insert new
-  await supabase.from('google_calendar_connections').delete().neq('id', '00000000-0000-0000-0000-000000000000')
+  // Wipe old Google connection, keep iCloud
+  await supabase.from('google_calendar_connections').delete().eq('provider', 'google')
 
   const { error: dbErr } = await supabase.from('google_calendar_connections').insert({
+    provider:      'google',
     access_token:  tokens.access_token,
     refresh_token: tokens.refresh_token ?? null,
     token_expires: new Date(Date.now() + (tokens.expires_in ?? 3600) * 1000).toISOString(),

@@ -8,6 +8,7 @@ export default async function AgendaPage() {
   const { data: conn } = await supabase
     .from('google_calendar_connections')
     .select('id')
+    .eq('provider', 'google')
     .eq('status', 'connected')
     .limit(1)
     .single()
