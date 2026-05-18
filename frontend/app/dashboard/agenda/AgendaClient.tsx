@@ -385,6 +385,86 @@ function WeekGrid({ weekStart, events }: { weekStart: Date; events: CalEvent[] }
   )
 }
 
+// ─── iCloud Calendar Panel ───────────────────────────────────────────────────
+
+function ICloudCalendarPanel({ initialConnected }: { initialConnected: boolean }) {
+  const [open, setOpen]           = useState(false)
+  const [connected, setConnected] = useState(initialConnected)
+  const [appleId, setAppleId]     = useState('')
+  const [appPwd, setAppPwd]       = useState('')
+  const [saving, setSaving]       = useState(false)
+  const [error, setError]         = useState('')
+
+  async function connect() {
+    if (!appleId || !appPwd) { setError('Vul alle velden in'); return }
+    setSaving(true); setError('')
+    try {
+      const res  = await fetch('/api/calendar/icloud/connect', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ apple_id: appleId, app_password: appPwd }),
+      })
+      const data = await res.json()
+      if (!res.ok) { setError(data.error ?? 'Verbinding mislukt'); return }
+      setConnected(true)
+      setOpen(false)
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  if (connected) {
+    return (
+      <div className="flex items-center gap-2 px-3 py-1.5 bg-gray-500/10 border border-gray-500/20 rounded-lg text-xs text-gray-300">
+        <Check size={12} className="text-green-400" />
+        iCloud · {appleId || 'Verbonden'}
+      </div>
+    )
+  }
+
+  return (
+    <div className="relative">
+      <button
+        onClick={() => setOpen(v => !v)}
+        className="flex items-center gap-2 px-3 py-1.5 bg-gray-500/10 border border-gray-500/20 rounded-lg text-xs text-gray-400 hover:bg-gray-500/20 transition-all"
+      >
+        <Link size={12} />
+        iCloud Agenda koppelen
+      </button>
+      {open && (
+        <div className="absolute right-0 top-9 z-50 w-72 bg-[#0f0f14] border border-white/10 rounded-xl shadow-2xl p-4 space-y-3">
+          <p className="text-[11px] text-white/60 leading-relaxed">
+            Gebruik een <strong className="text-white/80">app-specifiek wachtwoord</strong> — aanmaken op{' '}
+            <a href="https://appleid.apple.com" target="_blank" rel="noreferrer" className="text-blue-400 underline">appleid.apple.com</a>{' '}
+            → Beveiliging → App-specifieke wachtwoorden.
+          </p>
+          <input
+            type="email"
+            placeholder="orlandoamatiskak@icloud.com"
+            value={appleId}
+            onChange={e => setAppleId(e.target.value)}
+            className="w-full bg-white/[0.06] border border-white/10 rounded-lg px-3 py-2 text-xs text-white placeholder-white/30 focus:outline-none focus:border-indigo-500"
+          />
+          <input
+            type="password"
+            placeholder="App-specifiek wachtwoord (xxxx-xxxx-xxxx-xxxx)"
+            value={appPwd}
+            onChange={e => setAppPwd(e.target.value)}
+            className="w-full bg-white/[0.06] border border-white/10 rounded-lg px-3 py-2 text-xs text-white placeholder-white/30 focus:outline-none focus:border-indigo-500"
+          />
+          {error && <p className="text-[11px] text-red-400">{error}</p>}
+          <div className="flex gap-2">
+            <button onClick={() => setOpen(false)} className="flex-1 py-1.5 text-xs text-white/50 border border-white/10 rounded-lg">Annuleren</button>
+            <button onClick={connect} disabled={saving} className="flex-1 py-1.5 text-xs text-white bg-indigo-600 rounded-lg disabled:opacity-50">
+              {saving ? 'Verbinden…' : 'Koppelen'}
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
 // ─── Main ─────────────────────────────────────────────────────────────────────
 
 export default function AgendaClient({ initialConnected }: { initialConnected: boolean }) {
@@ -463,6 +543,7 @@ export default function AgendaClient({ initialConnected }: { initialConnected: b
           >
             <RefreshCw size={12} className={loading ? 'animate-spin' : ''} />
           </button>
+          <ICloudCalendarPanel initialConnected={false} />
           <GoogleCalendarPanel
             connected={connected}
             email={email}
