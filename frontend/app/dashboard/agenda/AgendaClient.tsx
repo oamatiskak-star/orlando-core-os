@@ -15,7 +15,7 @@ type CalEvent = {
   start: string
   end?: string
   color: string
-  source: 'youtube' | 'google'
+  source: 'youtube' | 'google' | 'icloud'
   channel?: string
   type?: 'short' | 'longform'
   status?: string
@@ -651,7 +651,9 @@ export default function AgendaClient({ initialConnected }: { initialConnected: b
   const [connected, setConnected] = useState(initialConnected)
   const [email, setEmail]         = useState<string | undefined>()
   const [hiddenChannels, setHiddenChannels] = useState<Set<string>>(new Set())
-  const [hideGoogle, setHideGoogle]         = useState(false)
+  const [hideGoogle, setHideGoogle]   = useState(false)
+  const [hideICloud, setHideICloud]   = useState(false)
+  const [icloudConnected, setICloudConnected] = useState(false)
 
   // Compute date range for current view + anchor
   const [rangeStart, rangeEnd] = useMemo<[Date, Date]>(() => {
@@ -695,12 +697,22 @@ export default function AgendaClient({ initialConnected }: { initialConnected: b
 
   const fetchEvents = useCallback(async () => {
     setLoading(true)
-    const res = await fetch(
-      `/api/calendar/google/events?start=${rangeStart.toISOString()}&end=${rangeEnd.toISOString()}`
-    )
-    const data = await res.json()
-    setEvents(data.events ?? [])
-    setConnected(data.googleConnected ?? false)
+    const qs = `start=${rangeStart.toISOString()}&end=${rangeEnd.toISOString()}`
+    const [gRes, iRes] = await Promise.all([
+      fetch(`/api/calendar/google/events?${qs}`),
+      fetch(`/api/calendar/icloud/events?${qs}`),
+    ])
+    const [gData, iData] = await Promise.all([gRes.json(), iRes.json()])
+
+    const icloudEvs = (iData.events ?? []).map((e: { id: string; title: string; start: string; end?: string; allDay: boolean; location?: string }) => ({
+      ...e,
+      source: 'icloud' as const,
+      color:  '#ff3b30',
+    }))
+
+    setEvents([...(gData.events ?? []), ...icloudEvs])
+    setConnected(gData.googleConnected ?? false)
+    setICloudConnected(iData.connected ?? false)
     setLoading(false)
   }, [rangeStart, rangeEnd]) // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -732,6 +744,7 @@ export default function AgendaClient({ initialConnected }: { initialConnected: b
 
   const filtered = events.filter(e => {
     if (e.source === 'google' && hideGoogle) return false
+    if (e.source === 'icloud' && hideICloud) return false
     if (e.source === 'youtube' && e.channel && hiddenChannels.has(e.channel)) return false
     return true
   })
@@ -820,13 +833,25 @@ export default function AgendaClient({ initialConnected }: { initialConnected: b
             onClick={() => setHideGoogle(v => !v)}
             className={clsx(
               'flex items-center gap-1.5 px-2 py-1 rounded-lg border text-[10px] font-medium transition-all',
-              !hideGoogle
-                ? 'border-blue-500/40 bg-blue-500/15 text-blue-400'
-                : 'border-white/10 bg-transparent text-white/30'
+              !hideGoogle ? 'border-blue-500/40 bg-blue-500/15 text-blue-400' : 'border-white/10 bg-transparent text-white/30'
             )}
           >
             <span className={clsx('w-1.5 h-1.5 rounded-full', !hideGoogle ? 'bg-blue-400' : 'bg-white/20')} />
             Google Agenda
+          </button>
+        )}
+
+        {/* iCloud toggle */}
+        {icloudConnected && (
+          <button
+            onClick={() => setHideICloud(v => !v)}
+            className={clsx(
+              'flex items-center gap-1.5 px-2 py-1 rounded-lg border text-[10px] font-medium transition-all',
+              !hideICloud ? 'border-red-500/40 bg-red-500/15 text-red-400' : 'border-white/10 bg-transparent text-white/30'
+            )}
+          >
+            <span className={clsx('w-1.5 h-1.5 rounded-full', !hideICloud ? 'bg-red-400' : 'bg-white/20')} />
+            iCloud Agenda
           </button>
         )}
 
