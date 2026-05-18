@@ -36,7 +36,11 @@ function categorizePdf(name: string, desc: string): string {
 }
 
 function parseNlAmount(s: string): number {
-  return parseFloat(s.replace(/\./g, '').replace(',', '.').replace('+', ''))
+  const trailed = s.endsWith('-')
+  const leaded  = s.startsWith('-')
+  const sign    = (trailed || leaded) ? -1 : 1
+  const cleaned = s.replace(/[+-]/g, '').replace(/\./g, '').replace(',', '.')
+  return sign * (parseFloat(cleaned) || 0)
 }
 
 function nlDateToIso(s: string): string {
@@ -74,13 +78,14 @@ export async function parsePdf(buffer: Buffer): Promise<{ transactions: ParsedTr
 
     for (let i = 0; i < lines.length; i++) {
       const l = lines[i]
-      const m = l.match(/^\s{0,25}(\d{2}-\d{2}-\d{4})\s+(.+)\s{3,}([+-]?\d[\d.]*,\d{2})\s*$/)
+      const m = l.match(/^\s{0,25}(\d{2}-\d{2}-\d{4})\s+(.+?)\s{2,}([+-]?\d[\d.]*,\d{2}[+-]?)\s*$/)
       if (!m) continue
 
       const [, dateRaw, nameRaw, amtRaw] = m
-      const date    = nlDateToIso(dateRaw)
-      const rawAmt  = parseNlAmount(amtRaw)
-      const amount  = Math.abs(rawAmt)
+      const date   = nlDateToIso(dateRaw)
+      const rawAmt = parseNlAmount(amtRaw)
+      const amount = Math.abs(rawAmt)
+      // ING geeft credit (Bij) als positief, debet (Af) als negatief
       const dir: 'credit' | 'debet' = rawAmt >= 0 ? 'credit' : 'debet'
       const [name, txType] = splitNameType(nameRaw)
 

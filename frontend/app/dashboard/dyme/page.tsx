@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from 'react'
 import {
   Coins, RefreshCw, Link, AlertCircle, CheckCircle,
   Settings, ExternalLink, Eye, EyeOff, ChevronRight, Calendar,
-  Upload, FileText, X,
+  Upload, FileText, X, Pencil,
 } from 'lucide-react'
 
 type Connection = {
@@ -27,6 +27,16 @@ type Transaction = {
 }
 
 type Summary = { income: number; expenses: number; balance: number; transactions: Transaction[] }
+
+type BudgetRow = {
+  id: string
+  category: string
+  maandbudget: number
+  kleur: string
+  uitgaven: number
+  resterend: number
+  pct: number
+}
 
 const CAT_ICONS: Record<string, string> = {
   wonen:'🏠', boodschappen:'🛒', auto:'🚗', kleding:'👕', horeca:'🍽️',
@@ -67,6 +77,9 @@ export default function DymePage() {
     const n = new Date()
     return `${n.getFullYear()}-${String(n.getMonth() + 1).padStart(2, '0')}`
   })
+  const [budgets,        setBudgets]        = useState<BudgetRow[]>([])
+  const [editingBudget,  setEditingBudget]  = useState<{ cat: string; val: string } | null>(null)
+  const [savingBudget,   setSavingBudget]   = useState(false)
 
   const loadStatus = useCallback(async () => {
     const res  = await fetch('/api/bank/connect')
@@ -85,7 +98,15 @@ export default function DymePage() {
     setLoading(false)
   }, [currentMonth])
 
-  useEffect(() => { loadStatus(); loadData() }, [loadStatus, loadData])
+  const loadBudgets = useCallback(async () => {
+    const res = await fetch(`/api/bank/budgets?month=${currentMonth}`)
+    if (res.ok) {
+      const d = await res.json()
+      setBudgets(d.budgets ?? [])
+    }
+  }, [currentMonth])
+
+  useEffect(() => { loadStatus(); loadData(); loadBudgets() }, [loadStatus, loadData, loadBudgets])
 
   async function handleSaveCredentials() {
     if (!clientId || !clientSecret) return
@@ -129,6 +150,19 @@ export default function DymePage() {
     await fetch('/api/bank/sync', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' })
     setSyncing(false)
     await loadData(); await loadStatus()
+  }
+
+  async function saveBudget() {
+    if (!editingBudget) return
+    setSavingBudget(true)
+    await fetch('/api/bank/budgets', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ category: editingBudget.cat, maandbudget: Number(editingBudget.val) }),
+    })
+    setSavingBudget(false)
+    setEditingBudget(null)
+    await loadBudgets()
   }
 
   const catSpend: Record<string, number> = {}
@@ -427,24 +461,79 @@ export default function DymePage() {
 
       {/* Budgetten tab */}
       {activeTab === 'budgetten' && (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-          {Object.entries(CAT_ICONS).map(([cat, icon]) => {
-            const spent = catSpend[cat] ?? 0
-            const budget = 500
-            const pct = budget > 0 ? Math.min((spent / budget) * 100, 100) : 0
-            const over = spent > budget
-            return (
-              <div key={cat} className="bg-white/[0.04] border border-white/5 rounded-xl p-4">
-                <div className="flex items-center justify-between mb-2">
-                  <div className="flex items-center gap-2"><span>{icon}</span><span className="text-xs font-medium text-white capitalize">{cat}</span></div>
-                  <span className={`text-xs font-medium ${over ? 'text-red-400' : 'text-white/70'}`}>{hideBalance ? '••' : fmt(spent)}</span>
+        <div className="space-y-3">
+          <p className="text-[10px] text-white/30">Klik op een budgetbedrag om het te wijzigen.</p>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            {budgets.length === 0 ? (
+              <p className="col-span-2 text-center text-xs text-white/30 py-8">Budgetten laden…</p>
+            ) : budgets.map(b => {
+              const isEditing = editingBudget?.cat === b.category
+              return (
+                <div key={b.category} className="bg-white/[0.04] border border-white/5 rounded-xl p-4 space-y-2.5">
+                  {/* Regel 1: categorie + uitgaven / budget */}
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <span>{CAT_ICONS[b.category] ?? '💰'}</span>
+                      <span className="text-xs font-medium text-white capitalize">{b.category}</span>
+                    </div>
+                    <div className="flex items-center gap-1.5 text-xs">
+                      <span className={b.uitgaven > b.maandbudget ? 'text-red-400 font-medium' : 'text-white/60'}>
+                        {hideBalance ? '••' : fmt(b.uitgaven)}
+                      </span>
+                      <span className="text-white/20">/</span>
+                      {isEditing ? (
+                        <div className="flex items-center gap-1">
+                          <input
+                            type="number"
+                            value={editingBudget!.val}
+                            onChange={e => setEditingBudget({ cat: b.category, val: e.target.value })}
+                            onKeyDown={e => {
+                              if (e.key === 'Enter') saveBudget()
+                              if (e.key === 'Escape') setEditingBudget(null)
+                            }}
+                            autoFocus
+                            className="w-20 bg-white/10 border border-indigo-500/40 rounded px-2 py-0.5 text-xs text-white focus:outline-none"
+                          />
+                          <button onClick={saveBudget} disabled={savingBudget}
+                            className="text-[11px] text-indigo-400 hover:text-indigo-300 px-1">✓</button>
+                          <button onClick={() => setEditingBudget(null)}
+                            className="text-[11px] text-white/30 hover:text-white/60">✕</button>
+                        </div>
+                      ) : (
+                        <button
+                          onClick={() => setEditingBudget({ cat: b.category, val: String(b.maandbudget) })}
+                          className="flex items-center gap-1 text-white/45 hover:text-indigo-400 transition-colors group"
+                        >
+                          {hideBalance ? '••' : fmt(b.maandbudget)}
+                          <Pencil size={9} className="opacity-0 group-hover:opacity-100" />
+                        </button>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Progress bar */}
+                  <div className="h-1.5 bg-white/5 rounded-full overflow-hidden">
+                    <div
+                      className={`h-1.5 rounded-full transition-all duration-300 ${
+                        b.pct >= 100 ? 'bg-red-500' : b.pct >= 80 ? 'bg-amber-500' : 'bg-indigo-500'
+                      }`}
+                      style={{ width: `${Math.min(b.pct, 100)}%` }}
+                    />
+                  </div>
+
+                  {/* Resterend */}
+                  <div className="flex justify-between text-[10px]">
+                    <span className={b.resterend < 0 ? 'text-red-400' : 'text-white/30'}>
+                      {b.resterend < 0
+                        ? `${fmt(Math.abs(b.resterend))} over budget`
+                        : `${fmt(b.resterend)} resterend`}
+                    </span>
+                    <span className="text-white/25">{b.pct}%</span>
+                  </div>
                 </div>
-                <div className="h-1.5 bg-white/5 rounded-full">
-                  <div className={`h-1.5 rounded-full ${over ? 'bg-red-500' : 'bg-indigo-500'}`} style={{ width: `${pct}%` }} />
-                </div>
-              </div>
-            )
-          })}
+              )
+            })}
+          </div>
         </div>
       )}
     </div>
