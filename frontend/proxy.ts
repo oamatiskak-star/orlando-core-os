@@ -1,9 +1,19 @@
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 
+const MOCK_PATTERNS = ['/api/mock', '/api/demo', '/api/fake', '/api/test-data', '__mock__', '__demo__']
+
 export async function proxy(request: NextRequest) {
   const hostname = request.headers.get('host') ?? ''
   const { pathname } = request.nextUrl
+
+  // MockGuard — blokkeert mock endpoints in productie
+  if (process.env.PRODUCTION_STRICT_MODE === 'true' && pathname.startsWith('/api')) {
+    const lower = pathname.toLowerCase()
+    if (MOCK_PATTERNS.some(p => lower.includes(p))) {
+      return NextResponse.json({ error: 'MockGuard: mock endpoints geblokkeerd', code: 'MOCK_BLOCKED' }, { status: 403 })
+    }
+  }
 
   // Domain routing: maildash.strkbeheer.nl → altijd /dashboard/mail
   // Vangt zowel root als post-login /dashboard redirect op

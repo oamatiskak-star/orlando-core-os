@@ -170,7 +170,7 @@ export async function createIngAuthUrl(redirectUri: string): Promise<string> {
     market:           'NL',
     locale:           'nl_NL',
     scope:            'accounts:read,balances:read,transactions:read',
-    input_provider:   'nl-ing-ob-aispsd2',  // ING NL provider
+    // input_provider: laat Tink de bank picker tonen — gebruiker kiest ING
   })
   return `${TINK_LINK}/transactions/connect-accounts?${params.toString()}`
 }

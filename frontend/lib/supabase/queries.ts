@@ -37,20 +37,31 @@ export type DashboardStats = {
 export async function getDashboardStats(): Promise<DashboardStats> {
   const supabase = await createClient()
 
-  const [agentsRes, takenRes, projectenRes, dealsRes] = await Promise.all([
+  const monthStart = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString()
+
+  const [agentsRes, takenRes, projectenRes, dealsRes, txRes, workersRes] = await Promise.all([
     supabase.from('agents').select('id', { count: 'exact', head: true }).eq('status', 'active'),
-    supabase.from('tasks').select('id', { count: 'exact', head: true }).in('status', ['pending', 'queued', 'processing']),
-    supabase.from('projecten').select('id', { count: 'exact', head: true }).eq('status', 'actief'),
+    supabase.from('planning_items').select('id', { count: 'exact', head: true }).not('status', 'eq', 'gereed'),
+    supabase.from('projects').select('id', { count: 'exact', head: true }).eq('status', 'actief'),
     supabase.from('deals').select('id', { count: 'exact', head: true }).not('pipeline_fase', 'in', '("gewonnen","verloren")').not('pipeline_fase', 'is', null),
+    supabase.from('cfo_transactions').select('amount_incl').eq('direction', 'in').gte('transaction_date', monthStart),
+    supabase.from('worker_registry').select('last_heartbeat'),
   ])
+
+  const maandomzet = (txRes.data ?? []).reduce((s, t) => s + (t.amount_incl ?? 0), 0)
+
+  const workers = workersRes.data ?? []
+  const now = Date.now()
+  const onlineCount = workers.filter(w => w.last_heartbeat && (now - new Date(w.last_heartbeat).getTime()) < 300_000).length
+  const system_health = workers.length === 0 ? 100 : Math.round((onlineCount / workers.length) * 100)
 
   return {
     actieve_agents: agentsRes.count ?? 0,
     open_taken: takenRes.count ?? 0,
     lopende_projecten: projectenRes.count ?? 0,
     vastgoed_deals: dealsRes.count ?? 0,
-    maandomzet: 0,
-    system_health: 98,
+    maandomzet,
+    system_health,
   }
 }
 

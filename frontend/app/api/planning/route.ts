@@ -15,7 +15,7 @@ export async function GET(req: NextRequest) {
 
   let q = supabase
     .from('planning_items')
-    .select('*, project:projects(id,name)', { count: 'exact' })
+    .select('*, project:projects(id,name), company:companies(id,name)', { count: 'exact' })
     .order('due_date', { ascending: true, nullsFirst: false })
 
   if (status)    q = q.eq('status', status)
