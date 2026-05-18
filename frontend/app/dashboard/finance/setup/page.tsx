@@ -154,6 +154,17 @@ const TABLES = [
   'fin_workflow_rules',
   'fin_templates',
   'fin_company_settings',
+  'cfo_transactions',
+  'cfo_suppliers',
+  'cfo_ledger_rules',
+  'cfo_tax_reservations',
+  'cfo_cashflow_forecast',
+  'cfo_ai_insights',
+  'cfo_risk_alerts',
+  'cfo_monthly_reports',
+  'cfo_subscriptions',
+  'cfo_budget_lines',
+  'cfo_moneybird_sync_log',
 ]
 
 type TableStatus = 'ok' | 'missing' | 'checking'

@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { MOCK_TEMPLATES } from '@/lib/finance/mock'
+
 import type { FinTemplate } from '@/lib/finance/types'
 import { Copy, Edit2 } from 'lucide-react'
 
@@ -53,13 +53,11 @@ export default function TemplatesPage() {
           .select('*')
           .order('stage', { ascending: true })
 
-        if (error || !data || data.length === 0) {
-          setTemplates(MOCK_TEMPLATES)
-        } else {
+        if (!error && data) {
           setTemplates(data as FinTemplate[])
         }
       } catch {
-        setTemplates(MOCK_TEMPLATES)
+        // no live data
       } finally {
         setLoading(false)
       }

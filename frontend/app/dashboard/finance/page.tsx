@@ -1,9 +1,4 @@
 import { createClient } from '@/lib/supabase/server'
-import {
-  MOCK_INVOICES,
-  MOCK_WORKFLOW_RULES,
-  getMockDashboardStats,
-} from '@/lib/finance/mock'
 import type { FinInvoice, FinDashboardStats } from '@/lib/finance/types'
 
 function fmt(amount: number) {
@@ -58,7 +53,6 @@ export default async function FinanceDashboardPage() {
   const supabase = await createClient()
 
   let invoices: FinInvoice[] = []
-  let useMock = false
 
   try {
     const { data, error } = await supabase
@@ -67,40 +61,30 @@ export default async function FinanceDashboardPage() {
       .order('days_overdue', { ascending: false })
       .limit(100)
 
-    if (error || !data || data.length === 0) {
-      useMock = true
-      invoices = MOCK_INVOICES
-    } else {
+    if (!error && data && data.length > 0) {
       invoices = data as FinInvoice[]
     }
   } catch {
-    useMock = true
-    invoices = MOCK_INVOICES
+    // no live data available
   }
 
-  let stats: FinDashboardStats
+  const open = invoices.filter((i) => i.status === 'open')
+  const overdue = invoices.filter((i) => i.status === 'vervallen')
+  const incasso = invoices.filter((i) => i.status === 'incasso')
+  const paid = invoices.filter((i) => i.status === 'betaald')
+  const allNonPaid = open.length + overdue.length + incasso.length
 
-  if (useMock) {
-    stats = getMockDashboardStats()
-  } else {
-    const open = invoices.filter((i) => i.status === 'open')
-    const overdue = invoices.filter((i) => i.status === 'vervallen')
-    const incasso = invoices.filter((i) => i.status === 'incasso')
-    const paid = invoices.filter((i) => i.status === 'betaald')
-    const allNonPaid = open.length + overdue.length + incasso.length
-
-    stats = {
-      total_open: open.length,
-      total_open_amount: open.reduce((s, i) => s + i.amount_incl, 0),
-      total_overdue: overdue.length,
-      total_overdue_amount: overdue.reduce((s, i) => s + i.amount_incl, 0),
-      total_incasso: incasso.length,
-      total_incasso_amount: incasso.reduce((s, i) => s + i.amount_incl, 0),
-      total_paid_month: paid.length,
-      total_paid_month_amount: paid.reduce((s, i) => s + i.amount_incl, 0),
-      avg_payment_days: 24,
-      overdue_pct: allNonPaid > 0 ? Math.round((overdue.length / allNonPaid) * 100) : 0,
-    }
+  const stats: FinDashboardStats = {
+    total_open: open.length,
+    total_open_amount: open.reduce((s, i) => s + i.amount_incl, 0),
+    total_overdue: overdue.length,
+    total_overdue_amount: overdue.reduce((s, i) => s + i.amount_incl, 0),
+    total_incasso: incasso.length,
+    total_incasso_amount: incasso.reduce((s, i) => s + i.amount_incl, 0),
+    total_paid_month: paid.length,
+    total_paid_month_amount: paid.reduce((s, i) => s + i.amount_incl, 0),
+    avg_payment_days: 0,
+    overdue_pct: allNonPaid > 0 ? Math.round((overdue.length / allNonPaid) * 100) : 0,
   }
 
   const criticalInvoices = invoices
@@ -111,8 +95,6 @@ export default async function FinanceDashboardPage() {
   const openInvoices = invoices.filter((i) => i.status === 'open')
   const next30 = openInvoices.reduce((s, i) => s + i.amount_incl, 0)
 
-  const workflowRules = useMock ? MOCK_WORKFLOW_RULES : []
-
   const statusCounts: Record<string, number> = {}
   for (const inv of invoices) {
     statusCounts[inv.workflow_stage] = (statusCounts[inv.workflow_stage] || 0) + 1
@@ -120,11 +102,11 @@ export default async function FinanceDashboardPage() {
 
   return (
     <div className="space-y-6">
-      {useMock && (
-        <div className="bg-amber-500/10 border border-amber-500/20 rounded-xl px-4 py-2.5 text-xs text-amber-400 flex items-center gap-2">
-          <span className="w-1.5 h-1.5 rounded-full bg-amber-400 flex-shrink-0" />
-          Demo modus — geen verbinding met database. Installeer de Finance OS tabellen via{' '}
-          <a href="/dashboard/finance/setup" className="underline hover:text-amber-300">Setup pagina</a>.
+      {invoices.length === 0 && (
+        <div className="bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-xs text-white/50 flex items-center gap-2">
+          <span className="w-1.5 h-1.5 rounded-full bg-white/30 flex-shrink-0" />
+          Geen live data — koppel Moneybird via de{' '}
+          <a href="/dashboard/finance/setup" className="underline hover:text-white/70">Setup pagina</a> of wacht op de eerste sync.
         </div>
       )}
 
@@ -156,7 +138,7 @@ export default async function FinanceDashboardPage() {
         />
         <StatCard
           label="Gem. betaaltermijn"
-          value={`${stats.avg_payment_days} dagen`}
+          value={stats.avg_payment_days > 0 ? `${stats.avg_payment_days} dagen` : '—'}
           color="blue"
         />
         <StatCard
@@ -229,43 +211,27 @@ export default async function FinanceDashboardPage() {
 
       {/* Workflow status */}
       <div className="bg-white/[0.06] border border-white/5 rounded-xl p-4">
-        <h3 className="text-xs font-semibold text-white mb-3">Workflow Status</h3>
-        <table className="w-full">
-          <thead>
-            <tr>
-              <th className="text-left text-[10px] font-medium text-white/50 uppercase tracking-wider pb-2">Naam</th>
-              <th className="text-left text-[10px] font-medium text-white/50 uppercase tracking-wider pb-2">Bedrijf</th>
-              <th className="text-left text-[10px] font-medium text-white/50 uppercase tracking-wider pb-2">Trigger</th>
-              <th className="text-left text-[10px] font-medium text-white/50 uppercase tracking-wider pb-2">Actie</th>
-              <th className="text-right text-[10px] font-medium text-white/50 uppercase tracking-wider pb-2">Facturen</th>
-              <th className="text-right text-[10px] font-medium text-white/50 uppercase tracking-wider pb-2">Status</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-white/5">
-            {workflowRules.slice(0, 6).map((rule) => (
-              <tr key={rule.id}>
-                <td className="py-2 text-xs text-white/70">{rule.name}</td>
-                <td className="py-2 text-xs text-white/65">{rule.company_id}</td>
-                <td className="py-2 text-xs text-white/50">
-                  {rule.trigger_type === 'days_before_due'
-                    ? `${rule.trigger_days}d voor vervaldatum`
-                    : `${rule.trigger_days}d te laat`}
-                </td>
-                <td className="py-2 text-xs text-white/50">{rule.action_type.replace(/_/g, ' ')}</td>
-                <td className="py-2 text-xs text-white/65 text-right">
-                  {statusCounts[rule.action_type] ?? 0}
-                </td>
-                <td className="py-2 text-right">
-                  {rule.active ? (
-                    <span className="bg-green-500/10 text-green-400 px-2 py-0.5 rounded-full text-[10px] font-medium">Actief</span>
-                  ) : (
-                    <span className="bg-white/5 text-white/50 px-2 py-0.5 rounded-full text-[10px] font-medium">Inactief</span>
-                  )}
-                </td>
+        <h3 className="text-xs font-semibold text-white mb-3">Workflow Overzicht per Stadium</h3>
+        {Object.keys(statusCounts).length === 0 ? (
+          <p className="text-xs text-white/40 py-4 text-center">Geen workflow data beschikbaar</p>
+        ) : (
+          <table className="w-full">
+            <thead>
+              <tr>
+                <th className="text-left text-[10px] font-medium text-white/50 uppercase tracking-wider pb-2">Stadium</th>
+                <th className="text-right text-[10px] font-medium text-white/50 uppercase tracking-wider pb-2">Facturen</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody className="divide-y divide-white/5">
+              {Object.entries(statusCounts).map(([stage, count]) => (
+                <tr key={stage}>
+                  <td className="py-2 text-xs text-white/70">{stage.replace(/_/g, ' ')}</td>
+                  <td className="py-2 text-xs text-white/65 text-right">{count}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
       </div>
     </div>
   )

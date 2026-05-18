@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { MOCK_INCASSO_CASES, MOCK_INVOICES, MOCK_CUSTOMERS } from '@/lib/finance/mock'
+
 import type { FinIncassoCase } from '@/lib/finance/types'
 
 function fmt(amount: number) {
@@ -36,13 +36,11 @@ export default function IncassoPage() {
           .select('*')
           .order('started_at', { ascending: false })
 
-        if (error || !data || data.length === 0) {
-          setCases(MOCK_INCASSO_CASES)
-        } else {
+        if (!error && data) {
           setCases(data as FinIncassoCase[])
         }
       } catch {
-        setCases(MOCK_INCASSO_CASES)
+        // no live data
       } finally {
         setLoading(false)
       }
@@ -56,13 +54,11 @@ export default function IncassoPage() {
   const done = cases.filter((c) => c.status === 'afgerond').length
 
   function getInvoiceNr(invoiceId: string) {
-    return MOCK_INVOICES.find((i) => i.id === invoiceId)?.invoice_nr ?? invoiceId
+    return invoiceId
   }
 
-  function getCustomerName(invoiceId: string) {
-    const inv = MOCK_INVOICES.find((i) => i.id === invoiceId)
-    if (!inv) return 'Onbekend'
-    return MOCK_CUSTOMERS.find((c) => c.id === inv.customer_id)?.name ?? 'Onbekend'
+  function getCustomerName(_invoiceId: string) {
+    return 'Zie Moneybird'
   }
 
   function daysSince(dateStr: string) {

@@ -4,7 +4,6 @@ import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { useParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import { MOCK_CUSTOMERS, MOCK_INVOICES, MOCK_REMINDERS } from '@/lib/finance/mock'
 import type { FinCustomer, FinInvoice, FinReminder } from '@/lib/finance/types'
 import { ArrowLeft, AlertTriangle, TrendingDown, Clock, ShieldOff } from 'lucide-react'
 
@@ -51,15 +50,6 @@ export default function DebiteurDetailPage() {
   useEffect(() => {
     async function load() {
       setLoading(true)
-
-      const mockCust = MOCK_CUSTOMERS.find((c) => c.id === id)
-      if (mockCust) {
-        setCustomer(mockCust)
-        setInvoices(MOCK_INVOICES.filter((i) => i.customer_id === id))
-        setReminders(MOCK_REMINDERS.filter((r) => MOCK_INVOICES.filter((i) => i.customer_id === id).some((i) => i.id === r.invoice_id)))
-        setLoading(false)
-        return
-      }
 
       try {
         const supabase = createClient()

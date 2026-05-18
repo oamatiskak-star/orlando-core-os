@@ -4,12 +4,6 @@ import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { useParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import {
-  MOCK_INVOICES,
-  MOCK_PAYMENTS,
-  MOCK_REMINDERS,
-  MOCK_TIMELINE,
-} from '@/lib/finance/mock'
 import type { FinInvoice, FinPayment, FinReminder, FinTimeline } from '@/lib/finance/types'
 import {
   Mail,
@@ -69,27 +63,6 @@ export default function InvoiceDetailPage() {
   useEffect(() => {
     async function load() {
       setLoading(true)
-
-      if (id === 'demo' || id === 'inv-1') {
-        const inv = MOCK_INVOICES[0]
-        setInvoice(inv)
-        setPayments(MOCK_PAYMENTS.filter((p) => p.invoice_id === inv.id))
-        setReminders(MOCK_REMINDERS.filter((r) => r.invoice_id === inv.id))
-        setTimeline(MOCK_TIMELINE.filter((t) => t.invoice_id === inv.id))
-        setLoading(false)
-        return
-      }
-
-      // Try mock first for mock IDs
-      const mockInv = MOCK_INVOICES.find((i) => i.id === id)
-      if (mockInv) {
-        setInvoice(mockInv)
-        setPayments(MOCK_PAYMENTS.filter((p) => p.invoice_id === id))
-        setReminders(MOCK_REMINDERS.filter((r) => r.invoice_id === id))
-        setTimeline(MOCK_TIMELINE.filter((t) => t.invoice_id === id))
-        setLoading(false)
-        return
-      }
 
       try {
         const supabase = createClient()

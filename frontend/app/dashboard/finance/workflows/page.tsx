@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { MOCK_WORKFLOW_RULES } from '@/lib/finance/mock'
 import type { FinWorkflowRule } from '@/lib/finance/types'
 
 const FLOW_STEPS = [
@@ -47,13 +46,11 @@ export default function WorkflowsPage() {
           .select('*')
           .order('trigger_days', { ascending: true })
 
-        if (error || !data || data.length === 0) {
-          setRules(MOCK_WORKFLOW_RULES)
-        } else {
+        if (!error && data) {
           setRules(data as FinWorkflowRule[])
         }
       } catch {
-        setRules(MOCK_WORKFLOW_RULES)
+        // no live data
       } finally {
         setLoading(false)
       }

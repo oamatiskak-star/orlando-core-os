@@ -3,7 +3,6 @@
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
-import { MOCK_INVOICES } from '@/lib/finance/mock'
 import type { FinInvoice } from '@/lib/finance/types'
 
 const STATUS_TABS = ['alle', 'open', 'vervallen', 'incasso', 'betaald'] as const
@@ -45,12 +44,12 @@ export default function FacturenPage() {
           .order('issued_at', { ascending: false })
 
         if (error || !data || data.length === 0) {
-          setInvoices(MOCK_INVOICES)
+          setInvoices([])
         } else {
           setInvoices(data as FinInvoice[])
         }
       } catch {
-        setInvoices(MOCK_INVOICES)
+        setInvoices([])
       } finally {
         setLoading(false)
       }
