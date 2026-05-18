@@ -101,6 +101,12 @@ export default function MobileFinanceClient({
             <h1 className="text-lg font-bold text-white">Finance OS</h1>
           </div>
           <div className="flex items-center gap-2">
+            <Link
+              href="/api/bank/ing/connect"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-700 text-white text-[12px] font-medium"
+            >
+              ING
+            </Link>
             <button
               onClick={() => fileRef.current?.click()}
               disabled={uploading}
