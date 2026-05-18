@@ -236,6 +236,109 @@ export class ImapClient {
     })
   }
 
+  // Haalt alleen headers op (geen body) — snel op alle servers inclusief iCloud.
+  // Geeft uid + from/subject/date terug zodat je kunt filteren zonder full-download.
+  async fetchHeadersFromFolder(
+    account: MailAccount,
+    serverPath: string,
+    limit = 100
+  ): Promise<Array<{ uid: number; from: string; subject: string; date: Date | null }>> {
+    return new Promise((resolve) => {
+      const imap = new Imap(this.buildConfig(account))
+      const results: Array<{ uid: number; from: string; subject: string; date: Date | null }> = []
+
+      imap.once('ready', () => {
+        imap.openBox(serverPath, true, (err) => {
+          if (err) { imap.end(); return resolve([]) }
+
+          imap.search(['ALL'], (searchErr, uids) => {
+            if (searchErr || !uids || uids.length === 0) {
+              imap.end()
+              return resolve([])
+            }
+
+            const limited = uids.slice(-limit)
+            const fetch = imap.fetch(limited, {
+              bodies: 'HEADER.FIELDS (FROM SUBJECT DATE)',
+              struct: false,
+              markSeen: false,
+            })
+
+            fetch.on('message', (msg, seqno) => {
+              let uid = seqno
+              const buffers: Buffer[] = []
+
+              msg.on('attributes', (attrs) => { uid = attrs.uid ?? seqno })
+              msg.on('body', (stream) => {
+                stream.on('data', (chunk: Buffer) => buffers.push(chunk))
+                stream.once('end', () => {
+                  const raw = Buffer.concat(buffers).toString('utf8')
+                  const from    = (raw.match(/^From:\s*(.+)$/im)?.[1] ?? '').trim()
+                  const subject = (raw.match(/^Subject:\s*(.+)$/im)?.[1] ?? '').trim()
+                  const dateStr = (raw.match(/^Date:\s*(.+)$/im)?.[1] ?? '').trim()
+                  const date    = dateStr ? new Date(dateStr) : null
+                  results.push({ uid, from, subject, date })
+                })
+              })
+            })
+
+            fetch.once('error', () => { /* ignore */ })
+            fetch.once('end', () => { imap.end() })
+          })
+        })
+      })
+
+      imap.once('end', () => resolve(results))
+      imap.once('error', () => resolve([]))
+      imap.connect()
+    })
+  }
+
+  // Haalt volledige body op voor een lijst UIDs in één map.
+  async fetchMessageBodies(
+    account: MailAccount,
+    serverPath: string,
+    uids: number[]
+  ): Promise<ImapMessage[]> {
+    if (uids.length === 0) return []
+    return new Promise((resolve) => {
+      const imap = new Imap(this.buildConfig(account))
+      const results: ImapMessage[] = []
+
+      imap.once('ready', () => {
+        imap.openBox(serverPath, true, (err) => {
+          if (err) { imap.end(); return resolve([]) }
+
+          const fetch = imap.fetch(uids, { bodies: '', struct: true, markSeen: false })
+
+          fetch.on('message', (msg, seqno) => {
+            let uid = seqno
+            const buffers: Buffer[] = []
+
+            msg.on('attributes', (attrs) => { uid = attrs.uid ?? seqno })
+            msg.on('body', (stream) => {
+              stream.on('data', (chunk: Buffer) => buffers.push(chunk))
+              stream.once('end', async () => {
+                try {
+                  const raw = Buffer.concat(buffers)
+                  const parsed = await simpleParser(raw)
+                  results.push({ uid, parsedMail: parsed })
+                } catch { /* skip */ }
+              })
+            })
+          })
+
+          fetch.once('error', () => { /* ignore */ })
+          fetch.once('end', () => { imap.end() })
+        })
+      })
+
+      imap.once('end', () => resolve(results))
+      imap.once('error', () => resolve([]))
+      imap.connect()
+    })
+  }
+
   async listFolders(account: MailAccount): Promise<string[]> {
     const { folders } = await this.getServerInfo(account)
     return folders

@@ -21,7 +21,8 @@ const replyGen   = new ReplyGenerator()
 
 const IMPORTANT_CATEGORIES = ['factuur', 'incasso', 'advocaat', 'belasting', 'leverancier', 'klant', 'intern']
 const SINCE_DAYS  = 60
-const ACCOUNT_TIMEOUT_MS = 90_000 // 1.5 min per account max
+const ACCOUNT_TIMEOUT_MS         = 90_000  // 1.5 min — Plesk/Gmail
+const ACCOUNT_TIMEOUT_ICLOUD_MS  = 300_000 // 5 min  — iCloud SINCE queries zijn traag
 
 function detectCompany(toEmails: string[], accountEmail: string): string {
   const text = [...toEmails, accountEmail].join(' ').toLowerCase()
@@ -58,26 +59,67 @@ async function ingestAccount(account: MailAccount): Promise<{ fetched: number; i
   const since = new Date(Date.now() - SINCE_DAYS * 24 * 3600 * 1000)
   let totalFetched = 0, totalIngested = 0
 
-  // Fetch only INBOX — where new business mail arrives
+  const host = account.imap_host ?? ''
+  const isIcloud = host.includes('icloud') || host.includes('me.com')
+
   let messages: Awaited<ReturnType<typeof imapClient.fetchAllFromFolder>>
-  try {
-    messages = await withTimeout(
-      imapClient.fetchAllFromFolder(account, 'INBOX', since, 300),
-      ACCOUNT_TIMEOUT_MS,
-      account.email
-    )
-  } catch (err) {
-    console.log(`  ⚠ ${(err as Error).message}`)
-    return { fetched: 0, ingested: 0 }
+
+  if (isIcloud) {
+    // iCloud: full-body fetch hangs — use two-pass: headers first, then body only for recent ones
+    let headers: Awaited<ReturnType<typeof imapClient.fetchHeadersFromFolder>>
+    try {
+      headers = await withTimeout(
+        imapClient.fetchHeadersFromFolder(account, 'INBOX', 100),
+        ACCOUNT_TIMEOUT_ICLOUD_MS,
+        `${account.email} (headers)`
+      )
+    } catch (err) {
+      console.log(`  ⚠ ${(err as Error).message}`)
+      return { fetched: 0, ingested: 0 }
+    }
+
+    // Filter to last 60 days in JS
+    const recentHeaders = headers.filter(h => !h.date || h.date >= since)
+    if (recentHeaders.length === 0) {
+      console.log('  Geen recente berichten in INBOX (laatste 60 dagen)')
+      return { fetched: 0, ingested: 0 }
+    }
+
+    console.log(`  INBOX: ${headers.length} totaal, ${recentHeaders.length} in laatste ${SINCE_DAYS} dagen`)
+
+    // Full body only for recent messages
+    const recentUids = recentHeaders.map(h => h.uid)
+    try {
+      messages = await withTimeout(
+        imapClient.fetchMessageBodies(account, 'INBOX', recentUids),
+        ACCOUNT_TIMEOUT_ICLOUD_MS,
+        `${account.email} (bodies)`
+      )
+    } catch (err) {
+      console.log(`  ⚠ ${(err as Error).message}`)
+      return { fetched: 0, ingested: 0 }
+    }
+  } else {
+    // Gmail/Plesk: direct SINCE-filtered fetch
+    try {
+      messages = await withTimeout(
+        imapClient.fetchAllFromFolder(account, 'INBOX', since, 300),
+        ACCOUNT_TIMEOUT_MS,
+        account.email
+      )
+    } catch (err) {
+      console.log(`  ⚠ ${(err as Error).message}`)
+      return { fetched: 0, ingested: 0 }
+    }
   }
 
   if (messages.length === 0) {
-    console.log('  Geen berichten in INBOX (laatste 60 dagen)')
+    if (!isIcloud) console.log('  Geen berichten in INBOX (laatste 60 dagen)')
     return { fetched: 0, ingested: 0 }
   }
 
   totalFetched = messages.length
-  console.log(`  INBOX: ${messages.length} berichten gevonden`)
+  if (!isIcloud) console.log(`  INBOX: ${messages.length} berichten gevonden`)
 
   for (const { uid, parsedMail } of messages) {
     try {
