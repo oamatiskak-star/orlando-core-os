@@ -9,7 +9,7 @@ export const dynamic = 'force-dynamic'
 export const metadata: Metadata = {
   title: { template: '%s — OC OS', default: 'Orlando Core OS' },
   description: 'AI-gedreven vastgoed-, bouw- en mediaplatform',
-  appleWebApp: { capable: true, statusBarStyle: 'black-translucent', title: 'OC OS' },
+  appleWebApp: { capable: true, statusBarStyle: 'black', title: 'OC OS' },
 }
 
 export const viewport: Viewport = {
@@ -32,10 +32,7 @@ export default async function MobileLayout({ children }: { children: React.React
       <SWRegister />
       <main
         className="flex-1 overflow-y-auto"
-        style={{
-          paddingTop: 'env(safe-area-inset-top)',
-          paddingBottom: 'calc(3.75rem + env(safe-area-inset-bottom))',
-        }}
+        style={{ paddingBottom: 'calc(3.75rem + env(safe-area-inset-bottom))' }}
       >
         {children}
       </main>
