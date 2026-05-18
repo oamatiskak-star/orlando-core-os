@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
-import Anthropic from '@anthropic-ai/sdk'
+import { generateText } from 'ai'
+import { claude } from '@/lib/ai/client'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 60
 
-const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY! })
 
 // ── Document search helper ───────────────────────────────────────────────────
 
@@ -174,14 +174,12 @@ Schrijf nu een juridisch onderbouwd conceptantwoord op de bovenstaande mail. Str
 Gebruik [FEIT], [INTERPRETATIE] of [RISICO] tags waar relevant.`
 
   try {
-    const message = await anthropic.messages.create({
-      model:      'claude-opus-4-7',
-      max_tokens: 3000,
-      messages:   [{ role: 'user', content: userPrompt }],
-      system:     systemPrompt,
+    const { text: aiDraft } = await generateText({
+      model:            claude.opus,
+      maxOutputTokens:  3000,
+      system:           systemPrompt,
+      messages:         [{ role: 'user', content: userPrompt }],
     })
-
-    const aiDraft = message.content[0].type === 'text' ? message.content[0].text : ''
 
     // 5. Sla draft op in mail_defense record + document IDs
     const suggestedDocIds = documents.slice(0, 5).map(d => d.id)

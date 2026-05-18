@@ -1,8 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
-import Anthropic from '@anthropic-ai/sdk'
-
-const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
+import { generateText } from 'ai'
+import { defaultModel } from '@/lib/ai/client'
 
 export async function POST() {
   try {
@@ -73,13 +72,11 @@ Geef een STRATEGISCHE BOARD ANALYSE in het Nederlands:
 
 Wees direct, zakelijk, geen fluff. Schrijf als McKinsey meets Dutch construction.`
 
-    const response = await anthropic.messages.create({
-      model: 'claude-sonnet-4-6',
-      max_tokens: 1500,
+    const { text: analysis } = await generateText({
+      model: defaultModel,
+      maxOutputTokens: 1500,
       messages: [{ role: 'user', content: prompt }],
     })
-
-    const analysis = response.content[0].type === 'text' ? response.content[0].text : ''
 
     // Parse recommendations from AI
     const recommendations = [

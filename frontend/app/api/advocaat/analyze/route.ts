@@ -1,59 +1,43 @@
-import { NextRequest, NextResponse } from 'next/server'
+import { NextRequest } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { streamText } from 'ai'
+import { defaultModel } from '@/lib/ai/client'
 
-export const dynamic  = 'force-dynamic'
-export const maxDuration = 60
+export const dynamic = 'force-dynamic'
+export const runtime = 'nodejs'
 
-const CLAUDE_API_URL = 'https://api.anthropic.com/v1/messages'
-const CLAUDE_MODEL   = 'claude-opus-4-7'
+const CLAUDE_MODEL = 'claude-sonnet-4-6'
 
-async function callClaude(systemPrompt: string, userContent: string): Promise<string> {
-  const key = process.env.ANTHROPIC_API_KEY
-  if (!key) return 'ANTHROPIC_API_KEY niet geconfigureerd'
+type SupabaseServer = Awaited<ReturnType<typeof createClient>>
 
-  const res = await fetch(CLAUDE_API_URL, {
-    method: 'POST',
-    headers: {
-      'x-api-key': key,
-      'anthropic-version': '2023-06-01',
-      'content-type': 'application/json',
-    },
-    body: JSON.stringify({
-      model: CLAUDE_MODEL,
-      max_tokens: 4096,
-      system: systemPrompt,
-      messages: [{ role: 'user', content: userContent }],
-    }),
-  })
-
-  if (!res.ok) return `Claude API fout: ${res.status}`
-  const json = await res.json()
-  return json.content?.[0]?.text ?? 'Geen respons'
-}
-
-// Laad bestaand geheugen voor het dossier
-async function loadMemory(supabase: Awaited<ReturnType<typeof createClient>>, dossier_id: string) {
+async function loadMemory(supabase: SupabaseServer, dossier_id: string) {
   const { data } = await supabase
     .from('advocaat_geheugen')
-    .select('type, subject, content, confidence')
+    .select('type, subject, content, confidence, tags')
     .eq('dossier_id', dossier_id)
     .eq('is_active', true)
     .order('last_used_at', { ascending: false })
-    .limit(20)
+    .limit(50)
   return data ?? []
 }
 
-// Sla inzichten op als geheugen na analyse
 async function saveInsightsToMemory(
-  supabase: Awaited<ReturnType<typeof createClient>>,
+  supabase: SupabaseServer,
   dossier_id: string,
   analyse: string,
   analyse_type: string,
   doc_ids: string[]
 ) {
-  const memories = []
+  const memories: Array<{
+    dossier_id: string
+    type: string
+    subject: string
+    content: string
+    confidence: number
+    source_document_ids: string[]
+    tags: string[]
+  }> = []
 
-  // Extracteer strategie-samenvatting
   const strategieLine = analyse.match(/aanbevolen strategie[:\s]+([^\n]+(?:\n[^\n]+){0,3})/i)
   if (strategieLine?.[1]) {
     memories.push({
@@ -65,7 +49,6 @@ async function saveInsightsToMemory(
     })
   }
 
-  // Extracteer risico's
   const risicoMatch = analyse.match(/kwetsbaar[^\n]*\n((?:[-•\d][^\n]+\n?){1,5})/i)
   if (risicoMatch?.[1]) {
     memories.push({
@@ -77,7 +60,6 @@ async function saveInsightsToMemory(
     })
   }
 
-  // Extracteer sterke punten
   const sterkMatch = analyse.match(/sterk(?:ste)? punt[^\n]*\n((?:[-•\d][^\n]+\n?){1,5})/i)
   if (sterkMatch?.[1]) {
     memories.push({
@@ -89,7 +71,6 @@ async function saveInsightsToMemory(
     })
   }
 
-  // Sla op — upsert op subject+type+dossier
   for (const mem of memories) {
     const { data: existing } = await supabase
       .from('advocaat_geheugen')
@@ -111,12 +92,19 @@ async function saveInsightsToMemory(
   }
 }
 
+function sse(event: string, data: unknown): Uint8Array {
+  return new TextEncoder().encode(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`)
+}
+
 export async function POST(req: NextRequest) {
-  const supabase = await createClient()
   const { dossier_id, analyse_type = 'volledig' } = await req.json()
+  if (!dossier_id) {
+    return new Response(JSON.stringify({ error: 'dossier_id vereist' }), {
+      status: 400, headers: { 'content-type': 'application/json' },
+    })
+  }
 
-  if (!dossier_id) return NextResponse.json({ error: 'dossier_id vereist' }, { status: 400 })
-
+  const supabase = await createClient()
   const [dossierRes, risicoRes, documentRes, tijdlijnRes, memory] = await Promise.all([
     supabase.from('advocaat_dossiers').select('*').eq('id', dossier_id).single(),
     supabase.from('advocaat_risicos').select('*').eq('dossier_id', dossier_id).eq('is_resolved', false),
@@ -125,72 +113,173 @@ export async function POST(req: NextRequest) {
     loadMemory(supabase, dossier_id),
   ])
 
-  if (dossierRes.error) return NextResponse.json({ error: dossierRes.error.message }, { status: 500 })
+  if (dossierRes.error) {
+    return new Response(JSON.stringify({ error: dossierRes.error.message }), {
+      status: 500, headers: { 'content-type': 'application/json' },
+    })
+  }
 
   const dossier    = dossierRes.data
   const risicos    = risicoRes.data   ?? []
   const documenten = documentRes.data ?? []
   const tijdlijn   = tijdlijnRes.data ?? []
+  const docIds     = documenten.map((d: Record<string, unknown>) => d.id as string)
 
-  const memoryBlok = memory.length > 0
-    ? `\nBESTAAND GEHEUGEN (${memory.length} items):\n` +
-      memory.map(m => `[${m.type.toUpperCase()}] ${m.subject}: ${m.content.slice(0, 200)}`).join('\n')
+  const OWNER_EMAILS = ['o.amatiskak@icloud.com', 'orlandoamatiskak@icloud.com']
+  const counterpartyEmails = [dossier.wederpartij_email, dossier.advocaat_email].filter(Boolean) as string[]
+  const wederpartijName = (dossier.wederpartij as string | null)?.trim() ?? null
+
+  type MailRow = {
+    id: string
+    subject: string | null
+    from_email: string | null
+    to_emails: string[] | null
+    body_text: string | null
+    ai_summary: string | null
+    received_at: string | null
+  }
+  let mails: MailRow[] = []
+  if (counterpartyEmails.length > 0 || wederpartijName) {
+    const filters: string[] = []
+    for (const e of counterpartyEmails) {
+      filters.push(`from_email.eq.${e}`)
+      filters.push(`to_emails.cs.{${e}}`)
+    }
+    if (wederpartijName && wederpartijName.length >= 3) {
+      filters.push(`subject.ilike.%${wederpartijName}%`)
+    }
+    const { data } = await supabase
+      .from('mail_messages')
+      .select('id, subject, from_email, to_emails, body_text, ai_summary, received_at')
+      .or(filters.join(','))
+      .order('received_at', { ascending: false })
+      .limit(30)
+    mails = (data as MailRow[] | null) ?? []
+  }
+
+  const userNotes = memory.filter((m: any) => (m.tags ?? []).includes('user_input') || (m.tags ?? []).includes('chat_note'))
+  const autoNotes = memory.filter((m: any) => !((m.tags ?? []).includes('user_input') || (m.tags ?? []).includes('chat_note')))
+
+  const userNotesBlok = userNotes.length > 0
+    ? `\nDIRECTE BRIEFING VAN DE CLIËNT (${userNotes.length} items — hoge betrouwbaarheid, deze info komt rechtstreeks van Orlando en staat NIET in de documenten):\n` +
+      userNotes.map(m => `[${m.type.toUpperCase()}] ${m.subject}\n  ${(m.content as string).slice(0, 800)}`).join('\n\n')
     : ''
+
+  const autoMemoryBlok = autoNotes.length > 0
+    ? `\nEERDER GEëXTRAHEERD GEHEUGEN (${autoNotes.length} items — automatisch uit eerdere analyses, kritisch te lezen):\n` +
+      autoNotes.map(m => `[${m.type.toUpperCase()}] ${m.subject}: ${(m.content as string).slice(0, 200)}`).join('\n')
+    : ''
+
+  const memoryBlok = userNotesBlok + autoMemoryBlok
+
+  const mailBlok = mails.length > 0
+    ? `\nE-MAILVERKEER (${mails.length} berichten — eigen accounts: ${OWNER_EMAILS.join(', ')}):\n` +
+      mails.map(m => {
+        const richting = m.from_email && OWNER_EMAILS.includes(m.from_email.toLowerCase()) ? 'UITGAAND' : 'INKOMEND'
+        const dt = m.received_at ? m.received_at.slice(0, 10) : 'onbekend'
+        const body = (m.ai_summary?.trim() || m.body_text?.trim() || '').replace(/\s+/g, ' ').slice(0, 600)
+        return `[${dt}] [${richting}] van ${m.from_email ?? '?'} → ${(m.to_emails ?? []).join(', ')}\n  Onderwerp: ${m.subject ?? '(geen)'}\n  Inhoud: ${body || '(geen tekst)'}`
+      }).join('\n\n')
+    : '\nE-MAILVERKEER: 0 berichten gekoppeld aan wederpartij in mail_messages tabel.'
 
   const contextBlok = `
 DOSSIER: ${dossier.title}
 Type: ${dossier.dossier_type}
-Wederpartij: ${dossier.wederpartij ?? 'Onbekend'}
+Wederpartij: ${dossier.wederpartij ?? 'Onbekend'} ${dossier.wederpartij_email ? `(${dossier.wederpartij_email})` : ''}
+Tegenadvocaat: ${dossier.advocaat_naam ?? 'Onbekend'} ${dossier.advocaat_email ? `(${dossier.advocaat_email})` : ''}
 Status: ${dossier.status}
 Inzet: ${dossier.inzet_bedrag ? `€${dossier.inzet_bedrag}` : 'Onbekend'}
 Volgende deadline: ${dossier.next_deadline ?? 'Geen'}
+Zaaknummer: ${dossier.zaaknummer ?? '—'} | Rechtbank: ${dossier.rechtbank ?? '—'}
 
 OPEN RISICO'S (${risicos.length}):
 ${risicos.map((r: Record<string, unknown>) => `- [${r.severity}] ${r.title}: ${r.description}`).join('\n') || 'Geen'}
 
 DOCUMENTEN (${documenten.length}):
-${documenten.map((d: Record<string, unknown>) => `- ${d.title} (${d.document_type}, ${d.document_date ?? 'datum onbekend'})`).join('\n') || 'Geen'}
+${documenten.map((d: Record<string, unknown>) => {
+  const samenvatting = (d.ai_summary as string | null)?.trim()
+  const evidence = d.is_evidence ? ' [BEWIJS]' : ''
+  return `- ${d.title} (${d.document_type}, ${d.document_date ?? 'datum onbekend'})${evidence}${samenvatting ? `\n    Samenvatting: ${samenvatting.replace(/\s+/g, ' ').slice(0, 500)}` : ''}`
+}).join('\n') || 'Geen'}
 
 TIJDLIJN EVENTS (${tijdlijn.length}):
 ${tijdlijn.slice(-20).map((t: Record<string, unknown>) => `- ${t.event_date}: [${t.source}] ${t.title}`).join('\n') || 'Geen'}
+${mailBlok}
 ${memoryBlok}`
 
-  const systemPrompt = `Je bent een elite juridisch analist met 25+ jaar ervaring in faillissementsrecht, ondernemingsrecht, vastgoedrecht en aansprakelijkheidsrecht.
+  const systemPrompt = `Je BENT de in-house elite advocaat van de cliënt (Orlando, vastgoedontwikkelaar/ondernemer). 25+ jaar ervaring in faillissementsrecht, ondernemingsrecht, vastgoedrecht, bestuurdersaansprakelijkheid en contractrecht. Je werkt in een interne strategiesessie — niet in een publiekelijke publicatie.
 
-KERNREGELS:
-1. NOOIT juridisch advies verzinnen of speculeren zonder basis in de feiten
-2. Maak altijd onderscheid: FEIT / INTERPRETATIE / RISICO / VERMOEDEN
-3. Geef altijd een confidence score (0-100%) bij elke analyse
-4. Wees direct, zakelijk en precies
-5. Benoem sterke én zwakke punten eerlijk
-6. Geef concrete actie-items met deadlines
-7. Gebruik bestaand geheugen als context maar wees kritisch
+ROL & LEVERING:
+- Spreek vanuit "wij" (de verdediging) en "de wederpartij" (tegenpartij).
+- Geef je definitieve juridisch oordeel met onderbouwing. De cliënt vraagt JOU als specialist — verwijs hem niet door naar een andere advocaat.
+- VERBODEN frasen: "raadpleeg een specialist", "raadpleeg uw advocaat", "deze analyse vervangt geen juridisch advies", "geen rechtsgeldigheid", "DISCLAIMER", "verifieer dit met een professional", "consulteer", "voor specifieke vragen", "let op:", "voorbehoud:". Vermijd elke vorm van CYA-disclaimer.
+- Voeg GEEN slotparagraaf met waarschuwingen of disclaimers toe. De analyse eindigt met de slagingskans-inschatting, klaar.
+- Citeer specifieke documenten, mails (met datum), tijdlijn-events en geheugen-items waarop je conclusies steunen.
+
+KWALITEIT:
+- Onderscheid expliciet: FEIT (uit documenten/mail/tijdlijn) / INTERPRETATIE (jouw juridische duiding) / RISICO (concrete dreiging) / VERMOEDEN (niet onderbouwd, te verifiëren).
+- Geef per onderdeel een confidence (0-100%).
+- Benoem sterke EN zwakke punten — geen wensdenken.
+- Concrete actie-items met deadlines en eigenaar.
+- Wees direct, zakelijk, precies. Geen academisch geleuter.
+- Als documenten alleen titels zijn (geen inhoud beschikbaar), wijs erop wat ontbreekt voor steviger advies — maar geef WEL het beste advies op basis van wat er IS, zonder de hele analyse te diskrediteren.
 
 ANALYSE TYPE: ${analyse_type}`
 
-  const userPrompt = `Analyseer onderstaand juridisch dossier volledig:\n\n${contextBlok}\n\nGeef:\n1. Samenvatting situatie\n2. Top 3 sterkste punten voor verdediging\n3. Top 3 kwetsbaarste punten\n4. Aanbevolen strategie\n5. Directe actie-items (gesorteerd op urgentie)\n6. Juridische basis voor elke stelling\n7. Schatting slagingskans verdediging (0-100%)`
+  const userPrompt = `Analyseer onderstaand dossier en lever de strategie. Sluit AF na onderdeel 7 — geen disclaimer, geen waarschuwing, geen verwijzing naar een externe advocaat.\n\n${contextBlok}\n\nLever in deze structuur:\n1. Samenvatting situatie (max 6 zinnen, met datums en bedragen)\n2. Top 3 sterkste punten voor verdediging — elk met citaat uit document/mail/tijdlijn\n3. Top 3 kwetsbaarste punten — elk met concreet risicoscenario\n4. Aanbevolen strategie (hoofdroute + 1 alternatief)\n5. Directe actie-items (gesorteerd op urgentie, met deadline en eigenaar)\n6. Juridische basis voor elke stelling (wetsartikelen, jurisprudentie waar relevant)\n7. Schatting slagingskans verdediging (0-100%) met onderbouwing`
 
-  const analyse = await callClaude(systemPrompt, userPrompt)
-  const docIds   = documenten.map((d: Record<string, unknown>) => d.id as string)
+  const stream = new ReadableStream({
+    async start(controller) {
+      let fullText = ''
+      try {
+        const result = streamText({
+          model: defaultModel,
+          maxOutputTokens: 4096,
+          system: systemPrompt,
+          messages: [{ role: 'user', content: userPrompt }],
+        })
 
-  // Sla strategie op + sla inzichten in geheugen (parallel)
-  const [strategieResult] = await Promise.all([
-    supabase.from('advocaat_strategie').insert({
-      dossier_id,
-      analyse_type,
-      aanbevolen_strategie: analyse,
-      ai_model: CLAUDE_MODEL,
-      bronnen_gebruikt: docIds,
-    }).select().single(),
-    saveInsightsToMemory(supabase, dossier_id, analyse, analyse_type, docIds),
-    supabase.from('advocaat_audit_log').insert({
-      dossier_id,
-      action: 'strategie_analyse',
-      actor: 'ai_systeem',
-      description: `AI strategieanalyse (type: ${analyse_type}), geheugen bijgewerkt`,
-      metadata: { model: CLAUDE_MODEL, document_count: documenten.length, memory_items: memory.length },
-    }),
-  ])
+        for await (const chunk of result.textStream) {
+          fullText += chunk
+          controller.enqueue(sse('chunk', { text: chunk }))
+        }
 
-  return NextResponse.json({ strategie: strategieResult.data, analyse })
+        const [strategieResult] = await Promise.all([
+          supabase.from('advocaat_strategie').insert({
+            dossier_id,
+            analyse_type,
+            aanbevolen_strategie: fullText,
+            ai_model: CLAUDE_MODEL,
+            bronnen_gebruikt: docIds,
+          }).select().single(),
+          saveInsightsToMemory(supabase, dossier_id, fullText, analyse_type, docIds),
+          supabase.from('advocaat_audit_log').insert({
+            dossier_id,
+            action: 'strategie_analyse',
+            actor: 'ai_systeem',
+            description: `AI strategieanalyse (type: ${analyse_type}), geheugen bijgewerkt`,
+            metadata: { model: CLAUDE_MODEL, document_count: documenten.length, memory_items: memory.length },
+          }),
+        ])
+
+        controller.enqueue(sse('done', {
+          strategieId: strategieResult.data?.id ?? null,
+          analyse: fullText,
+        }))
+      } catch (err) {
+        controller.enqueue(sse('error', { error: (err as Error).message }))
+      } finally {
+        controller.close()
+      }
+    },
+  })
+
+  return new Response(stream, {
+    headers: {
+      'content-type': 'text/event-stream',
+      'cache-control': 'no-cache, no-transform',
+      'x-accel-buffering': 'no',
+      'connection': 'keep-alive',
+    },
+  })
 }

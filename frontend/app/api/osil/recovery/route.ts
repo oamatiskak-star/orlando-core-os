@@ -1,8 +1,9 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
-import Anthropic from '@anthropic-ai/sdk'
+import { generateText } from 'ai'
+import { defaultModel } from '@/lib/ai/client'
 
-const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
+
 
 export async function POST() {
   try {
@@ -48,13 +49,11 @@ Geef een RECOVERY & REPUTATIE ANALYSE:
 
 Schrijf als incasso-specialist + relatiemanager. Direct, geen fluff.`
 
-    const response = await anthropic.messages.create({
-      model: 'claude-sonnet-4-6',
-      max_tokens: 1500,
+    const { text: analysis } = await generateText({
+      model: defaultModel,
+      maxOutputTokens: 1500,
       messages: [{ role: 'user', content: prompt }],
     })
-
-    const analysis = response.content[0].type === 'text' ? response.content[0].text : ''
 
     // Save to osil_sessions
     await supabase.from('osil_sessions').insert({

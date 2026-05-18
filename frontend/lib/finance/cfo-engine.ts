@@ -1,7 +1,8 @@
 // CFO Intelligence Engine — 3 AI lagen: Boekhouder, CFO, Fiscalist
 // Analyseert transacties en genereert professionele inzichten
 
-import Anthropic from '@anthropic-ai/sdk'
+import { generateText } from 'ai'
+import { claude } from '@/lib/ai/client'
 import { createAdminClient } from '@/lib/supabase/admin'
 import type {
   CfoTransaction,
@@ -14,7 +15,6 @@ import type {
   CfoMailDocument,
 } from './cfo-types'
 
-const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY! })
 
 // ── Boekhouder AI — Operationeel ─────────────────────────────────────────────
 
@@ -47,13 +47,11 @@ Geef uitsluitend geldige JSON terug (geen markdown, geen uitleg):
   "raw_amounts": []
 }`
 
-  const response = await anthropic.messages.create({
-    model: 'claude-haiku-4-5-20251001',
-    max_tokens: 512,
+  const { text } = await generateText({
+    model: claude.haiku,
+    maxOutputTokens: 512,
     messages: [{ role: 'user', content: prompt }],
   })
-
-  const text = response.content[0].type === 'text' ? response.content[0].text : '{}'
   try {
     return JSON.parse(text.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim())
   } catch {
@@ -131,13 +129,11 @@ ${knownMappings}
 
 JSON: {"ledger":"naam","code":"nummer","confidence":85}`
 
-  const response = await anthropic.messages.create({
-    model: 'claude-haiku-4-5-20251001',
-    max_tokens: 128,
+  const { text } = await generateText({
+    model: claude.haiku,
+    maxOutputTokens: 128,
     messages: [{ role: 'user', content: prompt }],
   })
-
-  const text = response.content[0].type === 'text' ? response.content[0].text : '{}'
   try {
     return JSON.parse(text.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim())
   } catch {
@@ -250,13 +246,11 @@ Geef JSON terug:
   ]
 }`
 
-  const response = await anthropic.messages.create({
-    model: 'claude-sonnet-4-6',
-    max_tokens: 3000,
+  const { text } = await generateText({
+    model: claude.sonnet,
+    maxOutputTokens: 3000,
     messages: [{ role: 'user', content: analysisPrompt }],
   })
-
-  const text = response.content[0].type === 'text' ? response.content[0].text : '{}'
   try {
     const parsed = JSON.parse(text.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim())
     return {
@@ -466,12 +460,12 @@ KPI DATA:
 
 Schrijf directe CFO-taal. Benoem concrete risico's en kansen.`
 
-  const response = await anthropic.messages.create({
-    model: 'claude-sonnet-4-6',
-    max_tokens: 400,
+  const { text } = await generateText({
+    model: claude.sonnet,
+    maxOutputTokens: 400,
     messages: [{ role: 'user', content: prompt }],
   })
-  return response.content[0].type === 'text' ? response.content[0].text : ''
+  return text
 }
 
 // ── Abonnement detectie ───────────────────────────────────────────────────────

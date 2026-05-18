@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
-import Anthropic from '@anthropic-ai/sdk'
+import { generateText } from 'ai'
+import { defaultModel } from '@/lib/ai/client'
 
 export const maxDuration = 60
 
@@ -124,14 +125,13 @@ Geef ALLEEN geldige JSON terug, geen uitleg, geen markdown code fences:
 }`
 
   try {
-    const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
-    const message = await anthropic.messages.create({
-      model: 'claude-sonnet-4-6',
-      max_tokens: 3500,
+    const { text } = await generateText({
+      model: defaultModel,
+      maxOutputTokens: 3500,
       messages: [{ role: 'user', content: prompt }],
     })
 
-    const raw = (message.content[0] as { text: string }).text.trim()
+    const raw = text.trim()
     const jsonText = raw
       .replace(/^```json\s*/i, '')
       .replace(/^```\s*/i, '')
