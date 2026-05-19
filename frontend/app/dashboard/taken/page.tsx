@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { CheckSquare, Plus, X, AlertTriangle, GitBranch, RefreshCw, Play, Edit2 } from 'lucide-react'
+import { CheckSquare, Plus, X, AlertTriangle, GitBranch, RefreshCw, Play, Edit2, GitFork, ArrowDown } from 'lucide-react'
 import clsx from 'clsx'
 
 type PlanningItem = {
@@ -39,7 +39,21 @@ type OrchestratorTaskDetail = {
   error: string | null
   result_summary: string | null
   objective?: string[]
+  payload?: Record<string, unknown> | null
+  parent_task_id?: string | null
 }
+
+type ChainStep = {
+  id: string
+  step_order: number
+  persona_name: string
+  status: 'pending' | 'dispatched' | 'completed' | 'failed' | 'skipped'
+  child_task_id: string | null
+  started_at: string | null
+  finished_at: string | null
+}
+
+type PersonaOption = { name: string; persona_type: string; role: string }
 
 type Project = { id: string; name: string }
 
@@ -125,10 +139,18 @@ export default function TakenPage() {
   const [detailItem, setDetailItem] = useState<PlanningItem | null>(null)
   const [detailTask, setDetailTask] = useState<OrchestratorTaskDetail | null>(null)
   const [detailLogs, setDetailLogs] = useState<OrchestratorLog[]>([])
+  const [detailChain, setDetailChain] = useState<ChainStep[]>([])
   const [detailLoading, setDetailLoading] = useState(false)
   const [detailEditing, setDetailEditing] = useState(false)
   const [detailNewBeschrijving, setDetailNewBeschrijving] = useState('')
   const [rerunning, setRerunning] = useState(false)
+
+  // Chain modal state
+  const [showChainBuilder, setShowChainBuilder] = useState(false)
+  const [chainPersonas, setChainPersonas] = useState<PersonaOption[]>([])
+  const [chainSelection, setChainSelection] = useState<string[]>([])
+  const [chainSaving, setChainSaving] = useState(false)
+  const [chainError, setChainError] = useState('')
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -284,6 +306,7 @@ export default function TakenPage() {
     setDetailItem(item)
     setDetailTask(null)
     setDetailLogs([])
+    setDetailChain([])
     setDetailEditing(false)
     setDetailNewBeschrijving(item.beschrijving ?? '')
     if (item.orchestrator_task_id) {
@@ -292,8 +315,18 @@ export default function TakenPage() {
         const res = await fetch(`/api/orchestrator/tasks/${item.orchestrator_task_id}`)
         if (res.ok) {
           const j = await res.json()
-          setDetailTask(j.task ?? null)
+          const task = j.task as OrchestratorTaskDetail | null
+          setDetailTask(task ?? null)
           setDetailLogs((j.logs ?? []) as OrchestratorLog[])
+          // Als deze task een chain heeft (parent of root), haal alle steps op
+          const rootId = task?.parent_task_id ?? task?.id
+          if (rootId) {
+            const cr = await fetch(`/api/orchestrator/task-chain?root=${rootId}`)
+            if (cr.ok) {
+              const cj = await cr.json()
+              setDetailChain((cj.steps ?? []) as ChainStep[])
+            }
+          }
         }
       } finally {
         setDetailLoading(false)
@@ -305,8 +338,50 @@ export default function TakenPage() {
     setDetailItem(null)
     setDetailTask(null)
     setDetailLogs([])
+    setDetailChain([])
     setDetailEditing(false)
     setDetailNewBeschrijving('')
+  }
+
+  async function openChainBuilder() {
+    if (!detailItem) return
+    setChainError('')
+    setChainSelection([])
+    if (chainPersonas.length === 0) {
+      const res = await fetch('/api/agents/personas')
+      if (res.ok) {
+        const j = await res.json()
+        setChainPersonas((j.personas ?? []).map((p: PersonaOption) => ({
+          name: p.name, persona_type: p.persona_type, role: p.role,
+        })))
+      }
+    }
+    setShowChainBuilder(true)
+  }
+
+  async function saveChain() {
+    if (!detailItem || chainSelection.length === 0) return
+    setChainSaving(true); setChainError('')
+    try {
+      const res = await fetch(`/api/planning/${detailItem.id}/chain`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          chain: chainSelection,
+          beschrijving: detailNewBeschrijving || detailItem.beschrijving || undefined,
+        }),
+      })
+      if (!res.ok) {
+        const j = await res.json().catch(() => ({}))
+        setChainError(j.error ?? 'Chain aanmaken faalde')
+        return
+      }
+      setShowChainBuilder(false)
+      closeDetail()
+      await load()
+    } finally {
+      setChainSaving(false)
+    }
   }
 
   async function rerunTask() {
@@ -578,6 +653,28 @@ export default function TakenPage() {
                 )}
               </div>
 
+              {detailChain.length > 0 && (
+                <div>
+                  <p className="text-[10px] text-white/40 uppercase tracking-wider mb-1.5">Agent chain</p>
+                  <ol className="space-y-1.5">
+                    {detailChain.map((step) => (
+                      <li key={step.id} className="flex items-center gap-3 bg-white/[0.04] border border-white/5 rounded-lg px-3 py-2">
+                        <span className="text-[10px] text-white/40 font-mono w-6">#{step.step_order + 1}</span>
+                        <span className="text-xs text-white/85 flex-1">{step.persona_name}</span>
+                        <span className={clsx(
+                          'px-2 py-0.5 rounded-full text-[10px] font-medium',
+                          step.status === 'completed'  ? 'bg-green-500/10 text-green-400' :
+                          step.status === 'dispatched' ? 'bg-amber-500/10 text-amber-400' :
+                          step.status === 'failed'     ? 'bg-red-500/10 text-red-400' :
+                          step.status === 'skipped'    ? 'bg-white/[0.06] text-white/40' :
+                                                         'bg-white/[0.08] text-white/65',
+                        )}>{step.status}</span>
+                      </li>
+                    ))}
+                  </ol>
+                </div>
+              )}
+
               {detailItem.notes && (
                 <div>
                   <p className="text-[10px] text-white/40 uppercase tracking-wider mb-1.5">Geschiedenis</p>
@@ -616,8 +713,94 @@ export default function TakenPage() {
                     >
                       <Edit2 size={13} /> Bewerken
                     </button>
+                    <button
+                      onClick={openChainBuilder}
+                      className="flex-1 flex items-center justify-center gap-2 bg-indigo-500/20 border border-indigo-500/30 hover:bg-indigo-500/30 text-indigo-300 text-xs font-medium py-2.5 rounded-lg transition-colors"
+                    >
+                      <GitFork size={13} /> Agent chain
+                    </button>
                   </>
                 )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showChainBuilder && detailItem && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
+          <div className="bg-[#0f1117] border border-white/10 rounded-2xl w-full max-w-md max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between p-5 border-b border-white/5">
+              <h2 className="text-sm font-semibold text-white flex items-center gap-2">
+                <GitFork size={14} className="text-indigo-400" /> Agent chain bouwen
+              </h2>
+              <button onClick={() => setShowChainBuilder(false)}>
+                <X size={16} className="text-white/50 hover:text-white" />
+              </button>
+            </div>
+            <div className="p-5 space-y-4">
+              <p className="text-[11px] text-white/55">
+                Selecteer personas op volgorde. Elke persona pakt de taak op nadat de vorige
+                hem heeft afgerond. De eerste persona wordt &apos;toegewezen&apos; op het planning_item.
+              </p>
+
+              {chainSelection.length > 0 && (
+                <div className="space-y-1">
+                  <p className="text-[10px] text-white/40 uppercase tracking-wider mb-1.5">Geselecteerde chain</p>
+                  {chainSelection.map((name, idx) => (
+                    <div key={`${name}-${idx}`}>
+                      <div className="flex items-center gap-2 bg-indigo-500/10 border border-indigo-500/30 rounded-lg px-3 py-2">
+                        <span className="text-[10px] text-indigo-300 font-mono w-5">#{idx + 1}</span>
+                        <span className="text-xs text-white/90 flex-1">{name}</span>
+                        <button
+                          onClick={() => setChainSelection((cs) => cs.filter((_, i) => i !== idx))}
+                          className="text-[11px] text-white/40 hover:text-red-400"
+                        >
+                          ✕
+                        </button>
+                      </div>
+                      {idx < chainSelection.length - 1 && (
+                        <div className="flex justify-center py-0.5">
+                          <ArrowDown size={12} className="text-white/30" />
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              <div>
+                <p className="text-[10px] text-white/40 uppercase tracking-wider mb-1.5">Voeg toe</p>
+                <div className="grid grid-cols-2 gap-1.5 max-h-72 overflow-y-auto">
+                  {chainPersonas.map((p) => (
+                    <button
+                      key={p.name}
+                      onClick={() => setChainSelection((cs) => [...cs, p.name])}
+                      className="text-left bg-white/[0.04] border border-white/5 hover:bg-white/[0.08] rounded-lg px-2.5 py-1.5"
+                    >
+                      <p className="text-xs text-white/85">{p.name}</p>
+                      <p className="text-[10px] text-white/45">{p.role}</p>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {chainError && <p className="text-xs text-red-400">{chainError}</p>}
+
+              <div className="flex gap-3 pt-2">
+                <button
+                  onClick={() => setShowChainBuilder(false)}
+                  className="flex-1 border border-white/10 text-white/60 hover:text-white text-xs font-medium py-2.5 rounded-lg transition-colors"
+                >
+                  Annuleer
+                </button>
+                <button
+                  onClick={saveChain}
+                  disabled={chainSaving || chainSelection.length === 0}
+                  className="flex-1 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white text-xs font-medium py-2.5 rounded-lg transition-colors"
+                >
+                  {chainSaving ? 'Starten…' : `Start chain (${chainSelection.length})`}
+                </button>
               </div>
             </div>
           </div>
