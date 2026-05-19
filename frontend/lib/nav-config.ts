@@ -9,7 +9,7 @@ import {
   UserCheck, LucideIcon, Globe, Key, Coins, BadgeDollarSign,
   Cpu, GitBranch, ListChecks, Terminal, Webhook, PlugZap, Lightbulb, BarChart2, SlidersHorizontal, AlertCircle, ScanLine,
   Mail, Shield, GitMerge, Filter, Brain, ShieldAlert, Link,
-  Gavel, Lock, Eye, Upload, Server,
+  Gavel, Lock, Eye, Upload, Server, Tv2,
 } from 'lucide-react'
 
 export type NavModuleDef = {
@@ -82,6 +82,7 @@ export const NAV_MODULES: Record<string, NavModuleDef> = {
   kopers_portaal:       { key: 'kopers_portaal',       label: 'Kopers & Huurders',       href: '/dashboard/kopers-portaal',        icon: UserCheck },
 
   // ── MODIWE MEDIA — YOUTUBE & SOCIAL ──────────────────────────────────────
+  media_holding:        { key: 'media_holding',        label: 'Media Holding OS',        href: '/dashboard/media-holding',         icon: Tv2 },
   youtube:              { key: 'youtube',              label: 'YouTube Engine',          href: '/dashboard/youtube',               icon: Video },
   youtube_beleggingstv: { key: 'youtube_beleggingstv', label: 'BeleggingsTv',            href: '/dashboard/youtube/channel/beleggingstv',    icon: Video },
   youtube_crypto:       { key: 'youtube_crypto',       label: 'CryptoVermogen',          href: '/dashboard/youtube/channel/cryptovermogen',  icon: Video },
@@ -169,6 +170,7 @@ export const COMPANY_NAV: Record<string, CompanyNav> = {
       { title: 'OSIL', modules: ['osil_dashboard', 'osil_board', 'osil_kansen', 'osil_recovery', 'osil_optimalisatie', 'osil_fiscalist', 'osil_rapport'] },
       { title: 'Persoonlijk', modules: ['dyme_os', 'personal_finance', 'dga_loonstrook', 'loonstroken', 'financien'] },
       { title: 'Bedrijven', modules: ['bedrijven'] },
+      { title: 'Media Holding', modules: ['media_holding'] },
       { title: 'Operationeel', modules: ['agenda', 'taken', 'planning', 'crm'] },
       { title: 'Operations Center', modules: ['ops_dashboard', 'ops_workflows', 'ops_routines', 'ops_agents', 'ops_scheduler', 'ops_queue', 'ops_logs', 'ops_errors', 'ops_automations', 'ops_api', 'ops_dil', 'ops_suggestions', 'ops_manual', 'ops_templates', 'ops_webhooks', 'ops_analytics', 'ops_company_settings', 'ops_global_settings', 'infra'] },
       { title: 'Mail Engine', modules: ['mail_dashboard', 'mail_agents', 'mail_workflows', 'mail_rules', 'mail_dossiers', 'mail_inbox'] },
@@ -206,6 +208,7 @@ export const COMPANY_NAV: Record<string, CompanyNav> = {
     sections: [
       { modules: ['dashboard'] },
       { title: 'Juridisch', modules: ['advocaat_dashboard', 'advocaat_dossiers', 'advocaat_curator', 'advocaat_mail_def', 'advocaat_bewijs', 'advocaat_tijdlijn', 'advocaat_strategie', 'advocaat_imports', 'ai_advocaat', 'ai_adv_dossiers', 'ai_adv_contracten', 'ai_adv_deadlines'] },
+      { title: 'Media Holding', modules: ['media_holding'] },
       {
         title: 'YouTube', modules: [
           'youtube',
@@ -232,6 +235,7 @@ export const COMPANY_NAV: Record<string, CompanyNav> = {
       { modules: ['dashboard'] },
       { title: 'Juridisch', modules: ['advocaat_dashboard', 'advocaat_dossiers', 'advocaat_curator', 'advocaat_mail_def', 'advocaat_bewijs', 'advocaat_tijdlijn', 'advocaat_strategie', 'advocaat_imports', 'ai_advocaat', 'ai_adv_dossiers', 'ai_adv_contracten', 'ai_adv_deadlines'] },
       { title: 'SaaS', modules: ['calculaties', 'vastgoed', 'projecten'] },
+      { title: 'Media Holding', modules: ['media_holding'] },
       {
         title: 'YouTube', modules: [
           'youtube',
