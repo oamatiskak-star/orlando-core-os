@@ -25,7 +25,32 @@ export async function GET(req: NextRequest) {
   const { data, error, count } = await q
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
-  return NextResponse.json({ items: data ?? [], total: count ?? 0 })
+  // Verrijk elk item met orchestrator_task_id (laatste bridge-mirror)
+  // zodat de UI direct kan linken naar /api/orchestrator/tasks/[id].
+  type Item = { id: string; orchestrator_task_id?: string | null }
+  const items = (data ?? []) as Item[]
+  if (items.length > 0) {
+    const ids = items.map((i) => i.id)
+    const { data: orch } = await supabase
+      .from('orchestrator_tasks')
+      .select('id, payload, created_at')
+      .not('payload->>planning_item_id', 'is', null)
+      .in('payload->>planning_item_id', ids)
+      .order('created_at', { ascending: false })
+
+    const byPlanningId = new Map<string, string>()
+    for (const row of (orch ?? []) as Array<{ id: string; payload: { planning_item_id?: string } }>) {
+      const pid = row.payload?.planning_item_id
+      if (pid && !byPlanningId.has(pid)) {
+        byPlanningId.set(pid, row.id)
+      }
+    }
+    for (const it of items) {
+      it.orchestrator_task_id = byPlanningId.get(it.id) ?? null
+    }
+  }
+
+  return NextResponse.json({ items, total: count ?? 0 })
 }
 
 export async function POST(req: NextRequest) {
