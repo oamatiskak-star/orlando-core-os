@@ -33,3 +33,14 @@ for repo in "$REPOS_DIR"/*/; do
 done
 
 echo "[$TIMESTAMP] sync-pull klaar" >> "$LOG"
+
+# ── Worktree auto-bootstrap (eenmalig, zelfverwijderend) ──────────────────────
+ORLANDO_REPO="$REPOS_DIR/orlando-core-os"
+WT_SETUP="$ORLANDO_REPO/scripts/wt-setup.sh"
+WT_BASE="$HOME/Worktrees"
+
+if [[ -f "$WT_SETUP" ]] && ([[ ! -d "$WT_BASE" ]] || [[ -z "$(ls -A "$WT_BASE" 2>/dev/null)" ]]); then
+  echo "[$TIMESTAMP] [BOOT] Worktrees niet aanwezig — bootstrap starten..." | tee -a "$LOG"
+  REPO_ROOT="$ORLANDO_REPO" bash "$WT_SETUP" >> "$LOG" 2>&1
+  echo "[$TIMESTAMP] [BOOT] Worktree bootstrap klaar" | tee -a "$LOG"
+fi
