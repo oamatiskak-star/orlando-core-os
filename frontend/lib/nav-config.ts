@@ -268,6 +268,7 @@ export const COMPANY_NAV: Record<string, CompanyNav> = {
       },
       { title: 'CRM', modules: ['crm'] },
       { title: 'Finance', modules: ['finance_incasso', 'financien', 'belasting', 'abonnementen'] },
+      { title: 'Media Holding', modules: ['media_holding'] },
       { title: 'Operationeel', modules: ['documenten', 'agenda', 'taken'] },
       { title: 'Operations Center', modules: ['ops_dashboard', 'ops_workflows', 'ops_routines', 'ops_agents', 'ops_scheduler', 'ops_queue', 'ops_logs', 'ops_errors', 'ops_automations', 'ops_api', 'ops_dil', 'ops_suggestions', 'ops_manual', 'ops_templates', 'ops_webhooks', 'ops_analytics', 'ops_company_settings', 'ops_global_settings', 'infra'] },
       { title: 'Mail Engine', modules: ['mail_dashboard', 'mail_agents', 'mail_workflows', 'mail_rules', 'mail_dossiers', 'mail_inbox'] },
