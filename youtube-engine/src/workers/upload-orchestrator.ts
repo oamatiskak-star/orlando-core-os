@@ -35,21 +35,53 @@ async function getChannelUploadsToday(channelId: string): Promise<number> {
   return count ?? 0
 }
 
+async function getOverQuotaChannelIds(): Promise<string[]> {
+  const db = getSupabase()
+  const resetTime = quotaResetToday().toISOString()
+
+  const { data } = await db
+    .from('youtube_upload_queue')
+    .select('channel_id')
+    .in('status', ['preparing', 'uploading', 'uploaded_pending_processing', 'verifying', 'verified_live', 'retrying'])
+    .gte('updated_at', resetTime)
+
+  const counts: Record<string, number> = {}
+  for (const row of data ?? []) {
+    counts[row.channel_id] = (counts[row.channel_id] ?? 0) + 1
+  }
+  return Object.entries(counts)
+    .filter(([, count]) => count >= MAX_UPLOADS_PER_DAY_PER_CHANNEL)
+    .map(([id]) => id)
+}
+
 async function pollQueuedItems(): Promise<void> {
   const db = getSupabase()
 
-  const { data: queued } = await db
+  const overQuotaIds = await getOverQuotaChannelIds()
+
+  let query = db
     .from('youtube_upload_queue')
     .select('id, video_id, channel_id, priority, retry_count')
     .in('status', ['queued', 'retrying'])
     .lte('scheduled_publish_at', new Date(Date.now() + 60 * 60 * 1000).toISOString())
+
+  if (overQuotaIds.length > 0) {
+    query = query.not('channel_id', 'in', `(${overQuotaIds.join(',')})`) as typeof query
+  }
+
+  const { data: queued } = await query
     .order('priority', { ascending: false })
     .order('created_at', { ascending: true })
     .limit(10)
 
-  if (!queued || queued.length === 0) return
+  if (!queued || queued.length === 0) {
+    if (overQuotaIds.length > 0) {
+      log.info(`Polling: all eligible channels at daily limit (${overQuotaIds.length} over quota)`)
+    }
+    return
+  }
 
-  log.info(`Polling: found ${queued.length} queued items`)
+  log.info(`Polling: found ${queued.length} queued items (${overQuotaIds.length} channels skipped — at limit)`)
 
   for (const item of queued) {
     const uploadedToday = await getChannelUploadsToday(item.channel_id)
