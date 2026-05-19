@@ -61,7 +61,23 @@ function fmtDate(d: string | null) {
   return new Date(d).toLocaleDateString('nl-NL', { day: '2-digit', month: 'short' })
 }
 
-const EMPTY_FORM = { titel: '', type: 'taak', priority: 'normaal', status: 'open', toegewezen: '', due_date: '', beschrijving: '', project_id: '' }
+function todayISO() {
+  const d = new Date()
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
+
+const PROJECT_TYPES = [
+  { value: 'renovation',   label: 'Renovatie' },
+  { value: 'construction', label: 'Bouw' },
+  { value: 'real_estate',  label: 'Vastgoed' },
+  { value: 'development',  label: 'Ontwikkeling' },
+  { value: 'saas',         label: 'SaaS' },
+] as const
+
+const emptyForm = () => ({
+  titel: '', type: 'taak', priority: 'normaal', status: 'open',
+  toegewezen: '', due_date: todayISO(), beschrijving: '', project_id: '',
+})
 
 export default function TakenPage() {
   const [items, setItems] = useState<PlanningItem[]>([])
@@ -70,11 +86,17 @@ export default function TakenPage() {
   const [loading, setLoading] = useState(true)
   const [showModal, setShowModal] = useState(false)
   const [editing, setEditing] = useState<PlanningItem | null>(null)
-  const [form, setForm] = useState({ ...EMPTY_FORM })
+  const [form, setForm] = useState(emptyForm())
   const [saving, setSaving]       = useState(false)
   const [error, setError]         = useState('')
   const [syncing, setSyncing]     = useState(false)
   const [syncMsg, setSyncMsg]     = useState('')
+
+  const [showNewProject, setShowNewProject] = useState(false)
+  const [newProjectName, setNewProjectName] = useState('')
+  const [newProjectType, setNewProjectType] = useState<string>('renovation')
+  const [creatingProject, setCreatingProject] = useState(false)
+  const [projectError, setProjectError] = useState('')
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -124,8 +146,11 @@ export default function TakenPage() {
 
   function openNew() {
     setEditing(null)
-    setForm({ ...EMPTY_FORM })
+    setForm(emptyForm())
     setError('')
+    setShowNewProject(false)
+    setNewProjectName('')
+    setProjectError('')
     setShowModal(true)
   }
 
@@ -177,6 +202,47 @@ export default function TakenPage() {
     if (!confirm('Taak verwijderen?')) return
     await fetch(`/api/planning/${id}`, { method: 'DELETE' })
     await load()
+  }
+
+  async function quickStatusChange(id: string, newStatus: string) {
+    // Optimistic UI update
+    setItems(prev => prev.map(i =>
+      i.id === id ? { ...i, status: newStatus as PlanningItem['status'] } : i
+    ))
+    const res = await fetch(`/api/planning/${id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status: newStatus }),
+    })
+    if (!res.ok) {
+      await load()
+    }
+  }
+
+  async function createProject() {
+    if (!newProjectName.trim()) { setProjectError('Naam vereist'); return }
+    setCreatingProject(true); setProjectError('')
+    try {
+      const res = await fetch('/api/projects', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: newProjectName.trim(), type: newProjectType }),
+      })
+      if (!res.ok) {
+        const j = await res.json().catch(() => ({}))
+        setProjectError(j.error ?? 'Aanmaken faalde')
+        return
+      }
+      const j = await res.json()
+      const created: Project | undefined = j.project
+      const fresh = await fetch('/api/projects').then(r => r.ok ? r.json() : { projects: [] })
+      setProjects(fresh.projects ?? [])
+      if (created?.id) setForm(f => ({ ...f, project_id: created.id }))
+      setNewProjectName('')
+      setShowNewProject(false)
+    } finally {
+      setCreatingProject(false)
+    }
   }
 
   const tabs = ['Alle', 'Urgent', 'Vandaag', 'Deze week', 'Afgerond']
@@ -285,9 +351,21 @@ export default function TakenPage() {
                     <td className="px-4 py-3 text-xs text-white/50">{row.toegewezen ?? '—'}</td>
                     <td className="px-4 py-3 text-xs text-white/50 whitespace-nowrap">{fmtDate(row.due_date)}</td>
                     <td className="px-4 py-3">
-                      <span className={clsx('px-2 py-0.5 rounded-full text-[10px] font-medium', STATUS_COLORS[row.status])}>
-                        {STATUS_LABELS[row.status]}
-                      </span>
+                      <select
+                        value={row.status}
+                        onChange={e => quickStatusChange(row.id, e.target.value)}
+                        className={clsx(
+                          'px-2 py-0.5 rounded-full text-[10px] font-medium border-0 appearance-none cursor-pointer focus:outline-none focus:ring-2 focus:ring-indigo-500/50',
+                          STATUS_COLORS[row.status],
+                        )}
+                        title="Klik om status te wijzigen"
+                      >
+                        {(['open','bezig','gereed','geblokkeerd'] as const).map(s => (
+                          <option key={s} value={s} className="bg-[#0f1117] text-white">
+                            {STATUS_LABELS[s]}
+                          </option>
+                        ))}
+                      </select>
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-2">
@@ -363,15 +441,53 @@ export default function TakenPage() {
                 </div>
               </div>
               <div>
-                <label className="block text-[11px] text-white/50 mb-1.5">Project</label>
-                <select
-                  className="w-full bg-white/[0.06] border border-white/10 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-indigo-500"
-                  value={form.project_id}
-                  onChange={e => setForm(f => ({ ...f, project_id: e.target.value }))}
-                >
-                  <option value="">Geen project</option>
-                  {projects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
-                </select>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="block text-[11px] text-white/50">Project</label>
+                  <button
+                    type="button"
+                    onClick={() => { setShowNewProject(s => !s); setProjectError('') }}
+                    className="text-[11px] text-indigo-400 hover:text-indigo-300 transition-colors"
+                  >
+                    {showNewProject ? 'Annuleer nieuw project' : '+ Nieuw project'}
+                  </button>
+                </div>
+                {showNewProject ? (
+                  <div className="space-y-2 bg-white/[0.04] border border-white/10 rounded-lg p-3">
+                    <input
+                      autoFocus
+                      className="w-full bg-white/[0.06] border border-white/10 rounded-lg px-3 py-2 text-xs text-white placeholder-white/30 focus:outline-none focus:border-indigo-500"
+                      placeholder="Projectnaam…"
+                      value={newProjectName}
+                      onChange={e => setNewProjectName(e.target.value)}
+                      onKeyDown={e => { if (e.key === 'Enter') createProject() }}
+                    />
+                    <select
+                      className="w-full bg-white/[0.06] border border-white/10 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-indigo-500"
+                      value={newProjectType}
+                      onChange={e => setNewProjectType(e.target.value)}
+                    >
+                      {PROJECT_TYPES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
+                    </select>
+                    {projectError && <p className="text-[11px] text-red-400">{projectError}</p>}
+                    <button
+                      type="button"
+                      onClick={createProject}
+                      disabled={creatingProject || !newProjectName.trim()}
+                      className="w-full bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white text-xs font-medium py-2 rounded-lg transition-colors"
+                    >
+                      {creatingProject ? 'Aanmaken…' : 'Project aanmaken'}
+                    </button>
+                  </div>
+                ) : (
+                  <select
+                    className="w-full bg-white/[0.06] border border-white/10 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-indigo-500"
+                    value={form.project_id}
+                    onChange={e => setForm(f => ({ ...f, project_id: e.target.value }))}
+                  >
+                    <option value="">Geen project</option>
+                    {projects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                  </select>
+                )}
               </div>
               <div>
                 <label className="block text-[11px] text-white/50 mb-1.5">Beschrijving</label>
