@@ -1,11 +1,11 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import Link from 'next/link'
 import { useParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import type { FinCustomer, FinInvoice, FinReminder } from '@/lib/finance/types'
-import { ArrowLeft, AlertTriangle, TrendingDown, Clock, ShieldOff } from 'lucide-react'
+import { ArrowLeft, AlertTriangle, TrendingDown, Clock, ShieldOff, Mail, Phone, Loader2 } from 'lucide-react'
 
 function fmt(amount: number) {
   return new Intl.NumberFormat('nl-NL', { style: 'currency', currency: 'EUR' }).format(amount)
@@ -38,6 +38,8 @@ function RiskBadge({ level }: { level: string }) {
   )
 }
 
+type ActionKey = 'herinnering' | 'incasso'
+
 export default function DebiteurDetailPage() {
   const params = useParams()
   const id = params.id as string
@@ -46,29 +48,74 @@ export default function DebiteurDetailPage() {
   const [invoices, setInvoices] = useState<FinInvoice[]>([])
   const [reminders, setReminders] = useState<FinReminder[]>([])
   const [loading, setLoading] = useState(true)
+  const [busy, setBusy] = useState<Record<ActionKey, boolean>>({ herinnering: false, incasso: false })
 
-  useEffect(() => {
-    async function load() {
-      setLoading(true)
-
-      try {
-        const supabase = createClient()
-        const [custRes, invRes, remRes] = await Promise.all([
-          supabase.from('fin_customers').select('*').eq('id', id).single(),
-          supabase.from('fin_invoices').select('*').eq('customer_id', id).order('issued_at', { ascending: false }),
-          supabase.from('fin_reminders').select('*').order('sent_at', { ascending: false }),
-        ])
-        setCustomer(custRes.data as FinCustomer)
-        setInvoices((invRes.data ?? []) as FinInvoice[])
-        setReminders((remRes.data ?? []) as FinReminder[])
-      } catch {
-        // ignore
-      } finally {
-        setLoading(false)
-      }
+  const load = useCallback(async () => {
+    setLoading(true)
+    try {
+      const supabase = createClient()
+      const [custRes, invRes, remRes] = await Promise.all([
+        supabase.from('fin_customers').select('*').eq('id', id).single(),
+        supabase.from('fin_invoices').select('*').eq('customer_id', id).order('issued_at', { ascending: false }),
+        supabase.from('fin_reminders').select('*').eq('customer_id', id).order('sent_at', { ascending: false }),
+      ])
+      setCustomer(custRes.data as FinCustomer)
+      setInvoices((invRes.data ?? []) as FinInvoice[])
+      setReminders((remRes.data ?? []) as FinReminder[])
+    } catch {
+      // ignore
+    } finally {
+      setLoading(false)
     }
-    load()
   }, [id])
+
+  useEffect(() => { load() }, [load])
+
+  async function doAction(action: ActionKey) {
+    if (!customer) return
+    setBusy(b => ({ ...b, [action]: true }))
+    try {
+      const supabase = createClient()
+      if (action === 'herinnering') {
+        const firstOpenInvoice = invoices.find(i => i.status === 'open' || i.status === 'vervallen')
+        if (firstOpenInvoice) {
+          await supabase.from('fin_reminders').insert({
+            invoice_id: firstOpenInvoice.id,
+            customer_id: id,
+            subject: `Herinnering factuur ${firstOpenInvoice.invoice_nr}`,
+            sent_at: new Date().toISOString(),
+            reminder_type: 'herinnering',
+          })
+          await supabase.from('fin_timeline').insert({
+            invoice_id: firstOpenInvoice.id,
+            customer_id: id,
+            event_type: 'email_sent',
+            title: 'Herinnering verzonden',
+            description: `Herinnering voor factuur ${firstOpenInvoice.invoice_nr}`,
+            performed_by: 'gebruiker',
+          })
+        }
+      } else if (action === 'incasso') {
+        const overdueIds = invoices.filter(i => i.status === 'vervallen').map(i => i.id)
+        if (overdueIds.length > 0) {
+          await supabase.from('fin_invoices').update({ status: 'incasso', workflow_stage: 'incasso' }).in('id', overdueIds)
+          for (const inv of invoices.filter(i => i.status === 'vervallen')) {
+            await supabase.from('fin_timeline').insert({
+              invoice_id: inv.id,
+              customer_id: id,
+              event_type: 'legal',
+              title: 'Incasso gestart',
+              description: `Factuur ${inv.invoice_nr} doorgestuurd naar incasso`,
+              performed_by: 'gebruiker',
+            })
+          }
+        }
+      }
+      await load()
+    } finally {
+      setBusy(b => ({ ...b, [action]: false }))
+    }
+  }
 
   if (loading) {
     return <div className="flex items-center justify-center h-40"><p className="text-xs text-white/50">Laden...</p></div>
@@ -86,6 +133,8 @@ export default function DebiteurDetailPage() {
   const openAmount = invoices.filter((i) => i.status !== 'betaald').reduce((s, i) => s + i.amount_incl, 0)
   const overdueAmount = invoices.filter((i) => i.status === 'vervallen' || i.status === 'incasso').reduce((s, i) => s + i.amount_incl, 0)
   const paidAmount = invoices.filter((i) => i.status === 'betaald').reduce((s, i) => s + i.amount_incl, 0)
+  const hasOverdue = invoices.some(i => i.status === 'vervallen')
+  const hasOpen = invoices.some(i => i.status === 'open' || i.status === 'vervallen')
 
   const riskFactors: { icon: React.ReactNode; label: string; active: boolean }[] = [
     { icon: <Clock size={12} />, label: `Gem. betaaltermijn ${customer.payment_avg_days} dagen`, active: customer.payment_avg_days > 30 },
@@ -97,7 +146,7 @@ export default function DebiteurDetailPage() {
   return (
     <div className="space-y-5">
       {/* Header */}
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-3 flex-wrap">
         <Link
           href="/dashboard/finance/debiteuren"
           className="border border-white/10 text-white/50 hover:text-white text-xs px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1.5"
@@ -113,6 +162,33 @@ export default function DebiteurDetailPage() {
           >
             Score: {customer.score}
           </span>
+        </div>
+        <div className="flex gap-2">
+          <button
+            onClick={() => doAction('herinnering')}
+            disabled={busy.herinnering || !hasOpen}
+            className="flex items-center gap-1.5 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white text-xs font-medium px-3 py-1.5 rounded-lg transition-colors"
+          >
+            {busy.herinnering ? <Loader2 size={11} className="animate-spin" /> : <Mail size={11} />}
+            Stuur Herinnering
+          </button>
+          <button
+            onClick={() => doAction('incasso')}
+            disabled={busy.incasso || !hasOverdue}
+            className="flex items-center gap-1.5 border border-amber-500/30 text-amber-400 hover:text-amber-300 disabled:opacity-50 text-xs px-3 py-1.5 rounded-lg transition-colors"
+          >
+            {busy.incasso ? <Loader2 size={11} className="animate-spin" /> : <AlertTriangle size={11} />}
+            Start Incasso
+          </button>
+          {customer.email && (
+            <a
+              href={`mailto:${customer.email}`}
+              className="flex items-center gap-1.5 border border-white/10 text-white/50 hover:text-white text-xs px-3 py-1.5 rounded-lg transition-colors"
+            >
+              <Mail size={11} />
+              Contacteer
+            </a>
+          )}
         </div>
       </div>
 
@@ -148,8 +224,15 @@ export default function DebiteurDetailPage() {
               </thead>
               <tbody className="divide-y divide-white/5">
                 {invoices.map((inv) => (
-                  <tr key={inv.id}>
-                    <td className="py-2 text-xs text-indigo-400">{inv.invoice_nr}</td>
+                  <tr key={inv.id} className="hover:bg-white/[0.02] transition-colors">
+                    <td className="py-2">
+                      <Link
+                        href={`/dashboard/finance/facturen/${inv.id}`}
+                        className="text-xs text-indigo-400 hover:text-indigo-300 transition-colors"
+                      >
+                        {inv.invoice_nr}
+                      </Link>
+                    </td>
                     <td className="py-2 text-xs text-white/70">{fmt(inv.amount_incl)}</td>
                     <td className="py-2 text-xs text-white/50">{inv.due_date}</td>
                     <td className="py-2"><StatusBadge status={inv.status} /></td>
@@ -165,12 +248,28 @@ export default function DebiteurDetailPage() {
           {/* Contact */}
           <div className="bg-white/[0.06] border border-white/5 rounded-xl p-4">
             <h3 className="text-xs font-semibold text-white mb-3">Contactgegevens</h3>
-            <div className="space-y-2 text-xs text-white/50">
-              {customer.email && <p>{customer.email}</p>}
-              {customer.phone && <p>{customer.phone}</p>}
-              {customer.kvk && <p>KvK: {customer.kvk}</p>}
-              {customer.btw && <p>BTW: {customer.btw}</p>}
-              {customer.city && <p>{customer.address}, {customer.city}</p>}
+            <div className="space-y-2">
+              {customer.email && (
+                <a
+                  href={`mailto:${customer.email}`}
+                  className="flex items-center gap-2 text-xs text-white/50 hover:text-white/80 transition-colors"
+                >
+                  <Mail size={11} />
+                  {customer.email}
+                </a>
+              )}
+              {customer.phone && (
+                <a
+                  href={`tel:${customer.phone}`}
+                  className="flex items-center gap-2 text-xs text-white/50 hover:text-white/80 transition-colors"
+                >
+                  <Phone size={11} />
+                  {customer.phone}
+                </a>
+              )}
+              {customer.kvk && <p className="text-xs text-white/50">KvK: {customer.kvk}</p>}
+              {customer.btw && <p className="text-xs text-white/50">BTW: {customer.btw}</p>}
+              {customer.city && <p className="text-xs text-white/50">{customer.address}, {customer.city}</p>}
             </div>
           </div>
 
@@ -210,7 +309,7 @@ export default function DebiteurDetailPage() {
               <div className="space-y-2">
                 {reminders.slice(0, 4).map((r) => (
                   <div key={r.id} className="flex items-center justify-between">
-                    <span className="text-xs text-white/50">{r.stage.replace(/_/g, ' ')}</span>
+                    <span className="text-xs text-white/50">{r.stage?.replace(/_/g, ' ') ?? r.reminder_type}</span>
                     <span className="text-[10px] text-white/45">{r.sent_at}</span>
                   </div>
                 ))}

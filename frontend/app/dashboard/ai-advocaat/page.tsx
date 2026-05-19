@@ -182,7 +182,7 @@ export default async function AiAdvocaatPage() {
                 return (
                   <Link
                     key={d.id}
-                    href={`/mobile/mail/legal/${d.id}`}
+                    href={`/dashboard/advocaat/dossiers/${d.id}`}
                     className={`flex items-center gap-3 p-3 rounded-xl border transition-colors hover:opacity-80 ${risk.bg}`}
                   >
                     <div className="flex-1 min-w-0">

@@ -1,9 +1,10 @@
 'use client'
 
-import { useState, useEffect } from 'react'
-import Link from 'next/link'
+import { useState, useEffect, useCallback } from 'react'
+import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import type { FinCustomer } from '@/lib/finance/types'
+import { X, Loader2 } from 'lucide-react'
 
 function fmt(amount: number) {
   return new Intl.NumberFormat('nl-NL', { style: 'currency', currency: 'EUR' }).format(amount)
@@ -28,28 +29,53 @@ function RiskBadge({ level }: { level: string }) {
 }
 
 export default function DebiteurenPage() {
+  const router = useRouter()
   const [customers, setCustomers] = useState<FinCustomer[]>([])
   const [search,    setSearch]    = useState('')
   const [loading,   setLoading]   = useState(true)
+  const [showModal, setShowModal] = useState(false)
+  const [saving,    setSaving]    = useState(false)
+  const [form, setForm] = useState({ name: '', email: '', phone: '', kvk: '' })
 
-  useEffect(() => {
-    async function load() {
-      setLoading(true)
-      try {
-        const supabase = createClient()
-        const { data } = await supabase
-          .from('fin_customers')
-          .select('*')
-          .order('score', { ascending: true })
-        setCustomers(data as FinCustomer[] ?? [])
-      } catch {
-        setCustomers([])
-      } finally {
-        setLoading(false)
-      }
+  const load = useCallback(async () => {
+    setLoading(true)
+    try {
+      const supabase = createClient()
+      const { data } = await supabase
+        .from('fin_customers')
+        .select('*')
+        .order('score', { ascending: true })
+      setCustomers(data as FinCustomer[] ?? [])
+    } catch {
+      setCustomers([])
+    } finally {
+      setLoading(false)
     }
-    load()
   }, [])
+
+  useEffect(() => { load() }, [load])
+
+  async function createCustomer() {
+    if (!form.name.trim()) return
+    setSaving(true)
+    try {
+      const supabase = createClient()
+      await supabase.from('fin_customers').insert({
+        name: form.name.trim(),
+        email: form.email.trim() || null,
+        phone: form.phone.trim() || null,
+        kvk: form.kvk.trim() || null,
+        score: 75,
+        risk_level: 'laag',
+        payment_avg_days: 30,
+      })
+      setShowModal(false)
+      setForm({ name: '', email: '', phone: '', kvk: '' })
+      await load()
+    } finally {
+      setSaving(false)
+    }
+  }
 
   const filtered  = customers.filter(c => {
     const q = search.toLowerCase()
@@ -67,7 +93,10 @@ export default function DebiteurenPage() {
           <h1 className="text-lg font-semibold text-white">Debiteuren</h1>
           <p className="text-xs text-white/50 mt-0.5">{customers.length} klanten geregistreerd</p>
         </div>
-        <button className="bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-medium px-4 py-2 rounded-lg transition-colors">
+        <button
+          onClick={() => setShowModal(true)}
+          className="bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-medium px-4 py-2 rounded-lg transition-colors"
+        >
           + Nieuw
         </button>
       </div>
@@ -97,9 +126,15 @@ export default function DebiteurenPage() {
         {loading ? (
           <div className="py-12 text-center text-xs text-white/50">Laden...</div>
         ) : filtered.length === 0 ? (
-          <div className="py-12 text-center">
+          <div className="py-12 text-center space-y-3">
             <p className="text-xs text-white/40">Geen klanten beschikbaar</p>
-            <p className="text-[10px] text-white/25 mt-1">Klanten worden automatisch aangemaakt via Moneybird sync of handmatig</p>
+            <p className="text-[10px] text-white/25">Klanten worden automatisch aangemaakt via Moneybird sync of handmatig</p>
+            <button
+              onClick={() => setShowModal(true)}
+              className="mt-2 text-xs text-indigo-400 hover:text-indigo-300 transition-colors"
+            >
+              + Voeg eerste klant toe
+            </button>
           </div>
         ) : (
           <table className="w-full">
@@ -112,7 +147,11 @@ export default function DebiteurenPage() {
             </thead>
             <tbody className="divide-y divide-white/5">
               {filtered.map(cust => (
-                <tr key={cust.id} className="hover:bg-white/[0.02] transition-colors cursor-pointer">
+                <tr
+                  key={cust.id}
+                  onClick={() => router.push(`/dashboard/finance/debiteuren/${cust.id}`)}
+                  className="hover:bg-white/[0.02] transition-colors cursor-pointer"
+                >
                   <td className="px-4 py-3">
                     <p className="text-xs font-medium text-white">{cust.name}</p>
                     {cust.email && <p className="text-[10px] text-white/50 mt-0.5">{cust.email}</p>}
@@ -121,13 +160,13 @@ export default function DebiteurenPage() {
                   <td className="px-4 py-3"><ScoreIndicator score={cust.score} /></td>
                   <td className="px-4 py-3"><RiskBadge level={cust.risk_level} /></td>
                   <td className="px-4 py-3 text-xs text-white/50">{cust.payment_avg_days} dagen</td>
-                  <td className="px-4 py-3">
-                    <Link
-                      href={`/dashboard/finance/debiteuren/${cust.id}`}
+                  <td className="px-4 py-3" onClick={e => e.stopPropagation()}>
+                    <button
+                      onClick={() => router.push(`/dashboard/finance/debiteuren/${cust.id}`)}
                       className="border border-white/10 text-white/50 hover:text-white text-xs px-4 py-2 rounded-lg transition-colors"
                     >
                       Bekijk
-                    </Link>
+                    </button>
                   </td>
                 </tr>
               ))}
@@ -135,6 +174,83 @@ export default function DebiteurenPage() {
           </table>
         )}
       </div>
+
+      {/* Nieuw klant modal */}
+      {showModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+          <div className="bg-[#0f0f13] border border-white/10 rounded-2xl w-full max-w-md p-6 space-y-5">
+            <div className="flex items-center justify-between">
+              <h2 className="text-sm font-semibold text-white">Nieuwe Klant</h2>
+              <button
+                onClick={() => setShowModal(false)}
+                className="text-white/40 hover:text-white/70 transition-colors"
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            <div className="space-y-3">
+              <div>
+                <label className="text-[10px] text-white/50 uppercase tracking-wider block mb-1">Naam *</label>
+                <input
+                  type="text"
+                  value={form.name}
+                  onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
+                  placeholder="Bedrijfsnaam of persoonsnaam"
+                  className="w-full bg-white/[0.06] border border-white/10 rounded-lg px-3 py-2 text-xs text-white placeholder-white/30 outline-none focus:border-indigo-500/50"
+                />
+              </div>
+              <div>
+                <label className="text-[10px] text-white/50 uppercase tracking-wider block mb-1">E-mail</label>
+                <input
+                  type="email"
+                  value={form.email}
+                  onChange={e => setForm(f => ({ ...f, email: e.target.value }))}
+                  placeholder="email@voorbeeld.nl"
+                  className="w-full bg-white/[0.06] border border-white/10 rounded-lg px-3 py-2 text-xs text-white placeholder-white/30 outline-none focus:border-indigo-500/50"
+                />
+              </div>
+              <div>
+                <label className="text-[10px] text-white/50 uppercase tracking-wider block mb-1">Telefoon</label>
+                <input
+                  type="tel"
+                  value={form.phone}
+                  onChange={e => setForm(f => ({ ...f, phone: e.target.value }))}
+                  placeholder="+31 6 00000000"
+                  className="w-full bg-white/[0.06] border border-white/10 rounded-lg px-3 py-2 text-xs text-white placeholder-white/30 outline-none focus:border-indigo-500/50"
+                />
+              </div>
+              <div>
+                <label className="text-[10px] text-white/50 uppercase tracking-wider block mb-1">KvK nummer</label>
+                <input
+                  type="text"
+                  value={form.kvk}
+                  onChange={e => setForm(f => ({ ...f, kvk: e.target.value }))}
+                  placeholder="12345678"
+                  className="w-full bg-white/[0.06] border border-white/10 rounded-lg px-3 py-2 text-xs text-white placeholder-white/30 outline-none focus:border-indigo-500/50"
+                />
+              </div>
+            </div>
+
+            <div className="flex gap-3 pt-1">
+              <button
+                onClick={() => setShowModal(false)}
+                className="flex-1 border border-white/10 text-white/50 hover:text-white text-xs py-2 rounded-lg transition-colors"
+              >
+                Annuleer
+              </button>
+              <button
+                onClick={createCustomer}
+                disabled={saving || !form.name.trim()}
+                className="flex-1 flex items-center justify-center gap-1.5 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white text-xs font-medium py-2 rounded-lg transition-colors"
+              >
+                {saving && <Loader2 size={11} className="animate-spin" />}
+                Klant aanmaken
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

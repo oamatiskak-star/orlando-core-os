@@ -90,8 +90,9 @@ export default function OsilDashboard() {
   const [kpi, setKpi] = useState<OsilKpi | null>(null)
   const [opportunities, setOpportunities] = useState<OsilOpportunity[]>([])
   const [loading, setLoading] = useState(true)
-  const [analyzing, setAnalyzing] = useState(false)
-  const [lastResult, setLastResult] = useState<{ mode: string; session_id: string } | null>(null)
+  const [analyzing,    setAnalyzing]    = useState(false)
+  const [lastResult,   setLastResult]   = useState<{ mode: string; session_id: string } | null>(null)
+  const [analyzeError, setAnalyzeError] = useState(false)
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -113,13 +114,20 @@ export default function OsilDashboard() {
 
   async function runAnalysis() {
     setAnalyzing(true)
+    setAnalyzeError(false)
     try {
       const res = await fetch('/api/osil/analyze', { method: 'POST' })
       if (res.ok) {
         const d = await res.json()
         setLastResult({ mode: d.mode, session_id: d.session_id })
         await load()
+      } else {
+        setAnalyzeError(true)
+        setTimeout(() => setAnalyzeError(false), 6000)
       }
+    } catch {
+      setAnalyzeError(true)
+      setTimeout(() => setAnalyzeError(false), 6000)
     } finally {
       setAnalyzing(false)
     }
@@ -167,6 +175,17 @@ export default function OsilDashboard() {
           </button>
         </div>
       </div>
+
+      {/* Error banner */}
+      {analyzeError && (
+        <div className="bg-red-500/10 border border-red-500/20 rounded-xl px-4 py-3 flex items-center justify-between gap-3">
+          <div className="flex items-center gap-2">
+            <AlertCircle size={14} className="text-red-400 flex-shrink-0" />
+            <p className="text-xs text-red-400">Analyse mislukt — controleer de verbinding of probeer opnieuw.</p>
+          </div>
+          <button onClick={() => setAnalyzeError(false)} className="text-red-400/60 hover:text-red-400 text-xs shrink-0">✕</button>
+        </div>
+      )}
 
       {/* Result banner */}
       {lastResult && !analyzing && (

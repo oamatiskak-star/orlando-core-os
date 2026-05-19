@@ -2,7 +2,8 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { Clock, Calendar, Tv2, RefreshCw, X, Zap, ShieldCheck, ChevronDown, ChevronUp } from 'lucide-react'
+import { Clock, Calendar, Tv2, RefreshCw, X, Zap, ShieldCheck, ChevronDown, ChevronUp, ArrowRight } from 'lucide-react'
+import Link from 'next/link'
 import clsx from 'clsx'
 
 type ScheduledItem = {
@@ -147,9 +148,29 @@ export default function ScheduledPage() {
         {loading ? (
           <p className="text-xs text-white/50 text-center py-8">Laden...</p>
         ) : filtered.length === 0 ? (
-          <div className="text-center py-10 space-y-2">
+          <div className="text-center py-10 space-y-3">
             <Calendar size={28} className="text-white/10 mx-auto" />
-            <p className="text-xs text-white/50">Geen items</p>
+            {filter === 'failed' ? (
+              <p className="text-xs text-green-400">✓ Geen fouten gevonden</p>
+            ) : (
+              <>
+                <p className="text-xs text-white/50">Geen geplande items</p>
+                <div className="flex items-center justify-center gap-3 pt-1">
+                  <Link
+                    href="/dashboard/youtube"
+                    className="text-[11px] text-white/40 hover:text-white/70 transition-colors"
+                  >
+                    ← YouTube Engine
+                  </Link>
+                  <Link
+                    href="/dashboard/youtube/workflow"
+                    className="flex items-center gap-1 text-[11px] text-indigo-400 hover:text-indigo-300 transition-colors"
+                  >
+                    Start pipeline <ArrowRight size={10} />
+                  </Link>
+                </div>
+              </>
+            )}
           </div>
         ) : (
           <>

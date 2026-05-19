@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import Link from 'next/link'
 import { useParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
@@ -15,6 +15,7 @@ import {
   FileText,
   ArrowLeft,
   Eye,
+  Loader2,
 } from 'lucide-react'
 
 function fmt(amount: number) {
@@ -40,6 +41,7 @@ function StatusBadge({ status }: { status: string }) {
     vervallen: 'bg-red-500/10 text-red-400',
     incasso: 'bg-amber-500/10 text-amber-400',
     betaald: 'bg-green-500/10 text-green-400',
+    juridisch: 'bg-red-500/15 text-red-300',
   }
   return (
     <span className={`${map[status] ?? 'bg-white/5 text-white/65'} px-2.5 py-1 rounded-full text-xs font-medium capitalize`}>
@@ -50,6 +52,8 @@ function StatusBadge({ status }: { status: string }) {
 
 const WORKFLOW_STAGES = ['nieuw', 'herinnering_1', 'aanmaning_1', 'aanmaning_2', 'sommatie', 'incasso', 'afgerond']
 
+type ActionKey = 'herinnering' | 'betaald' | 'incasso' | 'juridisch'
+
 export default function InvoiceDetailPage() {
   const params = useParams()
   const id = params.id as string
@@ -59,31 +63,103 @@ export default function InvoiceDetailPage() {
   const [reminders, setReminders] = useState<FinReminder[]>([])
   const [timeline, setTimeline] = useState<FinTimeline[]>([])
   const [loading, setLoading] = useState(true)
+  const [busy, setBusy] = useState<Record<ActionKey, boolean>>({
+    herinnering: false, betaald: false, incasso: false, juridisch: false,
+  })
 
-  useEffect(() => {
-    async function load() {
-      setLoading(true)
-
-      try {
-        const supabase = createClient()
-        const [invRes, payRes, remRes, tlRes] = await Promise.all([
-          supabase.from('fin_invoices').select('*, customer:fin_customers(*)').eq('id', id).single(),
-          supabase.from('fin_payments').select('*').eq('invoice_id', id),
-          supabase.from('fin_reminders').select('*').eq('invoice_id', id).order('sent_at', { ascending: false }),
-          supabase.from('fin_timeline').select('*').eq('invoice_id', id).order('created_at', { ascending: true }),
-        ])
-        setInvoice(invRes.data as FinInvoice)
-        setPayments((payRes.data ?? []) as FinPayment[])
-        setReminders((remRes.data ?? []) as FinReminder[])
-        setTimeline((tlRes.data ?? []) as FinTimeline[])
-      } catch {
-        // fallback
-      } finally {
-        setLoading(false)
-      }
+  const load = useCallback(async () => {
+    setLoading(true)
+    try {
+      const supabase = createClient()
+      const [invRes, payRes, remRes, tlRes] = await Promise.all([
+        supabase.from('fin_invoices').select('*, customer:fin_customers(*)').eq('id', id).single(),
+        supabase.from('fin_payments').select('*').eq('invoice_id', id),
+        supabase.from('fin_reminders').select('*').eq('invoice_id', id).order('sent_at', { ascending: false }),
+        supabase.from('fin_timeline').select('*').eq('invoice_id', id).order('created_at', { ascending: true }),
+      ])
+      setInvoice(invRes.data as FinInvoice)
+      setPayments((payRes.data ?? []) as FinPayment[])
+      setReminders((remRes.data ?? []) as FinReminder[])
+      setTimeline((tlRes.data ?? []) as FinTimeline[])
+    } catch {
+      // fallback
+    } finally {
+      setLoading(false)
     }
-    load()
   }, [id])
+
+  useEffect(() => { load() }, [load])
+
+  async function doAction(action: ActionKey) {
+    if (!invoice) return
+    setBusy(b => ({ ...b, [action]: true }))
+    try {
+      const supabase = createClient()
+      const now = new Date().toISOString()
+
+      if (action === 'herinnering') {
+        await supabase.from('fin_reminders').insert({
+          invoice_id: id,
+          customer_id: invoice.customer_id,
+          subject: `Herinnering factuur ${invoice.invoice_nr}`,
+          sent_at: now,
+          reminder_type: 'herinnering',
+        })
+        await supabase.from('fin_timeline').insert({
+          invoice_id: id,
+          customer_id: invoice.customer_id,
+          event_type: 'email_sent',
+          title: 'Herinnering verzonden',
+          description: `Herinnering voor factuur ${invoice.invoice_nr}`,
+          performed_by: 'systeem',
+        })
+      } else if (action === 'betaald') {
+        await supabase.from('fin_invoices').update({
+          status: 'betaald',
+          amount_paid: invoice.amount_incl,
+          workflow_stage: 'afgerond',
+        }).eq('id', id)
+        await supabase.from('fin_timeline').insert({
+          invoice_id: id,
+          customer_id: invoice.customer_id,
+          event_type: 'paid',
+          title: 'Gemarkeerd als betaald',
+          description: `Factuur ${invoice.invoice_nr} handmatig betaald — ${fmt(invoice.amount_incl)}`,
+          performed_by: 'gebruiker',
+        })
+      } else if (action === 'incasso') {
+        await supabase.from('fin_invoices').update({
+          status: 'incasso',
+          workflow_stage: 'incasso',
+        }).eq('id', id)
+        await supabase.from('fin_timeline').insert({
+          invoice_id: id,
+          customer_id: invoice.customer_id,
+          event_type: 'legal',
+          title: 'Incasso gestart',
+          description: `Factuur ${invoice.invoice_nr} doorgestuurd naar incasso`,
+          performed_by: 'gebruiker',
+        })
+      } else if (action === 'juridisch') {
+        await supabase.from('fin_invoices').update({
+          status: 'juridisch',
+          workflow_stage: 'sommatie',
+        }).eq('id', id)
+        await supabase.from('fin_timeline').insert({
+          invoice_id: id,
+          customer_id: invoice.customer_id,
+          event_type: 'legal',
+          title: 'Juridisch traject gestart',
+          description: `Factuur ${invoice.invoice_nr} overgezet naar juridisch`,
+          performed_by: 'gebruiker',
+        })
+      }
+
+      await load()
+    } finally {
+      setBusy(b => ({ ...b, [action]: false }))
+    }
+  }
 
   if (loading) {
     return (
@@ -104,12 +180,13 @@ export default function InvoiceDetailPage() {
     )
   }
 
+  const isAlreadyPaid = invoice.status === 'betaald'
   const stageIndex = WORKFLOW_STAGES.indexOf(invoice.workflow_stage)
 
   return (
     <div className="space-y-5">
       {/* Header */}
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-3 flex-wrap">
         <Link
           href="/dashboard/finance/facturen"
           className="border border-white/10 text-white/50 hover:text-white text-xs px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1.5"
@@ -121,17 +198,37 @@ export default function InvoiceDetailPage() {
           <h1 className="text-lg font-semibold text-white">{invoice.invoice_nr}</h1>
           <StatusBadge status={invoice.status} />
         </div>
-        <div className="flex gap-2">
-          <button className="bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-medium px-4 py-2 rounded-lg transition-colors">
+        <div className="flex gap-2 flex-wrap">
+          <button
+            onClick={() => doAction('herinnering')}
+            disabled={busy.herinnering || isAlreadyPaid}
+            className="flex items-center gap-1.5 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white text-xs font-medium px-4 py-2 rounded-lg transition-colors"
+          >
+            {busy.herinnering ? <Loader2 size={11} className="animate-spin" /> : <Mail size={11} />}
             Stuur Herinnering
           </button>
-          <button className="border border-white/10 text-white/50 hover:text-white text-xs px-4 py-2 rounded-lg transition-colors">
+          <button
+            onClick={() => doAction('betaald')}
+            disabled={busy.betaald || isAlreadyPaid}
+            className="flex items-center gap-1.5 border border-white/10 text-white/60 hover:text-white disabled:opacity-50 text-xs px-4 py-2 rounded-lg transition-colors"
+          >
+            {busy.betaald ? <Loader2 size={11} className="animate-spin" /> : <CheckCircle size={11} />}
             Markeer Betaald
           </button>
-          <button className="border border-amber-500/30 text-amber-400 hover:text-amber-300 text-xs px-4 py-2 rounded-lg transition-colors">
+          <button
+            onClick={() => doAction('incasso')}
+            disabled={busy.incasso || isAlreadyPaid}
+            className="flex items-center gap-1.5 border border-amber-500/30 text-amber-400 hover:text-amber-300 disabled:opacity-50 text-xs px-4 py-2 rounded-lg transition-colors"
+          >
+            {busy.incasso ? <Loader2 size={11} className="animate-spin" /> : <AlertTriangle size={11} />}
             Start Incasso
           </button>
-          <button className="border border-red-500/30 text-red-400 hover:text-red-300 text-xs px-4 py-2 rounded-lg transition-colors">
+          <button
+            onClick={() => doAction('juridisch')}
+            disabled={busy.juridisch || isAlreadyPaid}
+            className="flex items-center gap-1.5 border border-red-500/30 text-red-400 hover:text-red-300 disabled:opacity-50 text-xs px-4 py-2 rounded-lg transition-colors"
+          >
+            {busy.juridisch ? <Loader2 size={11} className="animate-spin" /> : <Gavel size={11} />}
             Juridisch
           </button>
         </div>
@@ -146,7 +243,16 @@ export default function InvoiceDetailPage() {
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <p className="text-[10px] text-white/50 uppercase tracking-wider mb-1">Klant</p>
-                <p className="text-sm text-white font-medium">{invoice.customer?.name ?? 'Onbekend'}</p>
+                {invoice.customer ? (
+                  <Link
+                    href={`/dashboard/finance/debiteuren/${invoice.customer_id}`}
+                    className="text-sm text-indigo-400 hover:text-indigo-300 font-medium transition-colors"
+                  >
+                    {invoice.customer.name}
+                  </Link>
+                ) : (
+                  <p className="text-sm text-white font-medium">Onbekend</p>
+                )}
               </div>
               <div>
                 <p className="text-[10px] text-white/50 uppercase tracking-wider mb-1">Bedrag incl. BTW</p>
@@ -248,18 +354,29 @@ export default function InvoiceDetailPage() {
             <h3 className="text-xs font-semibold text-white mb-3">Klantgegevens</h3>
             {invoice.customer ? (
               <div className="space-y-2.5">
-                <p className="text-sm font-medium text-white">{invoice.customer.name}</p>
+                <Link
+                  href={`/dashboard/finance/debiteuren/${invoice.customer_id}`}
+                  className="text-sm font-medium text-indigo-400 hover:text-indigo-300 transition-colors"
+                >
+                  {invoice.customer.name}
+                </Link>
                 {invoice.customer.email && (
-                  <div className="flex items-center gap-2 text-xs text-white/50">
+                  <a
+                    href={`mailto:${invoice.customer.email}`}
+                    className="flex items-center gap-2 text-xs text-white/50 hover:text-white/80 transition-colors"
+                  >
                     <Mail size={11} />
                     {invoice.customer.email}
-                  </div>
+                  </a>
                 )}
                 {invoice.customer.phone && (
-                  <div className="flex items-center gap-2 text-xs text-white/50">
+                  <a
+                    href={`tel:${invoice.customer.phone}`}
+                    className="flex items-center gap-2 text-xs text-white/50 hover:text-white/80 transition-colors"
+                  >
                     <Phone size={11} />
                     {invoice.customer.phone}
-                  </div>
+                  </a>
                 )}
                 <div className="flex items-center justify-between pt-1">
                   <span className="text-[10px] text-white/50">Score</span>
