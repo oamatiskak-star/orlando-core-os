@@ -1,6 +1,14 @@
-FROM node:20-slim
+FROM node:22-slim AS builder
 
-# Install system deps: ffmpeg + Playwright browser deps
+WORKDIR /app
+COPY package*.json ./
+RUN npm ci
+COPY tsconfig.json ./
+COPY src ./src
+RUN npm run build
+
+FROM node:22-slim AS runner
+
 RUN apt-get update && apt-get install -y \
     ffmpeg \
     ca-certificates \
@@ -43,20 +51,13 @@ RUN apt-get update && apt-get install -y \
     rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
-
 COPY package*.json ./
-RUN npm ci --only=production
-
-# Install Playwright browsers
+RUN npm ci --omit=dev
 RUN npx playwright install chromium --with-deps
 
-COPY tsconfig.json ./
-COPY src ./src
-RUN npm run build
+COPY --from=builder /app/dist ./dist
 
 ENV NODE_ENV=production
 ENV PLAYWRIGHT_HEADLESS=true
-
-EXPOSE 3001
 
 CMD ["node", "dist/index.js"]
