@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback } from 'react'
 import Link from 'next/link'
-import { Radar, RefreshCw, ExternalLink, ChevronLeft } from 'lucide-react'
+import { Radar, RefreshCw, ExternalLink, ChevronLeft, Hammer } from 'lucide-react'
 import clsx from 'clsx'
 
 type Opportunity = {
@@ -60,6 +60,22 @@ export default function ViralIntelligencePage() {
         setScanMsg(`Fout: ${j.error ?? r.status}`)
       }
     } finally { setScanning(false) }
+  }
+
+  async function generateBrief(opportunityId: string) {
+    setScanMsg('')
+    const r = await fetch('/api/media-holding/content-factory/brief', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ viral_opportunity_id: opportunityId }),
+    })
+    if (r.ok) {
+      const j = await r.json()
+      setScanMsg(`Forge brief gestart — task ${j.task_id?.slice(0, 8)}… (zie Content Factory over ~30s)`)
+    } else {
+      const j = await r.json().catch(() => ({}))
+      setScanMsg(`Brief fout: ${j.error ?? r.status}`)
+    }
   }
 
   return (
@@ -151,11 +167,20 @@ export default function ViralIntelligencePage() {
                   <td className="px-4 py-3 text-xs text-white/65">{o.automation_score}</td>
                   <td className="px-4 py-3 text-xs text-white/65">€ {Number(o.revenue_potential).toFixed(2)}</td>
                   <td className="px-4 py-3">
-                    {o.url && (
-                      <a href={o.url} target="_blank" rel="noreferrer" className="text-indigo-400 hover:text-indigo-300">
-                        <ExternalLink size={13} />
-                      </a>
-                    )}
+                    <div className="flex items-center gap-3">
+                      <button
+                        onClick={() => generateBrief(o.id)}
+                        title="Forge: genereer content brief"
+                        className="flex items-center gap-1 text-[11px] text-indigo-300 hover:text-indigo-200"
+                      >
+                        <Hammer size={12} /> Brief
+                      </button>
+                      {o.url && (
+                        <a href={o.url} target="_blank" rel="noreferrer" title="Open op YouTube" className="text-indigo-400 hover:text-indigo-300">
+                          <ExternalLink size={13} />
+                        </a>
+                      )}
+                    </div>
                   </td>
                 </tr>
               ))}
