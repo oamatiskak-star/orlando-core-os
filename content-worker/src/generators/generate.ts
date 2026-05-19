@@ -113,14 +113,16 @@ export async function generateVideo(
     const { error: insertError } = await db.from('youtube_videos').insert({
       id: videoId,
       channel_id: channel.id,
+      video_id: `pending_${videoId}`,   // placeholder, replaced by youtube upload worker
       title,
       description: config.description,
       tags: uniqueTags,
       status: 'queued',
+      upload_status: 'pending',
+      is_short: true,
       file_path: outputPath,
       category_id: config.category_id,
       privacy_status: 'private',
-      made_for_kids: false,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     })
