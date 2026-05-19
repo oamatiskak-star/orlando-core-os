@@ -193,6 +193,11 @@ export default async function ChannelDetailPage({ params }: Props) {
               <ShieldAlert size={10} /> OAuth verlopen — herverbinden
             </Link>
           )}
+          {/* Always-visible force-reconnect for invalid tokens despite connected status */}
+          <Link href={`/api/youtube/oauth/connect?channel_uuid=${ch.id}`}
+            className="flex items-center gap-1 px-2 py-1 rounded-lg bg-white/5 border border-white/10 text-white/35 text-[10px] hover:text-white/70 hover:bg-white/8 transition-colors">
+            <RefreshCw size={9} /> Herverbinden
+          </Link>
         </div>
       </div>
 

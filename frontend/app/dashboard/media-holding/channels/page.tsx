@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
-import { Video, Target, Globe, Zap } from 'lucide-react'
+import { Video, Target, Globe, Zap, ShieldCheck, ShieldAlert, RefreshCw } from 'lucide-react'
 import Image from 'next/image'
+import Link from 'next/link'
 
 function num(n: number) {
   if (n >= 1_000_000) return (n / 1_000_000).toFixed(2) + 'M'
@@ -90,6 +91,28 @@ export default async function ChannelsPage() {
                   <span className="text-violet-400/70 font-medium">Shorts-first</span>
                 )}
               </div>
+
+              {/* OAuth status + reconnect */}
+              {ch.oauth_connected && ch.oauth_status === 'connected' ? (
+                <div className="flex items-center justify-between pt-1 border-t border-white/[0.06]">
+                  <span className="flex items-center gap-1 text-[10px] text-emerald-400/80">
+                    <ShieldCheck size={9} /> OAuth verbonden
+                  </span>
+                  <Link
+                    href={`/api/youtube/oauth/connect?channel_uuid=${ch.id}`}
+                    className="flex items-center gap-1 text-[10px] text-white/30 hover:text-white/60 transition-colors"
+                  >
+                    <RefreshCw size={9} /> Herverbinden
+                  </Link>
+                </div>
+              ) : (
+                <Link
+                  href={`/api/youtube/oauth/connect?channel_uuid=${ch.id}`}
+                  className="flex items-center justify-center gap-1.5 w-full py-1.5 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 text-[11px] font-medium hover:bg-red-500/20 transition-colors"
+                >
+                  <ShieldAlert size={10} /> OAuth verbinden
+                </Link>
+              )}
             </div>
           )
         })}
