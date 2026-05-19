@@ -9,7 +9,59 @@ import { workerLogger } from '../lib/logger'
 
 const log = workerLogger('ffmpeg-normalizer')
 
-const THREADS = parseInt(process.env.FFMPEG_THREADS ?? '2')
+const THREADS    = parseInt(process.env.FFMPEG_THREADS ?? '2')
+const MUSIC_DIR  = process.env.MUSIC_ASSETS_DIR ?? '/opt/orlando-videos/music'
+
+function pickMusicFile(): string | null {
+  try {
+    if (!fs.existsSync(MUSIC_DIR)) return null
+    const files = fs.readdirSync(MUSIC_DIR).filter(f => /\.(mp3|aac|wav|ogg)$/i.test(f))
+    if (files.length === 0) return null
+    return path.join(MUSIC_DIR, files[Math.floor(Math.random() * files.length)])
+  } catch {
+    return null
+  }
+}
+
+function addBackgroundMusic(inputPath: string, outputPath: string, musicPath: string | null): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const cmd = ffmpeg(inputPath)
+
+    if (musicPath) {
+      cmd.input(musicPath).inputOptions(['-stream_loop', '-1'])
+    } else {
+      // Ambient drone fallback: low layered sine tones
+      cmd
+        .input('aevalsrc=0.03*sin(60*2*PI*t)+0.015*sin(120*2*PI*t)|0.03*sin(60*2*PI*t)+0.015*sin(120*2*PI*t):c=stereo:s=44100:d=3600')
+        .inputOptions(['-f', 'lavfi'])
+    }
+
+    cmd
+      .outputOptions([
+        '-map 0:v:0',
+        '-map 1:a:0',
+        '-c:v libx264',
+        '-preset slow',
+        '-crf 18',
+        '-c:a aac',
+        '-b:a 192k',
+        '-ar 44100',
+        '-ac 2',
+        '-shortest',
+        '-movflags +faststart',
+        '-pix_fmt yuv420p',
+        `-threads ${THREADS}`,
+        '-profile:v high',
+        '-level 4.0',
+        '-vf scale=trunc(iw/2)*2:trunc(ih/2)*2',
+      ])
+      .output(outputPath)
+      .on('start', (cmd) => log.debug('ffmpeg addBackgroundMusic started', { cmd }))
+      .on('end', () => resolve())
+      .on('error', (err) => reject(err))
+      .run()
+  })
+}
 
 function normalizeVideo(inputPath: string, outputPath: string): Promise<void> {
   return new Promise((resolve, reject) => {
@@ -32,9 +84,7 @@ function normalizeVideo(inputPath: string, outputPath: string): Promise<void> {
       .output(outputPath)
       .on('start', (cmd) => log.debug('ffmpeg started', { cmd }))
       .on('progress', (progress) => {
-        if (progress.percent) {
-          log.debug(`Encoding ${Math.round(progress.percent)}%`)
-        }
+        if (progress.percent) log.debug(`Encoding ${Math.round(progress.percent)}%`)
       })
       .on('end', () => resolve())
       .on('error', (err) => reject(err))
@@ -79,23 +129,57 @@ export function startFfmpegNormalizerWorker(): Worker {
 
       const probeData = await probeVideo(inputPath)
       const videoStream = probeData.streams.find(s => s.codec_type === 'video')
-      const duration = probeData.format.duration ? Math.round(Number(probeData.format.duration)) : null
+      const audioStream = probeData.streams.find(s => s.codec_type === 'audio')
+      const duration    = probeData.format.duration ? Math.round(Number(probeData.format.duration)) : null
 
       await addLog(queueId, videoId, 'info', 'Video probed', {
-        codec: videoStream?.codec_name,
-        width: videoStream?.width,
-        height: videoStream?.height,
+        codec:    videoStream?.codec_name,
+        width:    videoStream?.width,
+        height:   videoStream?.height,
+        hasAudio: !!audioStream,
         duration,
       })
 
       const outputDir = path.dirname(outputPath)
       if (!fs.existsSync(outputDir)) fs.mkdirSync(outputDir, { recursive: true })
 
+      const db = getSupabase()
+
+      // No audio stream → add background music
+      if (!audioStream) {
+        const musicFile = pickMusicFile()
+        const source = musicFile ? path.basename(musicFile) : 'ambient tone (geen muziekbestand gevonden)'
+        log.info(`No audio detected — adding background music: ${source}`, { queueId })
+        await addLog(queueId, videoId, 'info', `Geen audio gevonden — achtergrondmuziek toevoegen: ${source}`)
+
+        await addBackgroundMusic(inputPath, outputPath, musicFile)
+
+        const outputStats = fs.statSync(outputPath)
+        const outputProbe = await probeVideo(outputPath)
+        const outputDuration = outputProbe.format.duration ? Math.round(Number(outputProbe.format.duration)) : duration
+
+        await db.from('youtube_videos').update({
+          normalized_path: outputPath,
+          file_size_bytes:  outputStats.size,
+          duration_seconds: outputDuration,
+          updated_at:       new Date().toISOString(),
+        }).eq('id', videoId)
+
+        await addLog(queueId, videoId, 'success', 'Achtergrondmuziek toegevoegd', {
+          outputPath,
+          sizeBytes: outputStats.size,
+          duration:  outputDuration,
+        })
+
+        await enqueueUpload({ queueId, videoId, channelId: job.data.channelId })
+        return { outputPath, sizeBytes: outputStats.size, addedMusic: true }
+      }
+
+      // Has audio — check if already YouTube-safe (skip transcode)
       if (isYouTubeSafe(probeData) && fs.statSync(inputPath).size < 128 * 1024 * 1024) {
         log.info('Video already YouTube-safe, skipping transcode', { queueId })
         await addLog(queueId, videoId, 'info', 'Skipped transcode — already YouTube-safe')
 
-        const db = getSupabase()
         await db.from('youtube_videos').update({
           normalized_path: inputPath,
           duration_seconds: duration,
@@ -106,6 +190,7 @@ export function startFfmpegNormalizerWorker(): Worker {
         return { skipped: true, path: inputPath }
       }
 
+      // Has audio but needs re-encoding
       await normalizeVideo(inputPath, outputPath)
       log.info('Normalization complete', { queueId, outputPath })
 
@@ -113,24 +198,23 @@ export function startFfmpegNormalizerWorker(): Worker {
       const outputProbe = await probeVideo(outputPath)
       const outputDuration = outputProbe.format.duration ? Math.round(Number(outputProbe.format.duration)) : duration
 
-      const db = getSupabase()
       await db.from('youtube_videos').update({
-        normalized_path: outputPath,
-        file_size_bytes: outputStats.size,
+        normalized_path:  outputPath,
+        file_size_bytes:  outputStats.size,
         duration_seconds: outputDuration,
-        updated_at: new Date().toISOString(),
+        updated_at:       new Date().toISOString(),
       }).eq('id', videoId)
 
       await addLog(queueId, videoId, 'success', 'Normalization complete', {
         outputPath,
         sizeBytes: outputStats.size,
-        duration: outputDuration,
+        duration:  outputDuration,
       })
 
       return { outputPath, sizeBytes: outputStats.size }
     },
     {
-      connection: getRedis(),
+      connection:  getRedis(),
       concurrency: 1,
     }
   )

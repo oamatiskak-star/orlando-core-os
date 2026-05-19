@@ -8,6 +8,16 @@ import { v4 as uuidv4 } from 'uuid'
 import path from 'path'
 import fs from 'fs'
 import axios from 'axios'
+import ffmpeg from 'fluent-ffmpeg'
+
+function probeHasAudio(filePath: string): Promise<boolean> {
+  return new Promise((resolve) => {
+    ffmpeg.ffprobe(filePath, (err, data) => {
+      if (err) { resolve(true); return } // assume OK on probe error — let upload proceed
+      resolve(data.streams.some(s => s.codec_type === 'audio'))
+    })
+  })
+}
 
 async function downloadToTemp(url: string, dest: string): Promise<void> {
   const response = await axios.get<NodeJS.ReadableStream>(url, { responseType: 'stream' })
@@ -68,13 +78,18 @@ export function startYouTubeUploadWorker(): Worker {
         log.info('File not normalized yet, queuing normalization', { queueId })
         const normalizedPath = filePath.replace(/\.mp4$/i, '_normalized.mp4')
         await updateQueueStatus(queueId, 'normalizing')
-        await enqueueNormalize({
-          queueId,
-          videoId,
-          channelId,
-          inputPath: filePath,
-          outputPath: normalizedPath,
-        })
+        await enqueueNormalize({ queueId, videoId, channelId, inputPath: filePath, outputPath: normalizedPath })
+        return { queued_normalize: true }
+      }
+
+      // Audio check: route through normalizer if no audio stream detected
+      const hasAudio = await probeHasAudio(filePath)
+      if (!hasAudio) {
+        log.info('No audio stream — routing through normalizer for background music', { queueId, filePath })
+        await addLog(queueId, videoId, 'info', 'Geen audio gedetecteerd — achtergrondmuziek wordt toegevoegd via normalizer')
+        const normalizedPath = filePath.replace(/\.mp4$/i, '_normalized.mp4')
+        await updateQueueStatus(queueId, 'normalizing')
+        await enqueueNormalize({ queueId, videoId, channelId, inputPath: filePath, outputPath: normalizedPath })
         return { queued_normalize: true }
       }
 
