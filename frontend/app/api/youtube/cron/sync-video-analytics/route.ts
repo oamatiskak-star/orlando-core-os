@@ -208,5 +208,19 @@ export async function GET(request: NextRequest) {
 
   const ok = results.filter(r => r.status === 'ok').length
   console.log(`Video analytics sync: ${ok}/${channels.length} channels`, results)
-  return NextResponse.json({ ok, total: channels.length, results })
+
+  // Dedup controle na elke live-sync
+  let dedupResult: Record<string, unknown> = {}
+  try {
+    const base = process.env.NEXT_PUBLIC_APP_URL
+    const dr = await fetch(`${base}/api/youtube/dedup`, { method: 'POST' })
+    dedupResult = await dr.json().catch(() => ({}))
+    if ((dedupResult.duplicates_found as number) > 0) {
+      console.warn(`[DEDUP] ${dedupResult.duplicates_found} duplicaten gevonden en gearchiveerd`, dedupResult.results)
+    }
+  } catch (e) {
+    console.error('[DEDUP] fout tijdens dedup controle:', e)
+  }
+
+  return NextResponse.json({ ok, total: channels.length, results, dedup: dedupResult })
 }

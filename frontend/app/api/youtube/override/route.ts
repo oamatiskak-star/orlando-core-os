@@ -148,6 +148,17 @@ export async function POST(req: NextRequest) {
       await log('Force publish — video set public via YouTube API', 'info', {
         queue_id, youtube_video_id: qEntry.youtube_video_id,
       })
+
+      // Direct dedup controle na live-setting
+      try {
+        const base = process.env.NEXT_PUBLIC_APP_URL
+        const dr = await fetch(`${base}/api/youtube/dedup`, { method: 'POST' })
+        const dd = await dr.json().catch(() => ({}))
+        if (dd.duplicates_found > 0) {
+          console.warn(`[DEDUP] ${dd.duplicates_found} duplicaten na force-publish`, dd.results)
+        }
+      } catch { /* dedup is niet-blokkerend */ }
+
       return NextResponse.json({ ok: true, youtube_video_id: qEntry.youtube_video_id })
     }
 
