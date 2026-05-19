@@ -129,7 +129,7 @@ async function pollStuckProcessing(): Promise<void> {
   const { data: stuck } = await db
     .from('youtube_upload_queue')
     .select('id, video_id, channel_id, youtube_video_id, retry_count, max_retries')
-    .in('status', ['uploading', 'uploaded_pending_processing', 'processing'])
+    .in('status', ['preparing', 'uploading', 'uploaded_pending_processing', 'processing'])
     .lt('updated_at', stuckThreshold)
     .limit(5)
 

@@ -101,9 +101,17 @@ export interface BrowserVerifyJobData {
 }
 
 export async function enqueueUpload(data: UploadJobData): Promise<Job> {
-  return getQueue(QUEUE_NAMES.UPLOAD).add('upload', data, {
+  const queue = getQueue(QUEUE_NAMES.UPLOAD)
+  const jobId = `upload_${data.queueId}`
+  // Remove stale failed/completed jobs so re-dispatch actually runs (BullMQ deduplicates by jobId)
+  const existing = await queue.getJob(jobId)
+  if (existing) {
+    const state = await existing.getState()
+    if (state === 'failed' || state === 'completed') await existing.remove()
+  }
+  return queue.add('upload', data, {
     priority: data.priority ?? 5,
-    jobId: `upload_${data.queueId}`,
+    jobId,
   })
 }
 
