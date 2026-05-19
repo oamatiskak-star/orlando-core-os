@@ -102,6 +102,7 @@ export const NAV_MODULES: Record<string, NavModuleDef> = {
   youtube_scheduled:    { key: 'youtube_scheduled',    label: 'Gepland',                 href: '/dashboard/youtube/scheduled',     icon: Calendar },
   youtube_logs:         { key: 'youtube_logs',         label: 'Logs',                    href: '/dashboard/youtube/logs',          icon: FileText },
   youtube_calendar:     { key: 'youtube_calendar',     label: 'Content Calendar',        href: '/dashboard/youtube/calendar',      icon: Calendar },
+  youtube_growth:       { key: 'youtube_growth',       label: 'Growth & Kwaliteit',      href: '/dashboard/youtube/growth',        icon: TrendingUp },
 
   // ── OSIL — STRATEGIC INTELLIGENCE LAYER ──────────────────────────────────
   osil_dashboard:    { key: 'osil_dashboard',    label: 'OSIL Command',        href: '/dashboard/osil',                  icon: Brain },
@@ -211,7 +212,7 @@ export const COMPANY_NAV: Record<string, CompanyNav> = {
           'youtube_crypto', 'youtube_beleggingstv', 'youtube_investor', 'youtube_aquier', 'youtube_aquieres',
         ],
       },
-      { title: 'YouTube Tools', modules: ['youtube_workflow', 'youtube_analytics', 'youtube_queue', 'youtube_automation', 'youtube_calendar', 'youtube_scheduled', 'youtube_logs'] },
+      { title: 'YouTube Tools', modules: ['youtube_workflow', 'youtube_analytics', 'youtube_queue', 'youtube_automation', 'youtube_calendar', 'youtube_scheduled', 'youtube_logs', 'youtube_growth'] },
       { title: 'Social Media', modules: ['instagram', 'tiktok', 'fb_offmarket', 'fb_property'] },
       { title: 'Vastgoed', modules: ['vastgoed'] },
       { title: 'Operationeel', modules: ['projecten', 'planning', 'crm', 'documenten', 'agenda', 'taken'] },

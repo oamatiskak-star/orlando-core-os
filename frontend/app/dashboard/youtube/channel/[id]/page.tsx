@@ -74,6 +74,7 @@ export default async function ChannelDetailPage({ params }: Props) {
     { data: recentVideos },
     { data: health },
     { data: dailyStats },
+    { data: qualityScores },
   ] = await Promise.all([
     // Verified live on YouTube
     supabase.from('youtube_upload_queue').select('*', { count: 'exact', head: true })
@@ -129,9 +130,16 @@ export default async function ChannelDetailPage({ params }: Props) {
       .eq('channel_id', channelUuid)
       .order('date', { ascending: false })
       .limit(14),
+    // Quality scores — laatste 10 voor deze kanaal
+    admin.from('youtube_quality_scores')
+      .select('queue_id, total_score, verdict, feedback, created_at')
+      .eq('channel_id', channelUuid)
+      .order('created_at', { ascending: false })
+      .limit(10),
   ])
 
   const color    = CHANNEL_COLORS[ch.naam] ?? '#6366f1'
+  const qScoreByQueueId = new Map((qualityScores ?? []).map(q => [q.queue_id, q]))
   const tokenExp = ch.token_expires ? new Date(ch.token_expires) : null
   const tokenOk  = tokenExp && tokenExp > new Date(Date.now() + 5 * 60_000)
   const isConnected = ch.oauth_status === 'connected'
@@ -377,6 +385,8 @@ export default async function ChannelDetailPage({ params }: Props) {
                   const sc = SC[item.status] ?? 'text-white/30'
                   const title = item.youtube_videos?.title ?? 'Zonder titel'
                   const url = item.youtube_url ?? (item.youtube_video_id ? `https://youtube.com/watch?v=${item.youtube_video_id}` : null)
+                  const qs = qScoreByQueueId.get(item.id)
+                  const qColor = qs ? (qs.total_score >= 75 ? 'text-green-400' : qs.total_score >= 50 ? 'text-amber-400' : 'text-red-400') : null
                   return (
                     <div key={item.id} className="flex items-center gap-2 py-1 border-b border-white/[0.04] last:border-0">
                       <div className="flex-1 min-w-0">
@@ -387,6 +397,11 @@ export default async function ChannelDetailPage({ params }: Props) {
                             {new Date(item.updated_at).toLocaleDateString('nl-NL', { day:'2-digit', month:'short' })}
                           </span>
                           {item.youtube_videos?.views ? <span className="text-[9px] text-sky-400/70 font-mono">{num(item.youtube_videos.views)}</span> : null}
+                          {qs && qColor && (
+                            <span className={`text-[9px] font-mono font-semibold ${qColor}`} title={qs.verdict}>
+                              Q:{qs.total_score}
+                            </span>
+                          )}
                         </div>
                       </div>
                       {url && <a href={url} target="_blank" rel="noopener noreferrer" className="text-white/20 hover:text-white/60 shrink-0"><ExternalLink size={9} /></a>}
