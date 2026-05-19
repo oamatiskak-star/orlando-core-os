@@ -55,7 +55,19 @@ export async function GET(request: NextRequest) {
   }
 
   const tokens = await tokenRes.json()
-  const { access_token, refresh_token, expires_in } = tokens
+  const { access_token, refresh_token: newRefreshToken, expires_in } = tokens
+
+  // Google doesn't always return a new refresh_token (only on first auth or after prompt=consent).
+  // Fall back to the existing refresh_token in the DB so the update still succeeds.
+  let refresh_token = newRefreshToken
+  if (!refresh_token) {
+    const { data: existing } = await admin
+      .from('youtube_channels')
+      .select('refresh_token')
+      .eq('id', channelUuid)
+      .maybeSingle()
+    refresh_token = existing?.refresh_token ?? null
+  }
 
   if (!refresh_token) {
     return NextResponse.redirect(`${dashUrl}?oauth_error=no_refresh_token`)

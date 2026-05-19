@@ -50,7 +50,7 @@ export async function GET(request: NextRequest) {
     response_type: 'code',
     scope:         SCOPES,
     access_type:   'offline',
-    prompt:        'select_account consent',
+    prompt:        'consent',
     state:         channelUuid,
   })
 
