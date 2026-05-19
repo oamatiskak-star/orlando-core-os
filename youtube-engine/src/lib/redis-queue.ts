@@ -98,6 +98,7 @@ export interface BrowserVerifyJobData {
   youtubeVideoId: string
   youtubeUrl: string
   channelId: string
+  attemptCount?: number
 }
 
 export async function enqueueUpload(data: UploadJobData): Promise<Job> {
@@ -153,9 +154,10 @@ export async function enqueueNormalize(data: NormalizeJobData): Promise<Job> {
   return queue.add('normalize', data, { jobId })
 }
 
-export async function enqueueBrowserVerify(data: BrowserVerifyJobData): Promise<Job> {
+export async function enqueueBrowserVerify(data: BrowserVerifyJobData, delayMs = 0): Promise<Job> {
   return getQueue(QUEUE_NAMES.BROWSER_VERIFY).add('browser_verify', data, {
-    jobId: `browser_verify_${data.queueId}`,
+    delay: delayMs,
+    jobId: `browser_verify_${data.queueId}_${data.attemptCount ?? 0}`,
   })
 }
 

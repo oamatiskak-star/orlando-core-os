@@ -1,6 +1,6 @@
 import { Worker, Job } from 'bullmq'
 import { chromium, Browser, Page } from 'playwright'
-import { getRedis, QUEUE_NAMES, BrowserVerifyJobData, enqueueRecovery } from '../lib/redis-queue'
+import { getRedis, QUEUE_NAMES, BrowserVerifyJobData, enqueueRecovery, enqueueBrowserVerify } from '../lib/redis-queue'
 import { getSupabase, updateQueueStatus, addLog, recordFailure } from '../lib/supabase'
 import { notifyUploadSuccess, notifyManualReview } from '../lib/notifications'
 import { workerLogger } from '../lib/logger'
@@ -9,6 +9,8 @@ const log = workerLogger('browser-verify')
 
 const HEADLESS = process.env.PLAYWRIGHT_HEADLESS !== 'false'
 const TIMEOUT = parseInt(process.env.BROWSER_TIMEOUT_MS ?? '30000')
+const MAX_BROWSER_RETRIES = 3
+const PROCESSING_RETRY_DELAY_MS = 15 * 60 * 1000 // 15 min — YouTube processing lag
 
 interface BrowserCheckResult {
   videoPlays: boolean
@@ -89,6 +91,7 @@ export function startBrowserVerificationWorker(): Worker {
         throw new Error('Browser verification timeout after 90s')
       }, 90_000)
       const { queueId, videoId, youtubeVideoId, youtubeUrl, channelId } = job.data
+      const attemptCount = job.data.attemptCount ?? 0
       const db = getSupabase()
 
       log.info('Browser verification started', { queueId, youtubeUrl })
@@ -106,7 +109,7 @@ export function startBrowserVerificationWorker(): Worker {
           verification_finished_at: new Date().toISOString(),
         })
         await db.from('youtube_videos').update({
-          status: 'live',
+          status: 'published',
           updated_at: new Date().toISOString(),
         }).eq('id', videoId)
         clearTimeout(jobTimeout)
@@ -142,24 +145,23 @@ export function startBrowserVerificationWorker(): Worker {
 
         await addLog(queueId, videoId, 'info', 'Browser check results', result as unknown as Record<string, unknown>)
 
-        const criticalChecksPassed =
-          result.noCopyrightBlock &&
-          result.noAgeRestriction &&
-          result.noUploadFailureBanner &&
-          result.noProcessingWarning
+        // Permanent failures: copyright/age-restriction — never transient, go straight to manual review
+        const permanentFailed = !result.noCopyrightBlock || !result.noAgeRestriction
+
+        // Transient failures: processing warning / upload banner — YouTube processing lag (10-30 min)
+        const transientFailed = !result.noProcessingWarning || !result.noUploadFailureBanner
 
         const allChecksPassed =
-          criticalChecksPassed &&
+          !permanentFailed &&
+          !transientFailed &&
           result.videoPlays &&
           result.thumbnailVisible &&
           result.durationVisible
 
-        if (!criticalChecksPassed) {
-          const issues = []
+        if (permanentFailed) {
+          const issues: string[] = []
           if (!result.noCopyrightBlock) issues.push('copyright_block')
           if (!result.noAgeRestriction) issues.push('age_restriction')
-          if (!result.noUploadFailureBanner) issues.push('upload_failure_banner')
-          if (!result.noProcessingWarning) issues.push('processing_warning')
 
           const failureId = await recordFailure(
             queueId, videoId, 'browser_check_failed',
@@ -168,14 +170,45 @@ export function startBrowserVerificationWorker(): Worker {
           await updateQueueStatus(queueId, 'manual_review_required', {
             last_error: `Browser check: ${issues.join(', ')}`,
           })
-          await addLog(queueId, videoId, 'error', 'Browser check failed — critical issues detected', { issues })
+          await addLog(queueId, videoId, 'error', 'Browser check failed — permanent issues', { issues })
 
           const { data: video } = await db.from('youtube_videos').select('title').eq('id', videoId).single()
           const { data: channel } = await db.from('youtube_channels').select('naam').eq('id', channelId).single()
           await notifyManualReview(video?.title ?? videoId, channel?.naam ?? channelId, issues.join(', '))
-
           await enqueueRecovery({ queueId, videoId, channelId, failureType: 'browser_check_failed', failureId }, 0)
           return { success: false, issues }
+        }
+
+        if (transientFailed) {
+          const issues: string[] = []
+          if (!result.noProcessingWarning) issues.push('processing_warning')
+          if (!result.noUploadFailureBanner) issues.push('upload_failure_banner')
+
+          if (attemptCount < MAX_BROWSER_RETRIES) {
+            log.info(`Transient browser check issues — retry ${attemptCount + 1}/${MAX_BROWSER_RETRIES} in 15 min`, { queueId, issues })
+            await addLog(queueId, videoId, 'warn', `Browser check: transient issues — retry ${attemptCount + 1}/${MAX_BROWSER_RETRIES} in 15 min`, { issues })
+            await enqueueBrowserVerify(
+              { queueId, videoId, youtubeVideoId, youtubeUrl, channelId, attemptCount: attemptCount + 1 },
+              PROCESSING_RETRY_DELAY_MS
+            )
+            return { success: false, retrying: true, attemptCount: attemptCount + 1, issues }
+          }
+
+          // Max retries reached — escalate to manual review
+          const failureId = await recordFailure(
+            queueId, videoId, 'browser_check_failed',
+            `Browser check failed after ${MAX_BROWSER_RETRIES} retries: ${issues.join(', ')}`
+          )
+          await updateQueueStatus(queueId, 'manual_review_required', {
+            last_error: `Browser check (${MAX_BROWSER_RETRIES}x retried): ${issues.join(', ')}`,
+          })
+          await addLog(queueId, videoId, 'error', `Browser check failed after max retries`, { issues, attempts: attemptCount })
+
+          const { data: video } = await db.from('youtube_videos').select('title').eq('id', videoId).single()
+          const { data: channel } = await db.from('youtube_channels').select('naam').eq('id', channelId).single()
+          await notifyManualReview(video?.title ?? videoId, channel?.naam ?? channelId, `${MAX_BROWSER_RETRIES}x geprobeerd: ${issues.join(', ')}`)
+          await enqueueRecovery({ queueId, videoId, channelId, failureType: 'browser_check_failed', failureId }, 0)
+          return { success: false, issues, maxRetriesReached: true }
         }
 
         if (!result.thumbnailVisible) {
@@ -187,7 +220,7 @@ export function startBrowserVerificationWorker(): Worker {
         })
 
         await db.from('youtube_videos').update({
-          status: 'live',
+          status: 'published',
           updated_at: new Date().toISOString(),
         }).eq('id', videoId)
 
