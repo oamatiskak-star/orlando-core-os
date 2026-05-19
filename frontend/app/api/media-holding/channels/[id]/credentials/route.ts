@@ -32,7 +32,11 @@ export async function POST(
 
   // Default scopes per platform
   const defaultScopes: Record<string, string[]> = {
-    youtube: ['https://www.googleapis.com/auth/youtube.upload', 'https://www.googleapis.com/auth/youtube.readonly'],
+    youtube: [
+      'https://www.googleapis.com/auth/youtube.upload',
+      'https://www.googleapis.com/auth/youtube.readonly',
+      'https://www.googleapis.com/auth/yt-analytics.readonly', // Phase 5 Retention Lab
+    ],
     tiktok:    ['video.upload', 'user.info.basic'],
     instagram: ['instagram_basic','instagram_content_publish'],
     facebook:  ['pages_show_list','pages_manage_posts','pages_read_engagement'],
