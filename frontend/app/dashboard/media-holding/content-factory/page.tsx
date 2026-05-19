@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback } from 'react'
 import Link from 'next/link'
-import { Hammer, ChevronLeft, X, ExternalLink } from 'lucide-react'
+import { Hammer, ChevronLeft, X, ExternalLink, Film, Play as PlayIcon } from 'lucide-react'
 import clsx from 'clsx'
 
 type ContentBrief = {
@@ -30,9 +30,20 @@ type ContentItem = {
   created_at: string
   language: string
   content_brief: ContentBrief | null
+  output_url: string | null
+  render_model: string | null
+  render_job_id: string | null
+  render_logs: string | null
+  render_started_at: string | null
   channel: { id: string; name: string; niche: string } | null
   source_opportunity: { id: string; title: string; channel_name: string; virality_score: number } | null
 }
+
+const RENDER_MODELS = [
+  { value: 'minimax/video-01',    label: 'minimax/video-01 (~€0.50/6s)' },
+  { value: 'google/veo-3-fast',   label: 'google/veo-3-fast (~€1.20/6s, premium)' },
+  { value: 'wan-2.2-i2v-fast',    label: 'wan-2.2-i2v-fast (~€0.30/6s, img→vid)' },
+] as const
 
 const STATUS_COLORS: Record<string, string> = {
   pending:   'bg-white/[0.08] text-white/55',
@@ -139,6 +150,9 @@ export default function ContentFactoryPage() {
 function DetailModal({ item, onClose, onReload }: { item: ContentItem; onClose: () => void; onReload: () => void }) {
   const brief = item.content_brief
   const [updating, setUpdating] = useState(false)
+  const [renderModel, setRenderModel] = useState<string>(item.render_model ?? RENDER_MODELS[0].value)
+  const [rendering, setRendering] = useState(false)
+  const [renderMsg, setRenderMsg] = useState('')
 
   async function updateStatus(newStatus: string) {
     setUpdating(true)
@@ -151,6 +165,25 @@ function DetailModal({ item, onClose, onReload }: { item: ContentItem; onClose: 
       await onReload()
       onClose()
     } finally { setUpdating(false) }
+  }
+
+  async function startRender() {
+    setRendering(true); setRenderMsg('')
+    try {
+      const r = await fetch(`/api/media-holding/content-items/${item.id}/render`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ model: renderModel }),
+      })
+      if (r.ok) {
+        const j = await r.json()
+        setRenderMsg(`Render gestart — task ${j.task_id?.slice(0, 8)}… (poll status van detail modal in ~1-3 min)`)
+        await onReload()
+      } else {
+        const j = await r.json().catch(() => ({}))
+        setRenderMsg(`Fout: ${j.error ?? r.status}`)
+      }
+    } finally { setRendering(false) }
   }
 
   return (
@@ -239,6 +272,58 @@ function DetailModal({ item, onClose, onReload }: { item: ContentItem; onClose: 
               </div>
             </div>
           )}
+
+          <div className="border-t border-white/5 pt-4">
+            <div className="flex items-center justify-between mb-2">
+              <p className="text-[10px] text-white/40 uppercase tracking-wider flex items-center gap-1.5">
+                <Film size={11} /> Render pipeline (Replicate)
+              </p>
+              {item.output_url && (
+                <a href={item.output_url} target="_blank" rel="noreferrer" className="flex items-center gap-1 text-[11px] text-emerald-300 hover:text-emerald-200">
+                  Bekijk video <ExternalLink size={11} />
+                </a>
+              )}
+            </div>
+
+            {item.output_url ? (
+              <div className="bg-emerald-500/5 border border-emerald-500/20 rounded-lg p-3 text-xs space-y-1">
+                <p className="text-emerald-300">Video klaar voor upload</p>
+                <p className="text-[10px] text-white/55 font-mono break-all">{item.output_url}</p>
+                {item.render_model && <p className="text-[10px] text-white/45">model: {item.render_model}</p>}
+              </div>
+            ) : item.status === 'rendering' ? (
+              <div className="bg-amber-500/5 border border-amber-500/20 rounded-lg p-3 text-xs">
+                <p className="text-amber-300">Render in progress…</p>
+                {item.render_job_id && <p className="text-[10px] text-white/45 mt-1">job: {item.render_job_id}</p>}
+                {item.render_model && <p className="text-[10px] text-white/45">model: {item.render_model}</p>}
+              </div>
+            ) : (
+              <div className="space-y-2">
+                <select
+                  value={renderModel}
+                  onChange={(e) => setRenderModel(e.target.value)}
+                  className="w-full bg-white/[0.06] border border-white/10 rounded-lg px-3 py-2 text-xs text-white"
+                >
+                  {RENDER_MODELS.map((m) => <option key={m.value} value={m.value}>{m.label}</option>)}
+                </select>
+                <button
+                  onClick={startRender}
+                  disabled={rendering}
+                  className="w-full flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white text-xs font-medium py-2.5 rounded-lg"
+                >
+                  <PlayIcon size={13} /> {rendering ? 'Dispatchen…' : 'Render video'}
+                </button>
+                {renderMsg && <p className="text-[11px] text-white/65">{renderMsg}</p>}
+              </div>
+            )}
+
+            {item.render_logs && (
+              <details className="mt-2">
+                <summary className="text-[10px] text-white/40 cursor-pointer hover:text-white/70">Render logs</summary>
+                <pre className="text-[10px] text-white/55 whitespace-pre-wrap font-mono bg-white/[0.03] border border-white/5 rounded-lg p-2 mt-1 max-h-48 overflow-y-auto">{item.render_logs}</pre>
+              </details>
+            )}
+          </div>
 
           <div className="flex gap-3 pt-2 border-t border-white/5">
             <button
