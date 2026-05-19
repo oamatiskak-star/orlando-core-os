@@ -17,11 +17,21 @@ function quotaResetToday(): Date {
   return reset
 }
 
-// Max uploads dispatched per channel per quota day. Each upload costs 1,600 units.
-// Default 6 → 9,600 units, leaves ~400 units for verification + analytics.
+// Global fallback: 6 uploads/day → 9,600 quota units, leaves ~400 for verification + analytics.
+// Per-channel override via youtube_channels.daily_upload_target (requires own Google Cloud quota).
 const MAX_UPLOADS_PER_DAY_PER_CHANNEL = parseInt(
   process.env.MAX_UPLOADS_PER_DAY_PER_CHANNEL ?? '6'
 )
+
+async function getChannelDailyLimits(): Promise<Record<string, number>> {
+  const db = getSupabase()
+  const { data } = await db.from('youtube_channels').select('id, daily_upload_target')
+  const limits: Record<string, number> = {}
+  for (const ch of data ?? []) {
+    limits[ch.id] = ch.daily_upload_target ?? MAX_UPLOADS_PER_DAY_PER_CHANNEL
+  }
+  return limits
+}
 
 async function getChannelUploadsToday(channelId: string): Promise<number> {
   const db = getSupabase()
@@ -35,7 +45,7 @@ async function getChannelUploadsToday(channelId: string): Promise<number> {
   return count ?? 0
 }
 
-async function getOverQuotaChannelIds(): Promise<string[]> {
+async function getOverQuotaChannelIds(limits: Record<string, number>): Promise<string[]> {
   const db = getSupabase()
   const resetTime = quotaResetToday().toISOString()
 
@@ -50,14 +60,15 @@ async function getOverQuotaChannelIds(): Promise<string[]> {
     counts[row.channel_id] = (counts[row.channel_id] ?? 0) + 1
   }
   return Object.entries(counts)
-    .filter(([, count]) => count >= MAX_UPLOADS_PER_DAY_PER_CHANNEL)
+    .filter(([id, count]) => count >= (limits[id] ?? MAX_UPLOADS_PER_DAY_PER_CHANNEL))
     .map(([id]) => id)
 }
 
 async function pollQueuedItems(): Promise<void> {
   const db = getSupabase()
 
-  const overQuotaIds = await getOverQuotaChannelIds()
+  const channelLimits = await getChannelDailyLimits()
+  const overQuotaIds = await getOverQuotaChannelIds(channelLimits)
 
   let query = db
     .from('youtube_upload_queue')
@@ -85,15 +96,16 @@ async function pollQueuedItems(): Promise<void> {
 
   for (const item of queued) {
     const uploadedToday = await getChannelUploadsToday(item.channel_id)
+    const channelLimit = channelLimits[item.channel_id] ?? MAX_UPLOADS_PER_DAY_PER_CHANNEL
 
-    if (uploadedToday >= MAX_UPLOADS_PER_DAY_PER_CHANNEL) {
+    if (uploadedToday >= channelLimit) {
       log.info('Channel daily upload limit reached — skipping', {
         channelId: item.channel_id,
         uploadedToday,
-        limit: MAX_UPLOADS_PER_DAY_PER_CHANNEL,
+        limit: channelLimit,
       })
       const { data: ch } = await db.from('youtube_channels').select('naam').eq('id', item.channel_id).maybeSingle()
-      await notifyQuotaLimit(ch?.naam ?? item.channel_id, uploadedToday, MAX_UPLOADS_PER_DAY_PER_CHANNEL)
+      await notifyQuotaLimit(ch?.naam ?? item.channel_id, uploadedToday, channelLimit)
       continue
     }
 
@@ -117,7 +129,7 @@ async function pollQueuedItems(): Promise<void> {
     log.info('Dispatched to upload queue', {
       queueId: item.id,
       uploadedToday: uploadedToday + 1,
-      limit: MAX_UPLOADS_PER_DAY_PER_CHANNEL,
+      limit: channelLimit,
     })
   }
 }
