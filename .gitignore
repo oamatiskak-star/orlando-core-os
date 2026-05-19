@@ -9,3 +9,6 @@ executor/__pycache__/
 executor/*.log
 .env.prod
 .env.pull
+.env.cli-r
+monitoring-agent/node_modules/
+monitoring-agent/dist/

@@ -1,0 +1,233 @@
+# Orlando Core OS — CLI-R Production Stack
+# Gebruik: docker compose -f docker-compose.cli-r.yml up -d
+# Secrets via .env.cli-r (zie .env.cli-r.template)
+
+name: orlando-cli-r
+
+networks:
+  orlando-net:
+    driver: bridge
+
+volumes:
+  redis_data:
+  upload_files:
+  ollama_models:
+  logs:
+
+services:
+
+  # ── Redis — interne message queue (vervangt Render managed Redis) ──────────
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    networks: [orlando-net]
+    volumes:
+      - redis_data:/data
+    command: redis-server --appendonly yes --maxmemory 512mb --maxmemory-policy noeviction
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    labels:
+      orlando.service: "redis"
+      orlando.node: "cli-r"
+
+  # ── Ollama — lokale LLM inference ─────────────────────────────────────────
+  ollama:
+    image: ollama/ollama:latest
+    restart: unless-stopped
+    networks: [orlando-net]
+    volumes:
+      - ollama_models:/root/.ollama
+    ports:
+      - "11434:11434"
+    environment:
+      OLLAMA_HOST: "0.0.0.0"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:11434/api/tags"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    labels:
+      orlando.service: "ollama"
+      orlando.node: "cli-r"
+
+  # ── YouTube Engine — ffmpeg + Playwright + upload workers ─────────────────
+  youtube-engine:
+    build:
+      context: ./youtube-engine
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    networks: [orlando-net]
+    depends_on:
+      redis:
+        condition: service_healthy
+    volumes:
+      - upload_files:/tmp/orlando-videos
+      - logs:/app/logs
+    environment:
+      NODE_ENV: production
+      PLAYWRIGHT_HEADLESS: "true"
+      REDIS_URL: redis://redis:6379
+      UPLOAD_WORKER_CONCURRENCY: "2"
+      VERIFICATION_INTERVAL_MS: "30000"
+      MAX_UPLOAD_RETRIES: "5"
+      VIDEO_OUTPUT_DIR: /tmp/orlando-videos
+      LOG_LEVEL: info
+      LOG_TO_FILE: "false"
+      YOUTUBE_OAUTH_REDIRECT_URI: ${YOUTUBE_OAUTH_REDIRECT_URI:-https://dashboard.strkbeheer.nl/api/youtube/oauth/callback}
+    env_file:
+      - .env.cli-r
+    labels:
+      orlando.service: "youtube-engine"
+      orlando.node: "cli-r"
+
+  # ── Mail Engine — mailbox scan + OCR + AI classificatie ───────────────────
+  mail-engine:
+    build:
+      context: ./mail-engine
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    networks: [orlando-net]
+    ports:
+      - "3003:3003"
+    environment:
+      NODE_ENV: production
+      PORT: "3003"
+      LOG_LEVEL: info
+    env_file:
+      - .env.cli-r
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:3003/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+    labels:
+      orlando.service: "mail-engine"
+      orlando.node: "cli-r"
+
+  # ── Planning Engine — executor + ClickUp sync + milestone tracker ──────────
+  planning-engine:
+    build:
+      context: ./planning-engine
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    networks: [orlando-net]
+    environment:
+      NODE_ENV: production
+      MACHINE_ID: cli-r-executor-1
+      LOG_LEVEL: info
+    env_file:
+      - .env.cli-r
+    labels:
+      orlando.service: "planning-engine"
+      orlando.node: "cli-r"
+
+  # ── Local Agent — content factory + video workers + SEO ───────────────────
+  local-agent:
+    build:
+      context: ./local-agent
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    networks: [orlando-net]
+    volumes:
+      - upload_files:/tmp/orlando-videos
+      - logs:/app/logs
+    environment:
+      NODE_ENV: production
+      OLLAMA_BASE_URL: http://ollama:11434
+      LOG_LEVEL: info
+    env_file:
+      - .env.cli-r
+    depends_on:
+      ollama:
+        condition: service_healthy
+    labels:
+      orlando.service: "local-agent"
+      orlando.node: "cli-r"
+
+  # ── AI Router — multi-provider orchestration ──────────────────────────────
+  ai-router:
+    build:
+      context: ./ai-os/router
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    networks: [orlando-net]
+    ports:
+      - "8787:8787"
+    environment:
+      NODE_ENV: production
+      AI_ROUTER_PORT: "8787"
+      AI_ROUTER_HOST: "0.0.0.0"
+      AI_NODE_ID: cli-r-router
+      AI_REGION: local
+      OLLAMA_BASE_URL: http://ollama:11434
+      LMSTUDIO_BASE_URL: ${LMSTUDIO_BASE_URL:-http://host.docker.internal:1234/v1}
+      AI_LOCAL_FIRST: "true"
+      AI_CACHE_ENABLED: "true"
+      AI_CACHE_TTL_S: "86400"
+      AI_EMBED_PROVIDER: ollama
+      AI_EMBED_MODEL: nomic-embed-text
+      AI_EMBED_DIM: "1024"
+      AI_PROVIDER_OLLAMA: "true"
+      AI_PROVIDER_ANTHROPIC: "true"
+      AI_PROVIDER_OPENAI: "true"
+      AI_PROVIDER_OPENROUTER: "true"
+      AI_PROVIDER_LMSTUDIO: "false"
+      LOG_LEVEL: info
+    env_file:
+      - .env.cli-r
+    depends_on:
+      ollama:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8787/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+    labels:
+      orlando.service: "ai-router"
+      orlando.node: "cli-r"
+
+  # ── AI Worker Node — task execution via AI router ─────────────────────────
+  ai-worker-node:
+    build:
+      context: ./ai-os/worker-node
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    networks: [orlando-net]
+    environment:
+      NODE_ENV: production
+      AI_ROUTER_URL: http://ai-router:8787
+      LOG_LEVEL: info
+    env_file:
+      - .env.cli-r
+    depends_on:
+      ai-router:
+        condition: service_healthy
+    labels:
+      orlando.service: "ai-worker-node"
+      orlando.node: "cli-r"
+
+  # ── Monitoring Agent — heartbeat naar Supabase infra_workers ─────────────
+  monitoring-agent:
+    build:
+      context: ./monitoring-agent
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    networks: [orlando-net]
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    environment:
+      NODE_ENV: production
+      NODE_ID: cli-r
+      POLL_INTERVAL_MS: "30000"
+    env_file:
+      - .env.cli-r
+    labels:
+      orlando.service: "monitoring-agent"
+      orlando.node: "cli-r"

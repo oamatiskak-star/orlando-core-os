@@ -1,0 +1,22 @@
+{
+  "name": "orlando-monitoring-agent",
+  "version": "1.0.0",
+  "description": "CLI-R heartbeat agent — rapporteert worker metrics naar Supabase infra_workers",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "dev": "ts-node --transpile-only src/index.ts"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.45.0",
+    "dockerode": "^4.0.2",
+    "dotenv": "^16.4.5"
+  },
+  "devDependencies": {
+    "@types/dockerode": "^3.3.29",
+    "@types/node": "^20.14.0",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.4.5"
+  }
+}
