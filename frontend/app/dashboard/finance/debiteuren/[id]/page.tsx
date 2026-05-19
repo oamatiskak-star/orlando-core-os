@@ -309,7 +309,7 @@ export default function DebiteurDetailPage() {
               <div className="space-y-2">
                 {reminders.slice(0, 4).map((r) => (
                   <div key={r.id} className="flex items-center justify-between">
-                    <span className="text-xs text-white/50">{r.stage?.replace(/_/g, ' ') ?? r.reminder_type}</span>
+                    <span className="text-xs text-white/50">{r.stage?.replace(/_/g, ' ') ?? r.type}</span>
                     <span className="text-[10px] text-white/45">{r.sent_at}</span>
                   </div>
                 ))}
