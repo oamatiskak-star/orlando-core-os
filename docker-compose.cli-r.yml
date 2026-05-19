@@ -144,7 +144,7 @@ services:
       - .env.cli-r
     depends_on:
       ollama:
-        condition: service_healthy
+        condition: service_started
     labels:
       orlando.service: "local-agent"
       orlando.node: "cli-r"
@@ -182,13 +182,13 @@ services:
       - .env.cli-r
     depends_on:
       ollama:
-        condition: service_healthy
+        condition: service_started
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://localhost:8787/health"]
       interval: 30s
       timeout: 10s
       retries: 3
-      start_period: 20s
+      start_period: 90s
     labels:
       orlando.service: "ai-router"
       orlando.node: "cli-r"
@@ -208,9 +208,119 @@ services:
       - .env.cli-r
     depends_on:
       ai-router:
-        condition: service_healthy
+        condition: service_started
     labels:
       orlando.service: "ai-worker-node"
+      orlando.node: "cli-r"
+
+  # ── Advocaat Engine — juridische analyse, dossiers, mail defense ─────────
+  advocaat-engine:
+    build:
+      context: ./advocaat-engine
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    networks: [orlando-net]
+    environment:
+      NODE_ENV: production
+      AI_ROUTER_URL: http://ai-router:8787
+      NODE_ID: cli-r
+      POLL_INTERVAL_MS: "15000"
+      LOG_LEVEL: info
+    env_file:
+      - .env.cli-r
+    depends_on:
+      ai-router:
+        condition: service_started
+    labels:
+      orlando.service: "advocaat-engine"
+      orlando.node: "cli-r"
+
+  # ── Personal Finance Engine — bank parsing, assets, loonstroken ──────────
+  personal-finance-engine:
+    build:
+      context: ./personal-finance-engine
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    networks: [orlando-net]
+    environment:
+      NODE_ENV: production
+      AI_ROUTER_URL: http://ai-router:8787
+      NODE_ID: cli-r
+      POLL_INTERVAL_MS: "15000"
+      LOG_LEVEL: info
+    env_file:
+      - .env.cli-r
+    depends_on:
+      ai-router:
+        condition: service_started
+    labels:
+      orlando.service: "personal-finance-engine"
+      orlando.node: "cli-r"
+
+  # ── Admin Engine — factuur analyse, document classificatie, OCR ──────────
+  admin-engine:
+    build:
+      context: ./admin-engine
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    networks: [orlando-net]
+    environment:
+      NODE_ENV: production
+      AI_ROUTER_URL: http://ai-router:8787
+      NODE_ID: cli-r
+      POLL_INTERVAL_MS: "15000"
+      LOG_LEVEL: info
+    env_file:
+      - .env.cli-r
+    depends_on:
+      ai-router:
+        condition: service_started
+    labels:
+      orlando.service: "admin-engine"
+      orlando.node: "cli-r"
+
+  # ── Workflow Engine — queue, retries, watchdog, scheduled jobs ────────────
+  workflow-engine:
+    build:
+      context: ./workflow-engine
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    networks: [orlando-net]
+    environment:
+      NODE_ENV: production
+      AI_ROUTER_URL: http://ai-router:8787
+      NODE_ID: cli-r
+      POLL_INTERVAL_MS: "10000"
+      RETRY_LIMIT: "3"
+      STALE_RUNNING_MIN: "30"
+      LOG_LEVEL: info
+    env_file:
+      - .env.cli-r
+    depends_on:
+      ai-router:
+        condition: service_started
+    labels:
+      orlando.service: "workflow-engine"
+      orlando.node: "cli-r"
+
+  # ── Content Worker — automatische Shorts generatie voor SliceTheory / BrickPulse / LoopForge ──
+  content-worker:
+    build:
+      context: ./content-worker
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    networks: [orlando-net]
+    volumes:
+      - upload_files:/tmp/orlando-videos
+    environment:
+      NODE_ENV: production
+      VIDEO_OUTPUT_DIR: /tmp/orlando-videos
+      CONTENT_WORKER_CRON: "*/15 * * * *"
+      LOG_LEVEL: info
+    env_file:
+      - .env.cli-r
+    labels:
+      orlando.service: "content-worker"
       orlando.node: "cli-r"
 
   # ── Monitoring Agent — heartbeat naar Supabase infra_workers ─────────────

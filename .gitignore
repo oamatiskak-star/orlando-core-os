@@ -12,3 +12,4 @@ executor/*.log
 .env.cli-r
 monitoring-agent/node_modules/
 monitoring-agent/dist/
+content-worker/node_modules/
