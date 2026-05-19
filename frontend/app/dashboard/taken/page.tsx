@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { CheckSquare, Plus, X, AlertTriangle, GitBranch, RefreshCw } from 'lucide-react'
+import { CheckSquare, Plus, X, AlertTriangle, GitBranch, RefreshCw, Play, Edit2 } from 'lucide-react'
 import clsx from 'clsx'
 
 type PlanningItem = {
@@ -16,6 +16,29 @@ type PlanningItem = {
   project: { id: string; name: string } | null
   company: { id: string; name: string } | null
   completed_at: string | null
+  orchestrator_task_id?: string | null
+  notes?: string | null
+}
+
+type OrchestratorLog = {
+  id: string
+  level: 'info' | 'warn' | 'error'
+  message: string
+  payload: Record<string, unknown> | null
+  created_at: string
+}
+
+type OrchestratorTaskDetail = {
+  id: string
+  status: string
+  priority: number
+  priority_band: string
+  attempts: number
+  started_at: string | null
+  finished_at: string | null
+  error: string | null
+  result_summary: string | null
+  objective?: string[]
 }
 
 type Project = { id: string; name: string }
@@ -98,6 +121,15 @@ export default function TakenPage() {
   const [creatingProject, setCreatingProject] = useState(false)
   const [projectError, setProjectError] = useState('')
 
+  // Detail modal state
+  const [detailItem, setDetailItem] = useState<PlanningItem | null>(null)
+  const [detailTask, setDetailTask] = useState<OrchestratorTaskDetail | null>(null)
+  const [detailLogs, setDetailLogs] = useState<OrchestratorLog[]>([])
+  const [detailLoading, setDetailLoading] = useState(false)
+  const [detailEditing, setDetailEditing] = useState(false)
+  const [detailNewBeschrijving, setDetailNewBeschrijving] = useState('')
+  const [rerunning, setRerunning] = useState(false)
+
   const load = useCallback(async () => {
     setLoading(true)
     try {
@@ -118,6 +150,7 @@ export default function TakenPage() {
   }, [])
 
   const filtered = items.filter(i => {
+    if (activeTab === 'Open')      return i.status === 'open'
     if (activeTab === 'Urgent')    return i.priority === 'urgent' || i.priority === 'hoog'
     if (activeTab === 'Vandaag')   return isToday(i.due_date)
     if (activeTab === 'Deze week') return isThisWeek(i.due_date)
@@ -245,7 +278,54 @@ export default function TakenPage() {
     }
   }
 
-  const tabs = ['Alle', 'Urgent', 'Vandaag', 'Deze week', 'Afgerond']
+  const tabs = ['Alle', 'Open', 'Urgent', 'Vandaag', 'Deze week', 'Afgerond']
+
+  async function openDetail(item: PlanningItem) {
+    setDetailItem(item)
+    setDetailTask(null)
+    setDetailLogs([])
+    setDetailEditing(false)
+    setDetailNewBeschrijving(item.beschrijving ?? '')
+    if (item.orchestrator_task_id) {
+      setDetailLoading(true)
+      try {
+        const res = await fetch(`/api/orchestrator/tasks/${item.orchestrator_task_id}`)
+        if (res.ok) {
+          const j = await res.json()
+          setDetailTask(j.task ?? null)
+          setDetailLogs((j.logs ?? []) as OrchestratorLog[])
+        }
+      } finally {
+        setDetailLoading(false)
+      }
+    }
+  }
+
+  function closeDetail() {
+    setDetailItem(null)
+    setDetailTask(null)
+    setDetailLogs([])
+    setDetailEditing(false)
+    setDetailNewBeschrijving('')
+  }
+
+  async function rerunTask() {
+    if (!detailItem) return
+    setRerunning(true)
+    try {
+      const res = await fetch(`/api/planning/${detailItem.id}/rerun`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ beschrijving: detailNewBeschrijving }),
+      })
+      if (res.ok) {
+        closeDetail()
+        await load()
+      }
+    } finally {
+      setRerunning(false)
+    }
+  }
 
   return (
     <div className="space-y-6">
@@ -284,12 +364,25 @@ export default function TakenPage() {
           { label: 'Urgent',     value: stats.urgent,   color: 'text-red-400' },
           { label: 'Deze week',  value: stats.week,     color: 'text-amber-400' },
           { label: 'Afgerond',   value: stats.afgerond, color: 'text-green-400' },
-        ].map((s) => (
-          <div key={s.label} className="bg-white/[0.06] border border-white/5 rounded-xl p-4">
-            <p className="text-[11px] text-white/50 mb-1">{s.label}</p>
-            <p className={`text-2xl font-semibold ${s.color}`}>{loading ? '…' : s.value}</p>
-          </div>
-        ))}
+        ].map((s) => {
+          const active = activeTab === s.label
+          return (
+            <button
+              key={s.label}
+              type="button"
+              onClick={() => setActiveTab(s.label)}
+              className={clsx(
+                'text-left rounded-xl p-4 transition-colors border',
+                active
+                  ? 'bg-indigo-500/10 border-indigo-500/40 ring-1 ring-indigo-500/30'
+                  : 'bg-white/[0.06] border-white/5 hover:bg-white/[0.10]',
+              )}
+            >
+              <p className="text-[11px] text-white/50 mb-1">{s.label}</p>
+              <p className={`text-2xl font-semibold ${s.color}`}>{loading ? '…' : s.value}</p>
+            </button>
+          )
+        })}
       </div>
 
       <div className="flex items-center gap-1 p-1 bg-white/[0.06] border border-white/5 rounded-xl w-fit">
@@ -330,8 +423,9 @@ export default function TakenPage() {
                 {filtered.map((row) => (
                   <tr
                     key={row.id}
+                    onClick={() => openDetail(row)}
                     className={clsx(
-                      'border-b border-white/5 hover:bg-white/[0.02] transition-colors',
+                      'border-b border-white/5 hover:bg-white/[0.04] transition-colors cursor-pointer',
                       isOverdue(row) && 'border-l-2 border-l-red-500/40',
                       row.status === 'gereed' && 'opacity-50'
                     )}
@@ -350,7 +444,7 @@ export default function TakenPage() {
                     <td className="px-4 py-3 text-xs text-white/65">{row.project?.name ?? '—'}</td>
                     <td className="px-4 py-3 text-xs text-white/50">{row.toegewezen ?? '—'}</td>
                     <td className="px-4 py-3 text-xs text-white/50 whitespace-nowrap">{fmtDate(row.due_date)}</td>
-                    <td className="px-4 py-3">
+                    <td className="px-4 py-3" onClick={e => e.stopPropagation()}>
                       <select
                         value={row.status}
                         onChange={e => quickStatusChange(row.id, e.target.value)}
@@ -367,7 +461,7 @@ export default function TakenPage() {
                         ))}
                       </select>
                     </td>
-                    <td className="px-4 py-3">
+                    <td className="px-4 py-3" onClick={e => e.stopPropagation()}>
                       <div className="flex items-center gap-2">
                         <button onClick={() => openEdit(row)} className="text-[11px] text-white/40 hover:text-white transition-colors">Bewerk</button>
                         <button onClick={() => del(row.id)} className="text-[11px] text-red-400/60 hover:text-red-400 transition-colors">✕</button>
@@ -380,6 +474,155 @@ export default function TakenPage() {
           </div>
         )}
       </div>
+
+      {detailItem && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+          <div className="bg-[#0f1117] border border-white/10 rounded-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between p-5 border-b border-white/5">
+              <div className="flex items-center gap-3">
+                <span className={clsx('px-2 py-0.5 rounded-full text-[10px] font-semibold', PRIORITY_COLORS[detailItem.priority] ?? PRIORITY_COLORS.laag)}>
+                  {detailItem.priority.toUpperCase()}
+                </span>
+                <h2 className="text-sm font-semibold text-white">{detailItem.titel}</h2>
+                <span className={clsx('px-2 py-0.5 rounded-full text-[10px] font-medium', STATUS_COLORS[detailItem.status])}>
+                  {STATUS_LABELS[detailItem.status]}
+                </span>
+              </div>
+              <button onClick={closeDetail}><X size={16} className="text-white/50 hover:text-white" /></button>
+            </div>
+
+            <div className="p-5 space-y-5">
+              <div className="grid grid-cols-3 gap-3 text-xs">
+                <div>
+                  <p className="text-[10px] text-white/40 uppercase tracking-wider mb-1">Project</p>
+                  <p className="text-white/80">{detailItem.project?.name ?? '—'}</p>
+                </div>
+                <div>
+                  <p className="text-[10px] text-white/40 uppercase tracking-wider mb-1">Deadline</p>
+                  <p className="text-white/80">{fmtDate(detailItem.due_date)}</p>
+                </div>
+                <div>
+                  <p className="text-[10px] text-white/40 uppercase tracking-wider mb-1">Toegewezen</p>
+                  <p className="text-white/80">{detailItem.toegewezen ?? '—'}</p>
+                </div>
+              </div>
+
+              <div>
+                <p className="text-[10px] text-white/40 uppercase tracking-wider mb-1.5">Beschrijving</p>
+                {detailEditing ? (
+                  <textarea
+                    rows={4}
+                    className="w-full bg-white/[0.06] border border-white/10 rounded-lg px-3 py-2 text-xs text-white placeholder-white/30 focus:outline-none focus:border-indigo-500 resize-none"
+                    value={detailNewBeschrijving}
+                    onChange={e => setDetailNewBeschrijving(e.target.value)}
+                    placeholder="Geef de AI een duidelijke instructie…"
+                  />
+                ) : (
+                  <p className="text-xs text-white/80 whitespace-pre-wrap">
+                    {detailItem.beschrijving ?? <span className="text-white/40">Geen beschrijving</span>}
+                  </p>
+                )}
+              </div>
+
+              <div>
+                <p className="text-[10px] text-white/40 uppercase tracking-wider mb-1.5">Wat heeft de AI uitgevoerd?</p>
+                {!detailItem.orchestrator_task_id ? (
+                  <p className="text-xs text-white/40 italic">Deze taak is niet via AI uitgevoerd.</p>
+                ) : detailLoading ? (
+                  <p className="text-xs text-white/40">Laden…</p>
+                ) : (
+                  <div className="space-y-3">
+                    {detailTask?.result_summary && (
+                      <div className="bg-green-500/5 border-l-2 border-green-500/40 rounded-r px-3 py-2.5">
+                        <p className="text-[10px] text-green-400 uppercase tracking-wider mb-1">Samenvatting</p>
+                        <p className="text-xs text-white/85 whitespace-pre-wrap">{detailTask.result_summary}</p>
+                      </div>
+                    )}
+                    {detailTask?.error && (
+                      <div className="bg-red-500/5 border-l-2 border-red-500/40 rounded-r px-3 py-2.5">
+                        <p className="text-[10px] text-red-400 uppercase tracking-wider mb-1">Fout</p>
+                        <p className="text-xs text-white/85 whitespace-pre-wrap">{detailTask.error}</p>
+                      </div>
+                    )}
+                    {detailLogs.length > 0 && (
+                      <div className="bg-white/[0.03] border border-white/5 rounded-lg p-3">
+                        <p className="text-[10px] text-white/40 uppercase tracking-wider mb-2">Tijdlijn</p>
+                        <ol className="space-y-1.5">
+                          {detailLogs.map((log) => (
+                            <li key={log.id} className="flex gap-2 text-[11px]">
+                              <span className="text-white/30 font-mono shrink-0">
+                                {new Date(log.created_at).toLocaleTimeString('nl-NL', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+                              </span>
+                              <span className={clsx(
+                                'shrink-0 font-semibold uppercase text-[9px] mt-0.5',
+                                log.level === 'error' ? 'text-red-400' :
+                                log.level === 'warn'  ? 'text-amber-400' : 'text-white/40',
+                              )}>
+                                {log.level}
+                              </span>
+                              <div className="flex-1 min-w-0">
+                                <p className="text-white/75">{log.message}</p>
+                                {log.payload && typeof log.payload === 'object' && 'summary' in log.payload && typeof log.payload.summary === 'string' && log.payload.summary && (
+                                  <p className="text-white/50 italic mt-0.5 whitespace-pre-wrap">{log.payload.summary as string}</p>
+                                )}
+                              </div>
+                            </li>
+                          ))}
+                        </ol>
+                      </div>
+                    )}
+                    {detailTask && detailLogs.length === 0 && !detailTask.result_summary && (
+                      <p className="text-xs text-white/40 italic">Nog geen output beschikbaar.</p>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {detailItem.notes && (
+                <div>
+                  <p className="text-[10px] text-white/40 uppercase tracking-wider mb-1.5">Geschiedenis</p>
+                  <pre className="text-[11px] text-white/55 whitespace-pre-wrap font-sans bg-white/[0.03] border border-white/5 rounded-lg p-3">{detailItem.notes}</pre>
+                </div>
+              )}
+
+              <div className="flex gap-3 pt-2 border-t border-white/5">
+                {detailEditing ? (
+                  <>
+                    <button
+                      onClick={() => { setDetailEditing(false); setDetailNewBeschrijving(detailItem.beschrijving ?? '') }}
+                      className="flex-1 border border-white/10 text-white/60 hover:text-white text-xs font-medium py-2.5 rounded-lg transition-colors"
+                    >
+                      Annuleer
+                    </button>
+                    <button
+                      onClick={rerunTask}
+                      disabled={rerunning || !detailNewBeschrijving.trim()}
+                      className="flex-1 flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white text-xs font-medium py-2.5 rounded-lg transition-colors"
+                    >
+                      <Play size={13} /> {rerunning ? 'Opnieuw uitvoeren…' : 'Opnieuw uitvoeren'}
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <button
+                      onClick={closeDetail}
+                      className="flex-1 bg-green-600/20 border border-green-500/30 hover:bg-green-600/30 text-green-300 text-xs font-medium py-2.5 rounded-lg transition-colors"
+                    >
+                      Klaar
+                    </button>
+                    <button
+                      onClick={() => setDetailEditing(true)}
+                      className="flex-1 flex items-center justify-center gap-2 bg-white/[0.06] border border-white/10 hover:bg-white/10 text-white/80 text-xs font-medium py-2.5 rounded-lg transition-colors"
+                    >
+                      <Edit2 size={13} /> Bewerken
+                    </button>
+                  </>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {showModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
