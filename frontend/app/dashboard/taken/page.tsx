@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { CheckSquare, Plus, X, AlertTriangle, GitBranch, RefreshCw } from 'lucide-react'
+import { CheckSquare, Plus, X, AlertTriangle, GitBranch, RefreshCw, Play, Edit2, GitFork, ArrowDown } from 'lucide-react'
 import clsx from 'clsx'
 
 type PlanningItem = {
@@ -16,7 +16,44 @@ type PlanningItem = {
   project: { id: string; name: string } | null
   company: { id: string; name: string } | null
   completed_at: string | null
+  orchestrator_task_id?: string | null
+  notes?: string | null
 }
+
+type OrchestratorLog = {
+  id: string
+  level: 'info' | 'warn' | 'error'
+  message: string
+  payload: Record<string, unknown> | null
+  created_at: string
+}
+
+type OrchestratorTaskDetail = {
+  id: string
+  status: string
+  priority: number
+  priority_band: string
+  attempts: number
+  started_at: string | null
+  finished_at: string | null
+  error: string | null
+  result_summary: string | null
+  objective?: string[]
+  payload?: Record<string, unknown> | null
+  parent_task_id?: string | null
+}
+
+type ChainStep = {
+  id: string
+  step_order: number
+  persona_name: string
+  status: 'pending' | 'dispatched' | 'completed' | 'failed' | 'skipped'
+  child_task_id: string | null
+  started_at: string | null
+  finished_at: string | null
+}
+
+type PersonaOption = { name: string; persona_type: string; role: string }
 
 type Project = { id: string; name: string }
 
@@ -61,7 +98,23 @@ function fmtDate(d: string | null) {
   return new Date(d).toLocaleDateString('nl-NL', { day: '2-digit', month: 'short' })
 }
 
-const EMPTY_FORM = { titel: '', type: 'taak', priority: 'normaal', status: 'open', toegewezen: '', due_date: '', beschrijving: '', project_id: '' }
+function todayISO() {
+  const d = new Date()
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
+
+const PROJECT_TYPES = [
+  { value: 'renovation',   label: 'Renovatie' },
+  { value: 'construction', label: 'Bouw' },
+  { value: 'real_estate',  label: 'Vastgoed' },
+  { value: 'development',  label: 'Ontwikkeling' },
+  { value: 'saas',         label: 'SaaS' },
+] as const
+
+const emptyForm = () => ({
+  titel: '', type: 'taak', priority: 'normaal', status: 'open',
+  toegewezen: '', due_date: todayISO(), beschrijving: '', project_id: '',
+})
 
 export default function TakenPage() {
   const [items, setItems] = useState<PlanningItem[]>([])
@@ -70,11 +123,34 @@ export default function TakenPage() {
   const [loading, setLoading] = useState(true)
   const [showModal, setShowModal] = useState(false)
   const [editing, setEditing] = useState<PlanningItem | null>(null)
-  const [form, setForm] = useState({ ...EMPTY_FORM })
+  const [form, setForm] = useState(emptyForm())
   const [saving, setSaving]       = useState(false)
   const [error, setError]         = useState('')
   const [syncing, setSyncing]     = useState(false)
   const [syncMsg, setSyncMsg]     = useState('')
+
+  const [showNewProject, setShowNewProject] = useState(false)
+  const [newProjectName, setNewProjectName] = useState('')
+  const [newProjectType, setNewProjectType] = useState<string>('renovation')
+  const [creatingProject, setCreatingProject] = useState(false)
+  const [projectError, setProjectError] = useState('')
+
+  // Detail modal state
+  const [detailItem, setDetailItem] = useState<PlanningItem | null>(null)
+  const [detailTask, setDetailTask] = useState<OrchestratorTaskDetail | null>(null)
+  const [detailLogs, setDetailLogs] = useState<OrchestratorLog[]>([])
+  const [detailChain, setDetailChain] = useState<ChainStep[]>([])
+  const [detailLoading, setDetailLoading] = useState(false)
+  const [detailEditing, setDetailEditing] = useState(false)
+  const [detailNewBeschrijving, setDetailNewBeschrijving] = useState('')
+  const [rerunning, setRerunning] = useState(false)
+
+  // Chain modal state
+  const [showChainBuilder, setShowChainBuilder] = useState(false)
+  const [chainPersonas, setChainPersonas] = useState<PersonaOption[]>([])
+  const [chainSelection, setChainSelection] = useState<string[]>([])
+  const [chainSaving, setChainSaving] = useState(false)
+  const [chainError, setChainError] = useState('')
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -96,6 +172,7 @@ export default function TakenPage() {
   }, [])
 
   const filtered = items.filter(i => {
+    if (activeTab === 'Open')      return i.status === 'open'
     if (activeTab === 'Urgent')    return i.priority === 'urgent' || i.priority === 'hoog'
     if (activeTab === 'Vandaag')   return isToday(i.due_date)
     if (activeTab === 'Deze week') return isThisWeek(i.due_date)
@@ -124,8 +201,11 @@ export default function TakenPage() {
 
   function openNew() {
     setEditing(null)
-    setForm({ ...EMPTY_FORM })
+    setForm(emptyForm())
     setError('')
+    setShowNewProject(false)
+    setNewProjectName('')
+    setProjectError('')
     setShowModal(true)
   }
 
@@ -179,7 +259,148 @@ export default function TakenPage() {
     await load()
   }
 
-  const tabs = ['Alle', 'Urgent', 'Vandaag', 'Deze week', 'Afgerond']
+  async function quickStatusChange(id: string, newStatus: string) {
+    // Optimistic UI update
+    setItems(prev => prev.map(i =>
+      i.id === id ? { ...i, status: newStatus as PlanningItem['status'] } : i
+    ))
+    const res = await fetch(`/api/planning/${id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status: newStatus }),
+    })
+    if (!res.ok) {
+      await load()
+    }
+  }
+
+  async function createProject() {
+    if (!newProjectName.trim()) { setProjectError('Naam vereist'); return }
+    setCreatingProject(true); setProjectError('')
+    try {
+      const res = await fetch('/api/projects', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: newProjectName.trim(), type: newProjectType }),
+      })
+      if (!res.ok) {
+        const j = await res.json().catch(() => ({}))
+        setProjectError(j.error ?? 'Aanmaken faalde')
+        return
+      }
+      const j = await res.json()
+      const created: Project | undefined = j.project
+      const fresh = await fetch('/api/projects').then(r => r.ok ? r.json() : { projects: [] })
+      setProjects(fresh.projects ?? [])
+      if (created?.id) setForm(f => ({ ...f, project_id: created.id }))
+      setNewProjectName('')
+      setShowNewProject(false)
+    } finally {
+      setCreatingProject(false)
+    }
+  }
+
+  const tabs = ['Alle', 'Open', 'Urgent', 'Vandaag', 'Deze week', 'Afgerond']
+
+  async function openDetail(item: PlanningItem) {
+    setDetailItem(item)
+    setDetailTask(null)
+    setDetailLogs([])
+    setDetailChain([])
+    setDetailEditing(false)
+    setDetailNewBeschrijving(item.beschrijving ?? '')
+    if (item.orchestrator_task_id) {
+      setDetailLoading(true)
+      try {
+        const res = await fetch(`/api/orchestrator/tasks/${item.orchestrator_task_id}`)
+        if (res.ok) {
+          const j = await res.json()
+          const task = j.task as OrchestratorTaskDetail | null
+          setDetailTask(task ?? null)
+          setDetailLogs((j.logs ?? []) as OrchestratorLog[])
+          // Als deze task een chain heeft (parent of root), haal alle steps op
+          const rootId = task?.parent_task_id ?? task?.id
+          if (rootId) {
+            const cr = await fetch(`/api/orchestrator/task-chain?root=${rootId}`)
+            if (cr.ok) {
+              const cj = await cr.json()
+              setDetailChain((cj.steps ?? []) as ChainStep[])
+            }
+          }
+        }
+      } finally {
+        setDetailLoading(false)
+      }
+    }
+  }
+
+  function closeDetail() {
+    setDetailItem(null)
+    setDetailTask(null)
+    setDetailLogs([])
+    setDetailChain([])
+    setDetailEditing(false)
+    setDetailNewBeschrijving('')
+  }
+
+  async function openChainBuilder() {
+    if (!detailItem) return
+    setChainError('')
+    setChainSelection([])
+    if (chainPersonas.length === 0) {
+      const res = await fetch('/api/agents/personas')
+      if (res.ok) {
+        const j = await res.json()
+        setChainPersonas((j.personas ?? []).map((p: PersonaOption) => ({
+          name: p.name, persona_type: p.persona_type, role: p.role,
+        })))
+      }
+    }
+    setShowChainBuilder(true)
+  }
+
+  async function saveChain() {
+    if (!detailItem || chainSelection.length === 0) return
+    setChainSaving(true); setChainError('')
+    try {
+      const res = await fetch(`/api/planning/${detailItem.id}/chain`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          chain: chainSelection,
+          beschrijving: detailNewBeschrijving || detailItem.beschrijving || undefined,
+        }),
+      })
+      if (!res.ok) {
+        const j = await res.json().catch(() => ({}))
+        setChainError(j.error ?? 'Chain aanmaken faalde')
+        return
+      }
+      setShowChainBuilder(false)
+      closeDetail()
+      await load()
+    } finally {
+      setChainSaving(false)
+    }
+  }
+
+  async function rerunTask() {
+    if (!detailItem) return
+    setRerunning(true)
+    try {
+      const res = await fetch(`/api/planning/${detailItem.id}/rerun`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ beschrijving: detailNewBeschrijving }),
+      })
+      if (res.ok) {
+        closeDetail()
+        await load()
+      }
+    } finally {
+      setRerunning(false)
+    }
+  }
 
   return (
     <div className="space-y-6">
@@ -218,12 +439,25 @@ export default function TakenPage() {
           { label: 'Urgent',     value: stats.urgent,   color: 'text-red-400' },
           { label: 'Deze week',  value: stats.week,     color: 'text-amber-400' },
           { label: 'Afgerond',   value: stats.afgerond, color: 'text-green-400' },
-        ].map((s) => (
-          <div key={s.label} className="bg-white/[0.06] border border-white/5 rounded-xl p-4">
-            <p className="text-[11px] text-white/50 mb-1">{s.label}</p>
-            <p className={`text-2xl font-semibold ${s.color}`}>{loading ? '…' : s.value}</p>
-          </div>
-        ))}
+        ].map((s) => {
+          const active = activeTab === s.label
+          return (
+            <button
+              key={s.label}
+              type="button"
+              onClick={() => setActiveTab(s.label)}
+              className={clsx(
+                'text-left rounded-xl p-4 transition-colors border',
+                active
+                  ? 'bg-indigo-500/10 border-indigo-500/40 ring-1 ring-indigo-500/30'
+                  : 'bg-white/[0.06] border-white/5 hover:bg-white/[0.10]',
+              )}
+            >
+              <p className="text-[11px] text-white/50 mb-1">{s.label}</p>
+              <p className={`text-2xl font-semibold ${s.color}`}>{loading ? '…' : s.value}</p>
+            </button>
+          )
+        })}
       </div>
 
       <div className="flex items-center gap-1 p-1 bg-white/[0.06] border border-white/5 rounded-xl w-fit">
@@ -264,8 +498,9 @@ export default function TakenPage() {
                 {filtered.map((row) => (
                   <tr
                     key={row.id}
+                    onClick={() => openDetail(row)}
                     className={clsx(
-                      'border-b border-white/5 hover:bg-white/[0.02] transition-colors',
+                      'border-b border-white/5 hover:bg-white/[0.04] transition-colors cursor-pointer',
                       isOverdue(row) && 'border-l-2 border-l-red-500/40',
                       row.status === 'gereed' && 'opacity-50'
                     )}
@@ -284,12 +519,24 @@ export default function TakenPage() {
                     <td className="px-4 py-3 text-xs text-white/65">{row.project?.name ?? '—'}</td>
                     <td className="px-4 py-3 text-xs text-white/50">{row.toegewezen ?? '—'}</td>
                     <td className="px-4 py-3 text-xs text-white/50 whitespace-nowrap">{fmtDate(row.due_date)}</td>
-                    <td className="px-4 py-3">
-                      <span className={clsx('px-2 py-0.5 rounded-full text-[10px] font-medium', STATUS_COLORS[row.status])}>
-                        {STATUS_LABELS[row.status]}
-                      </span>
+                    <td className="px-4 py-3" onClick={e => e.stopPropagation()}>
+                      <select
+                        value={row.status}
+                        onChange={e => quickStatusChange(row.id, e.target.value)}
+                        className={clsx(
+                          'px-2 py-0.5 rounded-full text-[10px] font-medium border-0 appearance-none cursor-pointer focus:outline-none focus:ring-2 focus:ring-indigo-500/50',
+                          STATUS_COLORS[row.status],
+                        )}
+                        title="Klik om status te wijzigen"
+                      >
+                        {(['open','bezig','gereed','geblokkeerd'] as const).map(s => (
+                          <option key={s} value={s} className="bg-[#0f1117] text-white">
+                            {STATUS_LABELS[s]}
+                          </option>
+                        ))}
+                      </select>
                     </td>
-                    <td className="px-4 py-3">
+                    <td className="px-4 py-3" onClick={e => e.stopPropagation()}>
                       <div className="flex items-center gap-2">
                         <button onClick={() => openEdit(row)} className="text-[11px] text-white/40 hover:text-white transition-colors">Bewerk</button>
                         <button onClick={() => del(row.id)} className="text-[11px] text-red-400/60 hover:text-red-400 transition-colors">✕</button>
@@ -302,6 +549,263 @@ export default function TakenPage() {
           </div>
         )}
       </div>
+
+      {detailItem && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+          <div className="bg-[#0f1117] border border-white/10 rounded-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between p-5 border-b border-white/5">
+              <div className="flex items-center gap-3">
+                <span className={clsx('px-2 py-0.5 rounded-full text-[10px] font-semibold', PRIORITY_COLORS[detailItem.priority] ?? PRIORITY_COLORS.laag)}>
+                  {detailItem.priority.toUpperCase()}
+                </span>
+                <h2 className="text-sm font-semibold text-white">{detailItem.titel}</h2>
+                <span className={clsx('px-2 py-0.5 rounded-full text-[10px] font-medium', STATUS_COLORS[detailItem.status])}>
+                  {STATUS_LABELS[detailItem.status]}
+                </span>
+              </div>
+              <button onClick={closeDetail}><X size={16} className="text-white/50 hover:text-white" /></button>
+            </div>
+
+            <div className="p-5 space-y-5">
+              <div className="grid grid-cols-3 gap-3 text-xs">
+                <div>
+                  <p className="text-[10px] text-white/40 uppercase tracking-wider mb-1">Project</p>
+                  <p className="text-white/80">{detailItem.project?.name ?? '—'}</p>
+                </div>
+                <div>
+                  <p className="text-[10px] text-white/40 uppercase tracking-wider mb-1">Deadline</p>
+                  <p className="text-white/80">{fmtDate(detailItem.due_date)}</p>
+                </div>
+                <div>
+                  <p className="text-[10px] text-white/40 uppercase tracking-wider mb-1">Toegewezen</p>
+                  <p className="text-white/80">{detailItem.toegewezen ?? '—'}</p>
+                </div>
+              </div>
+
+              <div>
+                <p className="text-[10px] text-white/40 uppercase tracking-wider mb-1.5">Beschrijving</p>
+                {detailEditing ? (
+                  <textarea
+                    rows={4}
+                    className="w-full bg-white/[0.06] border border-white/10 rounded-lg px-3 py-2 text-xs text-white placeholder-white/30 focus:outline-none focus:border-indigo-500 resize-none"
+                    value={detailNewBeschrijving}
+                    onChange={e => setDetailNewBeschrijving(e.target.value)}
+                    placeholder="Geef de AI een duidelijke instructie…"
+                  />
+                ) : (
+                  <p className="text-xs text-white/80 whitespace-pre-wrap">
+                    {detailItem.beschrijving ?? <span className="text-white/40">Geen beschrijving</span>}
+                  </p>
+                )}
+              </div>
+
+              <div>
+                <p className="text-[10px] text-white/40 uppercase tracking-wider mb-1.5">Wat heeft de AI uitgevoerd?</p>
+                {!detailItem.orchestrator_task_id ? (
+                  <p className="text-xs text-white/40 italic">Deze taak is niet via AI uitgevoerd.</p>
+                ) : detailLoading ? (
+                  <p className="text-xs text-white/40">Laden…</p>
+                ) : (
+                  <div className="space-y-3">
+                    {detailTask?.result_summary && (
+                      <div className="bg-green-500/5 border-l-2 border-green-500/40 rounded-r px-3 py-2.5">
+                        <p className="text-[10px] text-green-400 uppercase tracking-wider mb-1">Samenvatting</p>
+                        <p className="text-xs text-white/85 whitespace-pre-wrap">{detailTask.result_summary}</p>
+                      </div>
+                    )}
+                    {detailTask?.error && (
+                      <div className="bg-red-500/5 border-l-2 border-red-500/40 rounded-r px-3 py-2.5">
+                        <p className="text-[10px] text-red-400 uppercase tracking-wider mb-1">Fout</p>
+                        <p className="text-xs text-white/85 whitespace-pre-wrap">{detailTask.error}</p>
+                      </div>
+                    )}
+                    {detailLogs.length > 0 && (
+                      <div className="bg-white/[0.03] border border-white/5 rounded-lg p-3">
+                        <p className="text-[10px] text-white/40 uppercase tracking-wider mb-2">Tijdlijn</p>
+                        <ol className="space-y-1.5">
+                          {detailLogs.map((log) => (
+                            <li key={log.id} className="flex gap-2 text-[11px]">
+                              <span className="text-white/30 font-mono shrink-0">
+                                {new Date(log.created_at).toLocaleTimeString('nl-NL', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+                              </span>
+                              <span className={clsx(
+                                'shrink-0 font-semibold uppercase text-[9px] mt-0.5',
+                                log.level === 'error' ? 'text-red-400' :
+                                log.level === 'warn'  ? 'text-amber-400' : 'text-white/40',
+                              )}>
+                                {log.level}
+                              </span>
+                              <div className="flex-1 min-w-0">
+                                <p className="text-white/75">{log.message}</p>
+                                {log.payload && typeof log.payload === 'object' && 'summary' in log.payload && typeof log.payload.summary === 'string' && log.payload.summary && (
+                                  <p className="text-white/50 italic mt-0.5 whitespace-pre-wrap">{log.payload.summary as string}</p>
+                                )}
+                              </div>
+                            </li>
+                          ))}
+                        </ol>
+                      </div>
+                    )}
+                    {detailTask && detailLogs.length === 0 && !detailTask.result_summary && (
+                      <p className="text-xs text-white/40 italic">Nog geen output beschikbaar.</p>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {detailChain.length > 0 && (
+                <div>
+                  <p className="text-[10px] text-white/40 uppercase tracking-wider mb-1.5">Agent chain</p>
+                  <ol className="space-y-1.5">
+                    {detailChain.map((step) => (
+                      <li key={step.id} className="flex items-center gap-3 bg-white/[0.04] border border-white/5 rounded-lg px-3 py-2">
+                        <span className="text-[10px] text-white/40 font-mono w-6">#{step.step_order + 1}</span>
+                        <span className="text-xs text-white/85 flex-1">{step.persona_name}</span>
+                        <span className={clsx(
+                          'px-2 py-0.5 rounded-full text-[10px] font-medium',
+                          step.status === 'completed'  ? 'bg-green-500/10 text-green-400' :
+                          step.status === 'dispatched' ? 'bg-amber-500/10 text-amber-400' :
+                          step.status === 'failed'     ? 'bg-red-500/10 text-red-400' :
+                          step.status === 'skipped'    ? 'bg-white/[0.06] text-white/40' :
+                                                         'bg-white/[0.08] text-white/65',
+                        )}>{step.status}</span>
+                      </li>
+                    ))}
+                  </ol>
+                </div>
+              )}
+
+              {detailItem.notes && (
+                <div>
+                  <p className="text-[10px] text-white/40 uppercase tracking-wider mb-1.5">Geschiedenis</p>
+                  <pre className="text-[11px] text-white/55 whitespace-pre-wrap font-sans bg-white/[0.03] border border-white/5 rounded-lg p-3">{detailItem.notes}</pre>
+                </div>
+              )}
+
+              <div className="flex gap-3 pt-2 border-t border-white/5">
+                {detailEditing ? (
+                  <>
+                    <button
+                      onClick={() => { setDetailEditing(false); setDetailNewBeschrijving(detailItem.beschrijving ?? '') }}
+                      className="flex-1 border border-white/10 text-white/60 hover:text-white text-xs font-medium py-2.5 rounded-lg transition-colors"
+                    >
+                      Annuleer
+                    </button>
+                    <button
+                      onClick={rerunTask}
+                      disabled={rerunning || !detailNewBeschrijving.trim()}
+                      className="flex-1 flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white text-xs font-medium py-2.5 rounded-lg transition-colors"
+                    >
+                      <Play size={13} /> {rerunning ? 'Opnieuw uitvoeren…' : 'Opnieuw uitvoeren'}
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <button
+                      onClick={closeDetail}
+                      className="flex-1 bg-green-600/20 border border-green-500/30 hover:bg-green-600/30 text-green-300 text-xs font-medium py-2.5 rounded-lg transition-colors"
+                    >
+                      Klaar
+                    </button>
+                    <button
+                      onClick={() => setDetailEditing(true)}
+                      className="flex-1 flex items-center justify-center gap-2 bg-white/[0.06] border border-white/10 hover:bg-white/10 text-white/80 text-xs font-medium py-2.5 rounded-lg transition-colors"
+                    >
+                      <Edit2 size={13} /> Bewerken
+                    </button>
+                    <button
+                      onClick={openChainBuilder}
+                      className="flex-1 flex items-center justify-center gap-2 bg-indigo-500/20 border border-indigo-500/30 hover:bg-indigo-500/30 text-indigo-300 text-xs font-medium py-2.5 rounded-lg transition-colors"
+                    >
+                      <GitFork size={13} /> Agent chain
+                    </button>
+                  </>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showChainBuilder && detailItem && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
+          <div className="bg-[#0f1117] border border-white/10 rounded-2xl w-full max-w-md max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between p-5 border-b border-white/5">
+              <h2 className="text-sm font-semibold text-white flex items-center gap-2">
+                <GitFork size={14} className="text-indigo-400" /> Agent chain bouwen
+              </h2>
+              <button onClick={() => setShowChainBuilder(false)}>
+                <X size={16} className="text-white/50 hover:text-white" />
+              </button>
+            </div>
+            <div className="p-5 space-y-4">
+              <p className="text-[11px] text-white/55">
+                Selecteer personas op volgorde. Elke persona pakt de taak op nadat de vorige
+                hem heeft afgerond. De eerste persona wordt &apos;toegewezen&apos; op het planning_item.
+              </p>
+
+              {chainSelection.length > 0 && (
+                <div className="space-y-1">
+                  <p className="text-[10px] text-white/40 uppercase tracking-wider mb-1.5">Geselecteerde chain</p>
+                  {chainSelection.map((name, idx) => (
+                    <div key={`${name}-${idx}`}>
+                      <div className="flex items-center gap-2 bg-indigo-500/10 border border-indigo-500/30 rounded-lg px-3 py-2">
+                        <span className="text-[10px] text-indigo-300 font-mono w-5">#{idx + 1}</span>
+                        <span className="text-xs text-white/90 flex-1">{name}</span>
+                        <button
+                          onClick={() => setChainSelection((cs) => cs.filter((_, i) => i !== idx))}
+                          className="text-[11px] text-white/40 hover:text-red-400"
+                        >
+                          ✕
+                        </button>
+                      </div>
+                      {idx < chainSelection.length - 1 && (
+                        <div className="flex justify-center py-0.5">
+                          <ArrowDown size={12} className="text-white/30" />
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              <div>
+                <p className="text-[10px] text-white/40 uppercase tracking-wider mb-1.5">Voeg toe</p>
+                <div className="grid grid-cols-2 gap-1.5 max-h-72 overflow-y-auto">
+                  {chainPersonas.map((p) => (
+                    <button
+                      key={p.name}
+                      onClick={() => setChainSelection((cs) => [...cs, p.name])}
+                      className="text-left bg-white/[0.04] border border-white/5 hover:bg-white/[0.08] rounded-lg px-2.5 py-1.5"
+                    >
+                      <p className="text-xs text-white/85">{p.name}</p>
+                      <p className="text-[10px] text-white/45">{p.role}</p>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {chainError && <p className="text-xs text-red-400">{chainError}</p>}
+
+              <div className="flex gap-3 pt-2">
+                <button
+                  onClick={() => setShowChainBuilder(false)}
+                  className="flex-1 border border-white/10 text-white/60 hover:text-white text-xs font-medium py-2.5 rounded-lg transition-colors"
+                >
+                  Annuleer
+                </button>
+                <button
+                  onClick={saveChain}
+                  disabled={chainSaving || chainSelection.length === 0}
+                  className="flex-1 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white text-xs font-medium py-2.5 rounded-lg transition-colors"
+                >
+                  {chainSaving ? 'Starten…' : `Start chain (${chainSelection.length})`}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {showModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
@@ -363,15 +867,53 @@ export default function TakenPage() {
                 </div>
               </div>
               <div>
-                <label className="block text-[11px] text-white/50 mb-1.5">Project</label>
-                <select
-                  className="w-full bg-white/[0.06] border border-white/10 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-indigo-500"
-                  value={form.project_id}
-                  onChange={e => setForm(f => ({ ...f, project_id: e.target.value }))}
-                >
-                  <option value="">Geen project</option>
-                  {projects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
-                </select>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="block text-[11px] text-white/50">Project</label>
+                  <button
+                    type="button"
+                    onClick={() => { setShowNewProject(s => !s); setProjectError('') }}
+                    className="text-[11px] text-indigo-400 hover:text-indigo-300 transition-colors"
+                  >
+                    {showNewProject ? 'Annuleer nieuw project' : '+ Nieuw project'}
+                  </button>
+                </div>
+                {showNewProject ? (
+                  <div className="space-y-2 bg-white/[0.04] border border-white/10 rounded-lg p-3">
+                    <input
+                      autoFocus
+                      className="w-full bg-white/[0.06] border border-white/10 rounded-lg px-3 py-2 text-xs text-white placeholder-white/30 focus:outline-none focus:border-indigo-500"
+                      placeholder="Projectnaam…"
+                      value={newProjectName}
+                      onChange={e => setNewProjectName(e.target.value)}
+                      onKeyDown={e => { if (e.key === 'Enter') createProject() }}
+                    />
+                    <select
+                      className="w-full bg-white/[0.06] border border-white/10 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-indigo-500"
+                      value={newProjectType}
+                      onChange={e => setNewProjectType(e.target.value)}
+                    >
+                      {PROJECT_TYPES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
+                    </select>
+                    {projectError && <p className="text-[11px] text-red-400">{projectError}</p>}
+                    <button
+                      type="button"
+                      onClick={createProject}
+                      disabled={creatingProject || !newProjectName.trim()}
+                      className="w-full bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white text-xs font-medium py-2 rounded-lg transition-colors"
+                    >
+                      {creatingProject ? 'Aanmaken…' : 'Project aanmaken'}
+                    </button>
+                  </div>
+                ) : (
+                  <select
+                    className="w-full bg-white/[0.06] border border-white/10 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-indigo-500"
+                    value={form.project_id}
+                    onChange={e => setForm(f => ({ ...f, project_id: e.target.value }))}
+                  >
+                    <option value="">Geen project</option>
+                    {projects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                  </select>
+                )}
               </div>
               <div>
                 <label className="block text-[11px] text-white/50 mb-1.5">Beschrijving</label>
