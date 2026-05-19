@@ -143,9 +143,14 @@ export async function enqueueAnalytics(data: AnalyticsJobData, delayMs = 0): Pro
 }
 
 export async function enqueueNormalize(data: NormalizeJobData): Promise<Job> {
-  return getQueue(QUEUE_NAMES.NORMALIZE).add('normalize', data, {
-    jobId: `normalize_${data.queueId}`,
-  })
+  const queue = getQueue(QUEUE_NAMES.NORMALIZE)
+  const jobId = `normalize_${data.queueId}`
+  const existing = await queue.getJob(jobId)
+  if (existing) {
+    const state = await existing.getState()
+    if (state === 'failed' || state === 'completed') await existing.remove()
+  }
+  return queue.add('normalize', data, { jobId })
 }
 
 export async function enqueueBrowserVerify(data: BrowserVerifyJobData): Promise<Job> {
