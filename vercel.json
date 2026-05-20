@@ -35,6 +35,10 @@
     {
       "path": "/api/youtube/cron/trend-scan",
       "schedule": "30 */4 * * *"
+    },
+    {
+      "path": "/api/youtube/cron/content-factory",
+      "schedule": "*/10 * * * *"
     }
   ]
 }
