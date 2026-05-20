@@ -8,7 +8,7 @@
 
 ## 🔴 HERSTEL HIER NA CRASH
 
-**Sessie focus**: Viral Intelligence Engine van orchestrator_task-poller naar **directe Vercel cron routes**. Externe poller (locatie onbekend, draaide tot 19:23 gisteren) omzeild — viral/audio/trend scans gebeuren nu volledig in Vercel.
+**Sessie focus**: Viral Intelligence Engine van orchestrator_task-poller naar **directe Vercel cron routes**. ✅ AUTONOOM LIVE per 2026-05-20 16:22 UTC — alle 3 endpoints succesvol manueel getriggerd, data binnen (viral 156→234, audio 77→83, trend 346→411).
 
 **Wat is gedaan in deze sessie:**
 - ✅ Media Holding inhaalsprong (Settings, Analytics, Compete, Archives modules + API routes + migraties 073-075)
