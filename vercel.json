@@ -59,6 +59,26 @@
     {
       "path": "/api/executive-layer/cron/autonomous-scaling",
       "schedule": "0 */2 * * *"
+    },
+    {
+      "path": "/api/youtube/cron/factory-feeder",
+      "schedule": "20 */4 * * *"
+    },
+    {
+      "path": "/api/acquisition/cron/deal-scan",
+      "schedule": "0 */6 * * *"
+    },
+    {
+      "path": "/api/acquisition/cron/permit-scan",
+      "schedule": "0 7 * * *"
+    },
+    {
+      "path": "/api/acquisition/cron/offmarket-scan",
+      "schedule": "0 8 * * *"
+    },
+    {
+      "path": "/api/acquisition/cron/director-briefing",
+      "schedule": "30 7 * * *"
     }
   ]
 }

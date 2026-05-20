@@ -2,7 +2,7 @@
 
 > **Sessie protocol** (CLAUDE.md): Lees dit bestand bij elke nieuwe Claude Code sessie. Update na elke voltooide taak. Houd het herstel-blok actueel.
 
-**Laatste update:** 2026-05-20 — Acquisition Intelligence Layer gebouwd
+**Laatste update:** 2026-05-20 — Acquisition Intelligence Layer LIVE (deployed Vercel)
 
 ---
 
@@ -10,15 +10,12 @@
 
 **Sessie focus (2026-05-20, sessie 2)**: Executive Intelligence Layer (Fase 7) — AI C-suite bovenop Media Holding OS. ✅ Code compleet, deploy pending.
 
-**Sessie focus (2026-05-20, sessie 3)**: Acquisition Intelligence Layer — volledig gebouwd (migration 076, 17 pagina's, 10 API routes, nav-config uitgebreid).
-
-**Wat te doen na crash:**
-1. Run migration `076_acquisition_intelligence.sql` in Supabase (als nog niet gedaan via Executive Layer sessie)
-2. Deploy frontend naar Vercel
-3. Acquisitie sectie zichtbaar bij: OSM, STRKBEHEER, Modiwerijo companies
+**Sessie focus (2026-05-20, sessie 3)**: Acquisition Intelligence Layer — VOLLEDIG LIVE ✅
 
 **Wat is gedaan in deze sessie:**
-- ✅ Migratie 076 applied — 8 nieuwe tabellen (executive_agents/runs/decisions/reports/recommendations/alerts/content_fund_allocations/channel_status_history), 2 views, 3 triggers, 6 agents geseed, 5 nieuwe autopilot links, 11 modules in fase 7.
+- ✅ Migratie 076 applied — 14 acq_* tabellen (acq_deals, acq_deal_scores, acq_build_opps, acq_offmarket_leads, acq_permits, acq_municipalities, acq_investors, acq_investor_matches, acq_crm_contacts, acq_outreach_sequences, acq_outreach_messages, acq_settings, acq_agent_registry, acq_scan_jobs), indices, triggers, 8 agents geseed.
+- ✅ Migratie 076 applied in Supabase via MCP.
+- ✅ Migratie 075 (executive_agents + executive layer) ook applied — executive tabellen live.
 - ✅ Render service `executive-engine/` gebouwd — 6 LLM agents (ATLAS opus, 5 specialisten sonnet), node-cron schedules, Express health/run endpoints, CLI runner.
 - ✅ 3 Vercel crons toegevoegd: `/api/executive-layer/cron/{decision-engine,alert-engine,autonomous-scaling}`.
 - ✅ Shared frontend lib `frontend/lib/executive-layer/` — types, decision-engine (rule-based), alert-detectors (7 detectors), autopilot-links (5 links).
@@ -26,6 +23,16 @@
 - ✅ 5 shared executive components in `frontend/components/executive/`.
 - ✅ Nieuwe top-tab `Executive` in media-holding layout + 7 sub-pages (Overview, Boardroom, Channels, Retention Lab, Algorithm, Compete, Fund).
 - ✅ `vercel.json` + `render.yaml` ge-update voor `orlando-executive-engine` service.
+
+**Sessie focus (2026-05-20, sessie 4)**: Volgende stap — bepalen door Orlando.
+
+Opties:
+- A) **Acquisition scraper engine** op Render (DealHunter/OffMarketAI/PermitAI workers)
+- B) **Executive Engine deploy** activeren (ANTHROPIC_API_KEY in Render zetten)
+- C) **Aquier.com** integratie koppelen aan acquisitie module
+- D) **Content factory pipeline** herstellen (downstream chain na viral scan)
+
+---
 
 **Direct herstelbaar door:**
 1. Render deploy: push de wijzigingen naar GitHub, Render auto-deploy pickt `orlando-executive-engine` op. ANTHROPIC_API_KEY env in Render dashboard zetten.
@@ -81,7 +88,8 @@
 | 4 — AI System Behavior | ✅ Completed | 100% |
 | 5 — Infrastructure Rules | ✅ Completed | 100% |
 | 6 — Long Term Scale | ✅ Completed | 100% |
-| 7 — Executive Intelligence Layer | 🔄 Building | 10% (code live, deploy pending) |
+| 7 — Executive Intelligence Layer | 🔄 Building | 40% (code+DB live, Render deploy pending) |
+| 8 — Acquisition Intelligence Layer | ✅ Completed | 100% (DB+API+UI live, workers todo) |
 
 ### Render services (deploy status)
 
@@ -115,6 +123,8 @@
 ## ⏳ Open / Aandachtspunten
 
 1. **Executive Engine deploy** — Render service `orlando-executive-engine` in render.yaml, code in `executive-engine/`. Push naar GitHub triggert deploy. ANTHROPIC_API_KEY env in Render dashboard zetten. EXECUTIVE_ENGINE_URL env in Vercel zetten na deploy.
+2. **Acquisition scraper workers** — `acq_agent_registry` bevat 8 agents (DealHunter, OffMarketAI, PermitAI, etc.) allemaal `idle`. Geen Render worker gebouwd voor acquisitie. Volgende grote bouwblok.
+2a. **Acquisition Vercel crons** — Nog geen crons aangemaakt voor acquisition scans (bijv. `0 6 * * *` DealHunter scan).
 2. **Eerste agent-runs** — Tot ATLAS gedraaid heeft: Boardroom pagina toont empty state. Trigger handmatig na Render deploy: `POST /api/executive-layer/agents/run/atlas` (kost ~$0.30).
 3. **Autopilot links staan default uit** — `update autopilot_config set enabled=true where link_key in (...)` om autonome scaling te activeren. Begin met `breakout_to_clone` en `recommendation_to_task` als laagrisico.
 4. **Render: orlando-competitor-scanner suspenden** — Orlando kiest expliciet voor Viral Intelligence ipv per-kanaal monitoring. Service nog niet gesuspend, kost ~$7/mo.
