@@ -6,11 +6,15 @@ export const revalidate = 0
 // POST /api/planning/[id]/dispatch
 // Body: { persona?: string }  — default 'ai'
 //
-// Dispatcht een planning_item naar de orchestrator, ongeacht huidige toegewezen waarde.
+// Dispatcht een planning_item direct naar de orchestrator zonder afhankelijk
+// te zijn van de trigger-eligibility check (die alleen 'ai'/'claude-code'/
+// 'orchestrator' accepteert). Werkt ook met persona-namen zoals 'Magnus'.
+//
 // 1. Delete bestaande orchestrator_tasks voor dit planning_item
-// 2. Zet toegewezen = persona (default 'ai'), status = 'open', reset completed_at + notes
-//    → trigger sync_planning_to_orchestrator maakt nieuwe orchestrator_task aan
-// 3. Return de aangemaakte task ID
+// 2. Zet planning_item.toegewezen = persona (voor weergave in UI)
+// 3. INSERT orchestrator_task direct met executor='anthropic' + persona in payload
+// 4. Return de aangemaakte task ID
+
 export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -22,13 +26,13 @@ export async function POST(
   const { id } = await params
   const body = await req.json().catch(() => ({}))
   const persona: string = typeof body.persona === 'string' && body.persona.trim()
-    ? body.persona.trim().toLowerCase()
+    ? body.persona.trim()
     : 'ai'
 
   // Verifieer dat item bestaat
   const { data: planning, error: e0 } = await supabase
     .from('planning_items')
-    .select('id, titel')
+    .select('id, titel, type, priority, beschrijving, project_id, company_id, due_date, start_date')
     .eq('id', id)
     .single()
   if (e0 || !planning) {
@@ -41,8 +45,8 @@ export async function POST(
     .delete()
     .eq('payload->>planning_item_id', id)
 
-  // Update planning_item: trigger maakt nieuwe orchestrator_task aan
-  const { data, error: e1 } = await supabase
+  // Update planning_item: toegewezen = persona (voor weergave), status reset
+  const { data: updatedItem, error: e1 } = await supabase
     .from('planning_items')
     .update({
       toegewezen:   persona,
@@ -54,18 +58,56 @@ export async function POST(
     .eq('id', id)
     .select('*, project:projects(id,name)')
     .single()
-  if (e1) {
-    return NextResponse.json({ error: e1.message }, { status: 500 })
-  }
+  if (e1) return NextResponse.json({ error: e1.message }, { status: 500 })
 
-  // Zoek de net-aangemaakte orchestrator_task
-  const { data: task } = await supabase
+  // Bouw objective uit beschrijving
+  const objective = planning.beschrijving
+    ? [planning.beschrijving]
+    : []
+
+  // Prioriteit mapping
+  const priorityMap: Record<string, number> = { urgent: 1, hoog: 3, normaal: 5, laag: 8 }
+  const priority = priorityMap[planning.priority as string] ?? 5
+
+  // INSERT orchestrator_task direct (bypasses trigger eligibility)
+  const { data: task, error: e2 } = await supabase
     .from('orchestrator_tasks')
+    .insert({
+      company_id:           planning.company_id ?? 'modiwerijo',
+      title:                planning.titel,
+      task_type:            planning.type ?? 'taak',
+      executor:             'anthropic',
+      allowed_actions:      ['*'],
+      priority,
+      status:               'open',
+      interruptible:        true,
+      requires_confirmation: false,
+      safe_mode:            false,
+      background_task:      false,
+      system_critical:      false,
+      estimated_runtime:    'medium',
+      objective,
+      notes:                [],
+      payload: {
+        planning_item_id: id,
+        source:           'planning_items',
+        persona,
+        due_date:         planning.due_date,
+        project_id:       planning.project_id,
+      },
+      run_at:       planning.start_date ?? new Date().toISOString(),
+      attempts:     0,
+      max_attempts: 3,
+    })
     .select('id, status')
-    .eq('payload->>planning_item_id', id)
-    .order('created_at', { ascending: false })
-    .limit(1)
-    .maybeSingle()
+    .single()
 
-  return NextResponse.json({ item: data, dispatched: true, task_id: task?.id ?? null })
+  if (e2) return NextResponse.json({ error: e2.message }, { status: 500 })
+
+  return NextResponse.json({
+    item:        updatedItem,
+    dispatched:  true,
+    task_id:     task.id,
+    persona,
+  })
 }

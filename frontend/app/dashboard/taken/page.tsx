@@ -53,7 +53,7 @@ type ChainStep = {
   finished_at: string | null
 }
 
-type PersonaOption = { name: string; persona_type: string; role: string }
+type PersonaOption = { name: string; persona_type: string; role: string; status?: string }
 
 type Project = { id: string; name: string }
 
@@ -147,6 +147,9 @@ export default function TakenPage() {
   const [dispatching, setDispatching] = useState(false)
   const [dispatchMsg, setDispatchMsg] = useState('')
 
+  // Personas voor dropdown
+  const [personas, setPersonas] = useState<PersonaOption[]>([])
+
   // Chain modal state
   const [showChainBuilder, setShowChainBuilder] = useState(false)
   const [chainPersonas, setChainPersonas] = useState<PersonaOption[]>([])
@@ -171,6 +174,12 @@ export default function TakenPage() {
 
   useEffect(() => {
     fetch('/api/projects').then(r => r.ok ? r.json() : { projects: [] }).then(j => setProjects(j.projects ?? []))
+  }, [])
+
+  useEffect(() => {
+    fetch('/api/agents/personas')
+      .then(r => r.ok ? r.json() : { personas: [] })
+      .then(j => setPersonas(j.personas ?? []))
   }, [])
 
   const filtered = items.filter(i => {
@@ -411,10 +420,11 @@ export default function TakenPage() {
     setDispatching(true)
     setDispatchMsg('')
     try {
+      const persona = target.toegewezen ?? 'ai'
       const res = await fetch(`/api/planning/${target.id}/dispatch`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ persona: 'ai' }),
+        body: JSON.stringify({ persona }),
       })
       const j = await res.json()
       if (res.ok) {
@@ -909,13 +919,28 @@ export default function TakenPage() {
                   />
                 </div>
                 <div>
-                  <label className="block text-[11px] text-white/50 mb-1.5">Toegewezen aan</label>
-                  <input
-                    className="w-full bg-white/[0.06] border border-white/10 rounded-lg px-3 py-2 text-xs text-white placeholder-white/30 focus:outline-none focus:border-indigo-500"
-                    placeholder="Naam…"
+                  <label className="block text-[11px] text-white/50 mb-1.5">Agent / Toegewezen</label>
+                  <select
+                    className="w-full bg-white/[0.06] border border-white/10 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-indigo-500"
                     value={form.toegewezen}
                     onChange={e => setForm(f => ({ ...f, toegewezen: e.target.value }))}
-                  />
+                  >
+                    <option value="">— Geen agent —</option>
+                    {(['specialist','business','core','human'] as const).map(type => {
+                      const group = personas.filter(p => p.persona_type === type)
+                      if (group.length === 0) return null
+                      const label = type === 'specialist' ? 'Specialist' : type === 'business' ? 'Business' : type === 'core' ? 'Core' : 'Human'
+                      return (
+                        <optgroup key={type} label={`── ${label} ──`}>
+                          {group.map(p => (
+                            <option key={p.name} value={p.name}>
+                              {p.name} — {p.role}
+                            </option>
+                          ))}
+                        </optgroup>
+                      )
+                    })}
+                  </select>
                 </div>
               </div>
               <div>
