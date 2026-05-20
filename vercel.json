@@ -39,6 +39,14 @@
     {
       "path": "/api/youtube/cron/content-factory",
       "schedule": "*/10 * * * *"
+    },
+    {
+      "path": "/api/youtube/cron/renderer-dispatch",
+      "schedule": "*/5 * * * *"
+    },
+    {
+      "path": "/api/youtube/cron/renderer-poll",
+      "schedule": "*/2 * * * *"
     }
   ]
 }

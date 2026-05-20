@@ -192,7 +192,17 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ ok: true, skipped: true, reason: 'race_lost', duration_ms: Date.now() - startedAt })
   }
 
+  // Media Holding channels voor round-robin assignment. Let op: FK gaat naar
+  // media_holding_channels (Media Holding OS), NIET naar youtube_channels.
+  // autopilot_render_to_upload trigger vereist channel_id IS NOT NULL.
+  const { data: liveMediaChannels } = await admin
+    .from('media_holding_channels')
+    .select('id, name')
+    .eq('status', 'live')
+  const channelPool: string[] = (liveMediaChannels ?? []).map((c) => c.id as string)
+
   const results: Array<{ task_id: string; status: 'completed'|'failed'; detail: string }> = []
+  let channelIdx = 0
 
   for (const task of tasks) {
     const oppId = task.payload?.viral_opportunity_id
@@ -223,8 +233,15 @@ export async function GET(req: NextRequest) {
       continue
     }
 
-    // Insert content_item — channel_id pakken we uit task payload of laten null
-    const channelId = (task.payload?.channel_id as string | null) ?? null
+    // Channel pick: task.payload.channel_id heeft prio, anders Phase 1 round-robin.
+    // autopilot_render_to_upload trigger vereist channel_id IS NOT NULL.
+    // status='ready' triggert trg_autopilot_ready_to_render → renderer task.
+    // content_brief.hook + visual_prompt triggert trg_extract_hook_to_library.
+    let channelId: string | null = (task.payload?.channel_id as string | null) ?? null
+    if (!channelId && channelPool.length > 0) {
+      channelId = channelPool[channelIdx % channelPool.length]
+      channelIdx++
+    }
     const { data: contentItem, error: insErr } = await admin
       .from('media_holding_content_items')
       .insert({
@@ -236,12 +253,16 @@ export async function GET(req: NextRequest) {
         hook:                  brief.hook,
         duration_seconds:      brief.duration_seconds,
         language:              brief.language,
-        status:                'pending',
-        content_brief:         {
-          generated_by:  'vercel-cron-content-factory',
-          generated_at:  new Date().toISOString(),
-          model:         MODEL,
-          source_score:  opp.virality_score,
+        status:                'ready',
+        content_brief: {
+          generated_by:    'vercel-cron-content-factory',
+          generated_at:    new Date().toISOString(),
+          model:           MODEL,
+          source_score:    opp.virality_score,
+          hook:            brief.hook,
+          visual_prompt:   brief.prompt,
+          suggested_kind:  brief.kind,
+          replay_friendly: brief.kind === 'loop',
         },
       })
       .select('id')
