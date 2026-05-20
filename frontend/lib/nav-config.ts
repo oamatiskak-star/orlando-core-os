@@ -10,6 +10,7 @@ import {
   Cpu, GitBranch, ListChecks, Terminal, Webhook, PlugZap, Lightbulb, BarChart2, SlidersHorizontal, AlertCircle, ScanLine,
   Mail, Shield, GitMerge, Filter, Brain, ShieldAlert, Link,
   Gavel, Lock, Eye, Upload, Server, Tv2,
+  Radar, MapPin, Target, Megaphone, UserPlus, Maximize2,
 } from 'lucide-react'
 
 export type NavModuleDef = {
@@ -158,9 +159,23 @@ export const NAV_MODULES: Record<string, NavModuleDef> = {
   ops_dil:              { key: 'ops_dil',              label: 'Document Intelligence', href: '/dashboard/document-intelligence',          icon: ScanLine },
   infra:                { key: 'infra',                label: 'Infrastructuur',         href: '/dashboard/infra',                          icon: Server },
   worktree_manager:     { key: 'worktree_manager',     label: 'Worktree Manager',       href: '/dashboard/worktrees',                      icon: GitBranch },
+
+  // ── ACQUISITION INTELLIGENCE ─────────────────────────────────────────────
+  acq_deal_desk:      { key: 'acq_deal_desk',      label: 'Deal Desk',            href: '/dashboard/acquisition',                     icon: Target },
+  acq_deals:          { key: 'acq_deals',          label: 'DealRadar',            href: '/dashboard/acquisition/deals',               icon: Radar },
+  acq_build_opps:     { key: 'acq_build_opps',     label: 'BouwRadar',            href: '/dashboard/acquisition/build-opportunities',  icon: HardHat },
+  acq_offmarket:      { key: 'acq_offmarket',      label: 'OffMarket Engine',     href: '/dashboard/acquisition/offmarket',           icon: MapPin },
+  acq_permits:        { key: 'acq_permits',        label: 'Permit Intelligence',  href: '/dashboard/acquisition/permits',             icon: ScrollText },
+  acq_municipalities: { key: 'acq_municipalities', label: 'Gemeente Intel',       href: '/dashboard/acquisition/municipalities',      icon: Landmark },
+  acq_investors:      { key: 'acq_investors',      label: 'Investor Match',       href: '/dashboard/acquisition/investors',           icon: UserPlus },
+  acq_crm:            { key: 'acq_crm',            label: 'Acquisitie CRM',       href: '/dashboard/acquisition/crm',                 icon: Users },
+  acq_outreach:       { key: 'acq_outreach',       label: 'Outreach Automatie',   href: '/dashboard/acquisition/outreach',            icon: Megaphone },
+  acq_analytics:      { key: 'acq_analytics',      label: 'Deal Analytics',       href: '/dashboard/acquisition/analytics',           icon: BarChart3 },
+  acq_settings:       { key: 'acq_settings',       label: 'Acquisition Settings', href: '/dashboard/acquisition/settings',            icon: SlidersHorizontal },
+  acq_scaling:        { key: 'acq_scaling',        label: 'Scaling Engine',       href: '/dashboard/acquisition/scaling',             icon: Maximize2 },
+  acq_agents:         { key: 'acq_agents',         label: 'Acquisition Agents',   href: '/dashboard/acquisition/agents',              icon: Bot },
 }
 
-// ── Per-company nav — exact op basis van Drive mapstructuur ────────────────
 export const COMPANY_NAV: Record<string, CompanyNav> = {
 
   // O.S.M. AMATISKAK
@@ -169,6 +184,7 @@ export const COMPANY_NAV: Record<string, CompanyNav> = {
       { modules: ['dashboard'] },
       { title: 'Juridisch', modules: ['advocaat_dashboard', 'advocaat_dossiers', 'advocaat_curator', 'advocaat_mail_def', 'advocaat_bewijs', 'advocaat_tijdlijn', 'advocaat_strategie', 'advocaat_imports', 'ai_advocaat', 'ai_adv_dossiers', 'ai_adv_contracten', 'ai_adv_deadlines'] },
       { title: 'OSIL', modules: ['osil_dashboard', 'osil_board', 'osil_kansen', 'osil_recovery', 'osil_optimalisatie', 'osil_fiscalist', 'osil_rapport'] },
+      { title: 'Acquisitie', modules: ['acq_deal_desk', 'acq_deals', 'acq_offmarket', 'acq_permits', 'acq_municipalities', 'acq_investors', 'acq_analytics', 'acq_settings'] },
       { title: 'Persoonlijk', modules: ['dyme_os', 'personal_finance', 'dga_loonstrook', 'loonstroken', 'financien'] },
       { title: 'Bedrijven', modules: ['bedrijven'] },
       { title: 'Media Holding', modules: ['media_holding'] },
@@ -187,6 +203,7 @@ export const COMPANY_NAV: Record<string, CompanyNav> = {
       { modules: ['dashboard'] },
       { title: 'Juridisch', modules: ['advocaat_dashboard', 'advocaat_dossiers', 'advocaat_curator', 'advocaat_mail_def', 'advocaat_bewijs', 'advocaat_tijdlijn', 'advocaat_strategie', 'advocaat_imports', 'ai_advocaat', 'ai_adv_dossiers', 'ai_adv_contracten', 'ai_adv_deadlines'] },
       { title: 'OSIL', modules: ['osil_dashboard', 'osil_board', 'osil_kansen', 'osil_recovery', 'osil_optimalisatie', 'osil_fiscalist', 'osil_rapport'] },
+      { title: 'Acquisitie', modules: ['acq_deal_desk', 'acq_deals', 'acq_offmarket', 'acq_investors', 'acq_analytics'] },
       { title: 'Finance', modules: ['finance_incasso', 'moneybird_live', 'financien', 'belasting', 'abonnementen'] },
       { title: 'Bedrijven', modules: ['bedrijven'] },
       {
@@ -260,6 +277,7 @@ export const COMPANY_NAV: Record<string, CompanyNav> = {
       { modules: ['dashboard'] },
       { title: 'Juridisch', modules: ['advocaat_dashboard', 'advocaat_dossiers', 'advocaat_curator', 'advocaat_mail_def', 'advocaat_bewijs', 'advocaat_tijdlijn', 'advocaat_strategie', 'advocaat_imports', 'ai_advocaat', 'ai_adv_dossiers', 'ai_adv_contracten', 'ai_adv_deadlines'] },
       { title: 'Vastgoed', modules: ['vastgoed', 'calculaties', 'projecten', 'planning'] },
+      { title: 'Acquisitie', modules: ['acq_deal_desk', 'acq_deals', 'acq_build_opps', 'acq_offmarket', 'acq_permits', 'acq_municipalities', 'acq_investors', 'acq_crm', 'acq_outreach', 'acq_analytics', 'acq_agents', 'acq_scaling', 'acq_settings'] },
       { title: 'Bedrijven', modules: ['bedrijven'] },
       {
         title: 'Personeel', modules: [

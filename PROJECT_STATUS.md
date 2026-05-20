@@ -2,13 +2,20 @@
 
 > **Sessie protocol** (CLAUDE.md): Lees dit bestand bij elke nieuwe Claude Code sessie. Update na elke voltooide taak. Houd het herstel-blok actueel.
 
-**Laatste update:** 2026-05-20
+**Laatste update:** 2026-05-20 — Acquisition Intelligence Layer gebouwd
 
 ---
 
 ## 🔴 HERSTEL HIER NA CRASH
 
-**Sessie focus (2026-05-20, sessie 2)**: Executive Intelligence Layer (Fase 7) — AI C-suite bovenop Media Holding OS. Volledige sweep in 1 plan. ✅ Migratie 076 applied, code compleet voor agents/crons/dashboard. Deploy nog niet uitgevoerd.
+**Sessie focus (2026-05-20, sessie 2)**: Executive Intelligence Layer (Fase 7) — AI C-suite bovenop Media Holding OS. ✅ Code compleet, deploy pending.
+
+**Sessie focus (2026-05-20, sessie 3)**: Acquisition Intelligence Layer — volledig gebouwd (migration 076, 17 pagina's, 10 API routes, nav-config uitgebreid).
+
+**Wat te doen na crash:**
+1. Run migration `076_acquisition_intelligence.sql` in Supabase (als nog niet gedaan via Executive Layer sessie)
+2. Deploy frontend naar Vercel
+3. Acquisitie sectie zichtbaar bij: OSM, STRKBEHEER, Modiwerijo companies
 
 **Wat is gedaan in deze sessie:**
 - ✅ Migratie 076 applied — 8 nieuwe tabellen (executive_agents/runs/decisions/reports/recommendations/alerts/content_fund_allocations/channel_status_history), 2 views, 3 triggers, 6 agents geseed, 5 nieuwe autopilot links, 11 modules in fase 7.
