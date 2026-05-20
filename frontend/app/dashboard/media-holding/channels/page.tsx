@@ -22,6 +22,11 @@ export default async function ChannelsPage() {
   const cList  = campaigns ?? []
   const dList  = daily ?? []
 
+  // Live views/uploads per channel: prefer real youtube_channels.view_count
+  // (gevuld door sync-stats cron). Fallback naar strategy_daily aggregaat
+  // voor campaign-specifieke metrics. youtube_strategy_daily.views_actual
+  // wordt niet meer gevuld — channel-level totals zijn bron-van-waarheid.
+
   return (
     <div className="space-y-6">
 
@@ -39,8 +44,10 @@ export default async function ChannelsPage() {
         {chList.map(ch => {
           const campaign = cList.find(c => c.channel_slug === ch.channel_slug)
           const chDaily  = dList.filter(d => d.channel_slug === ch.channel_slug)
-          const views    = chDaily.reduce((s, d) => s + (d.views_actual ?? 0), 0)
-          const uploads  = chDaily.reduce((s, d) => s + (d.uploads_actual ?? 0), 0)
+          const dailyViews = chDaily.reduce((s, d) => s + (d.views_actual ?? 0), 0)
+          const dailyUploads = chDaily.reduce((s, d) => s + (d.uploads_actual ?? 0), 0)
+          const views    = dailyViews > 0 ? dailyViews : (ch.view_count ?? 0)
+          const uploads  = dailyUploads > 0 ? dailyUploads : (ch.video_count ?? 0)
           const breakout = chDaily.some(d => d.breakout_detected)
           const color    = ch.accent_color ?? '#6366f1'
 
