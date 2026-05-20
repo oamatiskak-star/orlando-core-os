@@ -47,6 +47,18 @@
     {
       "path": "/api/youtube/cron/renderer-poll",
       "schedule": "*/2 * * * *"
+    },
+    {
+      "path": "/api/executive-layer/cron/decision-engine",
+      "schedule": "0 * * * *"
+    },
+    {
+      "path": "/api/executive-layer/cron/alert-engine",
+      "schedule": "*/15 * * * *"
+    },
+    {
+      "path": "/api/executive-layer/cron/autonomous-scaling",
+      "schedule": "0 */2 * * *"
     }
   ]
 }

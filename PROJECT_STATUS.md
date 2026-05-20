@@ -8,18 +8,42 @@
 
 ## 🔴 HERSTEL HIER NA CRASH
 
-**Sessie focus**: Viral Intelligence Engine van orchestrator_task-poller naar **directe Vercel cron routes**. ✅ AUTONOOM LIVE per 2026-05-20 16:22 UTC — alle 3 endpoints succesvol manueel getriggerd, data binnen (viral 156→234, audio 77→83, trend 346→411).
+**Sessie focus (2026-05-20, sessie 2)**: Executive Intelligence Layer (Fase 7) — AI C-suite bovenop Media Holding OS. Volledige sweep in 1 plan. ✅ Migratie 076 applied, code compleet voor agents/crons/dashboard. Deploy nog niet uitgevoerd.
 
 **Wat is gedaan in deze sessie:**
+- ✅ Migratie 076 applied — 8 nieuwe tabellen (executive_agents/runs/decisions/reports/recommendations/alerts/content_fund_allocations/channel_status_history), 2 views, 3 triggers, 6 agents geseed, 5 nieuwe autopilot links, 11 modules in fase 7.
+- ✅ Render service `executive-engine/` gebouwd — 6 LLM agents (ATLAS opus, 5 specialisten sonnet), node-cron schedules, Express health/run endpoints, CLI runner.
+- ✅ 3 Vercel crons toegevoegd: `/api/executive-layer/cron/{decision-engine,alert-engine,autonomous-scaling}`.
+- ✅ Shared frontend lib `frontend/lib/executive-layer/` — types, decision-engine (rule-based), alert-detectors (7 detectors), autopilot-links (5 links).
+- ✅ 12 API routes onder `/api/executive-layer/` (decisions, reports, recommendations, alerts, agents, fund, kpis).
+- ✅ 5 shared executive components in `frontend/components/executive/`.
+- ✅ Nieuwe top-tab `Executive` in media-holding layout + 7 sub-pages (Overview, Boardroom, Channels, Retention Lab, Algorithm, Compete, Fund).
+- ✅ `vercel.json` + `render.yaml` ge-update voor `orlando-executive-engine` service.
+
+**Direct herstelbaar door:**
+1. Render deploy: push de wijzigingen naar GitHub, Render auto-deploy pickt `orlando-executive-engine` op. ANTHROPIC_API_KEY env in Render dashboard zetten.
+2. Vercel env `EXECUTIVE_ENGINE_URL=https://orlando-executive-engine.onrender.com` zetten.
+3. Eerste manual trigger:
+   ```bash
+   # Trigger Decision Engine (geen LLM kosten)
+   curl https://<vercel-url>/api/executive-layer/cron/decision-engine -H "Authorization: Bearer $CRON_SECRET"
+   # Trigger Alert Engine
+   curl https://<vercel-url>/api/executive-layer/cron/alert-engine -H "Authorization: Bearer $CRON_SECRET"
+   # Trigger ATLAS (kost ~$0.30)
+   curl -X POST https://<vercel-url>/api/executive-layer/agents/run/atlas
+   ```
+4. Open `/dashboard/media-holding/executive` om resultaten te zien.
+
+---
+
+## 🚨 Vorige sessie focus (gearchiveerd)
+
+**2026-05-20 sessie 1**: Viral Intelligence Engine van orchestrator_task-poller naar **directe Vercel cron routes**. ✅ AUTONOOM LIVE per 16:22 UTC — alle 3 endpoints succesvol manueel getriggerd, data binnen (viral 156→234, audio 77→83, trend 346→411).
+
 - ✅ Media Holding inhaalsprong (Settings, Analytics, Compete, Archives modules + API routes + migraties 073-075)
-- ✅ Competitor Surveillance scanner-worker (gebouwd, gedeployed, paused — Orlando vindt Viral Intelligence afdoende)
-- ✅ Workers UI live countdown ipv `paused` label
-- ❌ ~~autopilot-tick cron~~ (verwijderd — orchestrator_task-aanpak werkte niet; geen poller actief)
-- ✅ 3 directe Vercel cron routes met YT Data API call:
-  - `/api/youtube/cron/viral-scan` (elke 4u, `0 */4`) → viral_opportunities
-  - `/api/youtube/cron/audio-scan` (elke 4u, `15 */4`) → audio_library (categoryId=10)
-  - `/api/youtube/cron/trend-scan` (elke 4u, `30 */4`) → trend_scanner_signals (uit viral_opportunities)
-- ✅ Shared helper `frontend/lib/youtube-public.ts` (native fetch, geen googleapis dep)
+- ✅ Competitor Surveillance scanner-worker (gebouwd, gedeployed, paused)
+- ✅ 3 directe Vercel cron routes voor viral/audio/trend scan
+- ✅ Shared helper `frontend/lib/youtube-public.ts`
 
 **Direct herstelbaar door:**
 1. Manueel triggeren ter validatie:
@@ -40,7 +64,7 @@
 
 ## 📊 Module status
 
-### Media Holding OS (6/6 fases completed, 23/23 modules live)
+### Media Holding OS (6/6 fases completed, 23/23 modules live + Fase 7 in build)
 
 | Fase | Status | Voortgang |
 |---|---|---|
@@ -50,6 +74,7 @@
 | 4 — AI System Behavior | ✅ Completed | 100% |
 | 5 — Infrastructure Rules | ✅ Completed | 100% |
 | 6 — Long Term Scale | ✅ Completed | 100% |
+| 7 — Executive Intelligence Layer | 🔄 Building | 10% (code live, deploy pending) |
 
 ### Render services (deploy status)
 
@@ -60,6 +85,7 @@
 | `orlando-mail-engine` | ✅ Live |
 | `orlando-competitor-scanner` | 🔄 Live maar Orlando wil suspenden (DB workers op `paused`) |
 | `orlando-redis` | ✅ Live |
+| `orlando-executive-engine` | ⏳ Code klaar, render.yaml ge-update — eerste deploy pending |
 
 ### Vercel crons (6 actief)
 
@@ -73,15 +99,21 @@
 | `viral-scan` | `0 */4 * * *` | Direct YT Data API → viral_opportunities |
 | `audio-scan` | `15 */4 * * *` | Direct YT mostPopular cat=10 → audio_library |
 | `trend-scan` | `30 */4 * * *` | Extract keywords uit viral_opportunities → trend_scanner_signals |
+| `decision-engine` | `0 * * * *` | Rule-based channel classificatie → executive_decisions |
+| `alert-engine` | `*/15 * * * *` | 7 detectors → executive_alerts |
+| `autonomous-scaling` | `0 */2 * * *` | Autopilot links (default uit, threshold tunable) |
 
 ---
 
 ## ⏳ Open / Aandachtspunten
 
-1. **Render: orlando-competitor-scanner suspenden** — Orlando kiest expliciet voor Viral Intelligence ipv per-kanaal monitoring. Service nog niet gesuspend, kost ~$7/mo.
-2. **Worker heartbeat bug** — `upload-engine-youtube.last_seen` wordt niet bijgewerkt terwijl worker wel actief is. Functioneel geen issue. Te debuggen in `youtube-engine/src/workers/youtube-upload-worker.ts` heartbeat-pad.
-3. **Content factory pipeline stil sinds 20:26 gisteren** — viral data komt binnen via Vercel crons maar genereert geen nieuwe content_items/renders/uploads. Externe orchestrator-poller die we voor viral omzeilden, blokkeert nog steeds de downstream chain.
-4. **Viral-scanner-tiktok** — status `offline`, nooit gebouwd. Geen TikTok publieke API met API-key zoals YouTube Data API v3. Out of scope.
+1. **Executive Engine deploy** — Render service `orlando-executive-engine` in render.yaml, code in `executive-engine/`. Push naar GitHub triggert deploy. ANTHROPIC_API_KEY env in Render dashboard zetten. EXECUTIVE_ENGINE_URL env in Vercel zetten na deploy.
+2. **Eerste agent-runs** — Tot ATLAS gedraaid heeft: Boardroom pagina toont empty state. Trigger handmatig na Render deploy: `POST /api/executive-layer/agents/run/atlas` (kost ~$0.30).
+3. **Autopilot links staan default uit** — `update autopilot_config set enabled=true where link_key in (...)` om autonome scaling te activeren. Begin met `breakout_to_clone` en `recommendation_to_task` als laagrisico.
+4. **Render: orlando-competitor-scanner suspenden** — Orlando kiest expliciet voor Viral Intelligence ipv per-kanaal monitoring. Service nog niet gesuspend, kost ~$7/mo.
+5. **Worker heartbeat bug** — `upload-engine-youtube.last_seen` wordt niet bijgewerkt terwijl worker wel actief is. Functioneel geen issue.
+6. **Content factory pipeline stil sinds 20:26 gisteren** — viral data komt binnen via Vercel crons maar genereert geen nieuwe content_items/renders/uploads. Externe orchestrator-poller die we voor viral omzeilden, blokkeert nog steeds de downstream chain.
+7. **Viral-scanner-tiktok** — status `offline`, nooit gebouwd. Geen TikTok publieke API met API-key zoals YouTube Data API v3. Out of scope.
 
 ## ✅ Upload engine fix (2026-05-20 17:20 UTC)
 

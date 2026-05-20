@@ -125,6 +125,31 @@ services:
       - key: LOG_LEVEL
         value: "info"
 
+  - type: web
+    name: orlando-executive-engine
+    runtime: node
+    rootDir: executive-engine
+    buildCommand: npm install --include=dev && npm run build
+    startCommand: node dist/index.js
+    plan: starter
+    autoDeploy: true
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: "3004"
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      - key: AGENT_TIMEZONE
+        value: Europe/Amsterdam
+      - key: LOG_LEVEL
+        value: "info"
+
   - type: redis
     name: orlando-redis
     plan: starter
