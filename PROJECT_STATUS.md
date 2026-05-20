@@ -8,18 +8,33 @@
 
 ## 🔴 HERSTEL HIER NA CRASH
 
-**Sessie focus**: Media Holding OS — Viral Intelligence auto-trigger ingericht via Vercel cron `/api/youtube/cron/autopilot-tick` (elke 4u). Wacht op eerstvolgende cron-firing om te valideren dat scanners weer data binnenhalen. Vóór die tijd kan handmatig worden getriggerd via `Start scan` knop op `/dashboard/media-holding/viral-intelligence`.
+**Sessie focus**: Viral Intelligence Engine van orchestrator_task-poller naar **directe Vercel cron routes**. Externe poller (locatie onbekend, draaide tot 19:23 gisteren) omzeild — viral/audio/trend scans gebeuren nu volledig in Vercel.
 
 **Wat is gedaan in deze sessie:**
 - ✅ Media Holding inhaalsprong (Settings, Analytics, Compete, Archives modules + API routes + migraties 073-075)
 - ✅ Competitor Surveillance scanner-worker (gebouwd, gedeployed, paused — Orlando vindt Viral Intelligence afdoende)
 - ✅ Workers UI live countdown ipv `paused` label
-- ✅ Vercel cron `/api/youtube/cron/autopilot-tick` (vervangt manuele dispatch; triggert cron_dispatcher → viral + trend + audio scanners)
+- ❌ ~~autopilot-tick cron~~ (verwijderd — orchestrator_task-aanpak werkte niet; geen poller actief)
+- ✅ 3 directe Vercel cron routes met YT Data API call:
+  - `/api/youtube/cron/viral-scan` (elke 4u, `0 */4`) → viral_opportunities
+  - `/api/youtube/cron/audio-scan` (elke 4u, `15 */4`) → audio_library (categoryId=10)
+  - `/api/youtube/cron/trend-scan` (elke 4u, `30 */4`) → trend_scanner_signals (uit viral_opportunities)
+- ✅ Shared helper `frontend/lib/youtube-public.ts` (native fetch, geen googleapis dep)
 
 **Direct herstelbaar door:**
-1. Trigger handmatige tick voor validatie: `curl -H "Authorization: Bearer $CRON_SECRET" https://<vercel-url>/api/youtube/cron/autopilot-tick`
-2. Of via UI: `Start scan` op `/dashboard/media-holding/viral-intelligence`
-3. Verifieer `viral_opportunities` rij-aanwas: `select count(*), max(captured_at) from viral_opportunities;`
+1. Manueel triggeren ter validatie:
+   ```bash
+   curl -H "Authorization: Bearer $CRON_SECRET" https://<vercel-url>/api/youtube/cron/viral-scan
+   curl -H "Authorization: Bearer $CRON_SECRET" https://<vercel-url>/api/youtube/cron/audio-scan
+   curl -H "Authorization: Bearer $CRON_SECRET" https://<vercel-url>/api/youtube/cron/trend-scan
+   ```
+2. Vereist: `YOUTUBE_DATA_API_KEY` en `CRON_SECRET` in Vercel env (allebei al gezet).
+3. Verifieer rij-aanwas:
+   ```sql
+   select 'viral' t, count(*), max(captured_at) from viral_opportunities
+   union all select 'audio', count(*), max(captured_at) from audio_library
+   union all select 'trend', count(*), max(captured_at) from trend_scanner_signals;
+   ```
 
 ---
 
@@ -55,7 +70,9 @@
 | `snapshot-daily-stats` | `55 23 * * *` | Dagelijkse snapshot |
 | `run-pipeline` | `0 2 * * *` | Generatie/publish pipeline |
 | `sync-video-analytics` | `0 10 * * *` | Analytics syncen |
-| `autopilot-tick` | `0 */4 * * *` | **Nieuw** — triggert viral + trend + audio scanners |
+| `viral-scan` | `0 */4 * * *` | Direct YT Data API → viral_opportunities |
+| `audio-scan` | `15 */4 * * *` | Direct YT mostPopular cat=10 → audio_library |
+| `trend-scan` | `30 */4 * * *` | Extract keywords uit viral_opportunities → trend_scanner_signals |
 
 ---
 
