@@ -19,13 +19,41 @@ export const maxDuration = 60
 // Override via env CRON_RENDER_MODEL.
 
 const BATCH_SIZE = 5
-const DEFAULT_MODEL = process.env.CRON_RENDER_MODEL ?? 'minimax/video-01'
+const DEFAULT_MODEL = process.env.CRON_RENDER_MODEL ?? 'bytedance/seedance-1-lite'
 
 interface OpenRenderTask {
   id: string
   payload: { content_item_id?: string; persona?: string }
   attempts: number
   max_attempts: number | null
+}
+
+// Per-model input adapter — elke video generator heeft andere parameter-namen.
+function buildModelInput(model: string, prompt: string): Record<string, unknown> {
+  const clipped = prompt.slice(0, 4000)
+  if (model.startsWith('bytedance/seedance')) {
+    return {
+      prompt:        clipped,
+      aspect_ratio:  '9:16',
+      duration:      10,        // 5 of 10 sec; 10 = max
+      resolution:    '720p',    // 480p of 720p
+      camera_fixed:  false,
+    }
+  }
+  if (model.startsWith('kwaivgi/kling')) {
+    return {
+      prompt:       clipped,
+      aspect_ratio: '9:16',
+      duration:     5,
+    }
+  }
+  if (model.startsWith('minimax/video')) {
+    return {
+      prompt:           clipped,
+      prompt_optimizer: true,
+    }
+  }
+  return { prompt: clipped }
 }
 
 export async function GET(req: NextRequest) {
@@ -99,10 +127,7 @@ export async function GET(req: NextRequest) {
 
     // Start Replicate prediction
     try {
-      const prediction = await createPrediction(DEFAULT_MODEL, {
-        prompt:           item.prompt.slice(0, 4000),
-        prompt_optimizer: true,
-      })
+      const prediction = await createPrediction(DEFAULT_MODEL, buildModelInput(DEFAULT_MODEL, item.prompt))
 
       await admin.from('media_holding_content_items').update({
         status:             'rendering',
