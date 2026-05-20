@@ -6,8 +6,10 @@
   "scripts": {
     "build": "tsc",
     "start": "node dist/index.js",
+    "start:competitor-scanner": "node dist/competitor-scanner/index.js",
     "dev": "ts-node --transpile-only src/index.ts",
-    "dev:watch": "nodemon --exec ts-node --transpile-only src/index.ts"
+    "dev:watch": "nodemon --exec ts-node --transpile-only src/index.ts",
+    "dev:competitor-scanner": "ts-node --transpile-only src/competitor-scanner/index.ts"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.45.0",

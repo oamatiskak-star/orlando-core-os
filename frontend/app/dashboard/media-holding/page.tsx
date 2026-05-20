@@ -24,18 +24,22 @@ const FASE_STYLE = {
 export default async function MediaHoldingPage() {
   const supabase = await createClient()
 
+  const todayStart = new Date(); todayStart.setHours(0, 0, 0, 0)
+
   const [
     { data: allChannels },
     { count: queuedCount },
     { data: phases },
     { data: modules },
     { data: workers },
+    { data: metricsToday },
   ] = await Promise.all([
     supabase.from('youtube_channels').select('id,naam,name,view_count,subscriber_count,oauth_connected,daily_upload_target,content_language,shorts_first'),
     supabase.from('youtube_videos').select('id', { count: 'exact', head: true }).eq('status', 'queued'),
     supabase.from('media_holding_phases').select('*').order('fase_nr'),
     supabase.from('media_holding_modules').select('fase_nr,status'),
     supabase.from('media_holding_workers').select('status'),
+    supabase.from('media_holding_metrics').select('views').gte('snapshot_at', todayStart.toISOString()),
   ])
 
   const chList     = allChannels ?? []
@@ -47,6 +51,7 @@ export default async function MediaHoldingPage() {
   const wList     = workers ?? []
   const activeWorkers = wList.filter(w => ['idle', 'running'].includes(w.status)).length
   const progressPct   = Math.min(100, Math.round((totalViews / PHASE1_TARGET) * 100))
+  const viewsToday    = (metricsToday ?? []).reduce((s, m) => s + Number(m.views ?? 0), 0)
 
   return (
     <div className="space-y-6">
@@ -71,7 +76,7 @@ export default async function MediaHoldingPage() {
       {/* KPI strip */}
       <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
         <KpiCard label="Totaal views"    value={num(totalViews)}              color="text-white" />
-        <KpiCard label="Views vandaag"   value="—"                            color="text-white/50" />
+        <KpiCard label="Views vandaag"   value={num(viewsToday)}              color={viewsToday > 0 ? 'text-white' : 'text-white/50'} />
         <KpiCard label="Kanalen actief"  value={String(connectedCount)}       color="text-emerald-300" />
         <KpiCard label="Upload queue"    value={String(queuedCount ?? 0)}     color="text-violet-300" />
         <KpiCard label="Workers"         value={`${activeWorkers}/${wList.length}`} color="text-sky-300" />

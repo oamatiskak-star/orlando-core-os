@@ -13,3 +13,5 @@ executor/*.log
 monitoring-agent/node_modules/
 monitoring-agent/dist/
 content-worker/node_modules/
+youtube-engine/node_modules/
+youtube-engine/dist/

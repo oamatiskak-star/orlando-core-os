@@ -3,14 +3,21 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import clsx from 'clsx'
-import { LayoutGrid, Layers, Video, Clapperboard, Server } from 'lucide-react'
+import {
+  LayoutGrid, Layers, Video, Clapperboard, Server,
+  BarChart3, Crosshair, Settings as SettingsIcon, Archive,
+} from 'lucide-react'
 
 const TABS = [
-  { label: 'Overzicht',       href: '/dashboard/media-holding',          icon: LayoutGrid },
-  { label: 'Build Tracker',   href: '/dashboard/media-holding/build',    icon: Layers },
-  { label: 'Channels',        href: '/dashboard/media-holding/channels', icon: Video },
-  { label: 'Content Factory', href: '/dashboard/media-holding/factory',  icon: Clapperboard },
-  { label: 'Workers',         href: '/dashboard/media-holding/workers',  icon: Server },
+  { label: 'Overzicht',       href: '/dashboard/media-holding',           icon: LayoutGrid },
+  { label: 'Build Tracker',   href: '/dashboard/media-holding/build',     icon: Layers },
+  { label: 'Channels',        href: '/dashboard/media-holding/channels',  icon: Video },
+  { label: 'Content Factory', href: '/dashboard/media-holding/factory',   icon: Clapperboard },
+  { label: 'Analytics',       href: '/dashboard/media-holding/analytics', icon: BarChart3 },
+  { label: 'Compete',         href: '/dashboard/media-holding/compete',   icon: Crosshair },
+  { label: 'Workers',         href: '/dashboard/media-holding/workers',   icon: Server },
+  { label: 'Archives',        href: '/dashboard/media-holding/archives',  icon: Archive },
+  { label: 'Settings',        href: '/dashboard/media-holding/settings',  icon: SettingsIcon },
 ]
 
 export default function MediaHoldingLayout({ children }: { children: React.ReactNode }) {

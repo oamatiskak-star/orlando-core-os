@@ -101,6 +101,30 @@ services:
       - key: LOG_LEVEL
         value: "info"
 
+  - type: worker
+    name: orlando-competitor-scanner
+    runtime: node
+    rootDir: youtube-engine
+    buildCommand: npm install --include=dev && npm run build
+    startCommand: node dist/competitor-scanner/index.js
+    plan: starter
+    autoDeploy: true
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+      - key: YOUTUBE_DATA_API_KEY
+        sync: false
+      - key: COMPETITOR_WORKER_NAME
+        value: competitor-surveillance-yt
+      - key: COMPETITOR_PLATFORM
+        value: youtube
+      - key: LOG_LEVEL
+        value: "info"
+
   - type: redis
     name: orlando-redis
     plan: starter
