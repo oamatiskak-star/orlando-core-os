@@ -69,7 +69,9 @@ export async function GET(req: NextRequest) {
 
   // Maak orchestrator_tasks aan voor content_factory
   const now = new Date().toISOString()
-  const inserts = toFeed.map((opp, i) => ({
+  const inserts = toFeed.map((opp) => ({
+    company_id:     'modiwerijo',
+    title:          `Forge brief: ${String(opp.title ?? 'viral opp').slice(0, 80)}`,
     executor:       'content_factory',
     status:         'open',
     priority:       Math.max(1, 5 - Math.floor((opp.virality_score as number ?? 50) / 20)),
