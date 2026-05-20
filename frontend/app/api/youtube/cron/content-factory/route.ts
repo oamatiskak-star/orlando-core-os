@@ -157,23 +157,39 @@ export async function GET(req: NextRequest) {
   const startedAt = Date.now()
   const admin = createAdminClient()
 
-  // Claim batch open tasks (priority asc, oldest first)
-  const { data: claimed, error: claimErr } = await admin
+  // Claim batch open tasks — 2-staps want PostgREST UPDATE ondersteunt geen ORDER BY:
+  //   1) select kandidaat-IDs in juiste volgorde
+  //   2) update WHERE id IN (...) + status='open' (concurrency safety)
+  const nowIso = new Date().toISOString()
+  const { data: candidates, error: selErr } = await admin
     .from('orchestrator_tasks')
-    .update({ status: 'running', started_at: new Date().toISOString(), updated_at: new Date().toISOString() })
+    .select('id, payload, objective, attempts, max_attempts')
     .eq('status', 'open')
     .eq('executor', 'content_factory')
-    .lte('run_at', new Date().toISOString())
+    .lte('run_at', nowIso)
     .order('priority', { ascending: true })
     .order('created_at', { ascending: true })
     .limit(BATCH_SIZE)
+
+  if (selErr) return NextResponse.json({ error: selErr.message }, { status: 500 })
+  const candidateList = candidates ?? []
+  if (candidateList.length === 0) {
+    return NextResponse.json({ ok: true, skipped: true, reason: 'no_open_tasks', duration_ms: Date.now() - startedAt })
+  }
+
+  const ids = candidateList.map((c) => c.id as string)
+  const { data: claimed, error: claimErr } = await admin
+    .from('orchestrator_tasks')
+    .update({ status: 'running', started_at: nowIso, updated_at: nowIso })
+    .in('id', ids)
+    .eq('status', 'open') // race guard
     .select('id, payload, objective, attempts, max_attempts')
 
   if (claimErr) return NextResponse.json({ error: claimErr.message }, { status: 500 })
   const tasks = (claimed ?? []) as OpenTask[]
 
   if (tasks.length === 0) {
-    return NextResponse.json({ ok: true, skipped: true, reason: 'no_open_tasks', duration_ms: Date.now() - startedAt })
+    return NextResponse.json({ ok: true, skipped: true, reason: 'race_lost', duration_ms: Date.now() - startedAt })
   }
 
   const results: Array<{ task_id: string; status: 'completed'|'failed'; detail: string }> = []
