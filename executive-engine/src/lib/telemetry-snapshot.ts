@@ -121,17 +121,12 @@ export async function fetchChannelSnapshots(): Promise<ChannelSnapshot[]> {
   const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()
   const fourteenDaysAgo = new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString()
 
-  const [{ data: metrics7d }, { data: metrics24h }, { data: contentItems }] = await Promise.all([
-    supabase.rpc('exec_sql', { sql: 'select 1' }).then(() => ({ data: null })).catch(() => ({ data: null })),
-    supabase.rpc('exec_sql', { sql: 'select 1' }).then(() => ({ data: null })).catch(() => ({ data: null })),
-    supabase
-      .from('media_holding_content_items')
-      .select('channel_id,created_at')
-      .gte('created_at', fourteenDaysAgo)
-      .in('channel_id', channelIds),
-  ])
+  const { data: contentItems } = await supabase
+    .from('media_holding_content_items')
+    .select('channel_id,created_at')
+    .gte('created_at', fourteenDaysAgo)
+    .in('channel_id', channelIds)
 
-  // metrics fallback via direct queries because RPC may not exist
   const { data: metricsRows } = await supabase
     .from('media_holding_metrics')
     .select('views,retention_pct,snapshot_at,content_item_id,upload_id')
