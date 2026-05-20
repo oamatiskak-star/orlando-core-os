@@ -19,6 +19,10 @@
     {
       "path": "/api/youtube/cron/sync-video-analytics",
       "schedule": "0 10 * * *"
+    },
+    {
+      "path": "/api/orchestrator/cron/execute-tasks",
+      "schedule": "*/5 * * * *"
     }
   ]
 }
