@@ -10,7 +10,11 @@
     },
     {
       "path": "/api/youtube/cron/sync-stats",
-      "schedule": "0 8 * * *"
+      "schedule": "*/30 * * * *"
+    },
+    {
+      "path": "/api/youtube/cron/sync-to-media-metrics",
+      "schedule": "*/30 * * * *"
     },
     {
       "path": "/api/youtube/cron/snapshot-daily-stats",
@@ -22,7 +26,7 @@
     },
     {
       "path": "/api/youtube/cron/sync-video-analytics",
-      "schedule": "0 10 * * *"
+      "schedule": "*/30 * * * *"
     },
     {
       "path": "/api/youtube/cron/viral-scan",
