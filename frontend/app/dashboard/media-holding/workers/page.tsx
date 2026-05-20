@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
-import { Users, ChevronLeft } from 'lucide-react'
+import { Users, ChevronLeft, Timer } from 'lucide-react'
 import clsx from 'clsx'
 
 type Worker = {
@@ -13,6 +13,7 @@ type Worker = {
   last_seen: string | null
   queue_depth: number
   last_error: string | null
+  config: { sweep_interval_min?: number } | null
 }
 
 const STATUS_COLORS: Record<string, string> = {
@@ -31,15 +32,37 @@ function fmtAge(iso: string | null): string {
   return `${Math.floor(sec / 3600)}u geleden`
 }
 
+function nextSweepSeconds(w: Worker): number | null {
+  const interval = Number(w.config?.sweep_interval_min ?? 0)
+  if (!interval || !w.last_seen) return null
+  const nextAt = new Date(w.last_seen).getTime() + interval * 60_000
+  return Math.max(0, Math.floor((nextAt - Date.now()) / 1000))
+}
+
+function fmtCountdown(seconds: number): string {
+  if (seconds <= 0) return 'nu'
+  const m = Math.floor(seconds / 60)
+  const s = seconds % 60
+  if (m === 0) return `${s}s`
+  return `${m}m ${s.toString().padStart(2, '0')}s`
+}
+
 export default function WorkersPage() {
   const [workers, setWorkers] = useState<Worker[]>([])
   const [loading, setLoading] = useState(true)
+  const [, setTick] = useState(0)
 
   useEffect(() => {
     fetch('/api/media-holding/workers')
       .then((r) => (r.ok ? r.json() : { workers: [] }))
       .then((j) => { setWorkers(j.workers ?? []); setLoading(false) })
       .catch(() => setLoading(false))
+  }, [])
+
+  // Tick elke seconde voor live countdown
+  useEffect(() => {
+    const id = setInterval(() => setTick((t) => t + 1), 1000)
+    return () => clearInterval(id)
   }, [])
 
   return (
@@ -78,20 +101,33 @@ export default function WorkersPage() {
               </tr>
             </thead>
             <tbody>
-              {workers.map((w) => (
-                <tr key={w.id} className="border-b border-white/5 hover:bg-white/[0.02]">
-                  <td className="px-4 py-3 text-xs text-white/85">{w.name}</td>
-                  <td className="px-4 py-3 text-xs text-white/55">{w.kind}</td>
-                  <td className="px-4 py-3">
-                    <span className={clsx('px-2 py-0.5 rounded-full text-[10px] font-medium', STATUS_COLORS[w.status] ?? STATUS_COLORS.offline)}>
-                      {w.status}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3 text-xs text-white/65">{w.queue_depth}</td>
-                  <td className="px-4 py-3 text-xs text-white/55">{fmtAge(w.last_seen)}</td>
-                  <td className="px-4 py-3 text-xs text-red-400/80 max-w-[300px] truncate">{w.last_error ?? '—'}</td>
-                </tr>
-              ))}
+              {workers.map((w) => {
+                const remaining = w.status === 'paused' ? nextSweepSeconds(w) : null
+                const showCountdown = remaining !== null
+                return (
+                  <tr key={w.id} className="border-b border-white/5 hover:bg-white/[0.02]">
+                    <td className="px-4 py-3 text-xs text-white/85">{w.name}</td>
+                    <td className="px-4 py-3 text-xs text-white/55">{w.kind}</td>
+                    <td className="px-4 py-3">
+                      {showCountdown ? (
+                        <span
+                          className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium bg-indigo-500/10 text-indigo-300 tabular-nums"
+                          title={`Sweep elke ${w.config?.sweep_interval_min ?? '?'} min — paused, telt door`}
+                        >
+                          <Timer size={10} /> {fmtCountdown(remaining ?? 0)}
+                        </span>
+                      ) : (
+                        <span className={clsx('px-2 py-0.5 rounded-full text-[10px] font-medium', STATUS_COLORS[w.status] ?? STATUS_COLORS.offline)}>
+                          {w.status}
+                        </span>
+                      )}
+                    </td>
+                    <td className="px-4 py-3 text-xs text-white/65">{w.queue_depth}</td>
+                    <td className="px-4 py-3 text-xs text-white/55">{fmtAge(w.last_seen)}</td>
+                    <td className="px-4 py-3 text-xs text-red-400/80 max-w-[300px] truncate">{w.last_error ?? '—'}</td>
+                  </tr>
+                )
+              })}
             </tbody>
           </table>
         </div>
