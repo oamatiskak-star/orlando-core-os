@@ -2,6 +2,8 @@ import { Worker, Job } from 'bullmq'
 import ffmpeg from 'fluent-ffmpeg'
 import path from 'path'
 import fs from 'fs'
+import { Readable } from 'stream'
+import { pipeline } from 'stream/promises'
 import { getRedis, QUEUE_NAMES, NormalizeJobData, enqueueUpload } from '../lib/redis-queue'
 import { getSupabase, updateQueueStatus, addLog } from '../lib/supabase'
 import { notifyUploadFailure } from '../lib/notifications'
@@ -11,6 +13,40 @@ const log = workerLogger('ffmpeg-normalizer')
 
 const THREADS    = parseInt(process.env.FFMPEG_THREADS ?? '2')
 const MUSIC_DIR  = process.env.MUSIC_ASSETS_DIR ?? '/opt/orlando-videos/music'
+const DOWNLOAD_DIR = process.env.VIDEO_OUTPUT_DIR ?? '/tmp/orlando-videos'
+
+// Stream remote URL → lokale file. Idempotent: skip als file al bestaat
+// met size > 0. Vervangt inputPath in de normalizer wanneer atlas_upload
+// een Replicate.delivery / Supabase Storage / andere HTTP URL als file_path
+// heeft gezet.
+async function ensureLocalInput(input: string, videoId: string): Promise<string> {
+  if (!/^https?:\/\//i.test(input)) return input
+
+  if (!fs.existsSync(DOWNLOAD_DIR)) fs.mkdirSync(DOWNLOAD_DIR, { recursive: true })
+  const localPath = path.join(DOWNLOAD_DIR, `${videoId}_source.mp4`)
+
+  if (fs.existsSync(localPath) && fs.statSync(localPath).size > 0) {
+    log.info('Source already downloaded — hergebruik', { videoId, localPath })
+    return localPath
+  }
+
+  log.info('Downloading remote source', { videoId, url: input.slice(0, 100) })
+  const res = await fetch(input)
+  if (!res.ok || !res.body) {
+    throw new Error(`Download HTTP ${res.status}: ${input.slice(0, 80)}`)
+  }
+
+  const fileStream = fs.createWriteStream(localPath)
+  await pipeline(Readable.fromWeb(res.body as unknown as Parameters<typeof Readable.fromWeb>[0]), fileStream)
+
+  const size = fs.statSync(localPath).size
+  if (size === 0) {
+    fs.unlinkSync(localPath)
+    throw new Error(`Download produced empty file: ${input.slice(0, 80)}`)
+  }
+  log.info('Download complete', { videoId, sizeBytes: size, localPath })
+  return localPath
+}
 
 function pickMusicFile(): string | null {
   try {
@@ -117,11 +153,15 @@ export function startFfmpegNormalizerWorker(): Worker {
   const worker = new Worker<NormalizeJobData>(
     QUEUE_NAMES.NORMALIZE,
     async (job: Job<NormalizeJobData>) => {
-      const { queueId, videoId, inputPath, outputPath } = job.data
+      const { queueId, videoId, outputPath } = job.data
+      let { inputPath } = job.data
       log.info('Starting normalization', { queueId, inputPath })
 
       await updateQueueStatus(queueId, 'normalizing')
       await addLog(queueId, videoId, 'info', 'ffmpeg normalization started', { inputPath, outputPath })
+
+      // Support remote URLs (Replicate, Supabase Storage, etc.) — download eerst
+      inputPath = await ensureLocalInput(inputPath, videoId)
 
       if (!fs.existsSync(inputPath)) {
         throw new Error(`Input file not found: ${inputPath}`)
