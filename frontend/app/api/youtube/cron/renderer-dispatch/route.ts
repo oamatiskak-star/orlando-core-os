@@ -19,7 +19,10 @@ export const maxDuration = 60
 // Override via env CRON_RENDER_MODEL.
 
 const BATCH_SIZE = 5
-const DEFAULT_MODEL = process.env.CRON_RENDER_MODEL ?? 'bytedance/seedance-1-lite'
+// minimax/video-01 is bewezen werkend in oude flow + stabieler dan seedance
+// (Bytedance hosted model bij Replicate had E004 service unavailable errors).
+// Override via CRON_RENDER_MODEL env var voor experimenten.
+const DEFAULT_MODEL = process.env.CRON_RENDER_MODEL ?? 'minimax/video-01'
 
 interface OpenRenderTask {
   id: string
