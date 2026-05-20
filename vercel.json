@@ -91,6 +91,14 @@
     {
       "path": "/api/acquisition/cron/director-briefing",
       "schedule": "30 7 * * *"
+    },
+    {
+      "path": "/api/acquisition/cron/bouw-scan",
+      "schedule": "0 6 * * *"
+    },
+    {
+      "path": "/api/acquisition/cron/distress-scan",
+      "schedule": "30 6 * * *"
     }
   ]
 }
