@@ -67,12 +67,24 @@ export async function GET(req: NextRequest) {
     }
   }
 
+  // Dedup binnen deze run op (source_platform, external_id) — zelfde video
+  // verschijnt vaak in meerdere regions. PostgreSQL ON CONFLICT kan niet
+  // dezelfde row 2× raken in één statement. Houd entry met hoogste velocity.
+  const dedupMap = new Map<string, Record<string, unknown>>()
+  for (const row of allRows) {
+    const key = `${row.source_platform}:${row.external_id}`
+    const existing = dedupMap.get(key)
+    if (!existing || Number(row.view_velocity) > Number(existing.view_velocity)) {
+      dedupMap.set(key, row)
+    }
+  }
+  const deduped = [...dedupMap.values()]
+
   let upserted = 0
-  if (allRows.length > 0) {
-    // Upsert in chunks van 100 om body-grootte te beperken
+  if (deduped.length > 0) {
     const chunkSize = 100
-    for (let i = 0; i < allRows.length; i += chunkSize) {
-      const chunk = allRows.slice(i, i + chunkSize)
+    for (let i = 0; i < deduped.length; i += chunkSize) {
+      const chunk = deduped.slice(i, i + chunkSize)
       const { error } = await admin
         .from('viral_opportunities')
         .upsert(chunk, { onConflict: 'source_platform,external_id' })
@@ -89,6 +101,7 @@ export async function GET(req: NextRequest) {
     ok: Object.keys(errors).length === 0,
     regions,
     videos_fetched: allRows.length,
+    deduped: deduped.length,
     upserted,
     errors: Object.keys(errors).length > 0 ? errors : undefined,
     duration_ms: durationMs,
