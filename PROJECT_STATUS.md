@@ -79,8 +79,16 @@
 ## ⏳ Open / Aandachtspunten
 
 1. **Render: orlando-competitor-scanner suspenden** — Orlando kiest expliciet voor Viral Intelligence ipv per-kanaal monitoring. Service nog niet gesuspend, kost ~$7/mo.
-2. **Eerste autopilot-tick na deploy** — validatie nodig: heeft `viral_opportunities` 4u na deploy nieuwe rijen?
-3. **Viral-scanner-tiktok** — status `offline`, nooit gebouwd. Geen TikTok publieke API met API-key zoals YouTube Data API v3. Out of scope tenzij scraping/3rd-party gebruikt wordt.
+2. **Worker heartbeat bug** — `upload-engine-youtube.last_seen` wordt niet bijgewerkt terwijl worker wel actief is. Functioneel geen issue. Te debuggen in `youtube-engine/src/workers/youtube-upload-worker.ts` heartbeat-pad.
+3. **Content factory pipeline stil sinds 20:26 gisteren** — viral data komt binnen via Vercel crons maar genereert geen nieuwe content_items/renders/uploads. Externe orchestrator-poller die we voor viral omzeilden, blokkeert nog steeds de downstream chain.
+4. **Viral-scanner-tiktok** — status `offline`, nooit gebouwd. Geen TikTok publieke API met API-key zoals YouTube Data API v3. Out of scope.
+
+## ✅ Upload engine fix (2026-05-20 17:20 UTC)
+
+- 5 channels OAuth-reconnected (BrickPulse Lab, LoopForge AI, SliceTheory, AquierTv, AquierTvEs) — nieuwe tokens via env client.
+- 15 `manual_review_required` items met unauthorized_client gereset naar queued → 2 verified_live + 13 file-not-found (verschoven probleem).
+- Totaal 55 dode queue items opgeschoond (`cleanup-2026-05-20:` marker).
+- 198 totale verified_live op YT (was 196).
 
 ---
 
