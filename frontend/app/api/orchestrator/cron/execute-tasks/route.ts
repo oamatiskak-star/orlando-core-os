@@ -102,12 +102,12 @@ async function executeTask(task: OrchestratorTask): Promise<void> {
       .eq('id', task.id)
 
     // Log succes
-    await supabase.from('orchestrator_logs').insert({
+    await supabase.from('orchestrator_task_logs').insert({
       task_id: task.id,
       level:   'info',
       message: `Taak voltooid — ${message.usage?.output_tokens ?? 0} output tokens`,
       payload: { model: 'claude-sonnet-4-6', persona: personaName, summary: resultText.slice(0, 300) },
-    }).select()
+    })
 
   } catch (err) {
     const errorMsg = err instanceof Error ? err.message : String(err)
@@ -125,12 +125,12 @@ async function executeTask(task: OrchestratorTask): Promise<void> {
       })
       .eq('id', task.id)
 
-    await supabase.from('orchestrator_logs').insert({
+    await supabase.from('orchestrator_task_logs').insert({
       task_id: task.id,
       level:   'error',
       message: `Uitvoer mislukt (poging ${newAttempts}/${task.max_attempts ?? 3}): ${errorMsg.slice(0, 200)}`,
       payload: {},
-    }).select()
+    })
   }
 }
 
