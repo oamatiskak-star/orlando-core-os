@@ -1,0 +1,219 @@
+import { NextRequest, NextResponse } from 'next/server'
+import { createAdminClient } from '@/lib/supabase/admin'
+
+export const revalidate = 0
+export const maxDuration = 60
+
+// Vercel cron — /api/youtube/cron/atlas-upload
+// Schedule: */5 * * * * (zie vercel.json)
+// Beveiligd via Bearer CRON_SECRET.
+//
+// Sluit het laatste gat: atlas_upload orchestrator_tasks → youtube_upload_queue.
+// Inserteert youtube_videos + youtube_upload_queue rows met file_path =
+// content_item.output_url (Replicate.delivery URL). De BullMQ workers in
+// youtube-engine (Render) pakken de queue op en doen de echte YT upload.
+//
+// Mapping media_holding_channel → youtube_channel: round-robin over Phase 1
+// (SliceTheory / BrickPulse Lab / LoopForge AI). Override via task payload.
+
+const BATCH_SIZE = 3
+
+interface OpenUploadTask {
+  id: string
+  payload: { content_item_id?: string; platform?: string; channel_id?: string; persona?: string }
+  attempts: number
+  max_attempts: number | null
+}
+
+const PHASE_1_NAMES = ['SliceTheory', 'BrickPulse Lab', 'LoopForge AI']
+
+export async function GET(req: NextRequest) {
+  const authHeader = req.headers.get('authorization')
+  if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  }
+
+  const startedAt = Date.now()
+  const admin = createAdminClient()
+  const nowIso = new Date().toISOString()
+
+  // 2-staps claim
+  const { data: candidates, error: selErr } = await admin
+    .from('orchestrator_tasks')
+    .select('id, payload, attempts, max_attempts')
+    .eq('status', 'open')
+    .eq('executor', 'atlas_upload')
+    .lte('run_at', nowIso)
+    .order('priority', { ascending: true })
+    .order('created_at', { ascending: true })
+    .limit(BATCH_SIZE)
+
+  if (selErr) return NextResponse.json({ error: selErr.message }, { status: 500 })
+  if (!candidates || candidates.length === 0) {
+    return NextResponse.json({ ok: true, skipped: true, reason: 'no_open_tasks', duration_ms: Date.now() - startedAt })
+  }
+
+  const ids = candidates.map((c) => c.id as string)
+  const { data: claimed, error: claimErr } = await admin
+    .from('orchestrator_tasks')
+    .update({ status: 'running', started_at: nowIso, updated_at: nowIso })
+    .in('id', ids)
+    .eq('status', 'open')
+    .select('id, payload, attempts, max_attempts')
+
+  if (claimErr) return NextResponse.json({ error: claimErr.message }, { status: 500 })
+  const tasks = (claimed ?? []) as OpenUploadTask[]
+  if (tasks.length === 0) {
+    return NextResponse.json({ ok: true, skipped: true, reason: 'race_lost', duration_ms: Date.now() - startedAt })
+  }
+
+  // Phase 1 channels voor round-robin upload target
+  const { data: phase1 } = await admin
+    .from('youtube_channels')
+    .select('id, naam')
+    .in('naam', PHASE_1_NAMES)
+    .eq('oauth_status', 'connected')
+  const ytChannelPool: string[] = (phase1 ?? []).map((c) => c.id as string)
+
+  const results: Array<{ task_id: string; status: 'queued'|'failed'; detail: string }> = []
+  let chanIdx = 0
+
+  for (const task of tasks) {
+    const itemId = task.payload?.content_item_id
+    if (!itemId) {
+      await markFailed(admin, task, 'payload.content_item_id ontbreekt')
+      results.push({ task_id: task.id, status: 'failed', detail: 'no_content_item_id' })
+      continue
+    }
+
+    const { data: item, error: itemErr } = await admin
+      .from('media_holding_content_items')
+      .select('id, title, prompt, hook, output_url, language, kind, duration_seconds')
+      .eq('id', itemId)
+      .single()
+
+    if (itemErr || !item) {
+      await markFailed(admin, task, `content_item ${itemId} niet gevonden`)
+      results.push({ task_id: task.id, status: 'failed', detail: 'item_not_found' })
+      continue
+    }
+    if (!item.output_url) {
+      await markFailed(admin, task, 'content_item.output_url is null — render niet klaar')
+      results.push({ task_id: task.id, status: 'failed', detail: 'no_output_url' })
+      continue
+    }
+
+    if (ytChannelPool.length === 0) {
+      await markFailed(admin, task, 'Geen Phase 1 youtube_channels beschikbaar')
+      results.push({ task_id: task.id, status: 'failed', detail: 'no_yt_channels' })
+      continue
+    }
+
+    const ytChannelId = ytChannelPool[chanIdx % ytChannelPool.length]
+    chanIdx++
+
+    // Skip als er al een upload bestaat voor dit content_item
+    const { data: existingUpload } = await admin
+      .from('media_holding_uploads')
+      .select('id')
+      .eq('content_item_id', item.id)
+      .eq('platform', 'youtube')
+      .limit(1)
+    if (existingUpload && existingUpload.length > 0) {
+      await completeTask(admin, task, `existing_upload:${existingUpload[0].id}`)
+      results.push({ task_id: task.id, status: 'queued', detail: `existing_upload:${existingUpload[0].id}` })
+      continue
+    }
+
+    // Description: hook + auto-gen footer
+    const description = [
+      item.hook ?? '',
+      '',
+      '— Generated by Forge × Atlas (Orlando Core OS)',
+    ].filter(Boolean).join('\n')
+
+    // 1) youtube_videos row
+    const { data: ytVideo, error: vidErr } = await admin
+      .from('youtube_videos')
+      .insert({
+        channel_id:           ytChannelId,
+        video_id:             item.id, // unique ID per video — gebruik content_item.id
+        title:                item.title?.slice(0, 100) ?? 'Untitled',
+        description:          description.slice(0, 5000),
+        status:               'queued',
+        file_path:            item.output_url, // Replicate URL — BullMQ moet downloaden
+        category_id:          '24', // Entertainment
+        privacy_status:       'private', // safety default — Orlando kan handmatig publiceren
+      })
+      .select('id')
+      .single()
+
+    if (vidErr || !ytVideo) {
+      await markFailed(admin, task, `youtube_videos insert: ${vidErr?.message ?? 'unknown'}`)
+      results.push({ task_id: task.id, status: 'failed', detail: 'vid_insert_failed' })
+      continue
+    }
+
+    // 2) youtube_upload_queue row
+    const { data: queueRow, error: qErr } = await admin
+      .from('youtube_upload_queue')
+      .insert({
+        video_id:    ytVideo.id,
+        channel_id:  ytChannelId,
+        status:      'queued',
+        priority:    5,
+      })
+      .select('id')
+      .single()
+
+    if (qErr) {
+      await markFailed(admin, task, `youtube_upload_queue insert: ${qErr.message}`)
+      results.push({ task_id: task.id, status: 'failed', detail: 'queue_insert_failed' })
+      continue
+    }
+
+    // 3) media_holding_uploads record (atlas_upload tracking)
+    await admin.from('media_holding_uploads').insert({
+      content_item_id:  item.id,
+      platform:         'youtube',
+      status:           'queued',
+    })
+
+    // 4) Mark task completed
+    await completeTask(admin, task, `youtube_videos=${ytVideo.id} queue=${queueRow?.id}`)
+    results.push({ task_id: task.id, status: 'queued', detail: `yt_video=${ytVideo.id}` })
+  }
+
+  return NextResponse.json({
+    ok:           true,
+    claimed:      tasks.length,
+    queued:       results.filter((r) => r.status === 'queued').length,
+    failed:       results.filter((r) => r.status === 'failed').length,
+    results,
+    duration_ms:  Date.now() - startedAt,
+  })
+}
+
+async function markFailed(admin: ReturnType<typeof createAdminClient>, task: OpenUploadTask, error: string) {
+  const maxAttempts = task.max_attempts ?? 3
+  const nextAttempts = (task.attempts ?? 0) + 1
+  const finalStatus = nextAttempts >= maxAttempts ? 'failed' : 'open'
+  await admin.from('orchestrator_tasks').update({
+    status:     finalStatus,
+    error,
+    attempts:   nextAttempts,
+    started_at: null,
+    updated_at: new Date().toISOString(),
+  }).eq('id', task.id)
+}
+
+async function completeTask(admin: ReturnType<typeof createAdminClient>, task: OpenUploadTask, summary: string) {
+  await admin.from('orchestrator_tasks').update({
+    status:         'completed',
+    finished_at:    new Date().toISOString(),
+    updated_at:     new Date().toISOString(),
+    attempts:       (task.attempts ?? 0) + 1,
+    result_summary: summary,
+    error:          null,
+  }).eq('id', task.id)
+}

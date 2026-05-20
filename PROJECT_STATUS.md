@@ -129,8 +129,21 @@ Opties:
 3. **Autopilot links staan default uit** — `update autopilot_config set enabled=true where link_key in (...)` om autonome scaling te activeren. Begin met `breakout_to_clone` en `recommendation_to_task` als laagrisico.
 4. **Render: orlando-competitor-scanner suspenden** — Orlando kiest expliciet voor Viral Intelligence ipv per-kanaal monitoring. Service nog niet gesuspend, kost ~$7/mo.
 5. **Worker heartbeat bug** — `upload-engine-youtube.last_seen` wordt niet bijgewerkt terwijl worker wel actief is. Functioneel geen issue.
-6. **Content factory pipeline stil sinds 20:26 gisteren** — viral data komt binnen via Vercel crons maar genereert geen nieuwe content_items/renders/uploads. Externe orchestrator-poller die we voor viral omzeilden, blokkeert nog steeds de downstream chain.
-7. **Viral-scanner-tiktok** — status `offline`, nooit gebouwd. Geen TikTok publieke API met API-key zoals YouTube Data API v3. Out of scope.
+6. ~~Content factory pipeline stil~~ — **GEFIXED 2026-05-20 ~18:00 UTC**: vier Vercel crons toegevoegd (`content-factory`, `renderer-dispatch`, `renderer-poll`, `atlas-upload`) plus helpers `lib/youtube-public.ts` + `lib/replicate.ts`. Chain bewezen werkend t/m render: 1× DC's Lanterns MP4 (Replicate minimax). Hybride architectuur: premium (score≥95) via Replicate, lokale rail voor bulk (spec hieronder, niet gebouwd).
+7. **BullMQ + Replicate URL als file_path** — `youtube-engine/src/workers/ffmpeg-normalizer-worker.ts` verwacht lokaal file_path (`fs.existsSync`). Wanneer atlas_upload Replicate URL als file_path zet, faalt ffmpeg-normalizer. Vereist code-change: bij URL prefix eerst downloaden naar /tmp dan normaliseren.
+8. **Viral-scanner-tiktok** — status `offline`, nooit gebouwd. Out of scope.
+
+## 🛠️ Spec — Lokale rail (volgende sessie)
+
+**Doel:** Bulk content_factory render voor virality_score 50-94 zonder Replicate kosten. Premium rail (≥95) blijft Vercel + Replicate.
+
+**Architectuur:**
+- Reactivate `local-agent/` (Mac Mini) als orchestrator_tasks poller
+- Pakt `executor='renderer'` tasks van content_items waar source_score < 95
+- Render pipeline: Pexels stock + Edge TTS voice-over + FFmpeg compositie
+- Output: Supabase Storage MP4 → content_item.output_url + status='ready' → trg_render_to_upload → atlas_upload (al gebouwd)
+
+**Vereist op Mac Mini:** `PEXELS_API_KEY` (gratis), FFmpeg, Python3 + edge-tts. **Estimated:** 2-3 uur build.
 
 ## ✅ Upload engine fix (2026-05-20 17:20 UTC)
 

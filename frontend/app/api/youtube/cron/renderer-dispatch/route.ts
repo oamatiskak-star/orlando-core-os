@@ -24,6 +24,11 @@ const BATCH_SIZE = 5
 // Override via CRON_RENDER_MODEL env var voor experimenten.
 const DEFAULT_MODEL = process.env.CRON_RENDER_MODEL ?? 'minimax/video-01'
 
+// Premium rail threshold — content_items van viral_opportunities met score
+// onder dit grens worden door de lokale rail (FFmpeg+stock) verwerkt, niet
+// Replicate. Override via CRON_PREMIUM_THRESHOLD env.
+const PREMIUM_THRESHOLD = Number(process.env.CRON_PREMIUM_THRESHOLD ?? '95')
+
 interface OpenRenderTask {
   id: string
   payload: { content_item_id?: string; persona?: string }
@@ -108,7 +113,11 @@ export async function GET(req: NextRequest) {
 
     const { data: item, error: itemErr } = await admin
       .from('media_holding_content_items')
-      .select('id, title, prompt, status, render_job_id, channel_id, duration_seconds, kind')
+      .select(`
+        id, title, prompt, status, render_job_id, channel_id, duration_seconds, kind,
+        source_opportunity_id,
+        viral_opportunities!source_opportunity_id ( virality_score )
+      `)
       .eq('id', itemId)
       .single()
 
@@ -120,6 +129,24 @@ export async function GET(req: NextRequest) {
     if (!item.prompt) {
       await markFailed(admin, task, 'content_item.prompt is leeg')
       results.push({ task_id: task.id, status: 'failed', detail: 'no_prompt' })
+      continue
+    }
+
+    // Threshold check — onder threshold gaat naar lokale rail (executor='renderer'
+    // blijft 'open', wordt door local-agent gepakt).
+    const viralOpp = Array.isArray(item.viral_opportunities)
+      ? item.viral_opportunities[0]
+      : item.viral_opportunities
+    const score = Number(viralOpp?.virality_score ?? 0)
+    if (score < PREMIUM_THRESHOLD) {
+      // Release task terug naar 'open' zodat local rail hem kan pakken
+      await admin.from('orchestrator_tasks').update({
+        status:     'open',
+        started_at: null,
+        error:      `routed_to_local_rail: score ${score} < ${PREMIUM_THRESHOLD}`,
+        updated_at: new Date().toISOString(),
+      }).eq('id', task.id)
+      results.push({ task_id: task.id, status: 'failed', detail: `routed_to_local (score ${score})` })
       continue
     }
     if (item.render_job_id) {

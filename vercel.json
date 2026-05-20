@@ -49,6 +49,10 @@
       "schedule": "*/2 * * * *"
     },
     {
+      "path": "/api/youtube/cron/atlas-upload",
+      "schedule": "*/5 * * * *"
+    },
+    {
       "path": "/api/executive-layer/cron/decision-engine",
       "schedule": "0 * * * *"
     },
