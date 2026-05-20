@@ -144,6 +144,8 @@ export default function TakenPage() {
   const [detailEditing, setDetailEditing] = useState(false)
   const [detailNewBeschrijving, setDetailNewBeschrijving] = useState('')
   const [rerunning, setRerunning] = useState(false)
+  const [dispatching, setDispatching] = useState(false)
+  const [dispatchMsg, setDispatchMsg] = useState('')
 
   // Chain modal state
   const [showChainBuilder, setShowChainBuilder] = useState(false)
@@ -341,6 +343,7 @@ export default function TakenPage() {
     setDetailChain([])
     setDetailEditing(false)
     setDetailNewBeschrijving('')
+    setDispatchMsg('')
   }
 
   async function openChainBuilder() {
@@ -399,6 +402,30 @@ export default function TakenPage() {
       }
     } finally {
       setRerunning(false)
+    }
+  }
+
+  async function dispatchTask(item?: PlanningItem) {
+    const target = item ?? detailItem
+    if (!target) return
+    setDispatching(true)
+    setDispatchMsg('')
+    try {
+      const res = await fetch(`/api/planning/${target.id}/dispatch`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ persona: 'ai' }),
+      })
+      const j = await res.json()
+      if (res.ok) {
+        setDispatchMsg('Gedispatcht')
+        if (!item) closeDetail()
+        await load()
+      } else {
+        setDispatchMsg(j.error ?? 'Dispatch mislukt')
+      }
+    } finally {
+      setDispatching(false)
     }
   }
 
@@ -538,6 +565,16 @@ export default function TakenPage() {
                     </td>
                     <td className="px-4 py-3" onClick={e => e.stopPropagation()}>
                       <div className="flex items-center gap-2">
+                        {row.status !== 'gereed' && (
+                          <button
+                            onClick={() => dispatchTask(row)}
+                            disabled={dispatching}
+                            title="Voer uit met AI"
+                            className="text-[11px] text-indigo-400/70 hover:text-indigo-300 transition-colors disabled:opacity-40"
+                          >
+                            ▶
+                          </button>
+                        )}
                         <button onClick={() => openEdit(row)} className="text-[11px] text-white/40 hover:text-white transition-colors">Bewerk</button>
                         <button onClick={() => del(row.id)} className="text-[11px] text-red-400/60 hover:text-red-400 transition-colors">✕</button>
                       </div>
@@ -682,6 +719,12 @@ export default function TakenPage() {
                 </div>
               )}
 
+              {dispatchMsg && (
+                <p className={`text-xs px-1 ${dispatchMsg === 'Gedispatcht' ? 'text-green-400' : 'text-red-400'}`}>
+                  {dispatchMsg}
+                </p>
+              )}
+
               <div className="flex gap-3 pt-2 border-t border-white/5">
                 {detailEditing ? (
                   <>
@@ -703,21 +746,30 @@ export default function TakenPage() {
                   <>
                     <button
                       onClick={closeDetail}
-                      className="flex-1 bg-green-600/20 border border-green-500/30 hover:bg-green-600/30 text-green-300 text-xs font-medium py-2.5 rounded-lg transition-colors"
+                      className="bg-green-600/20 border border-green-500/30 hover:bg-green-600/30 text-green-300 text-xs font-medium px-4 py-2.5 rounded-lg transition-colors"
                     >
                       Klaar
                     </button>
+                    {!detailItem.orchestrator_task_id && detailItem.status !== 'gereed' && (
+                      <button
+                        onClick={() => dispatchTask()}
+                        disabled={dispatching}
+                        className="flex-1 flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white text-xs font-medium py-2.5 rounded-lg transition-colors"
+                      >
+                        <Play size={13} /> {dispatching ? 'Uitvoeren…' : 'Voer uit met AI'}
+                      </button>
+                    )}
                     <button
                       onClick={() => setDetailEditing(true)}
-                      className="flex-1 flex items-center justify-center gap-2 bg-white/[0.06] border border-white/10 hover:bg-white/10 text-white/80 text-xs font-medium py-2.5 rounded-lg transition-colors"
+                      className="flex items-center justify-center gap-2 bg-white/[0.06] border border-white/10 hover:bg-white/10 text-white/80 text-xs font-medium px-4 py-2.5 rounded-lg transition-colors"
                     >
                       <Edit2 size={13} /> Bewerken
                     </button>
                     <button
                       onClick={openChainBuilder}
-                      className="flex-1 flex items-center justify-center gap-2 bg-indigo-500/20 border border-indigo-500/30 hover:bg-indigo-500/30 text-indigo-300 text-xs font-medium py-2.5 rounded-lg transition-colors"
+                      className="flex items-center justify-center gap-2 bg-indigo-500/20 border border-indigo-500/30 hover:bg-indigo-500/30 text-indigo-300 text-xs font-medium px-4 py-2.5 rounded-lg transition-colors"
                     >
-                      <GitFork size={13} /> Agent chain
+                      <GitFork size={13} /> Chain
                     </button>
                   </>
                 )}
