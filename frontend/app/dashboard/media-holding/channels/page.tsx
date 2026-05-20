@@ -3,6 +3,9 @@ import { Video, Target, Globe, Zap, ShieldCheck, ShieldAlert, RefreshCw } from '
 import Image from 'next/image'
 import Link from 'next/link'
 
+export const revalidate = 0
+export const dynamic = 'force-dynamic'
+
 function num(n: number) {
   if (n >= 1_000_000) return (n / 1_000_000).toFixed(2) + 'M'
   if (n >= 1_000)     return (n / 1_000).toFixed(1) + 'K'
