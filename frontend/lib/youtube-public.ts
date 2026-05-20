@@ -7,8 +7,8 @@
 const API_BASE = 'https://www.googleapis.com/youtube/v3'
 
 function apiKey(): string {
-  const key = process.env.YOUTUBE_DATA_API_KEY
-  if (!key) throw new Error('YOUTUBE_DATA_API_KEY is required')
+  const key = process.env.YOUTUBE_DATA_API_KEY ?? process.env.YOUTUBE_API_KEY
+  if (!key) throw new Error('YOUTUBE_DATA_API_KEY or YOUTUBE_API_KEY is required')
   return key
 }
 
