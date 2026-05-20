@@ -24,13 +24,20 @@
 - ✅ Nieuwe top-tab `Executive` in media-holding layout + 7 sub-pages (Overview, Boardroom, Channels, Retention Lab, Algorithm, Compete, Fund).
 - ✅ `vercel.json` + `render.yaml` ge-update voor `orlando-executive-engine` service.
 
-**Sessie focus (2026-05-20, sessie 4)**: Volgende stap — bepalen door Orlando.
+**Sessie focus (2026-05-20, sessie 4)**: Alle 4 componenten gebouwd + deployed ✅
 
-Opties:
-- A) **Acquisition scraper engine** op Render (DealHunter/OffMarketAI/PermitAI workers)
-- B) **Executive Engine deploy** activeren (ANTHROPIC_API_KEY in Render zetten)
-- C) **Aquier.com** integratie koppelen aan acquisitie module
-- D) **Content factory pipeline** herstellen (downstream chain na viral scan)
+- ✅ `acquisition-engine/` gebouwd (8 agents, Express :3005, 8 cron schedules)
+- ✅ `render.yaml` ge-update — `orlando-acquisition-engine` service klaar voor deploy
+- ✅ 4 Vercel acquisition crons: deal-scan, permit-scan, offmarket-scan, director-briefing
+- ✅ Content factory pipeline hersteld via `factory-feeder` cron (breekt de blokkade)
+- ✅ Vercel deployment: `frontend-e36dglgqv-orlandos-projects-664da775.vercel.app`
+
+**Render env vars nog te zetten (HANDMATIG):**
+1. `orlando-executive-engine`: ANTHROPIC_API_KEY
+2. `orlando-acquisition-engine`: ANTHROPIC_API_KEY + SUPABASE_URL + SUPABASE_SERVICE_ROLE_KEY
+
+**Vercel env var nog te zetten:**
+- ACQUISITION_ENGINE_URL=https://orlando-acquisition-engine.onrender.com
 
 ---
 
@@ -100,7 +107,8 @@ Opties:
 | `orlando-mail-engine` | ✅ Live |
 | `orlando-competitor-scanner` | 🔄 Live maar Orlando wil suspenden (DB workers op `paused`) |
 | `orlando-redis` | ✅ Live |
-| `orlando-executive-engine` | ⏳ Code klaar, render.yaml ge-update — eerste deploy pending |
+| `orlando-executive-engine` | ⏳ Code klaar, render.yaml ge-update — ANTHROPIC_API_KEY zetten in Render |
+| `orlando-acquisition-engine` | ⏳ Code klaar, render.yaml ge-update — env vars zetten in Render |
 
 ### Vercel crons (6 actief)
 
@@ -117,6 +125,11 @@ Opties:
 | `decision-engine` | `0 * * * *` | Rule-based channel classificatie → executive_decisions |
 | `alert-engine` | `*/15 * * * *` | 7 detectors → executive_alerts |
 | `autonomous-scaling` | `0 */2 * * *` | Autopilot links (default uit, threshold tunable) |
+| `factory-feeder` | `20 */4 * * *` | viral_opportunities → orchestrator_tasks (pipeline fix) |
+| `acquisition/deal-scan` | `0 */6 * * *` | DealHunter trigger → acq_scan_jobs |
+| `acquisition/permit-scan` | `0 7 * * *` | PermitAI trigger → relevantie scores |
+| `acquisition/offmarket-scan` | `0 8 * * *` | OffMarketAI trigger → dev_scenario generatie |
+| `acquisition/director-briefing` | `30 7 * * *` | AcquisitionDirectorAI dagelijkse briefing |
 
 ---
 
