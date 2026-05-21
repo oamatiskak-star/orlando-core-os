@@ -443,22 +443,40 @@ LIMIT 10;
 - Endpoints: `POST /workers/portfolio-optimization/run`
 - Cron schedule: Every 6 hours (0 */6 * * *)
 
+### Week 15: Real-Time Alert & Anomaly Detection ✅
+- Monitors active deals for anomalies, price changes, opportunity shifts and generates alerts
+- Alert types (7): price_drop (>10%), opportunity_improvement (>15), opportunity_degradation (>15), risk_escalation (>15), anomaly_detected, sentiment_shift, status_change
+- Alert severity: low, medium, high, critical (dynamic based on magnitude)
+- Incremental monitoring: fetches deals updated in last 2 hours from active stages (leads, prospects, qualified)
+- Snapshot-based comparison: stores current deal state in acq_deal_monitoring_snapshots for next-run comparison
+- Price drop detection: flags >10% decrease (>20% = critical), includes price change percentage
+- Opportunity scoring changes: detects improvements or degradations >15 points
+- Risk escalation: alerts when risk scores increase >15 points
+- Anomaly detection integration: flags unusual patterns from predictive metrics
+- Market sentiment shifts: detects bullish ↔ bearish transitions
+- Status transitions: tracks pipeline_stage changes (leads → prospects → qualified, etc.)
+- Alert deduplication: prevents duplicate alerts for same deal + alert_type within 24h window
+- Recommended actions: each alert includes action_recommended field with operational guidance
+- Rate limit: 250 req/hour (read-only monitoring), batch processes 100 deals per run with 100ms delay
+- Stores in acq_deal_alerts with: deal_id, alert_type, severity, message, action_recommended, alert_timestamp, resolved flag
+- Endpoints: `POST /workers/alert-anomaly-detection/run`
+- Cron schedule: Every 2 hours (0 */2 * * *)
+
 ## Future Enhancements
 
-1. **Predictive Models & ML Enhancements**
-   - Machine learning for ROI prediction from historical patterns
-   - Market timing signals (buy/hold/sell indicators with trend analysis)
-   - Price trend forecasting using seasonal decomposition
+1. **Predictive Models Enhancements**
    - Clustering analysis to identify deal cohorts
+   - Ensemble forecasting methods
+   - Feature importance analysis
    
-2. **Advanced Portfolio Optimization**
-   - Modern Portfolio Theory application
-   - Geographic diversification analysis
-   - Risk correlation modeling
-   - Automated rebalancing recommendations
+2. **Advanced Alerts & Notifications**
+   - Real-time email/SMS notifications for high-severity alerts
+   - Custom alert rules per investor profile
+   - Alerting on custom metrics and thresholds
+   - Alert resolution workflow and tracking
    
-3. **Real-Time Alert System**
-   - Anomaly detection for market shifts
-   - Trigger alerts when deals drop below recommended pricing
+3. **Market Intelligence Integration**
    - Track real-time market sentiment from news/social feeds
-   - Automated deal notifications based on custom investor profiles
+   - Competitive intelligence gathering
+   - Demographic shift detection
+   - Infrastructure/development announcements
