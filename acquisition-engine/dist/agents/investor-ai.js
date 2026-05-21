@@ -1,0 +1,93 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.runInvestorAI = runInvestorAI;
+const supabase_1 = require("../lib/supabase");
+const logger_1 = require("../lib/logger");
+// InvestorAI: koppelt actieve deals aan potentiële investeerders op basis van
+// overlap regio / object_type / ROI vs return_target_pct. Inserts acq_investor_matches.
+async function runInvestorAI() {
+    const start = Date.now();
+    const AGENT = 'InvestorAI';
+    await setAgentStatus(AGENT, 'running');
+    // Deals in analyse/due_diligence/bod zonder matches
+    const { data: deals } = await supabase_1.supabase
+        .from('acq_deals')
+        .select('id, city, province, object_type, roi_pct, ai_score, asking_price')
+        .eq('status', 'actief')
+        .in('pipeline_stage', ['analyse', 'due_diligence', 'bod'])
+        .limit(20);
+    const { data: investors } = await supabase_1.supabase
+        .from('acq_investors')
+        .select('id, regions, object_types, risk_profile, return_target_pct, investment_min, investment_max')
+        .eq('status', 'actief');
+    // Bestaande matches ophalen om duplicaten te voorkomen
+    const { data: existingMatches } = await supabase_1.supabase
+        .from('acq_investor_matches')
+        .select('deal_id, investor_id');
+    const matchSet = new Set((existingMatches ?? []).map(m => `${m.deal_id}:${m.investor_id}`));
+    let created = 0;
+    for (const deal of deals ?? []) {
+        for (const investor of investors ?? []) {
+            const key = `${deal.id}:${investor.id}`;
+            if (matchSet.has(key))
+                continue;
+            const score = computeMatchScore(deal, investor);
+            if (score < 40)
+                continue; // alleen sterke matches
+            const { error } = await supabase_1.supabase.from('acq_investor_matches').insert({
+                deal_id: deal.id,
+                investor_id: investor.id,
+                match_score: score,
+                status: 'voorgesteld',
+            }).select().single();
+            if (!error) {
+                matchSet.add(key);
+                created++;
+            }
+        }
+    }
+    await setAgentStatus(AGENT, 'idle');
+    logger_1.logger.info(`InvestorAI run done`, { created, duration_ms: Date.now() - start });
+    return { agent: AGENT, jobsProcessed: (deals ?? []).length, jobsCreated: created, duration_ms: Date.now() - start };
+}
+function computeMatchScore(deal, investor) {
+    let score = 30;
+    const regions = Array.isArray(investor.regions) ? investor.regions : [];
+    const objectTypes = Array.isArray(investor.object_types) ? investor.object_types : [];
+    if (deal.province && regions.some(r => r.toLowerCase().includes(deal.province.toLowerCase())))
+        score += 20;
+    if (deal.object_type && objectTypes.includes(deal.object_type))
+        score += 20;
+    if (deal.roi_pct !== null && investor.return_target_pct !== null) {
+        if (deal.roi_pct >= investor.return_target_pct)
+            score += 15;
+        else if (deal.roi_pct >= investor.return_target_pct * 0.8)
+            score += 8;
+        else
+            score -= 10;
+    }
+    if (deal.asking_price !== null) {
+        const min = investor.investment_min ?? 0;
+        const max = investor.investment_max ?? Infinity;
+        if (deal.asking_price >= min && deal.asking_price <= max)
+            score += 15;
+        else
+            score -= 15;
+    }
+    if (deal.ai_score !== null) {
+        if (investor.risk_profile === 'laag' && deal.ai_score >= 70)
+            score += 10;
+        if (investor.risk_profile === 'midden' && deal.ai_score >= 50)
+            score += 10;
+        if (investor.risk_profile === 'hoog' && deal.ai_score >= 30)
+            score += 10;
+    }
+    return Math.max(0, Math.min(100, score));
+}
+async function setAgentStatus(name, status) {
+    await supabase_1.supabase
+        .from('acq_agent_registry')
+        .update({ status, last_heartbeat: new Date().toISOString() })
+        .eq('name', name);
+}
+//# sourceMappingURL=investor-ai.js.map

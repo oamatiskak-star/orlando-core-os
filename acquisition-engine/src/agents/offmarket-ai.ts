@@ -41,14 +41,19 @@ export async function runOffMarketAI(): Promise<AgentRunResult> {
 
   // Update tasks_done
   if (processed > 0) {
-    await supabase.rpc('acq_agent_increment_done', { agent_name: AGENT, n: processed })
-      .throwOnError()
-      .catch(() => {
-        // Functie bestaat mogelijk niet — update direct
-        supabase.from('acq_agent_registry')
+    try {
+      const { error } = await supabase.rpc('acq_agent_increment_done', { agent_name: AGENT, n: processed })
+      if (error) throw error
+    } catch (err) {
+      // Functie bestaat mogelijk niet — update direct
+      try {
+        await supabase.from('acq_agent_registry')
           .update({ last_heartbeat: new Date().toISOString() })
           .eq('name', AGENT)
-      })
+      } catch (e) {
+        // Ignore fallback error
+      }
+    }
   }
 
   await setAgentStatus(AGENT, 'idle')

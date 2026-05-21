@@ -1,0 +1,1 @@
+{"version":3,"file":"robots-checker.d.ts","sourceRoot":"","sources":["../../src/lib/robots-checker.ts"],"names":[],"mappings":"AAGA,qBAAa,aAAa;IACxB,OAAO,CAAC,KAAK,CAAqE;IAClF,OAAO,CAAC,UAAU,CAAY;IAC9B,OAAO,CAAC,OAAO,CAA2B;;IAMpC,SAAS,CAAC,MAAM,EAAE,MAAM,GAAG,OAAO,CAAC;QAAE,OAAO,EAAE,OAAO,CAAC;QAAC,UAAU,EAAE,MAAM,CAAA;KAAE,CAAC;IA6BlF,OAAO,CAAC,WAAW;IA2CnB,UAAU,IAAI,IAAI;CAGnB"}
