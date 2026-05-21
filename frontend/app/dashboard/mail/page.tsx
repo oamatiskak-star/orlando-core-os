@@ -16,6 +16,8 @@ export default async function MailDashboardPage() {
     { data: dossiers },
     { data: deadlines },
     { data: pendingDrafts },
+    { data: approvedDrafts },
+    { data: escalatedDrafts },
   ] = await Promise.all([
     supabase.from('mail_agents').select('agent_type, name, enabled, stats').order('name'),
     supabase.from('mail_workflows').select('name, enabled, run_count, last_run_at').order('priority', { ascending: false }),
@@ -24,6 +26,8 @@ export default async function MailDashboardPage() {
     supabase.from('mail_legal_dossiers').select('id, risk_level, status').in('status', ['open', 'in_behandeling']),
     supabase.from('mail_legal_deadlines').select('deadline_at').eq('status', 'open').lte('deadline_at', new Date(Date.now() + 7 * 86400000).toISOString()),
     supabase.from('mail_drafts').select('id, subject, ai_confidence, created_at, mail_messages(from_email, category)').eq('status', 'pending').order('created_at', { ascending: false }).limit(5),
+    supabase.from('mail_drafts').select('id, status').eq('status', 'approved').gte('created_at', new Date(Date.now() - 86400000).toISOString()),
+    supabase.from('mail_drafts').select('id, status').eq('status', 'escalated').gte('created_at', new Date(Date.now() - 86400000).toISOString()),
   ])
 
   const stats = {
@@ -41,6 +45,8 @@ export default async function MailDashboardPage() {
     },
     deadlines: deadlines?.length ?? 0,
     pendingApprovals: pendingDrafts?.length ?? 0,
+    approvedToday: approvedDrafts?.length ?? 0,
+    escalatedToday: escalatedDrafts?.length ?? 0,
   }
 
   const modules = [
@@ -150,6 +156,30 @@ export default async function MailDashboardPage() {
         </div>
       )}
 
+      {/* Auto-approved and Escalated Stats */}
+      {(stats.approvedToday > 0 || stats.escalatedToday > 0) && (
+        <div className="grid grid-cols-2 gap-3">
+          {stats.approvedToday > 0 && (
+            <div className="p-3 bg-green-500/8 border border-green-500/20 rounded-xl flex items-start gap-2">
+              <CheckCircle size={14} className="text-green-400 flex-shrink-0 mt-0.5" />
+              <div className="min-w-0">
+                <p className="text-[11px] text-white/50">Auto-approved today</p>
+                <p className="text-lg font-bold text-green-400">{stats.approvedToday}</p>
+              </div>
+            </div>
+          )}
+          {stats.escalatedToday > 0 && (
+            <div className="p-3 bg-orange-500/8 border border-orange-500/20 rounded-xl flex items-start gap-2">
+              <AlertTriangle size={14} className="text-orange-400 flex-shrink-0 mt-0.5" />
+              <div className="min-w-0">
+                <p className="text-[11px] text-white/50">Escalated for review</p>
+                <p className="text-lg font-bold text-orange-400">{stats.escalatedToday}</p>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Alerts */}
       {(stats.dossiers.critical > 0 || stats.deadlines > 0) && (
         <div className="p-3 bg-red-500/8 border border-red-500/20 rounded-xl flex items-start gap-3">
@@ -169,12 +199,13 @@ export default async function MailDashboardPage() {
       )}
 
       {/* Stats row */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
         {[
           { label: 'Agents actief', value: `${stats.agents.active}/${stats.agents.total}`, icon: Bot, color: 'text-cyan-400', bg: 'border-cyan-500/20' },
           { label: 'Routing rules', value: stats.rules.total, icon: Filter, color: 'text-indigo-400', bg: 'border-indigo-500/20' },
           { label: 'Dossiers open', value: stats.dossiers.total, icon: Scale, color: 'text-amber-400', bg: 'border-amber-500/20' },
           { label: 'Termijnen (<7d)', value: stats.deadlines, icon: Clock, color: stats.deadlines > 0 ? 'text-red-400' : 'text-white/30', bg: stats.deadlines > 0 ? 'border-red-500/20' : 'border-white/5' },
+          { label: 'Auto-approved', value: stats.approvedToday, icon: CheckCircle, color: 'text-green-400', bg: 'border-green-500/20' },
         ].map(s => {
           const Icon = s.icon
           return (
