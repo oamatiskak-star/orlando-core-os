@@ -56,7 +56,6 @@ async function main() {
     await safe('eod-clickup', runClickUpSync)
   })
 
-  // Orchestrator bridge: heartbeat + task polling
   startOrchestratorBridge()
 
   logger.info('All crons registered — engine running autonomously')
