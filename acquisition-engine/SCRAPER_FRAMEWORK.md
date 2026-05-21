@@ -395,15 +395,19 @@ LIMIT 10;
 - Endpoints: `POST /workers/neighborhood-analytics/run` + `GET /api/acquisition/cron/neighborhood-analytics`
 - Cron schedule: Every 6 hours (0 */6 * * *)
 
+### Week 11: Property Valuation Advanced Models ✅
+- Analyzes comprehensive property valuations: WOZ tax assessments, historical pricing trends
+- Calculates property-specific ROI metrics and investment grades (A/B/C/D)
+- Performs comparable sales analysis with pricing ranges and market positioning
+- Generates valuation summaries with confidence scores and key factors
+- Rate limit: 1200 req/hour, batch processes 25 deals per run
+- Stores in acq_property_valuations, updates acq_deals.valuation_status
+- Endpoints: `POST /workers/property-valuation/run` + `GET /api/acquisition/cron/property-valuation`
+- Cron schedule: Every 6 hours (0 */6 * * *)
+
 ## Next Steps
 
-1. **Week 11:** Property Valuation Advanced Models
-   - WOZ (Waardering Onroerende Zaken) public tax assessments
-   - Historical price appreciation by neighborhood
-   - Property-specific ROI calculations
-   - Comparative market analysis by property type/age/condition
-   
-2. **Week 12:** Opportunity Scoring & Portfolio Analysis
+1. **Week 12:** Opportunity Scoring & Portfolio Analysis
    - Combined scoring from all data sources
    - Investment opportunity ranking system
    - Risk-adjusted return predictions
