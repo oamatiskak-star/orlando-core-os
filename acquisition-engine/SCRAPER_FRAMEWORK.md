@@ -416,6 +416,18 @@ LIMIT 10;
 - Endpoints: `POST /workers/opportunity-scoring/run` + `GET /api/acquisition/cron/opportunity-scoring`
 - Cron schedule: Every 4 hours (0 */4 * * *)
 
+### Week 13: Predictive Models & ML Enhancements ✅
+- Machine learning model execution for ROI prediction from historical patterns
+- ROI predictions: 3/5/10-year projections with confidence scoring
+- Price trend forecasting: 3-month and 12-month trends with bullish/neutral/bearish signals
+- Market timing signals: strong_buy to strong_sell indicators with momentum scoring (-100 to 100)
+- Risk metrics: volatility scoring, correlation analysis, tail risk detection
+- Anomaly detection: identifies underpriced opportunities, sentiment divergence, unusual appreciation rates
+- Rate limit: 300 req/hour (read-only model execution), batch processes 30 deals per run
+- Stores in acq_predictive_metrics, updates acq_deals.predicted_metrics_status
+- Endpoints: `POST /workers/predictive-models/run` + `GET /api/acquisition/cron/predictive-models`
+- Cron schedule: Every 4 hours (0 */4 * * *)
+
 ## Future Enhancements
 
 1. **Predictive Models & ML Enhancements**
