@@ -405,15 +405,33 @@ LIMIT 10;
 - Endpoints: `POST /workers/property-valuation/run` + `GET /api/acquisition/cron/property-valuation`
 - Cron schedule: Every 6 hours (0 */6 * * *)
 
-## Next Steps
+### Week 12: Opportunity Scoring & Portfolio Analysis ✅
+- Meta-scraper combining all enrichment data into comprehensive investment rankings
+- Calculates 6-component opportunity scores: valuation fit, risk, market potential, neighborhood appeal, structure, growth
+- Generates investment grades (AAA-CCC) and recommendations (strong_buy to avoid)
+- Creates risk-adjusted ROI calculations and estimated payback periods
+- Identifies key strengths and risks for each deal, determines portfolio fit
+- Rate limit: 500 req/hour (read-only aggregation), batch processes 50 deals per run
+- Stores in acq_opportunity_scores, updates acq_deals.opportunity_score_status
+- Endpoints: `POST /workers/opportunity-scoring/run` + `GET /api/acquisition/cron/opportunity-scoring`
+- Cron schedule: Every 4 hours (0 */4 * * *)
 
-1. **Week 12:** Opportunity Scoring & Portfolio Analysis
-   - Combined scoring from all data sources
-   - Investment opportunity ranking system
-   - Risk-adjusted return predictions
-   - Portfolio diversification recommendations
+## Future Enhancements
+
+1. **Predictive Models & ML Enhancements**
+   - Machine learning for ROI prediction from historical patterns
+   - Market timing signals (buy/hold/sell indicators with trend analysis)
+   - Price trend forecasting using seasonal decomposition
+   - Clustering analysis to identify deal cohorts
    
-3. **Optional:** Predictive Models & ML Enhancements
-   - Machine learning for ROI prediction
-   - Market timing signals (buy/hold/sell indicators)
-   - Price trend forecasting
+2. **Advanced Portfolio Optimization**
+   - Modern Portfolio Theory application
+   - Geographic diversification analysis
+   - Risk correlation modeling
+   - Automated rebalancing recommendations
+   
+3. **Real-Time Alert System**
+   - Anomaly detection for market shifts
+   - Trigger alerts when deals drop below recommended pricing
+   - Track real-time market sentiment from news/social feeds
+   - Automated deal notifications based on custom investor profiles
