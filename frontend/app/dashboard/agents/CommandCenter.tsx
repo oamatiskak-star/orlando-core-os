@@ -5,10 +5,14 @@ import AgentRegistryRealtime from './AgentRegistryRealtime'
 import TaskCommandCenterRealtime from './TaskCommandCenterRealtime'
 import WorkerMonitorRealtime from './WorkerMonitorRealtime'
 import TaskDependencyViewer from './TaskDependencyViewer'
+import SystemHealthDashboard from './SystemHealthDashboard'
 
 export default function CommandCenter() {
   return (
     <div className="space-y-6">
+      {/* System Health */}
+      <SystemHealthDashboard />
+
       {/* Overview Stats */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         <StatCard
