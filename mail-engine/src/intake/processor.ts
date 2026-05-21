@@ -4,6 +4,7 @@ import { GmailClient, GmailMessage } from '../gmail/client'
 import { UniversalMessage } from '../connectors/universal'
 import { AiClassifier } from '../ai/classifier'
 import { ReplyGenerator } from '../ai/reply-generator'
+import { generateReplyV2 } from '../ai/reply-generator-v2'
 import { AttachmentAnalyzer } from '../ai/attachment-analyzer'
 import { SpamDetector } from '../spam/detector'
 import { RelationshipMemory } from '../memory/relationship'
@@ -490,23 +491,65 @@ export class IntakeProcessor {
       }
     }
 
-    // ── Generieke reply generator ─────────────────────────────────────────────
+    // ── Intelligent reply generator with template suggestions ─────────────────
     if (!spamResult.isThreat) {
       const history = await relationshipMemory.getContactHistory(fromEmail, 10)
-      const draft   = await replyGenerator.generateReply(message, contact, history)
+
+      // Fetch available templates for this category/company
+      const { data: availableTemplates } = await supabase
+        .from('mail_templates')
+        .select('*')
+        .eq('enabled', true)
+        .eq('category', classification.category)
+        .order('confidence_min', { ascending: true })
+
+      // Generate reply with template suggestions
+      const draft = await generateReplyV2(
+        {
+          from_email: fromEmail,
+          subject: message.subject || '',
+          body: message.body_text || '',
+          company: classification.company,
+          category: classification.category,
+          priority: classification.priority,
+          contact_sentiment: existingContact?.sentiment,
+          prior_interactions: contact.total_interactions,
+        },
+        availableTemplates || []
+      )
 
       if (draft.confidence > 0.3) {
-        await supabase.from('mail_drafts').insert({
-          message_id:    message.id,
-          to_email:      fromEmail,
-          from_email:    message.to_emails?.[0] ?? null,
-          subject:       draft.subject,
-          body:          draft.body,
-          status:        'pending',
-          ai_reasoning:  draft.reasoning,
-          ai_confidence: draft.confidence,
-          send_via:      'mailtrap_live',
-        })
+        // Look up suggested template by name if one was recommended
+        let suggestedTemplateId: string | null = null
+        if (draft.suggestedTemplate?.name) {
+          const { data: templateMatch } = await supabase
+            .from('mail_templates')
+            .select('id')
+            .eq('name', draft.suggestedTemplate.name)
+            .eq('category', draft.suggestedTemplate.category)
+            .single()
+          suggestedTemplateId = templateMatch?.id as string || null
+        }
+
+        const { data: insertedDraft } = await supabase.from('mail_drafts').insert({
+          message_id:            message.id,
+          to_email:              fromEmail,
+          from_email:            message.to_emails?.[0] ?? null,
+          subject:               draft.subject,
+          body:                  draft.body,
+          status:                'pending',
+          ai_reasoning:          draft.reasoning,
+          ai_confidence:         draft.confidence,
+          suggested_template_id: suggestedTemplateId,
+        }).select('id').single()
+
+        if (insertedDraft && suggestedTemplateId) {
+          await supabase.from('mail_template_history').insert({
+            template_id:     suggestedTemplateId,
+            draft_id:        insertedDraft.id as string,
+            approval_status: 'pending',
+          })
+        }
       }
     }
 
