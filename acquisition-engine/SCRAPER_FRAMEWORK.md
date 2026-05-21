@@ -428,6 +428,21 @@ LIMIT 10;
 - Endpoints: `POST /workers/predictive-models/run` + `GET /api/acquisition/cron/predictive-models`
 - Cron schedule: Every 4 hours (0 */4 * * *)
 
+### Week 14: Advanced Portfolio Optimization ✅
+- Analyzes entire portfolio composition and generates rebalancing recommendations
+- Portfolio composition: property types, geographic distribution, price ranges
+- Geographic diversification: concentration scoring with Herfindahl Index, provincial breakdown
+- Correlation analysis: asset correlation matrix, beta calculation
+- Modern Portfolio Theory: efficient frontier calculation, optimal allocation weights
+- Risk metrics: portfolio volatility estimate, portfolio beta, Sharpe ratio
+- Rebalancing triggers: geographic concentration >40%, asset type >50%, risk drift, diversification gaps
+- Portfolio classification: conservative/moderate/aggressive risk levels
+- Recommendations: sector/geography/price-tier balance, concentration risk mitigation
+- Rate limit: 200 req/hour (read-only analysis), processes entire active portfolio per run
+- Stores in acq_portfolio_optimization, creates single portfolio analysis record
+- Endpoints: `POST /workers/portfolio-optimization/run`
+- Cron schedule: Every 6 hours (0 */6 * * *)
+
 ## Future Enhancements
 
 1. **Predictive Models & ML Enhancements**
