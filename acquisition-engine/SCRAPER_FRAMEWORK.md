@@ -327,16 +327,32 @@ LIMIT 10;
 - Rate limit: 1800 req/hour (1 req/2s sequential)
 - Endpoints: `POST /workers/permits-scraper/run` + `GET /api/acquisition/cron/permits-scan`
 
+### Week 4: ImmoBelt Scraper ✅
+- Scrapes institutional commercial real estate listings
+- Property types: kantoor, retail, logistiek, gemengd
+- Fetches status: te_koop, biedingen with broker information
+- Rate limit: 500 req/day (1 req/2s, max 10 pages × 50/page = 500 listings)
+- Pagination with 2s delay between pages
+- Endpoints: `POST /workers/immobelt-scraper/run` + `GET /api/acquisition/cron/immobelt-scan`
+
+### Week 5: KvK Company Profiler ✅
+- Enriches deals with KvK (Kamer van Koophandel) company information
+- Searches for real estate developers, builders, project managers in each location
+- Fetches: company status, SBI codes, employees, contact info, establishment date
+- Rate limit: 36,000 req/hour (10 req/sec), batch processes 50 deals per run
+- Stores enrichments in acq_company_profiles, links to acq_deals via kvk_number
+- Endpoints: `POST /workers/kvk-profiler/run` + `GET /api/acquisition/cron/kvk-enrich`
+
 ## Next Steps
 
-1. **Week 4:** ImmoBelt Scraper (commercial property opportunities)
-   - Rate: 500 req/day (1 req/2s)
-   - Fetch institutional real estate listings
+1. **Week 6:** Municipality Spatial Planning Data (RUD integration)
+   - Fetch spatial planning data from ruimtelijkeplannen.nl
+   - Identify zoning restrictions, development potential per location
    
-2. **Week 5:** KvK Company Profiler (investor/developer analysis)
-   - Fetch company ownership structure from KvK API
-   - Analyze track record: completed projects, current portfolio
+2. **Week 7:** Government Building Inspection Data (BKWI)
+   - Building safety certificates and inspection history
+   - Risk indicators for properties
    
-3. **Optional:** Municipality-specific government data scrapers
-   - Gemeente permit portals (direct integration)
-   - Spatial planning data (RUD/ruimtelijkeplannen.nl)
+3. **Optional:** Real estate market analysis (WOZ, MLS-style aggregation)
+   - Historical price trends per area
+   - Comparable sales analysis

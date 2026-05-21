@@ -16,6 +16,7 @@ import { runFundaScraper } from './workers/funda-scraper'
 import { runKadasterScraper } from './workers/kadaster-scraper'
 import { runPermitsScraper } from './workers/permits-scraper'
 import { runImmobeltScraper } from './workers/immobelt-scraper'
+import { runKvKCompanyProfiler } from './workers/kvk-company-profiler'
 
 const app = express()
 app.use(express.json())
@@ -166,6 +167,15 @@ app.post('/workers/immobelt-scraper/run', async (_req: Request, res: Response) =
   }
 })
 
+app.post('/workers/kvk-profiler/run', async (_req: Request, res: Response) => {
+  try {
+    const result = await withAgentGuard('KvKCompanyProfiler', runKvKCompanyProfiler)
+    res.json({ status: 'ok', ...result })
+  } catch (err) {
+    res.status(500).json({ status: 'error', error: (err as Error).message })
+  }
+})
+
 // ── Scan jobs endpoint (Vercel cron callback) ────────────────────────────────
 // POST /scan — Vercel cron routes inserteren scan_jobs, worker pakt ze op
 app.post('/scan', async (_req: Request, res: Response) => {
@@ -261,10 +271,16 @@ cron.schedule('0 3 * * *', () => {
     .catch(err => logger.error('Scheduled ImmobeltScraper failed', { err: String(err) }))
 }, { timezone: TZ })
 
+// KvKCompanyProfiler: elke 6 uur bedrijfsinformatie verrijken
+cron.schedule('0 */6 * * *', () => {
+  withAgentGuard('KvKCompanyProfiler', runKvKCompanyProfiler)
+    .catch(err => logger.error('Scheduled KvKCompanyProfiler failed', { err: String(err) }))
+}, { timezone: TZ })
+
 // ── Start ─────────────────────────────────────────────────────────────────────
 app.listen(PORT, () => {
   logger.info(`Acquisition Engine started on :${PORT} (tz=${TZ})`)
-  logger.info('12 cron schedules: DealHunter, OffMarketAI, PermitAI, MunicipalityAI, InvestorAI, OutreachAI, RiskAI, AcquisitionDirectorAI, FundaScraper, KadasterScraper, PermitsScraper, ImmobeltScraper')
+  logger.info('13 cron schedules: DealHunter, OffMarketAI, PermitAI, MunicipalityAI, InvestorAI, OutreachAI, RiskAI, AcquisitionDirectorAI, FundaScraper, KadasterScraper, PermitsScraper, ImmobeltScraper, KvKCompanyProfiler')
 })
 
 process.on('SIGTERM', () => {
