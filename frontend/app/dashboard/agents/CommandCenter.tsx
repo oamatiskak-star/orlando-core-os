@@ -1,9 +1,10 @@
 'use client'
 
 import { Users, CheckSquare, Activity, AlertCircle } from 'lucide-react'
-import AgentRegistry from './AgentRegistry'
-import TaskCommandCenter from './TaskCommandCenter'
-import WorkerMonitor from './WorkerMonitor'
+import AgentRegistryRealtime from './AgentRegistryRealtime'
+import TaskCommandCenterRealtime from './TaskCommandCenterRealtime'
+import WorkerMonitorRealtime from './WorkerMonitorRealtime'
+import TaskDependencyViewer from './TaskDependencyViewer'
 
 export default function CommandCenter() {
   return (
@@ -38,24 +39,51 @@ export default function CommandCenter() {
 
       {/* Agent Registry Section */}
       <div className="bg-white/[0.06] border border-white/5 rounded-xl p-5 space-y-3">
-        <h2 className="text-sm font-semibold text-white">Agent Registry</h2>
-        <p className="text-xs text-white/50">All agents across systems with status and task counts</p>
-        <AgentRegistry />
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="text-sm font-semibold text-white">Agent Registry</h2>
+            <p className="text-xs text-white/50">All agents across systems with status and task counts</p>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <span className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse" />
+            <span className="text-[11px] text-white/50">Live</span>
+          </div>
+        </div>
+        <AgentRegistryRealtime />
       </div>
 
       {/* Task Command Center Section */}
       <div className="bg-white/[0.06] border border-white/5 rounded-xl p-5 space-y-3">
-        <h2 className="text-sm font-semibold text-white">Task Command Center</h2>
-        <p className="text-xs text-white/50">Unified view of all tasks from all sources</p>
-        <TaskCommandCenter />
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="text-sm font-semibold text-white">Task Command Center</h2>
+            <p className="text-xs text-white/50">Unified view of all tasks from all sources</p>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <span className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse" />
+            <span className="text-[11px] text-white/50">Live</span>
+          </div>
+        </div>
+        <TaskCommandCenterRealtime />
       </div>
 
       {/* Worker Monitor Section */}
       <div className="bg-white/[0.06] border border-white/5 rounded-xl p-5 space-y-3">
-        <h2 className="text-sm font-semibold text-white">Worker Monitor</h2>
-        <p className="text-xs text-white/50">Health status of all workers and executors</p>
-        <WorkerMonitor />
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="text-sm font-semibold text-white">Worker Monitor</h2>
+            <p className="text-xs text-white/50">Health status of all workers and executors</p>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <span className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse" />
+            <span className="text-[11px] text-white/50">Live</span>
+          </div>
+        </div>
+        <WorkerMonitorRealtime />
       </div>
+
+      {/* Task Dependency Viewer Section */}
+      <TaskDependencyViewer />
     </div>
   )
 }
