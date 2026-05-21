@@ -12,6 +12,7 @@ import clsx from 'clsx'
 import Link from 'next/link'
 import { getDashboardStats } from '@/lib/supabase/queries'
 import { createClient } from '@/lib/supabase/server'
+import { PendingApprovalsWidget } from './mail/_components/PendingApprovalsWidget'
 
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
@@ -88,6 +89,17 @@ export default async function DashboardPage() {
 
   return (
     <div className="space-y-6">
+      {/* Page Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-white">🚀 Orlando Service Management</h1>
+          <p className="text-sm text-white/50 mt-1">Intelligent mail automation & business intelligence</p>
+        </div>
+      </div>
+
+      {/* PRIMARY WIDGET: Pending Mail Approvals */}
+      <PendingApprovalsWidget />
+
       {/* Stat cards */}
       <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3">
         {STAT_CARDS.map((card) => {
