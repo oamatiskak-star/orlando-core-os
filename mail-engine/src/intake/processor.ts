@@ -531,13 +531,21 @@ export class IntakeProcessor {
           suggestedTemplateId = templateMatch?.id as string || null
         }
 
+        // Determine status based on confidence level
+        let draftStatus: 'approved' | 'pending' | 'escalated' = 'pending'
+        if (draft.confidence > 0.8) {
+          draftStatus = 'approved'
+        } else if (draft.confidence < 0.5) {
+          draftStatus = 'escalated'
+        }
+
         const { data: insertedDraft } = await supabase.from('mail_drafts').insert({
           message_id:            message.id,
           to_email:              fromEmail,
           from_email:            message.to_emails?.[0] ?? null,
           subject:               draft.subject,
           body:                  draft.body,
-          status:                'pending',
+          status:                draftStatus,
           ai_reasoning:          draft.reasoning,
           ai_confidence:         draft.confidence,
           suggested_template_id: suggestedTemplateId,
@@ -547,7 +555,37 @@ export class IntakeProcessor {
           await supabase.from('mail_template_history').insert({
             template_id:     suggestedTemplateId,
             draft_id:        insertedDraft.id as string,
-            approval_status: 'pending',
+            approval_status: draftStatus === 'approved' ? 'approved' : 'pending',
+          })
+        }
+
+        // Escalate low-confidence drafts to orchestrator for manual review
+        if (draftStatus === 'escalated') {
+          await createOrchestratorTask({
+            title:    `⚠️ Low-confidence mail draft: ${draft.subject?.slice(0, 80)}`,
+            taskType: 'mail_escalation',
+            workerId: 'mail-orchestrator',
+            priority: 5,
+            payload:  {
+              draft_id:        insertedDraft?.id,
+              message_id:      message.id,
+              from_email:      fromEmail,
+              subject:         draft.subject,
+              confidence:      draft.confidence,
+              reasoning:       draft.reasoning,
+              category:        classification.category,
+              priority:        classification.priority,
+            },
+          })
+        }
+
+        // Log auto-approval for high-confidence drafts
+        if (draftStatus === 'approved') {
+          logger.info('Auto-approved high-confidence draft', {
+            draftId:   insertedDraft?.id,
+            messageId: message.id,
+            confidence: draft.confidence,
+            subject:   draft.subject,
           })
         }
       }
