@@ -343,16 +343,27 @@ LIMIT 10;
 - Stores enrichments in acq_company_profiles, links to acq_deals via kvk_number
 - Endpoints: `POST /workers/kvk-profiler/run` + `GET /api/acquisition/cron/kvk-enrich`
 
+### Week 6: Spatial Planning Data Scraper ✅
+- Fetches municipal spatial planning (RUD) data from ruimtelijkeplannen.nl
+- Zone analysis: type (residential, commercial, industrial), allowed uses, development potential
+- Identifies zoning restrictions, opportunities, risk indicators per deal location
+- Rate limit: 3600 req/hour (1 req/sec average), WFS queries per municipality
+- Stores in acq_spatial_planning table, updates acq_deals.spatial_planning_status
+- Endpoints: `POST /workers/spatial-planning/run` + `GET /api/acquisition/cron/spatial-planning`
+
 ## Next Steps
 
-1. **Week 6:** Municipality Spatial Planning Data (RUD integration)
-   - Fetch spatial planning data from ruimtelijkeplannen.nl
-   - Identify zoning restrictions, development potential per location
+1. **Week 7:** Government Building Inspection Data (BKWI/DVGO integration)
+   - Building safety certificates, inspection history, violations
+   - Risk scoring based on inspection records
+   - Integrate with BIM (Building Information Models) where available
    
-2. **Week 7:** Government Building Inspection Data (BKWI)
-   - Building safety certificates and inspection history
-   - Risk indicators for properties
+2. **Week 8:** Real Estate Market Analysis (WOZ, MLS-style aggregation)
+   - Historical price trends per area and property type
+   - Comparable sales analysis and valuation support
+   - Supply/demand analysis per neighborhood
    
-3. **Optional:** Real estate market analysis (WOZ, MLS-style aggregation)
-   - Historical price trends per area
-   - Comparable sales analysis
+3. **Optional:** Environmental Risk Assessment
+   - Soil contamination, heritage status, flood risk maps
+   - Noise pollution, proximity to highways/airports
+   - Asbestos/lead risk indicators

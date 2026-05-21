@@ -17,6 +17,7 @@ import { runKadasterScraper } from './workers/kadaster-scraper'
 import { runPermitsScraper } from './workers/permits-scraper'
 import { runImmobeltScraper } from './workers/immobelt-scraper'
 import { runKvKCompanyProfiler } from './workers/kvk-company-profiler'
+import { runSpatialPlanningScraper } from './workers/spatial-planning-scraper'
 
 const app = express()
 app.use(express.json())
@@ -176,6 +177,15 @@ app.post('/workers/kvk-profiler/run', async (_req: Request, res: Response) => {
   }
 })
 
+app.post('/workers/spatial-planning/run', async (_req: Request, res: Response) => {
+  try {
+    const result = await withAgentGuard('SpatialPlanningScraper', runSpatialPlanningScraper)
+    res.json({ status: 'ok', ...result })
+  } catch (err) {
+    res.status(500).json({ status: 'error', error: (err as Error).message })
+  }
+})
+
 // ── Scan jobs endpoint (Vercel cron callback) ────────────────────────────────
 // POST /scan — Vercel cron routes inserteren scan_jobs, worker pakt ze op
 app.post('/scan', async (_req: Request, res: Response) => {
@@ -277,10 +287,16 @@ cron.schedule('0 */6 * * *', () => {
     .catch(err => logger.error('Scheduled KvKCompanyProfiler failed', { err: String(err) }))
 }, { timezone: TZ })
 
+// SpatialPlanningScraper: dagelijks om 04:00 ruimtelijke planningen verrijken
+cron.schedule('0 4 * * *', () => {
+  withAgentGuard('SpatialPlanningScraper', runSpatialPlanningScraper)
+    .catch(err => logger.error('Scheduled SpatialPlanningScraper failed', { err: String(err) }))
+}, { timezone: TZ })
+
 // ── Start ─────────────────────────────────────────────────────────────────────
 app.listen(PORT, () => {
   logger.info(`Acquisition Engine started on :${PORT} (tz=${TZ})`)
-  logger.info('13 cron schedules: DealHunter, OffMarketAI, PermitAI, MunicipalityAI, InvestorAI, OutreachAI, RiskAI, AcquisitionDirectorAI, FundaScraper, KadasterScraper, PermitsScraper, ImmobeltScraper, KvKCompanyProfiler')
+  logger.info('14 cron schedules: DealHunter, OffMarketAI, PermitAI, MunicipalityAI, InvestorAI, OutreachAI, RiskAI, AcquisitionDirectorAI, FundaScraper, KadasterScraper, PermitsScraper, ImmobeltScraper, KvKCompanyProfiler, SpatialPlanningScraper')
 })
 
 process.on('SIGTERM', () => {
