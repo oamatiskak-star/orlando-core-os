@@ -466,7 +466,7 @@ export class IntakeProcessor {
         })
 
         // Dispatch naar orchestrator voor high-risk juridische mail
-        if (legalAnalysis.riskLevel === 'hoog' || legalAnalysis.riskLevel === 'kritiek') {
+        if (legalAnalysis.riskLevel === 'high' || legalAnalysis.riskLevel === 'critical') {
           await createOrchestratorTask({
             title:    `⚖️ Juridische mail: ${message.subject?.slice(0, 80) ?? fromEmail}`,
             taskType: 'legal_analysis',
@@ -512,7 +512,7 @@ export class IntakeProcessor {
           company: classification.company,
           category: classification.category,
           priority: classification.priority,
-          contact_sentiment: existingContact?.sentiment,
+          contact_sentiment: existingContact?.sentiment ?? undefined,
           prior_interactions: contact.total_interactions,
         },
         availableTemplates || []
