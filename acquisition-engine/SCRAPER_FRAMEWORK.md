@@ -303,8 +303,40 @@ ORDER BY created_at DESC
 LIMIT 10;
 ```
 
+## Completed Implementations
+
+### Week 1: FundaScraper ✅
+- Scrapes Dutch residential listings from Funda app-facing API (Elasticsearch)
+- 150-200 listings per run, every 4 hours
+- Rate limit: 360 req/hour (6 per minute)
+- Postal code → province mapping
+- Property type normalization
+- Endpoints: `POST /workers/funda-scraper/run` + `GET /api/acquisition/cron/funda-scan`
+
+### Week 2: KadasterScraper ✅
+- Enriches deals with Kadaster BAG (Basisregistratie Adressen en Gebouwen) data
+- Fetches ownership info, building year, property status
+- Batch processing: 100 addresses per 10s
+- Rate limit: 36000 req/hour
+- Endpoints: `POST /workers/kadaster-scraper/run` + `GET /api/acquisition/cron/kadaster-enrich`
+
+### Week 3: PermitsScraper ✅
+- Fetches recent building permits from IMOW (Informatiemodel Omgevingswet)
+- Supports: bouwvergunning, aanvraag, meldingsproces
+- Searches last 30 days across all Dutch municipalities
+- Rate limit: 1800 req/hour (1 req/2s sequential)
+- Endpoints: `POST /workers/permits-scraper/run` + `GET /api/acquisition/cron/permits-scan`
+
 ## Next Steps
 
-1. **Week 2:** FundaScraper (10k deals)
-2. **Week 3:** KadasterScraper (ownership + WOZ)
-3. **Week 4:** PermitScraper (building permits)
+1. **Week 4:** ImmoBelt Scraper (commercial property opportunities)
+   - Rate: 500 req/day (1 req/2s)
+   - Fetch institutional real estate listings
+   
+2. **Week 5:** KvK Company Profiler (investor/developer analysis)
+   - Fetch company ownership structure from KvK API
+   - Analyze track record: completed projects, current portfolio
+   
+3. **Optional:** Municipality-specific government data scrapers
+   - Gemeente permit portals (direct integration)
+   - Spatial planning data (RUD/ruimtelijkeplannen.nl)
