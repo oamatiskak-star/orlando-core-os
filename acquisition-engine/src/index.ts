@@ -21,6 +21,7 @@ import { runSpatialPlanningScraper } from './workers/spatial-planning-scraper'
 import { runBuildingInspectionScraper } from './workers/building-inspection-scraper'
 import { runMarketAnalysisScraper } from './workers/market-analysis-scraper'
 import { runEnvironmentalRiskScraper } from './workers/environmental-risk-scraper'
+import { runNeighborhoodAnalyticsScraper } from './workers/neighborhood-analytics-scraper'
 
 const app = express()
 app.use(express.json())
@@ -216,6 +217,15 @@ app.post('/workers/environmental-risk/run', async (_req: Request, res: Response)
   }
 })
 
+app.post('/workers/neighborhood-analytics/run', async (_req: Request, res: Response) => {
+  try {
+    const result = await withAgentGuard('NeighborhoodAnalyticsScraper', runNeighborhoodAnalyticsScraper)
+    res.json(result)
+  } catch (err) {
+    res.status(500).json({ status: 'error', error: (err as Error).message })
+  }
+})
+
 // ── Scan jobs endpoint (Vercel cron callback) ────────────────────────────────
 // POST /scan — Vercel cron routes inserteren scan_jobs, worker pakt ze op
 app.post('/scan', async (_req: Request, res: Response) => {
@@ -341,10 +351,16 @@ cron.schedule('0 */8 * * *', () => {
     .catch(err => logger.error('Scheduled EnvironmentalRiskScraper failed', { err: String(err) }))
 }, { timezone: TZ })
 
+// NeighborhoodAnalyticsScraper: elke 6 uur buurt-analyses (scholen, criminaliteit, openbaar vervoer, demografie)
+cron.schedule('0 */6 * * *', () => {
+  withAgentGuard('NeighborhoodAnalyticsScraper', runNeighborhoodAnalyticsScraper)
+    .catch(err => logger.error('Scheduled NeighborhoodAnalyticsScraper failed', { err: String(err) }))
+}, { timezone: TZ })
+
 // ── Start ─────────────────────────────────────────────────────────────────────
 app.listen(PORT, () => {
   logger.info(`Acquisition Engine started on :${PORT} (tz=${TZ})`)
-  logger.info('17 cron schedules: DealHunter, OffMarketAI, PermitAI, MunicipalityAI, InvestorAI, OutreachAI, RiskAI, AcquisitionDirectorAI, FundaScraper, KadasterScraper, PermitsScraper, ImmobeltScraper, KvKCompanyProfiler, SpatialPlanningScraper, BuildingInspectionScraper, MarketAnalysisScraper, EnvironmentalRiskScraper')
+  logger.info('18 cron schedules: DealHunter, OffMarketAI, PermitAI, MunicipalityAI, InvestorAI, OutreachAI, RiskAI, AcquisitionDirectorAI, FundaScraper, KadasterScraper, PermitsScraper, ImmobeltScraper, KvKCompanyProfiler, SpatialPlanningScraper, BuildingInspectionScraper, MarketAnalysisScraper, EnvironmentalRiskScraper, NeighborhoodAnalyticsScraper')
 })
 
 process.on('SIGTERM', () => {

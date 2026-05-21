@@ -26,6 +26,7 @@ const spatial_planning_scraper_1 = require("./workers/spatial-planning-scraper")
 const building_inspection_scraper_1 = require("./workers/building-inspection-scraper");
 const market_analysis_scraper_1 = require("./workers/market-analysis-scraper");
 const environmental_risk_scraper_1 = require("./workers/environmental-risk-scraper");
+const neighborhood_analytics_scraper_1 = require("./workers/neighborhood-analytics-scraper");
 const app = (0, express_1.default)();
 app.use(express_1.default.json());
 const PORT = parseInt(process.env.PORT ?? '3005', 10);
@@ -217,6 +218,15 @@ app.post('/workers/environmental-risk/run', async (_req, res) => {
         res.status(500).json({ status: 'error', error: err.message });
     }
 });
+app.post('/workers/neighborhood-analytics/run', async (_req, res) => {
+    try {
+        const result = await withAgentGuard('NeighborhoodAnalyticsScraper', neighborhood_analytics_scraper_1.runNeighborhoodAnalyticsScraper);
+        res.json(result);
+    }
+    catch (err) {
+        res.status(500).json({ status: 'error', error: err.message });
+    }
+});
 // ── Scan jobs endpoint (Vercel cron callback) ────────────────────────────────
 // POST /scan — Vercel cron routes inserteren scan_jobs, worker pakt ze op
 app.post('/scan', async (_req, res) => {
@@ -324,10 +334,15 @@ node_cron_1.default.schedule('0 */8 * * *', () => {
     withAgentGuard('EnvironmentalRiskScraper', environmental_risk_scraper_1.runEnvironmentalRiskScraper)
         .catch(err => logger_1.logger.error('Scheduled EnvironmentalRiskScraper failed', { err: String(err) }));
 }, { timezone: TZ });
+// NeighborhoodAnalyticsScraper: elke 6 uur buurt-analyses (scholen, criminaliteit, openbaar vervoer, demografie)
+node_cron_1.default.schedule('0 */6 * * *', () => {
+    withAgentGuard('NeighborhoodAnalyticsScraper', neighborhood_analytics_scraper_1.runNeighborhoodAnalyticsScraper)
+        .catch(err => logger_1.logger.error('Scheduled NeighborhoodAnalyticsScraper failed', { err: String(err) }));
+}, { timezone: TZ });
 // ── Start ─────────────────────────────────────────────────────────────────────
 app.listen(PORT, () => {
     logger_1.logger.info(`Acquisition Engine started on :${PORT} (tz=${TZ})`);
-    logger_1.logger.info('17 cron schedules: DealHunter, OffMarketAI, PermitAI, MunicipalityAI, InvestorAI, OutreachAI, RiskAI, AcquisitionDirectorAI, FundaScraper, KadasterScraper, PermitsScraper, ImmobeltScraper, KvKCompanyProfiler, SpatialPlanningScraper, BuildingInspectionScraper, MarketAnalysisScraper, EnvironmentalRiskScraper');
+    logger_1.logger.info('18 cron schedules: DealHunter, OffMarketAI, PermitAI, MunicipalityAI, InvestorAI, OutreachAI, RiskAI, AcquisitionDirectorAI, FundaScraper, KadasterScraper, PermitsScraper, ImmobeltScraper, KvKCompanyProfiler, SpatialPlanningScraper, BuildingInspectionScraper, MarketAnalysisScraper, EnvironmentalRiskScraper, NeighborhoodAnalyticsScraper');
 });
 process.on('SIGTERM', () => {
     logger_1.logger.info('SIGTERM received — shutting down');
