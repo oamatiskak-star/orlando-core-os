@@ -82,8 +82,8 @@ export async function getMailStats(): Promise<MailStats[]> {
 
   const { data: messages } = await supabase
     .from('mail_messages')
-    .select('company_id, read_at, response_time, created_at')
-    .gte('created_at', `${today}T00:00:00`)
+    .select('company_id, is_read, response_time, received_at')
+    .gte('received_at', `${today}T00:00:00`)
 
   const { data: companies } = await supabase
     .from('companies')
@@ -93,12 +93,13 @@ export async function getMailStats(): Promise<MailStats[]> {
 
   if (messages) {
     for (const msg of messages) {
-      if (!mailMap[msg.company_id]) {
-        mailMap[msg.company_id] = { todayCount: 0, unread: 0, responseTimes: [] }
+      const companyId = msg.company_id || 'unknown'
+      if (!mailMap[companyId]) {
+        mailMap[companyId] = { todayCount: 0, unread: 0, responseTimes: [] }
       }
-      mailMap[msg.company_id].todayCount += 1
-      if (!msg.read_at) mailMap[msg.company_id].unread += 1
-      if (msg.response_time) mailMap[msg.company_id].responseTimes.push(msg.response_time)
+      mailMap[companyId].todayCount += 1
+      if (!msg.is_read) mailMap[companyId].unread += 1
+      if (msg.response_time) mailMap[companyId].responseTimes.push(msg.response_time)
     }
   }
 
