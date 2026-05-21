@@ -36,6 +36,7 @@ export default function ExecutiveOverviewPage() {
   const [recs, setRecs] = useState<Recommendation[]>([])
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
+  const [approvingAll, setApprovingAll] = useState(false)
 
   const load = useCallback(async () => {
     setRefreshing(true)
@@ -51,6 +52,25 @@ export default function ExecutiveOverviewPage() {
     setLoading(false)
     setRefreshing(false)
   }, [])
+
+  const approveAll = useCallback(async () => {
+    if (recs.length === 0) return
+    setApprovingAll(true)
+    try {
+      await Promise.all(
+        recs.map(r =>
+          fetch(`/api/executive-layer/recommendations/${r.id}`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ status: 'approved', executed_by: 'orlando' }),
+          })
+        )
+      )
+      await load()
+    } finally {
+      setApprovingAll(false)
+    }
+  }, [recs, load])
 
   useEffect(() => {
     load()
@@ -115,9 +135,21 @@ export default function ExecutiveOverviewPage() {
             <div className="text-xs font-medium text-white/70 flex items-center gap-2">
               <Sparkles size={12} className="text-violet-300" /> Pending recommendations
             </div>
-            <Link href="/dashboard/media-holding/executive/boardroom" className="text-[10px] text-white/40 hover:text-white/60">
-              All →
-            </Link>
+            <div className="flex items-center gap-2">
+              {recs.length > 0 && (
+                <button
+                  type="button"
+                  onClick={approveAll}
+                  disabled={approvingAll}
+                  className="text-[10px] px-2 py-1 rounded bg-emerald-500/20 border border-emerald-400/30 text-emerald-200 hover:bg-emerald-500/30 disabled:opacity-40"
+                >
+                  {approvingAll ? 'Approving...' : `Approve all (${recs.length})`}
+                </button>
+              )}
+              <Link href="/dashboard/media-holding/executive/boardroom" className="text-[10px] text-white/40 hover:text-white/60">
+                All →
+              </Link>
+            </div>
           </div>
           {recs.length === 0 ? (
             <EmptyState
