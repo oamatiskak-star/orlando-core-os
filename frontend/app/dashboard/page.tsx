@@ -7,10 +7,15 @@ import {
   Activity,
   ArrowUpRight,
   Euro,
+  Mail,
+  Upload,
+  Eye,
+  HardDrive,
 } from 'lucide-react'
 import clsx from 'clsx'
 import Link from 'next/link'
 import { getDashboardStats } from '@/lib/supabase/queries'
+import { getStorageStats, getMailStats, getUploadStats, getViewStats } from '@/lib/supabase/storage-queries'
 import { createClient } from '@/lib/supabase/server'
 
 export const dynamic = 'force-dynamic'
@@ -44,10 +49,17 @@ function fmtEur(n: number) {
   return `€${n}`
 }
 
+function fmtBytes(bytes: number) {
+  if (bytes >= 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024 * 1024)).toFixed(1)}GB`
+  if (bytes >= 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)}MB`
+  if (bytes >= 1024) return `${(bytes / 1024).toFixed(1)}KB`
+  return `${bytes}B`
+}
+
 export default async function DashboardPage() {
   const supabase = await createClient()
 
-  const [stats, notifRes, agentsRes, companiesRes, agentCountRes, taskCountRes] = await Promise.all([
+  const [stats, notifRes, agentsRes, companiesRes, agentCountRes, taskCountRes, storageStats, mailStats, uploadStats, viewStats] = await Promise.all([
     getDashboardStats(),
     supabase.from('notifications')
       .select('titel, bericht, created_at, type')
@@ -62,6 +74,10 @@ export default async function DashboardPage() {
       .order('name', { ascending: true }),
     supabase.from('agents').select('company_id').not('company_id', 'is', null),
     supabase.from('planning_items').select('company_id').not('company_id', 'is', null).neq('status', 'gereed'),
+    getStorageStats(),
+    getMailStats(),
+    getUploadStats(7),
+    getViewStats(),
   ])
 
   const agentCounts: Record<string, number> = {}
@@ -77,12 +93,17 @@ export default async function DashboardPage() {
   const recentNotifs = notifRes.data ?? []
   const agentsData = agentsRes.data ?? []
 
+  const totalStorage = storageStats.reduce((sum, s) => sum + s.usedStorage, 0)
+  const totalMails = mailStats.reduce((sum, m) => sum + m.todayCount, 0)
+  const totalUploads = uploadStats.length
+  const totalViews = viewStats.reduce((sum, v) => sum + v.pageViews, 0)
+
   const STAT_CARDS = [
     { label: 'Actieve Agents',     value: String(stats.actieve_agents),    sub: 'Live monitoring',       icon: Bot,          color: 'indigo'  },
     { label: 'Open Taken',         value: String(stats.open_taken),        sub: 'In queue / verwerking', icon: CheckSquare,  color: 'amber'   },
-    { label: 'Lopende Projecten',  value: String(stats.lopende_projecten), sub: 'STRKBOUW + BEHEER',     icon: FolderKanban, color: 'sky'     },
-    { label: 'Vastgoed Deals',     value: String(stats.vastgoed_deals),    sub: 'Actief in pipeline',    icon: Home,         color: 'emerald' },
-    { label: 'Maandomzet',         value: stats.maandomzet > 0 ? fmtEur(stats.maandomzet) : '€0', sub: 'Lopende maand', icon: Euro, color: 'violet' },
+    { label: 'Mails Vandaag',      value: String(totalMails),              sub: 'Alle bedrijven',        icon: Mail,         color: 'sky'     },
+    { label: 'Opslag Gebruik',     value: fmtBytes(totalStorage),          sub: 'Totaal',                icon: HardDrive,    color: 'emerald' },
+    { label: 'Views Vandaag',      value: String(totalViews),              sub: 'Alle bedrijven',        icon: Eye,          color: 'violet'  },
     { label: 'System Health',      value: `${stats.system_health}%`,       sub: 'Worker uptime',         icon: Activity,     color: 'green'   },
   ]
 
@@ -205,6 +226,121 @@ export default async function DashboardPage() {
             ))}
           </div>
         )}
+      </div>
+
+      {/* Storage Overview — live */}
+      <div className="bg-white/[0.06] border border-white/5 rounded-xl p-4">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-sm font-semibold text-white">📦 Opslag Overzicht</h2>
+          <span className="text-[11px] text-white/40">Real-time</span>
+        </div>
+        <div className="space-y-3">
+          {storageStats.length === 0 ? (
+            <p className="text-xs text-white/40 py-4 text-center">Geen opslag data</p>
+          ) : (
+            storageStats.map((s) => (
+              <div key={s.companyId} className="space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-medium text-white">{s.companyName}</span>
+                  <span className="text-[10px] text-white/50">{fmtBytes(s.usedStorage)} / {fmtBytes(s.totalStorage)}</span>
+                </div>
+                <div className="w-full bg-white/5 rounded-full h-2 overflow-hidden">
+                  <div
+                    className={clsx('h-full transition-all',
+                      s.percentage > 80 ? 'bg-red-500' :
+                      s.percentage > 60 ? 'bg-amber-500' : 'bg-green-500'
+                    )}
+                    style={{ width: `${s.percentage}%` }}
+                  />
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] text-white/40">{s.fileCount} bestanden</span>
+                  <span className="text-[10px] font-medium text-white">{s.percentage}%</span>
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+      </div>
+
+      {/* Mail Stats — today */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <div className="bg-white/[0.06] border border-white/5 rounded-xl p-4">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-sm font-semibold text-white">📧 Mail Activiteit (Vandaag)</h2>
+            <span className="text-[11px] text-white/40">Live</span>
+          </div>
+          <div className="space-y-2">
+            {mailStats.length === 0 ? (
+              <p className="text-xs text-white/40 py-4 text-center">Geen mail data</p>
+            ) : (
+              mailStats.map((m) => (
+                <div key={m.companyId} className="flex items-center justify-between p-2.5 rounded-lg hover:bg-white/5 transition-colors">
+                  <div className="flex-1">
+                    <p className="text-xs font-medium text-white/80">{m.companyName}</p>
+                    <p className="text-[10px] text-white/40">Gem. response: {m.averageResponseTime}</p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-xs font-bold text-indigo-400">{m.todayCount}</p>
+                    <p className="text-[10px] text-white/40">{m.totalUnread} ongelezen</p>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+
+        {/* Views Stats — today */}
+        <div className="bg-white/[0.06] border border-white/5 rounded-xl p-4">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-sm font-semibold text-white">👁️ Views (Vandaag)</h2>
+            <span className="text-[11px] text-white/40">Live</span>
+          </div>
+          <div className="space-y-2">
+            {viewStats.length === 0 ? (
+              <p className="text-xs text-white/40 py-4 text-center">Geen view data</p>
+            ) : (
+              viewStats.map((v) => (
+                <div key={v.companyId} className="flex items-center justify-between p-2.5 rounded-lg hover:bg-white/5 transition-colors">
+                  <div className="flex-1">
+                    <p className="text-xs font-medium text-white/80">{v.companyName}</p>
+                    <p className="text-[10px] text-white/40">Bounce: {v.bounceRate}% | {v.avgSessionDuration} avg</p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-xs font-bold text-sky-400">{v.pageViews}</p>
+                    <p className="text-[10px] text-white/40">{v.uniqueVisitors} bezoekers</p>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Upload Timeline */}
+      <div className="bg-white/[0.06] border border-white/5 rounded-xl p-4">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-sm font-semibold text-white">⬆️ Upload Activiteit (7 dagen)</h2>
+          <span className="text-[11px] text-white/40">{uploadStats.length} dagen actief</span>
+        </div>
+        <div className="space-y-2 max-h-64 overflow-y-auto">
+          {uploadStats.length === 0 ? (
+            <p className="text-xs text-white/40 py-4 text-center">Geen upload data</p>
+          ) : (
+            uploadStats.map((u, i) => (
+              <div key={i} className="flex items-center justify-between p-2.5 rounded-lg hover:bg-white/5 transition-colors">
+                <div className="flex-1">
+                  <p className="text-xs font-medium text-white/80">{new Date(u.date).toLocaleDateString('nl-NL', { weekday: 'short', month: 'short', day: 'numeric' })}</p>
+                  <p className="text-[10px] text-white/40">{fmtBytes(u.totalSize)}</p>
+                </div>
+                <div className="text-right">
+                  <p className="text-xs font-bold text-amber-400">{u.count}</p>
+                  <p className="text-[10px] text-white/40">uploads</p>
+                </div>
+              </div>
+            ))
+          )}
+        </div>
       </div>
     </div>
   )
