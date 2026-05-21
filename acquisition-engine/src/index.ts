@@ -13,6 +13,7 @@ import { runRiskAI } from './agents/risk-ai'
 import { runAcquisitionDirector } from './agents/acquisition-director'
 import { runBuildOppsScanner } from './agents/build-opps-scanner'
 import { runFundaScraper } from './workers/funda-scraper'
+import { runKadasterScraper } from './workers/kadaster-scraper'
 
 const app = express()
 app.use(express.json())
@@ -136,6 +137,15 @@ app.post('/workers/funda-scraper/run', async (_req: Request, res: Response) => {
   }
 })
 
+app.post('/workers/kadaster-scraper/run', async (_req: Request, res: Response) => {
+  try {
+    const result = await withAgentGuard('KadasterScraper', runKadasterScraper)
+    res.json({ status: 'ok', ...result })
+  } catch (err) {
+    res.status(500).json({ status: 'error', error: (err as Error).message })
+  }
+})
+
 // ── Scan jobs endpoint (Vercel cron callback) ────────────────────────────────
 // POST /scan — Vercel cron routes inserteren scan_jobs, worker pakt ze op
 app.post('/scan', async (_req: Request, res: Response) => {
@@ -213,10 +223,16 @@ cron.schedule('0 */4 * * *', () => {
     .catch(err => logger.error('Scheduled FundaScraper failed', { err: String(err) }))
 }, { timezone: TZ })
 
+// KadasterScraper: dagelijks om 05:00 deals verrijken met BAG data
+cron.schedule('0 5 * * *', () => {
+  withAgentGuard('KadasterScraper', runKadasterScraper)
+    .catch(err => logger.error('Scheduled KadasterScraper failed', { err: String(err) }))
+}, { timezone: TZ })
+
 // ── Start ─────────────────────────────────────────────────────────────────────
 app.listen(PORT, () => {
   logger.info(`Acquisition Engine started on :${PORT} (tz=${TZ})`)
-  logger.info('9 cron schedules: DealHunter, OffMarketAI, PermitAI, MunicipalityAI, InvestorAI, OutreachAI, RiskAI, AcquisitionDirectorAI, FundaScraper')
+  logger.info('10 cron schedules: DealHunter, OffMarketAI, PermitAI, MunicipalityAI, InvestorAI, OutreachAI, RiskAI, AcquisitionDirectorAI, FundaScraper, KadasterScraper')
 })
 
 process.on('SIGTERM', () => {

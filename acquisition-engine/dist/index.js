@@ -18,6 +18,7 @@ const risk_ai_1 = require("./agents/risk-ai");
 const acquisition_director_1 = require("./agents/acquisition-director");
 const build_opps_scanner_1 = require("./agents/build-opps-scanner");
 const funda_scraper_1 = require("./workers/funda-scraper");
+const kadaster_scraper_1 = require("./workers/kadaster-scraper");
 const app = (0, express_1.default)();
 app.use(express_1.default.json());
 const PORT = parseInt(process.env.PORT ?? '3005', 10);
@@ -137,6 +138,15 @@ app.post('/workers/funda-scraper/run', async (_req, res) => {
         res.status(500).json({ status: 'error', error: err.message });
     }
 });
+app.post('/workers/kadaster-scraper/run', async (_req, res) => {
+    try {
+        const result = await withAgentGuard('KadasterScraper', kadaster_scraper_1.runKadasterScraper);
+        res.json({ status: 'ok', ...result });
+    }
+    catch (err) {
+        res.status(500).json({ status: 'error', error: err.message });
+    }
+});
 // ── Scan jobs endpoint (Vercel cron callback) ────────────────────────────────
 // POST /scan — Vercel cron routes inserteren scan_jobs, worker pakt ze op
 app.post('/scan', async (_req, res) => {
@@ -204,10 +214,15 @@ node_cron_1.default.schedule('0 */4 * * *', () => {
     withAgentGuard('FundaScraper', funda_scraper_1.runFundaScraper)
         .catch(err => logger_1.logger.error('Scheduled FundaScraper failed', { err: String(err) }));
 }, { timezone: TZ });
+// KadasterScraper: dagelijks om 05:00 deals verrijken met BAG data
+node_cron_1.default.schedule('0 5 * * *', () => {
+    withAgentGuard('KadasterScraper', kadaster_scraper_1.runKadasterScraper)
+        .catch(err => logger_1.logger.error('Scheduled KadasterScraper failed', { err: String(err) }));
+}, { timezone: TZ });
 // ── Start ─────────────────────────────────────────────────────────────────────
 app.listen(PORT, () => {
     logger_1.logger.info(`Acquisition Engine started on :${PORT} (tz=${TZ})`);
-    logger_1.logger.info('9 cron schedules: DealHunter, OffMarketAI, PermitAI, MunicipalityAI, InvestorAI, OutreachAI, RiskAI, AcquisitionDirectorAI, FundaScraper');
+    logger_1.logger.info('10 cron schedules: DealHunter, OffMarketAI, PermitAI, MunicipalityAI, InvestorAI, OutreachAI, RiskAI, AcquisitionDirectorAI, FundaScraper, KadasterScraper');
 });
 process.on('SIGTERM', () => {
     logger_1.logger.info('SIGTERM received — shutting down');
