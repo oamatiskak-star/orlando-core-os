@@ -1,5 +1,10 @@
-import { HardHat, Building2 } from 'lucide-react'
+'use client'
+
+import { HardHat } from 'lucide-react'
+import { useEffect, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { getAcqBuildOpps } from '@/lib/supabase/acquisition'
+import type { AcqBuildOpp } from '@/lib/supabase/acquisition'
 
 const STAGE_COLORS: Record<string, string> = {
   signalering: 'text-sky-400 bg-sky-500/10',
@@ -14,8 +19,19 @@ function fmt(n: number | null) {
   return new Intl.NumberFormat('nl-NL', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }).format(n)
 }
 
-export default async function BouwRadarPage() {
-  const opps = await getAcqBuildOpps()
+export default function BouwRadarPage() {
+  const router = useRouter()
+  const [opps, setOpps] = useState<AcqBuildOpp[]>([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    const loadOpps = async () => {
+      const data = await getAcqBuildOpps()
+      setOpps(data)
+      setLoading(false)
+    }
+    loadOpps()
+  }, [])
 
   return (
     <div className="space-y-5">
@@ -29,14 +45,22 @@ export default async function BouwRadarPage() {
         </div>
       </div>
 
-      {opps.length === 0 ? (
+      {loading ? (
+        <div className="bg-white/[0.02] border border-white/5 rounded-xl">
+          <EmptyState icon={HardHat} label="Laden..." />
+        </div>
+      ) : opps.length === 0 ? (
         <div className="bg-white/[0.02] border border-white/5 rounded-xl">
           <EmptyState icon={HardHat} label="Geen bouwopdrachten gevonden" sub="Voeg bouwopdrachten toe of configureer BouwRadar agents" />
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
           {opps.map(opp => (
-            <div key={opp.id} className="bg-white/[0.02] border border-white/5 rounded-xl p-4 hover:border-white/10 transition-colors">
+            <button
+              key={opp.id}
+              onClick={() => router.push(`/dashboard/acquisition/build-opportunities/${opp.id}`)}
+              className="bg-white/[0.02] border border-white/5 rounded-xl p-4 hover:border-white/10 transition-colors text-left cursor-pointer hover:bg-white/[0.04]"
+            >
               <div className="flex items-start justify-between gap-2 mb-3">
                 <div>
                   <p className="text-sm font-medium text-white">{opp.title}</p>
@@ -56,7 +80,7 @@ export default async function BouwRadarPage() {
               {opp.opp_type && (
                 <span className="inline-block mt-2 px-1.5 py-0.5 bg-orange-500/10 text-orange-400/80 rounded text-[10px]">{opp.opp_type}</span>
               )}
-            </div>
+            </button>
           ))}
         </div>
       )}

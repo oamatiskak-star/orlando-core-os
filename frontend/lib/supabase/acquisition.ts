@@ -235,6 +235,16 @@ export async function getAcqBuildOpps(): Promise<AcqBuildOpp[]> {
   return (data ?? []) as AcqBuildOpp[]
 }
 
+export async function getAcqBuildOppById(id: string): Promise<AcqBuildOpp | null> {
+  const supabase = await createClient()
+  const { data } = await supabase
+    .from('acq_build_opps')
+    .select('*')
+    .eq('id', id)
+    .single()
+  return data as AcqBuildOpp | null
+}
+
 export async function getAcqOffmarketLeads(filters?: {
   lead_type?: string
   province?: string
