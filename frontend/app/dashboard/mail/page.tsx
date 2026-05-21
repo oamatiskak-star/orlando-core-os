@@ -15,6 +15,7 @@ export default async function MailDashboardPage() {
     { data: recentMessages },
     { data: dossiers },
     { data: deadlines },
+    { data: pendingDrafts },
   ] = await Promise.all([
     supabase.from('mail_agents').select('agent_type, name, enabled, stats').order('name'),
     supabase.from('mail_workflows').select('name, enabled, run_count, last_run_at').order('priority', { ascending: false }),
@@ -22,6 +23,7 @@ export default async function MailDashboardPage() {
     supabase.from('mail_messages').select('id, priority, category, company, received_at').order('received_at', { ascending: false }).limit(100),
     supabase.from('mail_legal_dossiers').select('id, risk_level, status').in('status', ['open', 'in_behandeling']),
     supabase.from('mail_legal_deadlines').select('deadline_at').eq('status', 'open').lte('deadline_at', new Date(Date.now() + 7 * 86400000).toISOString()),
+    supabase.from('mail_drafts').select('id, subject, ai_confidence, created_at, mail_messages(from_email, category)').eq('status', 'pending').order('created_at', { ascending: false }).limit(5),
   ])
 
   const stats = {
@@ -38,6 +40,7 @@ export default async function MailDashboardPage() {
       high: dossiers?.filter(d => d.risk_level === 'high').length ?? 0,
     },
     deadlines: deadlines?.length ?? 0,
+    pendingApprovals: pendingDrafts?.length ?? 0,
   }
 
   const modules = [
@@ -104,6 +107,48 @@ export default async function MailDashboardPage() {
           <span className="text-[11px] text-white/40">Live</span>
         </div>
       </div>
+
+      {/* Pending Approvals — PRIMARY WIDGET */}
+      {stats.pendingApprovals > 0 && (
+        <div className="bg-amber-500/5 border border-amber-500/20 rounded-xl p-4">
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-2">
+              <Clock size={14} className="text-amber-400" />
+              <h2 className="text-[13px] font-semibold text-white">
+                {stats.pendingApprovals} Mail{stats.pendingApprovals !== 1 ? 's' : ''} Awaiting Approval
+              </h2>
+            </div>
+            <Link href="/dashboard/mail/approvals" className="text-[11px] text-amber-400 hover:text-amber-300">
+              View all →
+            </Link>
+          </div>
+          <div className="space-y-2">
+            {(pendingDrafts ?? []).map((draft: any) => (
+              <Link
+                key={draft.id}
+                href={`/dashboard/mail/draft/${draft.id}`}
+                className="block p-2.5 rounded-lg border border-white/5 bg-white/[0.02] hover:bg-white/[0.05] transition-colors"
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs font-medium text-white truncate">{draft.subject}</p>
+                    <p className="text-[10px] text-white/40 mt-0.5">
+                      From: {draft.mail_messages?.from_email || 'Unknown'} · {draft.mail_messages?.category || 'general'}
+                    </p>
+                  </div>
+                  <span className={`text-[9px] font-medium px-2 py-1 rounded whitespace-nowrap ${
+                    draft.ai_confidence > 0.8 ? 'bg-green-500/20 text-green-400' :
+                    draft.ai_confidence > 0.5 ? 'bg-amber-500/20 text-amber-400' :
+                    'bg-red-500/20 text-red-400'
+                  }`}>
+                    {Math.round(draft.ai_confidence * 100)}%
+                  </span>
+                </div>
+              </Link>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Alerts */}
       {(stats.dossiers.critical > 0 || stats.deadlines > 0) && (
