@@ -14,6 +14,7 @@ import { runAcquisitionDirector } from './agents/acquisition-director'
 import { runBuildOppsScanner } from './agents/build-opps-scanner'
 import { runFundaScraper } from './workers/funda-scraper'
 import { runKadasterScraper } from './workers/kadaster-scraper'
+import { runPermitsScraper } from './workers/permits-scraper'
 
 const app = express()
 app.use(express.json())
@@ -146,6 +147,15 @@ app.post('/workers/kadaster-scraper/run', async (_req: Request, res: Response) =
   }
 })
 
+app.post('/workers/permits-scraper/run', async (_req: Request, res: Response) => {
+  try {
+    const result = await withAgentGuard('PermitsScraper', runPermitsScraper)
+    res.json({ status: 'ok', ...result })
+  } catch (err) {
+    res.status(500).json({ status: 'error', error: (err as Error).message })
+  }
+})
+
 // ── Scan jobs endpoint (Vercel cron callback) ────────────────────────────────
 // POST /scan — Vercel cron routes inserteren scan_jobs, worker pakt ze op
 app.post('/scan', async (_req: Request, res: Response) => {
@@ -229,10 +239,16 @@ cron.schedule('0 5 * * *', () => {
     .catch(err => logger.error('Scheduled KadasterScraper failed', { err: String(err) }))
 }, { timezone: TZ })
 
+// PermitsScraper: dagelijks om 07:00 recente bouwvergunningen ophalen
+cron.schedule('0 7 * * *', () => {
+  withAgentGuard('PermitsScraper', runPermitsScraper)
+    .catch(err => logger.error('Scheduled PermitsScraper failed', { err: String(err) }))
+}, { timezone: TZ })
+
 // ── Start ─────────────────────────────────────────────────────────────────────
 app.listen(PORT, () => {
   logger.info(`Acquisition Engine started on :${PORT} (tz=${TZ})`)
-  logger.info('10 cron schedules: DealHunter, OffMarketAI, PermitAI, MunicipalityAI, InvestorAI, OutreachAI, RiskAI, AcquisitionDirectorAI, FundaScraper, KadasterScraper')
+  logger.info('11 cron schedules: DealHunter, OffMarketAI, PermitAI, MunicipalityAI, InvestorAI, OutreachAI, RiskAI, AcquisitionDirectorAI, FundaScraper, KadasterScraper, PermitsScraper')
 })
 
 process.on('SIGTERM', () => {
