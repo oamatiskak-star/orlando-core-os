@@ -15,6 +15,7 @@ import { runBuildOppsScanner } from './agents/build-opps-scanner'
 import { runFundaScraper } from './workers/funda-scraper'
 import { runKadasterScraper } from './workers/kadaster-scraper'
 import { runPermitsScraper } from './workers/permits-scraper'
+import { runImmobeltScraper } from './workers/immobelt-scraper'
 
 const app = express()
 app.use(express.json())
@@ -156,6 +157,15 @@ app.post('/workers/permits-scraper/run', async (_req: Request, res: Response) =>
   }
 })
 
+app.post('/workers/immobelt-scraper/run', async (_req: Request, res: Response) => {
+  try {
+    const result = await withAgentGuard('ImmobeltScraper', runImmobeltScraper)
+    res.json({ status: 'ok', ...result })
+  } catch (err) {
+    res.status(500).json({ status: 'error', error: (err as Error).message })
+  }
+})
+
 // ── Scan jobs endpoint (Vercel cron callback) ────────────────────────────────
 // POST /scan — Vercel cron routes inserteren scan_jobs, worker pakt ze op
 app.post('/scan', async (_req: Request, res: Response) => {
@@ -245,10 +255,16 @@ cron.schedule('0 7 * * *', () => {
     .catch(err => logger.error('Scheduled PermitsScraper failed', { err: String(err) }))
 }, { timezone: TZ })
 
+// ImmobeltScraper: dagelijks om 03:00 commerciële vastgoedopportuniteiten
+cron.schedule('0 3 * * *', () => {
+  withAgentGuard('ImmobeltScraper', runImmobeltScraper)
+    .catch(err => logger.error('Scheduled ImmobeltScraper failed', { err: String(err) }))
+}, { timezone: TZ })
+
 // ── Start ─────────────────────────────────────────────────────────────────────
 app.listen(PORT, () => {
   logger.info(`Acquisition Engine started on :${PORT} (tz=${TZ})`)
-  logger.info('11 cron schedules: DealHunter, OffMarketAI, PermitAI, MunicipalityAI, InvestorAI, OutreachAI, RiskAI, AcquisitionDirectorAI, FundaScraper, KadasterScraper, PermitsScraper')
+  logger.info('12 cron schedules: DealHunter, OffMarketAI, PermitAI, MunicipalityAI, InvestorAI, OutreachAI, RiskAI, AcquisitionDirectorAI, FundaScraper, KadasterScraper, PermitsScraper, ImmobeltScraper')
 })
 
 process.on('SIGTERM', () => {
