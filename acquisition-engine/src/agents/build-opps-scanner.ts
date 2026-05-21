@@ -121,9 +121,10 @@ Wees direct en zakelijk.`,
 }
 
 async function setAgentStatus(name: string, status: 'idle' | 'running' | 'error') {
-  await supabase
-    .from('acq_agent_registry')
-    .update({ status, last_heartbeat: new Date().toISOString() })
-    .eq('name', name)
-    .catch(() => {})
+  try {
+    await supabase
+      .from('acq_agent_registry')
+      .update({ status, last_heartbeat: new Date().toISOString() })
+      .eq('name', name)
+  } catch { /* silent */ }
 }
