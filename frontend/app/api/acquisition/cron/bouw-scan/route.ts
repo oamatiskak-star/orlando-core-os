@@ -15,10 +15,11 @@ export const maxDuration = 60
 // Hoge-budget items (>€500k) krijgen pipeline_stage='analyse'.
 
 const TED_API = 'https://api.ted.europa.eu/v3/notices/search'
-const TENDERNED_RSS = 'https://www.tenderned.nl/tenders.rss'
+// TenderNed RSS is broken (302→Drupal page); using Google News as alternative
+const TENDERNED_RSS = 'https://news.google.com/rss/search?q=site:tenderned.nl+bouw+aanbesteding&hl=nl&gl=NL&ceid=NL:nl'
 
 // CPV codes bouwwerk (prefix match)
-const BOUW_CPV_PREFIXES = ['45', '71', '72251']
+const BOUW_CPV_PREFIXES = ['45', '71']
 
 // Werk-typen mapping
 function mapOppType(cpv: string, title: string): string {
@@ -31,18 +32,22 @@ function mapOppType(cpv: string, title: string): string {
   return 'nieuwbouw'
 }
 
+type MultiLingualDict = Record<string, string[]>
+
 interface TedNotice {
   ND?: string
-  TI?: string
-  MA?: string
-  AU?: string
+  TI?: MultiLingualDict | string
+  AU?: MultiLingualDict | string
   DD?: string
-  PR?: { Value?: string; Currency?: string }[]
+  PR?: { Value?: string; OJ_UNIT?: string }[]
   PC?: string[]
-  CY?: string
   RC?: string[]
-  AA?: string
-  DI?: string
+}
+
+function parseTedText(field: MultiLingualDict | string | undefined): string | null {
+  if (!field) return null
+  if (typeof field === 'string') return field
+  return field.nld?.[0] ?? field.eng?.[0] ?? Object.values(field)[0]?.[0] ?? null
 }
 
 interface BuildOppInsert {
@@ -65,12 +70,8 @@ async function scanTED(): Promise<BuildOppInsert[]> {
 
   try {
     const body = {
-      query: 'ND=NL AND CY=NL',
-      fields: ['ND', 'TI', 'MA', 'AU', 'DD', 'PR', 'PC', 'CY', 'RC', 'AA', 'DI'],
-      filters: [
-        { field: 'CY', values: ['NL'] },
-        { field: 'PC', values: BOUW_CPV_PREFIXES.map(p => `${p}*`) },
-      ],
+      query: 'PC=45* AND RC=NLD',
+      fields: ['ND', 'TI', 'AU', 'DD', 'PR', 'PC', 'RC'],
       sort: { field: 'DD', order: 'desc' },
       limit: 50,
       page: 1,
@@ -82,22 +83,22 @@ async function scanTED(): Promise<BuildOppInsert[]> {
       body: JSON.stringify(body),
     })
 
-    if (!res.ok) throw new Error(`TED API ${res.status}`)
+    if (!res.ok) throw new Error(`TED API ${res.status}: ${await res.text()}`)
     const data = await res.json() as { results?: TedNotice[] }
 
     for (const notice of data.results ?? []) {
-      const title = notice.TI ?? notice.MA ?? 'Onbekende aanbesteding'
+      const title = parseTedText(notice.TI) ?? 'NL Bouw Aanbesteding'
       const cpv   = (notice.PC ?? [])[0] ?? '45000000'
       const value = (notice.PR ?? [])[0]?.Value ? parseFloat(String((notice.PR ?? [])[0].Value!)) : null
       const deadline = notice.DD ? new Date(notice.DD).toISOString().split('T')[0] : null
       const province = (notice.RC ?? [])[0] ?? null
 
       results.push({
-        title:           String(title).slice(0, 300),
+        title:           title.slice(0, 300),
         municipality:    null,
         province,
-        opp_type:        mapOppType(cpv, String(title)),
-        client:          notice.AU ? String(notice.AU).slice(0, 200) : null,
+        opp_type:        mapOppType(cpv, title),
+        client:          parseTedText(notice.AU)?.slice(0, 200) ?? null,
         estimated_value: value,
         deadline,
         source:          'ted_europa',
@@ -113,67 +114,76 @@ async function scanTED(): Promise<BuildOppInsert[]> {
   return results
 }
 
-// ── Scanner 2: TenderNed RSS ─────────────────────────────────────────────────
+// ── Scanner 2: TenderNed via Google News RSS ─────────────────────────────────
 async function scanTenderNed(): Promise<BuildOppInsert[]> {
   const results: BuildOppInsert[] = []
 
-  try {
-    const res = await fetch(TENDERNED_RSS, {
-      headers: { 'Accept': 'application/rss+xml, text/xml, */*', 'User-Agent': 'Mozilla/5.0 (compatible; OrlandoBot/1.0)' },
-    })
+  // TenderNed's native RSS is broken; Google News RSS surfaces TenderNed publications
+  const sources = [
+    TENDERNED_RSS,
+    'https://news.google.com/rss/search?q=tenderned+bouw+aanbesteding&hl=nl&gl=NL&ceid=NL:nl',
+    'https://news.google.com/rss/search?q=aanbesteding+bouwproject+nederland+2025+OR+2026&hl=nl&gl=NL&ceid=NL:nl',
+  ]
 
-    if (!res.ok) throw new Error(`TenderNed RSS ${res.status}`)
-    const xml = await res.text()
-
-    // Eenvoudige XML parser (geen externe lib nodig voor RSS)
-    const items = xml.match(/<item>([\s\S]*?)<\/item>/gi) ?? []
-
-    for (const item of items.slice(0, 50)) {
-      const title      = decodeXML(extractTag(item, 'title'))
-      const link       = extractTag(item, 'link')
-      const desc       = decodeXML(extractTag(item, 'description'))
-      const pubDate    = extractTag(item, 'pubDate')
-
-      // Filter: alleen bouw-gerelateerde items
-      const isBouw = BOUW_CPV_PREFIXES.some(p =>
-        desc.includes(`CPV: ${p}`) || desc.includes(`cpv ${p}`) ||
-        title.toLowerCase().match(/bouw|verbouw|renovati|transform|sloop|aannemer|woningbouw|nieuwbouw|utiliteit/)
-      )
-      if (!isBouw) continue
-
-      // Extraheer bedrag als aanwezig (bijv "€ 1.250.000")
-      const valueMatch = desc.match(/[€£$]\s*([\d.,]+(?:\s*mln)?)/i)
-      let estimatedValue: number | null = null
-      if (valueMatch) {
-        const raw = valueMatch[1].replace(/[.,\s]/g, '')
-        estimatedValue = isNaN(parseInt(raw)) ? null : parseInt(raw)
-        if (desc.toLowerCase().includes('mln') && estimatedValue && estimatedValue < 10_000) {
-          estimatedValue *= 1_000_000
-        }
-      }
-
-      const deadline = pubDate ? new Date(pubDate).toISOString().split('T')[0] : null
-
-      // Opdrachtgever uit description of title
-      const clientMatch = desc.match(/(?:aanbestedende dienst|opdrachtgever)[:\s]+([^\n<]{5,80})/i)
-      const client = clientMatch ? clientMatch[1].trim() : null
-
-      results.push({
-        title:           title.slice(0, 300) || 'TenderNed aanbesteding',
-        municipality:    null,
-        province:        null,
-        opp_type:        mapOppType('45', title),
-        client,
-        estimated_value: estimatedValue,
-        deadline,
-        source:          'tenderned',
-        source_url:      link || null,
-        pipeline_stage:  estimatedValue && estimatedValue > 500_000 ? 'analyse' : 'signalering',
-        notes:           desc.slice(0, 200) || null,
+  for (const url of sources) {
+    try {
+      const res = await fetch(url, {
+        headers: { 'Accept': 'application/rss+xml, text/xml, */*', 'User-Agent': 'Mozilla/5.0 (compatible; OrlandoBot/1.0)' },
+        signal: AbortSignal.timeout(10_000),
       })
+
+      if (!res.ok) { console.error(`TenderNed RSS ${res.status} from ${url}`); continue }
+      const xml = await res.text()
+
+      const items = xml.match(/<item>([\s\S]*?)<\/item>/gi) ?? []
+
+      for (const item of items.slice(0, 30)) {
+        const title   = decodeXML(extractTag(item, 'title'))
+        const link    = extractTag(item, 'link')
+        const desc    = decodeXML(extractTag(item, 'description'))
+        const pubDate = extractTag(item, 'pubDate')
+
+        // Filter: alleen bouw-gerelateerde items
+        const combined = `${title} ${desc}`.toLowerCase()
+        const isBouw = /bouw|verbouw|renovati|transform|sloop|aannemer|woningbouw|nieuwbouw|utiliteit|constructie|woning/.test(combined)
+        if (!isBouw) continue
+
+        // Extraheer bedrag (bijv "€ 1.250.000" of "1,2 mln")
+        const valueMatch = desc.match(/[€£$]\s*([\d.,]+(?:\s*(?:mln|miljoen))?)/i)
+        let estimatedValue: number | null = null
+        if (valueMatch) {
+          const isMln = /mln|miljoen/i.test(valueMatch[0])
+          const raw = valueMatch[1].replace(/[.,\s]/g, '')
+          const parsed = parseInt(raw)
+          if (!isNaN(parsed)) {
+            estimatedValue = isMln && parsed < 10_000 ? parsed * 1_000_000 : parsed
+          }
+        }
+
+        const deadline = pubDate ? new Date(pubDate).toISOString().split('T')[0] : null
+        const clientMatch = desc.match(/(?:aanbestedende dienst|opdrachtgever)[:\s]+([^\n<]{5,80})/i)
+        const client = clientMatch ? clientMatch[1].trim() : null
+
+        // Skip duplicates within this run
+        if (results.some(r => r.title === title.slice(0, 300))) continue
+
+        results.push({
+          title:           title.slice(0, 300) || 'Bouw aanbesteding',
+          municipality:    null,
+          province:        null,
+          opp_type:        mapOppType('45', title),
+          client,
+          estimated_value: estimatedValue,
+          deadline,
+          source:          'tenderned_news',
+          source_url:      link || null,
+          pipeline_stage:  estimatedValue && estimatedValue > 500_000 ? 'analyse' : 'signalering',
+          notes:           desc.slice(0, 200) || null,
+        })
+      }
+    } catch (err) {
+      console.error(`TenderNed/News RSS scan failed (${url}):`, (err as Error).message)
     }
-  } catch (err) {
-    console.error('TenderNed RSS scan failed:', (err as Error).message)
   }
 
   return results
