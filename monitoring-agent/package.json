@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.45.0",
+    "axios": "^1.7.2",
     "dockerode": "^4.0.2",
     "dotenv": "^16.4.5"
   },

@@ -1,11 +1,21 @@
 import 'dotenv/config'
 import { createClient } from '@supabase/supabase-js'
+import axios from 'axios'
 
 const SUPABASE_URL = process.env.SUPABASE_URL!
 const SUPABASE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY!
-const POLL_MS = parseInt(process.env.POLL_INTERVAL_MS ?? '3600000', 10) // Default 1 hour
+const POLL_MS = parseInt(process.env.POLL_INTERVAL_MS ?? '3600000', 10)
+const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN
+const TELEGRAM_CHAT_ID = process.env.TELEGRAM_CHAT_ID
+const MAILTRAP_API_TOKEN = process.env.MAILTRAP_API_TOKEN
+const MAILTRAP_INBOX_ID = process.env.MAILTRAP_INBOX_ID
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY)
+
+// Business plan constants
+const VIEWS_TARGET = 840000
+const DAYS_GOAL = 10
+const DAILY_TARGET = VIEWS_TARGET / DAYS_GOAL
 
 interface ChannelMetrics {
   channelId: string
@@ -39,6 +49,108 @@ interface ChannelAnalysis {
   }
   recommendations: string[]
   healthScore: number
+  businessPlan?: {
+    target: number
+    currentViews: number
+    progressPercent: number
+    daysRemaining: number
+    dailyVelocity: number
+    onTrack: boolean
+    viewsNeeded: number
+  }
+}
+
+async function sendTelegram(message: string): Promise<void> {
+  if (!TELEGRAM_BOT_TOKEN || !TELEGRAM_CHAT_ID) return
+  try {
+    await axios.post(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`, {
+      chat_id: TELEGRAM_CHAT_ID,
+      text: message,
+      parse_mode: 'HTML',
+    })
+  } catch (err) {
+    console.error('[youtube-analyst] Telegram error:', (err as Error).message)
+  }
+}
+
+async function sendMarketingEmail(
+  to: string,
+  channelName: string,
+  analysis: ChannelAnalysis
+): Promise<void> {
+  if (!MAILTRAP_API_TOKEN || !MAILTRAP_INBOX_ID) {
+    console.warn('[youtube-analyst] Mailtrap not configured, skipping email')
+    return
+  }
+
+  const plan = analysis.businessPlan!
+  const progressEmoji = plan.onTrack ? '✅' : '⚠️'
+  const statusText = plan.onTrack
+    ? `ON TRACK! ${plan.progressPercent.toFixed(0)}% naar doel`
+    : `ACHTER OP SCHEMA! ${plan.progressPercent.toFixed(0)}% bereikt`
+
+  const html = `
+    <html>
+      <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+        <h1>🎬 YouTube Channel Analyst Report</h1>
+        <h2>${channelName}</h2>
+
+        <h3>${progressEmoji} Businessplan Status</h3>
+        <div style="background: #f0f0f0; padding: 20px; border-radius: 8px; margin: 20px 0;">
+          <p><strong>${statusText}</strong></p>
+          <p>📊 <strong>${plan.currentViews.toLocaleString()}</strong> van ${plan.target.toLocaleString()} views</p>
+          <p>🎯 Dagelijks tempo: <strong>${plan.dailyVelocity.toLocaleString()}</strong> views/dag</p>
+          <p>📈 Benodigd: <strong>${plan.viewsNeeded.toLocaleString()}</strong> views in ${plan.daysRemaining} dagen</p>
+          <p>🏁 Dagelijks doel: <strong>${DAILY_TARGET.toLocaleString()}</strong> views/dag</p>
+        </div>
+
+        <h3>📈 Channel Metrics (48 uur)</h3>
+        <ul>
+          <li>Views: <strong>${analysis.channel.totalViews.toLocaleString()}</strong></li>
+          <li>Watch Time: <strong>${Math.round(analysis.channel.totalWatchTimeMinutes).toLocaleString()}m</strong></li>
+          <li>CTR: <strong>${(analysis.channel.averageCTR * 100).toFixed(2)}%</strong></li>
+          <li>Health Score: <strong>${analysis.healthScore}/100</strong></li>
+          <li>Growth 48h: <strong>${plan.onTrack ? '✅' : '❌'} ${analysis.trends.last48h.growthRate > 0 ? '+' : ''}${analysis.trends.last48h.growthRate}%</strong></li>
+        </ul>
+
+        <h3>💡 Recommendations voor Marketing</h3>
+        <ul>
+          ${analysis.recommendations.map(r => `<li>${r}</li>`).join('')}
+        </ul>
+
+        <h3>🎥 Top Content (48h)</h3>
+        <ol>
+          ${analysis.trends.last48h.topVideos.map(v => `<li>${v.title}: ${v.views.toLocaleString()} views (${v.ctr}% CTR)</li>`).join('')}
+        </ol>
+
+        <hr style="margin: 30px 0;">
+        <p style="color: #666; font-size: 12px;">
+          📧 Automatisch gegenereerd door YouTube Channel Analyst • ${new Date().toLocaleString('nl-NL')}
+        </p>
+      </body>
+    </html>
+  `
+
+  try {
+    await axios.post(
+      `https://sandbox.api.mailtrap.io/api/send/${MAILTRAP_INBOX_ID}`,
+      {
+        from: { email: 'analytics@orlando-os.local', name: 'YouTube Analyst' },
+        to: [{ email: to }],
+        subject: `${progressEmoji} YouTube Analyst Report: ${channelName} (${plan.progressPercent.toFixed(0)}% naar 840k)`,
+        html,
+      },
+      {
+        headers: {
+          Authorization: `Bearer ${MAILTRAP_API_TOKEN}`,
+          'Content-Type': 'application/json',
+        },
+      }
+    )
+    console.log(`[youtube-analyst] Email sent to ${to}`)
+  } catch (err) {
+    console.error('[youtube-analyst] Email send failed:', (err as Error).message)
+  }
 }
 
 async function getChannelMetrics(channelId: string): Promise<ChannelMetrics | null> {
@@ -168,32 +280,76 @@ async function getTrendAnalysis(
   }
 }
 
-function generateRecommendations(analysis: ChannelMetrics, trends: TrendAnalysis[]): string[] {
+function calculateBusinessPlanProgress(
+  currentViews: number,
+  startDate: Date
+): ChannelAnalysis['businessPlan'] {
+  const now = new Date()
+  const elapsedDays = Math.floor((now.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24))
+  const daysRemaining = Math.max(DAYS_GOAL - elapsedDays, 0)
+  const expectedViews = (elapsedDays / DAYS_GOAL) * VIEWS_TARGET
+  const progressPercent = (currentViews / VIEWS_TARGET) * 100
+  const dailyVelocity = elapsedDays > 0 ? currentViews / elapsedDays : 0
+  const viewsNeeded = Math.max(VIEWS_TARGET - currentViews, 0)
+  const onTrack = currentViews >= expectedViews * 0.95
+
+  return {
+    target: VIEWS_TARGET,
+    currentViews,
+    progressPercent,
+    daysRemaining,
+    dailyVelocity: Math.round(dailyVelocity),
+    onTrack,
+    viewsNeeded,
+  }
+}
+
+function generateRecommendations(analysis: ChannelMetrics, trends: TrendAnalysis[], plan: ChannelAnalysis['businessPlan']): string[] {
   const recommendations: string[] = []
 
+  // Business plan urgency
+  if (!plan!.onTrack) {
+    const deficit = plan!.target - plan!.currentViews
+    const neededDaily = plan!.daysRemaining > 0 ? deficit / plan!.daysRemaining : 0
+    recommendations.push(`🚨 URGENT: Need ${neededDaily.toLocaleString()} views/dag to hit 840k target`)
+  }
+
+  if (plan!.progressPercent > 75) {
+    recommendations.push('🎉 EXCELLENT: On track to hit 840k! Maintain current momentum')
+  }
+
+  // Content quality
+  if (analysis.viralScoreAvg < 40 && plan!.onTrack) {
+    recommendations.push('📈 Viral scores low but growing—keep pushing same content strategy')
+  }
+
   if (analysis.viralScoreAvg < 30) {
-    recommendations.push('🎯 Content verbetering nodig: gemiddelde viral score is laag')
+    recommendations.push('🎯 Content overhaul needed: viral score critically low')
   }
 
-  if (analysis.averageCTR < 0.03) {
-    recommendations.push('📸 Thumbnails/titels optimaliseren: CTR is onder 3%')
+  // CTR optimization
+  if (analysis.averageCTR < 0.02) {
+    recommendations.push('⚡ CRITICAL: Thumbnail/title overhaul required—CTR extremely low')
+  } else if (analysis.averageCTR < 0.05) {
+    recommendations.push('📸 A/B test thumbnails: 5%+ CTR is achievable')
   }
 
+  // Growth velocity
   const last48h = trends[0]
-  if (last48h.growthRate > 50) {
-    recommendations.push('🚀 Momentum! Channel groeit >50% in laatste 48 uur')
+  if (last48h.growthRate > 100) {
+    recommendations.push('🚀 VIRAL MOMENTUM! Channel doubling growth—capitalize immediately')
+  } else if (last48h.growthRate < 0 && plan!.onTrack) {
+    recommendations.push('⚠️ Growth dipped in 48h—analyze recent videos for patterns')
   }
 
-  if (last48h.viewsPerDay < 100 && analysis.videoCount > 5) {
-    recommendations.push('📊 Video output reviewen: laag engagement ondanks veel content')
+  // Content diversity
+  if (analysis.videoCount < 5) {
+    recommendations.push('📺 Increase upload frequency: need more videos to hit targets')
   }
 
-  if (analysis.viralScoreAvg > 70) {
-    recommendations.push('✨ Content strategie werkt! Blijf deze richting volgen')
-  }
-
-  if (analysis.totalWatchTimeMinutes > 1000) {
-    recommendations.push('⏱️ Goede watch time! Kijkers kijken jouw videos volledig')
+  // Watch time health
+  if (analysis.totalWatchTimeMinutes > 500) {
+    recommendations.push('⏱️ Strong watch time—viewers are engaged, leverage for growth')
   }
 
   return recommendations
@@ -234,13 +390,19 @@ async function analyzeAllChannels(): Promise<void> {
 
   const { data: channels } = await supabase
     .from('youtube_channels')
-    .select('id, name')
+    .select('id, name, created_at')
     .limit(50)
 
   if (!channels || channels.length === 0) {
     console.log('[youtube-analyst] No channels found')
     return
   }
+
+  // Get marketing specialist contacts
+  const { data: marketingTeam } = await supabase
+    .from('team_members')
+    .select('email')
+    .eq('role', 'marketing_specialist')
 
   const analyses: ChannelAnalysis[] = []
 
@@ -254,10 +416,15 @@ async function analyzeAllChannels(): Promise<void> {
       getTrendAnalysis(channel.id, 30 * 24, '30d'),
     ])
 
-    const recommendations = generateRecommendations(metrics, trends)
+    const businessPlan = calculateBusinessPlanProgress(
+      metrics.totalViews,
+      new Date(channel.created_at)
+    )
+
+    const recommendations = generateRecommendations(metrics, trends, businessPlan)
     const healthScore = calculateHealthScore(metrics, trends)
 
-    analyses.push({
+    const analysis: ChannelAnalysis = {
       channel: metrics,
       trends: {
         last48h: trends[0],
@@ -266,28 +433,49 @@ async function analyzeAllChannels(): Promise<void> {
       },
       recommendations,
       healthScore,
-    })
+      businessPlan,
+    }
+
+    analyses.push(analysis)
+
+    // Send email to marketing team if critical thresholds hit
+    if (marketingTeam && marketingTeam.length > 0) {
+      for (const member of marketingTeam) {
+        // Send if behind schedule OR if viral momentum detected
+        if (!businessPlan.onTrack || trends[0].growthRate > 75) {
+          await sendMarketingEmail(member.email, channel.name, analysis)
+        }
+      }
+    }
+
+    // Send Telegram alert if behind schedule
+    if (!businessPlan.onTrack) {
+      await sendTelegram(
+        `⚠️ <b>YouTube Channel Behind Schedule</b>\n\n` +
+        `<b>${channel.name}</b>\n` +
+        `📊 ${businessPlan.currentViews.toLocaleString()} / ${businessPlan.target.toLocaleString()} views\n` +
+        `📈 Progress: ${businessPlan.progressPercent.toFixed(1)}%\n` +
+        `🎯 Need: ${(businessPlan.viewsNeeded / Math.max(businessPlan.daysRemaining, 1)).toLocaleString()}/day`
+      )
+    }
   }
 
   console.log(`\n${'='.repeat(80)}`)
-  console.log('📊 YOUTUBE CHANNEL ANALYST REPORT')
+  console.log('📊 YOUTUBE CHANNEL ANALYST REPORT — 840K BUSINESS PLAN')
   console.log(`${'='.repeat(80)}\n`)
 
   for (const analysis of analyses) {
-    console.log(`📺 ${analysis.channel.channelName}`)
-    console.log(`   Health Score: ${analysis.healthScore}/100`)
-    console.log(`   Videos: ${analysis.channel.videoCount} | Views: ${analysis.channel.totalViews.toLocaleString()}`)
-    console.log(`   Watch Time: ${Math.round(analysis.channel.totalWatchTimeMinutes).toLocaleString()}m | Avg CTR: ${(analysis.channel.averageCTR * 100).toFixed(2)}%`)
-
-    console.log(`\n   📈 48h Trend:`)
-    console.log(`      Views/day: ${analysis.trends.last48h.viewsPerDay.toLocaleString()} | Growth: ${analysis.trends.last48h.growthRate > 0 ? '+' : ''}${analysis.trends.last48h.growthRate}%`)
-    if (analysis.trends.last48h.topVideos.length > 0) {
-      console.log(`      Top video: ${analysis.trends.last48h.topVideos[0].views} views (${analysis.trends.last48h.topVideos[0].ctr}% CTR)`)
-    }
+    const plan = analysis.businessPlan!
+    const statusEmoji = plan.onTrack ? '✅' : '🚨'
+    console.log(`${statusEmoji} ${analysis.channel.channelName}`)
+    console.log(`   📊 Progress: ${plan.progressPercent.toFixed(1)}% (${plan.currentViews.toLocaleString()} / ${plan.target.toLocaleString()})`)
+    console.log(`   🎯 Daily Pace: ${plan.dailyVelocity.toLocaleString()} views/day (need ${DAILY_TARGET.toLocaleString()})`)
+    console.log(`   ⏱️  Days Remaining: ${plan.daysRemaining} | Views Needed: ${plan.viewsNeeded.toLocaleString()}`)
+    console.log(`   💪 Health: ${analysis.healthScore}/100 | 48h Growth: ${analysis.trends.last48h.growthRate > 0 ? '+' : ''}${analysis.trends.last48h.growthRate}%`)
 
     if (analysis.recommendations.length > 0) {
-      console.log(`\n   💡 Recommendations:`)
-      analysis.recommendations.forEach(rec => console.log(`      ${rec}`))
+      console.log(`   💡 Actions:`)
+      analysis.recommendations.slice(0, 3).forEach(rec => console.log(`      ${rec}`))
     }
 
     console.log()
@@ -304,7 +492,13 @@ async function analyzeAllChannels(): Promise<void> {
       watch_time_minutes: a.channel.totalWatchTimeMinutes,
       avg_ctr: a.channel.averageCTR,
       growth_48h: a.trends.last48h.growthRate,
+      growth_7d: a.trends.last7d.growthRate,
+      growth_30d: a.trends.last30d.growthRate,
       recommendations: a.recommendations,
+      views_target: a.businessPlan?.target,
+      views_progress_percent: a.businessPlan?.progressPercent,
+      views_needed: a.businessPlan?.viewsNeeded,
+      on_track: a.businessPlan?.onTrack,
       analyzed_at: new Date().toISOString(),
     })),
     { onConflict: 'channel_id' }
