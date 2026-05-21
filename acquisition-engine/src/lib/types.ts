@@ -42,3 +42,44 @@ export interface AgentRunResult {
   jobsCreated: number
   duration_ms: number
 }
+
+export interface ScraperConfig {
+  name: string
+  rateLimitPerHour: number
+  retryAttempts: number
+  retryDelayMs: number
+  timeoutMs: number
+  domain: string // for rate limiting per domain
+}
+
+export interface ScraperResult {
+  success: boolean
+  itemsFound: number
+  itemsInserted: number
+  itemsSkipped: number
+  error?: string
+  duration_ms: number
+  nextCursor?: string // for pagination
+}
+
+export interface RateLimitBucket {
+  domain: string
+  count: number
+  resetAt: number
+}
+
+export interface RawDeal {
+  id: string
+  title: string
+  address: string
+  city?: string
+  province?: string
+  price?: number
+  type?: string
+  area_m2?: number
+  energy_label?: string
+  build_year?: number
+  source: string
+  source_url: string
+  raw_data?: Record<string, unknown>
+}
