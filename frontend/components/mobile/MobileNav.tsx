@@ -2,15 +2,15 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { Home, Play, GitBranch, Bell, Settings, Mail, Terminal } from 'lucide-react'
+import { Home, GitBranch, Bell, Settings, Mail, BarChart2, Terminal } from 'lucide-react'
 import clsx from 'clsx'
 
 const TABS = [
-  { href: '/mobile',               exact: true,  label: 'Home',       icon: Home },
-  { href: '/mobile/youtube',       exact: false, label: 'YouTube',    icon: Play },
-  { href: '/mobile/workflows',     exact: false, label: 'Flows',      icon: GitBranch },
-  { href: '/mobile/mail',          exact: false, label: 'Mail',       icon: Mail },
-  { href: '/mobile/notifications', exact: false, label: 'Meldingen',  icon: Bell },
+  { href: '/mobile',               exact: true,  label: 'Home',        icon: Home },
+  { href: '/mobile/mail',          exact: false, label: 'Mail',        icon: Mail },
+  { href: '/mobile/finance',       exact: false, label: 'Finance',     icon: BarChart2 },
+  { href: '/mobile/workflows',     exact: false, label: 'Flows',       icon: GitBranch },
+  { href: '/mobile/notifications', exact: false, label: 'Meldingen',   icon: Bell },
   { href: '/car',                  exact: false, label: 'Terminal',    icon: Terminal },
   { href: '/mobile/settings',      exact: false, label: 'Instellingen', icon: Settings },
 ]

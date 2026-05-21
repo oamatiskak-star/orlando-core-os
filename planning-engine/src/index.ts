@@ -1,6 +1,7 @@
 import 'dotenv/config'
 import cron from 'node-cron'
 import { logger } from './lib/logger'
+import { startOrchestratorBridge } from './workers/orchestrator-bridge'
 import { runDailyPlanner } from './workers/daily-planner'
 import { runAgentMonitor } from './workers/agent-monitor'
 import { runSyncCoordinator } from './workers/sync-coordinator'
@@ -54,6 +55,9 @@ async function main() {
     await safe('eod-bottleneck', runBottleneckDetector)
     await safe('eod-clickup', runClickUpSync)
   })
+
+  // Orchestrator bridge: heartbeat + task polling
+  startOrchestratorBridge()
 
   logger.info('All crons registered — engine running autonomously')
 

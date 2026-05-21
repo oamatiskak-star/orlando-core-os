@@ -60,7 +60,9 @@ services:
       - key: SUPABASE_SERVICE_ROLE_KEY
         sync: false
       - key: MACHINE_ID
-        value: render-executor-1
+        value: render-cli-r
+      - key: ANTHROPIC_API_KEY
+        sync: false
       - key: CLICKUP_API_TOKEN
         sync: false
       - key: TELEGRAM_BOT_TOKEN

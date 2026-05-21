@@ -13,6 +13,29 @@ import { LegalAgent } from '../ai/legal-agent'
 import { MappingAgent } from '../ai/mapping-agent'
 import { logger } from '../lib/logger'
 
+async function createOrchestratorTask(opts: {
+  title: string
+  taskType: string
+  workerId: string
+  priority: number
+  payload: Record<string, unknown>
+}) {
+  try {
+    await supabase.from('orchestrator_tasks').insert({
+      title:      opts.title,
+      task_type:  opts.taskType,
+      objective:  { text: opts.title },
+      status:     'open',
+      priority:   opts.priority,
+      worker_id:  opts.workerId,
+      company_id: 'modiwerijo',
+      payload:    opts.payload,
+    })
+  } catch (err) {
+    logger.warn('orchestrator_task aanmaken mislukt (non-fatal)', { err })
+  }
+}
+
 const gmailClient      = new GmailClient()
 const classifier       = new AiClassifier()
 const replyGenerator   = new ReplyGenerator()
@@ -440,6 +463,26 @@ export class IntakeProcessor {
           legalType: legalAnalysis.legalType,
           deadlines: legalAnalysis.deadlines.length,
         })
+
+        // Dispatch naar orchestrator voor high-risk juridische mail
+        if (legalAnalysis.riskLevel === 'hoog' || legalAnalysis.riskLevel === 'kritiek') {
+          await createOrchestratorTask({
+            title:    `⚖️ Juridische mail: ${message.subject?.slice(0, 80) ?? fromEmail}`,
+            taskType: 'legal_analysis',
+            workerId: 'advocaat-engine',
+            priority: 9,
+            payload:  {
+              message_id:  message.id,
+              from_email:  fromEmail,
+              subject:     message.subject,
+              legal_type:  legalAnalysis.legalType,
+              risk_level:  legalAnalysis.riskLevel,
+              deadlines:   legalAnalysis.deadlines,
+              party:       legalAnalysis.partyName,
+            },
+          })
+        }
+
         // Legal Agent maakt zijn eigen drafts — sla generieke reply over
         return
       } catch (err) {
@@ -487,6 +530,21 @@ export class IntakeProcessor {
           })
         }
       }
+
+      // Dispatch naar orchestrator voor facturatie verwerking
+      await createOrchestratorTask({
+        title:    `🧾 Factuur ontvangen: ${message.subject?.slice(0, 80) ?? fromEmail}`,
+        taskType: 'finance_analysis',
+        workerId: 'cli-l',
+        priority: 6,
+        payload:  {
+          message_id:   message.id,
+          from_email:   fromEmail,
+          subject:      message.subject,
+          company:      classification.company,
+          attachments:  processedAttachments.length,
+        },
+      })
     }
 
     // Mapping Agent: IMAP mappen aanmaken + mail verplaatsen + labels
