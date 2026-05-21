@@ -24,6 +24,7 @@ const immobelt_scraper_1 = require("./workers/immobelt-scraper");
 const kvk_company_profiler_1 = require("./workers/kvk-company-profiler");
 const spatial_planning_scraper_1 = require("./workers/spatial-planning-scraper");
 const building_inspection_scraper_1 = require("./workers/building-inspection-scraper");
+const market_analysis_scraper_1 = require("./workers/market-analysis-scraper");
 const app = (0, express_1.default)();
 app.use(express_1.default.json());
 const PORT = parseInt(process.env.PORT ?? '3005', 10);
@@ -197,6 +198,15 @@ app.post('/workers/building-inspection/run', async (_req, res) => {
         res.status(500).json({ status: 'error', error: err.message });
     }
 });
+app.post('/workers/market-analysis/run', async (_req, res) => {
+    try {
+        const result = await withAgentGuard('MarketAnalysisScraper', market_analysis_scraper_1.runMarketAnalysisScraper);
+        res.json({ status: 'ok', ...result });
+    }
+    catch (err) {
+        res.status(500).json({ status: 'error', error: err.message });
+    }
+});
 // ── Scan jobs endpoint (Vercel cron callback) ────────────────────────────────
 // POST /scan — Vercel cron routes inserteren scan_jobs, worker pakt ze op
 app.post('/scan', async (_req, res) => {
@@ -294,10 +304,15 @@ node_cron_1.default.schedule('0 2 * * *', () => {
     withAgentGuard('BuildingInspectionScraper', building_inspection_scraper_1.runBuildingInspectionScraper)
         .catch(err => logger_1.logger.error('Scheduled BuildingInspectionScraper failed', { err: String(err) }));
 }, { timezone: TZ });
+// MarketAnalysisScraper: elke 12 uur marktgegevens verrijken
+node_cron_1.default.schedule('0 */12 * * *', () => {
+    withAgentGuard('MarketAnalysisScraper', market_analysis_scraper_1.runMarketAnalysisScraper)
+        .catch(err => logger_1.logger.error('Scheduled MarketAnalysisScraper failed', { err: String(err) }));
+}, { timezone: TZ });
 // ── Start ─────────────────────────────────────────────────────────────────────
 app.listen(PORT, () => {
     logger_1.logger.info(`Acquisition Engine started on :${PORT} (tz=${TZ})`);
-    logger_1.logger.info('15 cron schedules: DealHunter, OffMarketAI, PermitAI, MunicipalityAI, InvestorAI, OutreachAI, RiskAI, AcquisitionDirectorAI, FundaScraper, KadasterScraper, PermitsScraper, ImmobeltScraper, KvKCompanyProfiler, SpatialPlanningScraper, BuildingInspectionScraper');
+    logger_1.logger.info('16 cron schedules: DealHunter, OffMarketAI, PermitAI, MunicipalityAI, InvestorAI, OutreachAI, RiskAI, AcquisitionDirectorAI, FundaScraper, KadasterScraper, PermitsScraper, ImmobeltScraper, KvKCompanyProfiler, SpatialPlanningScraper, BuildingInspectionScraper, MarketAnalysisScraper');
 });
 process.on('SIGTERM', () => {
     logger_1.logger.info('SIGTERM received — shutting down');

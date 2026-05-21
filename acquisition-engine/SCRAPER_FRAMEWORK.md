@@ -360,18 +360,28 @@ LIMIT 10;
 - Stores in acq_building_inspections, updates acq_deals.risk_score and building_inspection_status
 - Endpoints: `POST /workers/building-inspection/run` + `GET /api/acquisition/cron/building-inspection`
 
+### Week 8: Real Estate Market Analysis Scraper ✅
+- Fetches historical price trends and comparable sales from Funda, NVM, WOZ data
+- Calculates estimated property values based on 5 most similar comparables
+- Analyzes market sentiment (bullish/neutral/bearish) and supply/demand balance
+- Generates investment scores (0-100) based on price positioning and market conditions
+- Rate limit: 2000 req/hour (500 req/hour per data source), batch processes 40 deals per run
+- Stores in acq_market_analysis, updates acq_deals.estimated_value and market_analysis_status
+- Endpoints: `POST /workers/market-analysis/run` + `GET /api/acquisition/cron/market-analysis`
+
 ## Next Steps
 
-1. **Week 8:** Real Estate Market Analysis (WOZ, MLS-style aggregation)
-   - Historical price trends per area and property type
-   - Comparable sales analysis and valuation support
-   - Supply/demand analysis per neighborhood
-   
-2. **Week 9:** Environmental Risk Assessment Integration
+1. **Week 9:** Environmental Risk Assessment Integration
    - Soil contamination, heritage status, flood risk maps
    - Noise pollution, proximity to highways/airports
    - Asbestos/lead risk indicators via government registries
    
-3. **Optional:** Property Transaction History (NVM, Funda archive)
-   - Historical prices, transaction counts per location
-   - Market sentiment and days-on-market trends
+2. **Week 10:** Advanced Neighborhood Analytics
+   - School quality, crime statistics, public transport accessibility
+   - Demographic trends, population growth, income levels
+   - Commercial density, job density per area
+   
+3. **Optional:** Predictive Models & Scoring
+   - Machine learning for ROI prediction
+   - Market timing signals (buy/hold/sell indicators)
+   - Portfolio optimization recommendations
