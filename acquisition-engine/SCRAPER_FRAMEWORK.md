@@ -351,19 +351,27 @@ LIMIT 10;
 - Stores in acq_spatial_planning table, updates acq_deals.spatial_planning_status
 - Endpoints: `POST /workers/spatial-planning/run` + `GET /api/acquisition/cron/spatial-planning`
 
+### Week 7: Building Inspection Data Scraper ✅
+- Fetches building inspection records and safety certificates from DVGO/BKWI
+- Tracks: inspection history, violation severity (critical/major/minor), status
+- Calculates safety score (0-100) and risk level (low/medium/high/critical)
+- Requires DVGO_API_KEY for full access, graceful fallback to public data
+- Rate limit: 12,000 req/hour (200 req/min), batch processes 50 deals per run
+- Stores in acq_building_inspections, updates acq_deals.risk_score and building_inspection_status
+- Endpoints: `POST /workers/building-inspection/run` + `GET /api/acquisition/cron/building-inspection`
+
 ## Next Steps
 
-1. **Week 7:** Government Building Inspection Data (BKWI/DVGO integration)
-   - Building safety certificates, inspection history, violations
-   - Risk scoring based on inspection records
-   - Integrate with BIM (Building Information Models) where available
-   
-2. **Week 8:** Real Estate Market Analysis (WOZ, MLS-style aggregation)
+1. **Week 8:** Real Estate Market Analysis (WOZ, MLS-style aggregation)
    - Historical price trends per area and property type
    - Comparable sales analysis and valuation support
    - Supply/demand analysis per neighborhood
    
-3. **Optional:** Environmental Risk Assessment
+2. **Week 9:** Environmental Risk Assessment Integration
    - Soil contamination, heritage status, flood risk maps
    - Noise pollution, proximity to highways/airports
-   - Asbestos/lead risk indicators
+   - Asbestos/lead risk indicators via government registries
+   
+3. **Optional:** Property Transaction History (NVM, Funda archive)
+   - Historical prices, transaction counts per location
+   - Market sentiment and days-on-market trends

@@ -18,6 +18,7 @@ import { runPermitsScraper } from './workers/permits-scraper'
 import { runImmobeltScraper } from './workers/immobelt-scraper'
 import { runKvKCompanyProfiler } from './workers/kvk-company-profiler'
 import { runSpatialPlanningScraper } from './workers/spatial-planning-scraper'
+import { runBuildingInspectionScraper } from './workers/building-inspection-scraper'
 
 const app = express()
 app.use(express.json())
@@ -186,6 +187,15 @@ app.post('/workers/spatial-planning/run', async (_req: Request, res: Response) =
   }
 })
 
+app.post('/workers/building-inspection/run', async (_req: Request, res: Response) => {
+  try {
+    const result = await withAgentGuard('BuildingInspectionScraper', runBuildingInspectionScraper)
+    res.json({ status: 'ok', ...result })
+  } catch (err) {
+    res.status(500).json({ status: 'error', error: (err as Error).message })
+  }
+})
+
 // ── Scan jobs endpoint (Vercel cron callback) ────────────────────────────────
 // POST /scan — Vercel cron routes inserteren scan_jobs, worker pakt ze op
 app.post('/scan', async (_req: Request, res: Response) => {
@@ -293,10 +303,16 @@ cron.schedule('0 4 * * *', () => {
     .catch(err => logger.error('Scheduled SpatialPlanningScraper failed', { err: String(err) }))
 }, { timezone: TZ })
 
+// BuildingInspectionScraper: dagelijks om 02:00 bouwveiligheid/inspecties verrijken
+cron.schedule('0 2 * * *', () => {
+  withAgentGuard('BuildingInspectionScraper', runBuildingInspectionScraper)
+    .catch(err => logger.error('Scheduled BuildingInspectionScraper failed', { err: String(err) }))
+}, { timezone: TZ })
+
 // ── Start ─────────────────────────────────────────────────────────────────────
 app.listen(PORT, () => {
   logger.info(`Acquisition Engine started on :${PORT} (tz=${TZ})`)
-  logger.info('14 cron schedules: DealHunter, OffMarketAI, PermitAI, MunicipalityAI, InvestorAI, OutreachAI, RiskAI, AcquisitionDirectorAI, FundaScraper, KadasterScraper, PermitsScraper, ImmobeltScraper, KvKCompanyProfiler, SpatialPlanningScraper')
+  logger.info('15 cron schedules: DealHunter, OffMarketAI, PermitAI, MunicipalityAI, InvestorAI, OutreachAI, RiskAI, AcquisitionDirectorAI, FundaScraper, KadasterScraper, PermitsScraper, ImmobeltScraper, KvKCompanyProfiler, SpatialPlanningScraper, BuildingInspectionScraper')
 })
 
 process.on('SIGTERM', () => {
