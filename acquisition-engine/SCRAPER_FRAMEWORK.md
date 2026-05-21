@@ -369,19 +369,47 @@ LIMIT 10;
 - Stores in acq_market_analysis, updates acq_deals.estimated_value and market_analysis_status
 - Endpoints: `POST /workers/market-analysis/run` + `GET /api/acquisition/cron/market-analysis`
 
+### Week 9: Environmental Risk Assessment Scraper ✅
+- Fetches environmental and risk data from Dutch government registries
+- Soil contamination status, heritage/monument status, flood risk zones
+- Noise pollution levels, hazmat site proximity, air quality metrics
+- Calculates overall risk score (0-100) with per-category breakdown
+- Identifies red flags and generates risk-based recommendations
+- Rate limit: 2000 req/hour, batch processes 30 deals per run
+- Stores in acq_environmental_risk, updates acq_deals.environmental_risk_status
+- Endpoints: `POST /workers/environmental-risk/run` + `GET /api/acquisition/cron/environmental-risk`
+- Cron schedule: Every 8 hours (0 */8 * * *)
+
+### Week 10: Advanced Neighborhood Analytics Scraper ✅
+- Comprehensive neighborhood enrichment: schools, crime, public transit, demographics
+- School quality metrics and ratings
+- Crime statistics with trend analysis (increasing/stable/decreasing)
+- Public transport accessibility: nearby stations, distances, transit scores
+- Demographic data: population, age distribution, foreign population percentage
+- Economic data: income levels, employment rates, growth trends
+- Commercial activity: retail shops, restaurants, offices, business variety
+- Employment data: job count, job density, dominant sectors
+- Liveability scoring (0-100) with opportunity identification
+- Rate limit: 1500 req/hour, batch processes 30 deals per run
+- Stores in acq_neighborhood_analytics, updates acq_deals.neighborhood_analytics_status
+- Endpoints: `POST /workers/neighborhood-analytics/run` + `GET /api/acquisition/cron/neighborhood-analytics`
+- Cron schedule: Every 6 hours (0 */6 * * *)
+
 ## Next Steps
 
-1. **Week 9:** Environmental Risk Assessment Integration
-   - Soil contamination, heritage status, flood risk maps
-   - Noise pollution, proximity to highways/airports
-   - Asbestos/lead risk indicators via government registries
+1. **Week 11:** Property Valuation Advanced Models
+   - WOZ (Waardering Onroerende Zaken) public tax assessments
+   - Historical price appreciation by neighborhood
+   - Property-specific ROI calculations
+   - Comparative market analysis by property type/age/condition
    
-2. **Week 10:** Advanced Neighborhood Analytics
-   - School quality, crime statistics, public transport accessibility
-   - Demographic trends, population growth, income levels
-   - Commercial density, job density per area
+2. **Week 12:** Opportunity Scoring & Portfolio Analysis
+   - Combined scoring from all data sources
+   - Investment opportunity ranking system
+   - Risk-adjusted return predictions
+   - Portfolio diversification recommendations
    
-3. **Optional:** Predictive Models & Scoring
+3. **Optional:** Predictive Models & ML Enhancements
    - Machine learning for ROI prediction
    - Market timing signals (buy/hold/sell indicators)
-   - Portfolio optimization recommendations
+   - Price trend forecasting
