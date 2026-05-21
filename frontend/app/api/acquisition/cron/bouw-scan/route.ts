@@ -32,22 +32,38 @@ function mapOppType(cpv: string, title: string): string {
   return 'nieuwbouw'
 }
 
-type MultiLingualDict = Record<string, string[]>
+// TI values are strings per language key; AU values are arrays per language key
+type TedLangString = Record<string, string>
+type TedLangArray  = Record<string, string[]>
 
 interface TedNotice {
   ND?: string
-  TI?: MultiLingualDict | string
-  AU?: MultiLingualDict | string
-  DD?: string
-  PR?: { Value?: string; OJ_UNIT?: string }[]
+  TI?: TedLangString | string
+  AU?: TedLangArray  | string
+  DD?: string[] | string | null
   PC?: string[]
   RC?: string[]
 }
 
-function parseTedText(field: MultiLingualDict | string | undefined): string | null {
+function parseTedTitle(field: TedLangString | string | undefined): string | null {
   if (!field) return null
   if (typeof field === 'string') return field
-  return field.nld?.[0] ?? field.eng?.[0] ?? Object.values(field)[0]?.[0] ?? null
+  return field.nld ?? field.eng ?? Object.values(field)[0] ?? null
+}
+
+function parseTedAuthority(field: TedLangArray | string | undefined): string | null {
+  if (!field) return null
+  if (typeof field === 'string') return field
+  const arr = field.nld ?? field.eng ?? Object.values(field)[0]
+  if (!arr) return null
+  return Array.isArray(arr) ? arr[0] : String(arr)
+}
+
+function parseTedDate(dd: string[] | string | null | undefined): string | null {
+  if (!dd) return null
+  const raw = Array.isArray(dd) ? dd[0] : dd
+  if (!raw) return null
+  try { return new Date(raw).toISOString().split('T')[0] } catch { return null }
 }
 
 interface BuildOppInsert {
@@ -72,7 +88,6 @@ async function scanTED(): Promise<BuildOppInsert[]> {
     const body = {
       query: 'PC=45* AND RC=NLD',
       fields: ['ND', 'TI', 'AU', 'DD', 'PR', 'PC', 'RC'],
-      sort: { field: 'DD', order: 'desc' },
       limit: 50,
       page: 1,
     }
@@ -84,13 +99,12 @@ async function scanTED(): Promise<BuildOppInsert[]> {
     })
 
     if (!res.ok) throw new Error(`TED API ${res.status}: ${await res.text()}`)
-    const data = await res.json() as { results?: TedNotice[] }
+    const data = await res.json() as { notices?: TedNotice[]; results?: TedNotice[] }
 
-    for (const notice of data.results ?? []) {
-      const title = parseTedText(notice.TI) ?? 'NL Bouw Aanbesteding'
-      const cpv   = (notice.PC ?? [])[0] ?? '45000000'
-      const value = (notice.PR ?? [])[0]?.Value ? parseFloat(String((notice.PR ?? [])[0].Value!)) : null
-      const deadline = notice.DD ? new Date(notice.DD).toISOString().split('T')[0] : null
+    for (const notice of (data.notices ?? data.results ?? [])) {
+      const title    = parseTedTitle(notice.TI) ?? 'NL Bouw Aanbesteding'
+      const cpv      = (notice.PC ?? [])[0] ?? '45000000'
+      const deadline = parseTedDate(notice.DD)
       const province = (notice.RC ?? [])[0] ?? null
 
       results.push({
@@ -98,12 +112,12 @@ async function scanTED(): Promise<BuildOppInsert[]> {
         municipality:    null,
         province,
         opp_type:        mapOppType(cpv, title),
-        client:          parseTedText(notice.AU)?.slice(0, 200) ?? null,
-        estimated_value: value,
+        client:          parseTedAuthority(notice.AU)?.slice(0, 200) ?? null,
+        estimated_value: null,  // TED v3 doesn't expose estimated value in basic fields
         deadline,
         source:          'ted_europa',
         source_url:      notice.ND ? `https://ted.europa.eu/udl?uri=TED:NOTICE:${notice.ND}:TEXT:NL:HTML` : null,
-        pipeline_stage:  value && value > 500_000 ? 'analyse' : 'signalering',
+        pipeline_stage:  'signalering',
         notes:           cpv ? `CPV: ${cpv}` : null,
       })
     }
