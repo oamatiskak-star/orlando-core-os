@@ -1,6 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import Link from 'next/link'
-import { Mail, Bot, GitMerge, Filter, Scale, Inbox, Activity, AlertTriangle, CheckCircle, Clock, Shield } from 'lucide-react'
+import { Mail, Bot, GitMerge, Filter, Scale, Inbox, Activity, AlertTriangle, CheckCircle, Clock, Shield, Send, BookOpen } from 'lucide-react'
 
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
@@ -85,6 +85,24 @@ export default async function MailDashboardPage() {
       title: 'Juridische Dossiers',
       desc: `${stats.dossiers.total} open — ${stats.dossiers.critical} kritiek`,
       badge: stats.dossiers.critical > 0 ? stats.dossiers.critical : null,
+    },
+    {
+      href: '/dashboard/mail/sent',
+      icon: Send,
+      color: 'text-green-400',
+      bg: 'bg-green-500/10 border-green-500/20',
+      title: 'Sent Mail',
+      desc: 'AI-generated and approved responses',
+      badge: null,
+    },
+    {
+      href: '/dashboard/mail/templates',
+      icon: BookOpen,
+      color: 'text-purple-400',
+      bg: 'bg-purple-500/10 border-purple-500/20',
+      title: 'Mail Templates',
+      desc: 'Pre-designed response templates',
+      badge: null,
     },
     {
       href: '/mobile/mail',
