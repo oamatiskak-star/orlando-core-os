@@ -1,7 +1,6 @@
-import { Bot, Activity, Zap, CheckCircle, XCircle, Clock } from 'lucide-react'
+import { Bot, Activity, CheckCircle, XCircle, Clock } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
-import AgentGrid from './AgentGrid'
-import AgentTaskFeed from './AgentTaskFeed'
+import TabContainer from './TabContainer'
 
 export default async function AgentsPage() {
   const supabase = await createClient()
@@ -61,30 +60,8 @@ export default async function AgentsPage() {
         })}
       </div>
 
-      {/* Agent Grid — live via client component */}
-      <div className="bg-white/[0.06] border border-white/5 rounded-xl p-5 space-y-4">
-        <div className="flex items-center justify-between">
-          <h2 className="text-sm font-semibold text-white">Agent Cluster</h2>
-          <div className="flex items-center gap-1.5">
-            <span className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse" />
-            <span className="text-[11px] text-white/50">Realtime</span>
-          </div>
-        </div>
-        <AgentGrid initialAgents={(agents ?? []) as Parameters<typeof AgentGrid>[0]['initialAgents']} />
-      </div>
-
-      {/* Task Feed — realtime */}
-      <div className="bg-white/[0.06] border border-white/5 rounded-xl p-5 space-y-3">
-        <div className="flex items-center justify-between">
-          <h2 className="text-sm font-semibold text-white">Task Queue</h2>
-          <div className="flex items-center gap-2">
-            <Zap size={11} className="text-indigo-400" />
-            <span className="text-[11px] text-white/45">Realtime updates</span>
-          </div>
-        </div>
-        <p className="text-[11px] text-white/38">Alle gedispatchte taken — live bijgewerkt via Supabase Realtime</p>
-        <AgentTaskFeed />
-      </div>
+      {/* Tab Container */}
+      <TabContainer initialAgents={(agents ?? []) as Parameters<typeof TabContainer>[0]['initialAgents']} />
     </div>
   )
 }
