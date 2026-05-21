@@ -70,6 +70,7 @@ export default function DraftEditorPage() {
           return
         }
 
+        const msg = data.mail_messages?.[0]
         const draftData = {
           id: data.id,
           to_email: data.to_email,
@@ -77,11 +78,11 @@ export default function DraftEditorPage() {
           body: data.body,
           status: data.status,
           ai_confidence: data.ai_confidence,
-          from_email: data.mail_messages?.from_email || 'Unknown',
-          priority: data.mail_messages?.priority || 'normal',
-          company: data.mail_messages?.company,
-          category: data.mail_messages?.category,
-          original_body: data.mail_messages?.body_text || '',
+          from_email: msg?.from_email || 'Unknown',
+          priority: msg?.priority || 'normal',
+          company: msg?.company,
+          category: msg?.category,
+          original_body: msg?.body_text || '',
         }
 
         setDraft(draftData)

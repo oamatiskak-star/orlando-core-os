@@ -12,12 +12,12 @@ interface DraftRow {
   to_email: string
   ai_confidence: number
   created_at: string
-  mail_messages: {
+  mail_messages: Array<{
     from_email: string
     category: string
     priority: string
     company: string
-  }
+  }>
 }
 
 export default function ApprovalsPage() {
@@ -99,10 +99,12 @@ export default function ApprovalsPage() {
     return 'low'
   }
 
-  const categories = Array.from(new Set(drafts.map(d => d.mail_messages?.category).filter(Boolean)))
-  const companies = Array.from(new Set(drafts.map(d => d.mail_messages?.company).filter(Boolean)))
+  const categories = Array.from(new Set(drafts.map(d => d.mail_messages?.[0]?.category).filter(Boolean)))
+  const companies = Array.from(new Set(drafts.map(d => d.mail_messages?.[0]?.company).filter(Boolean)))
 
   const filteredDrafts = drafts.filter(draft => {
+    const msg = draft.mail_messages?.[0]
+
     // Apply confidence filter
     if (confidenceFilter !== 'all') {
       const level = getConfidenceLevel(draft.ai_confidence)
@@ -110,12 +112,12 @@ export default function ApprovalsPage() {
     }
 
     // Apply category filter
-    if (categoryFilter !== 'all' && draft.mail_messages?.category !== categoryFilter) {
+    if (categoryFilter !== 'all' && msg?.category !== categoryFilter) {
       return false
     }
 
     // Apply company filter
-    if (companyFilter !== 'all' && draft.mail_messages?.company !== companyFilter) {
+    if (companyFilter !== 'all' && msg?.company !== companyFilter) {
       return false
     }
 
@@ -280,29 +282,29 @@ export default function ApprovalsPage() {
                         <h3 className="text-sm font-medium text-white mb-2">{draft.subject}</h3>
 
                         <div className="space-y-1 text-xs text-white/60 mb-3">
-                          <p>📧 From: {draft.mail_messages?.from_email}</p>
+                          <p>📧 From: {draft.mail_messages?.[0]?.from_email}</p>
                           <p>📤 To: {draft.to_email}</p>
                         </div>
 
                         <div className="flex items-center gap-2 flex-wrap">
-                          {draft.mail_messages?.category && (
+                          {draft.mail_messages?.[0]?.category && (
                             <span className="px-2 py-1 rounded bg-white/10 text-white/70 text-xs">
-                              {draft.mail_messages.category}
+                              {draft.mail_messages[0].category}
                             </span>
                           )}
-                          {draft.mail_messages?.priority && (
+                          {draft.mail_messages?.[0]?.priority && (
                             <span className={clsx(
                               'px-2 py-1 rounded text-xs font-medium',
-                              draft.mail_messages.priority === 'urgent' ? 'bg-red-500/20 text-red-400' :
-                              draft.mail_messages.priority === 'high' ? 'bg-amber-500/20 text-amber-400' :
+                              draft.mail_messages[0].priority === 'urgent' ? 'bg-red-500/20 text-red-400' :
+                              draft.mail_messages[0].priority === 'high' ? 'bg-amber-500/20 text-amber-400' :
                               'bg-white/10 text-white/70'
                             )}>
-                              {draft.mail_messages.priority}
+                              {draft.mail_messages[0].priority}
                             </span>
                           )}
-                          {draft.mail_messages?.company && (
+                          {draft.mail_messages?.[0]?.company && (
                             <span className="px-2 py-1 rounded bg-indigo-500/20 text-indigo-400 text-xs">
-                              {draft.mail_messages.company}
+                              {draft.mail_messages[0].company}
                             </span>
                           )}
                         </div>

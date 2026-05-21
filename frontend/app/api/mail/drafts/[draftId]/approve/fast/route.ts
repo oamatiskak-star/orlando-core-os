@@ -3,8 +3,9 @@ import { NextRequest, NextResponse } from 'next/server'
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { draftId: string } }
+  { params }: { params: Promise<{ draftId: string }> }
 ) {
+  const { draftId } = await params
   const supabase = await createClient()
 
   try {
@@ -12,7 +13,7 @@ export async function POST(
     const { data: draft, error: draftError } = await supabase
       .from('mail_drafts')
       .select('*')
-      .eq('id', params.draftId)
+      .eq('id', draftId)
       .single()
 
     if (draftError || !draft) {
@@ -44,7 +45,7 @@ export async function POST(
         status: 'approved',
         approved_at: new Date().toISOString(),
       })
-      .eq('id', params.draftId)
+      .eq('id', draftId)
 
     if (updateError) {
       return NextResponse.json({ error: 'Failed to approve draft' }, { status: 500 })
@@ -56,7 +57,7 @@ export async function POST(
       action: 'draft_fast_approved',
       actor: 'orlando',
       detail: {
-        draft_id: params.draftId,
+        draft_id: draftId,
         to_email: draft.to_email,
         subject: draft.subject,
         approved_via: 'dashboard_widget',
@@ -68,7 +69,7 @@ export async function POST(
       {
         success: true,
         message: 'Draft approved successfully',
-        draft_id: params.draftId,
+        draft_id: draftId,
       },
       { status: 200 }
     )
