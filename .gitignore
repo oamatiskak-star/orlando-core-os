@@ -15,3 +15,5 @@ monitoring-agent/dist/
 content-worker/node_modules/
 youtube-engine/node_modules/
 youtube-engine/dist/
+acquisition-engine/node_modules/
+acquisition-engine/dist/
