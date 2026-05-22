@@ -17,6 +17,8 @@ youtube-engine/node_modules/
 youtube-engine/dist/
 watchdog-engine/node_modules/
 watchdog-engine/dist/
+local-watchdog/node_modules/
+local-watchdog/dist/
 acquisition-engine/node_modules/
 acquisition-engine/dist/
 executive-engine/node_modules/
