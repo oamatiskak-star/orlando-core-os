@@ -8,7 +8,24 @@
 
 ## 🔴 HERSTEL HIER NA CRASH
 
-**Sessie focus (2026-05-22)**: Render fleet self-healing watchdog gebouwd & gedeployed ✅
+**Sessie focus (2026-05-22)**: Render + Lokaal (PM2) self-healing watchdogs ✅
+
+**Local watchdog (CLI-L LIVE, CLI-R deploy pending):**
+- `local-watchdog/` TS service; pollt `pm2 jlist` elke 30s, restart bij stopped/errored met cooldown, crash-loop detectie (>3 restarts/5min) → automatic stop + npm install + npm run build + restart; na 2 mislukte rebuilds escalatie naar `infra_watchdog_incidents` + critical Telegram
+- Migration 081: `host_id` kolom op events/incidents tabellen (composite PK `host_id+deploy_id`)
+- ecosystem.cli-{l,r}.config.js — `local-watchdog` PM2 app toegevoegd (WATCHDOG_HOST_ID=cli-{l,r})
+- CLI-L LIVE: PID via `pm2 status`, health http://127.0.0.1:3007/health, host_id=cli-l, checking 2 apps
+- `.env` op CLI-L: `~/Github/orlando-core-os/local-watchdog/.env` (perms 600)
+- **CLI-R deploy stappen** (handmatig uitvoeren op CLI-R Mac):
+  ```bash
+  cd ~/Github/orlando-core-os && ./sync-pull.sh
+  cd ~/Github/orlando-core-os/local-watchdog && npm install && npm run build
+  # plaats .env identiek aan CLI-L (zelfde SUPABASE/TELEGRAM creds)
+  pm2 start ~/Github/orlando-core-os/ecosystem.cli-r.config.js --only local-watchdog
+  pm2 save
+  ```
+
+**Render watchdog (eerder vandaag):**
 
 **Wat is gedaan:**
 - Build error op commit 259d3de gefixt (`youtube-engine/src/marketing-orchestrator.ts` Recommendation interface miste `executed_at`). Fix in commit `b9dbec8`.
