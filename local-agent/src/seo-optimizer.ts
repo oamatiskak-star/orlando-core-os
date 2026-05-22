@@ -30,15 +30,21 @@ async function callAI(prompt: string): Promise<string> {
         max_tokens: 512,
       }, { timeout: 30_000 })
       return res.data.choices[0].message.content as string
-    } catch {}
+    } catch (err) {
+      log(`⚠ LM_STUDIO connection failed, falling back to OLLAMA: ${err instanceof Error ? err.message : err}`)
+    }
   }
-  const res = await axios.post(`${OLLAMA_URL}/api/generate`, {
-    model: OLLAMA_MODEL,
-    prompt,
-    stream: false,
-    options: { temperature: 0.7, num_predict: 512 },
-  }, { timeout: 60_000 })
-  return res.data.response as string
+  try {
+    const res = await axios.post(`${OLLAMA_URL}/api/generate`, {
+      model: OLLAMA_MODEL,
+      prompt,
+      stream: false,
+      options: { temperature: 0.7, num_predict: 512 },
+    }, { timeout: 60_000 })
+    return res.data.response as string
+  } catch (err) {
+    throw new Error(`AI service unavailable (LM_STUDIO=${USE_LM_STUDIO}): ${err instanceof Error ? err.message : err}`)
+  }
 }
 
 function buildPrompt(title: string, description: string, language: string): string {
@@ -82,69 +88,92 @@ async function optimizeVideo(video: {
   description: string
   channel_id: string
 }): Promise<void> {
-  const { data: channel } = await db
-    .from('youtube_channels')
-    .select('language')
-    .eq('id', video.channel_id)
-    .single()
-
-  const language = (channel as any)?.language ?? 'nl'
-  const prompt   = buildPrompt(video.title, video.description ?? '', language)
-
-  let raw: string
   try {
-    raw = await callAI(prompt)
+    const { data: channel } = await db
+      .from('youtube_channels')
+      .select('language')
+      .eq('id', video.channel_id)
+      .single()
+
+    const language = (channel as any)?.language ?? 'nl'
+    const prompt   = buildPrompt(video.title, video.description ?? '', language)
+
+    let raw: string
+    try {
+      raw = await callAI(prompt)
+    } catch (err: any) {
+      log(`✗ AI fout voor ${video.id}: ${err.message}`)
+      return
+    }
+
+    const stripped   = raw.replace(/```(?:json)?/g, '').replace(/```/g, '')
+    const jsonMatch  = stripped.match(/\{[\s\S]*\}/)
+    if (!jsonMatch) { log(`✗ Geen JSON voor ${video.id}`); return }
+
+    let result: { title?: string; tags?: string[] }
+    try { result = JSON.parse(jsonMatch[0]) } catch (err) {
+      log(`✗ JSON parse fout voor ${video.id}: ${err instanceof Error ? err.message : err}`)
+      return
+    }
+
+    if (!result.title || result.title.length > 100) return
+    if (result.title === video.title) return  // geen verbetering
+
+    await db.from('youtube_videos').update({
+      title:      result.title,
+      tags:       result.tags ?? [],
+      updated_at: new Date().toISOString(),
+    }).eq('id', video.id)
+
+    log(`✓ SEO: "${video.title.slice(0, 40)}" → "${result.title.slice(0, 40)}"`)
   } catch (err: any) {
-    log(`✗ AI fout voor ${video.id}: ${err.message}`)
-    return
+    log(`✗ Fout bij optimizeVideo(${video.id}): ${err.message}`)
+    throw err
   }
-
-  const stripped   = raw.replace(/```(?:json)?/g, '').replace(/```/g, '')
-  const jsonMatch  = stripped.match(/\{[\s\S]*\}/)
-  if (!jsonMatch) { log(`✗ Geen JSON voor ${video.id}`); return }
-
-  let result: { title?: string; tags?: string[] }
-  try { result = JSON.parse(jsonMatch[0]) } catch { return }
-
-  if (!result.title || result.title.length > 100) return
-  if (result.title === video.title) return  // geen verbetering
-
-  await db.from('youtube_videos').update({
-    title:      result.title,
-    tags:       result.tags ?? [],
-    updated_at: new Date().toISOString(),
-  }).eq('id', video.id)
-
-  log(`✓ SEO: "${video.title.slice(0, 40)}" → "${result.title.slice(0, 40)}"`)
 }
 
 async function runOptimizer(): Promise<void> {
-  let query = db
-    .from('youtube_videos')
-    .select('id, title, description, channel_id, status')
-    .is('seo_optimized_at', null)
-    .order('created_at', { ascending: true })
-    .limit(BATCH_SIZE)
+  try {
+    let query = db
+      .from('youtube_videos')
+      .select('id, title, description, channel_id, status')
+      .is('seo_optimized_at', null)
+      .order('created_at', { ascending: true })
+      .limit(BATCH_SIZE)
 
-  if (!FULL_AUDIT) {
-    // Normale modus: alleen video's die nog niet gepubliceerd zijn
-    query = query.in('status', ['queued', 'planned', 'scheduled'])
-  }
-  // --audit modus: alle video's zonder seo_optimized_at, inclusief live
+    if (!FULL_AUDIT) {
+      // Normale modus: alleen video's die nog niet gepubliceerd zijn
+      query = query.in('status', ['queued', 'planned', 'scheduled'])
+    }
+    // --audit modus: alle video's zonder seo_optimized_at, inclusief live
 
-  const { data: videos } = await query
+    const { data: videos, error } = await query
 
-  if (!videos?.length) {
-    if (FULL_AUDIT) log('Audit klaar — alle video\'s geoptimaliseerd')
-    return
-  }
-  log(`${videos.length} videos te optimaliseren${FULL_AUDIT ? ' (audit modus)' : ''}`)
+    if (error) {
+      log(`✗ Database fout bij video fetch: ${error.message}`)
+      throw error
+    }
 
-  for (const video of videos) {
-    await optimizeVideo(video as any)
-    await db.from('youtube_videos')
-      .update({ seo_optimized_at: new Date().toISOString() } as any)
-      .eq('id', video.id)
+    if (!videos?.length) {
+      if (FULL_AUDIT) log('Audit klaar — alle video\'s geoptimaliseerd')
+      return
+    }
+    log(`${videos.length} videos te optimaliseren${FULL_AUDIT ? ' (audit modus)' : ''}`)
+
+    for (const video of videos) {
+      try {
+        await optimizeVideo(video as any)
+        await db.from('youtube_videos')
+          .update({ seo_optimized_at: new Date().toISOString() } as any)
+          .eq('id', video.id)
+      } catch (videoErr: any) {
+        log(`✗ Fout bij verwerking van video ${video.id}: ${videoErr.message}`)
+        // Continue with next video instead of failing entire batch
+      }
+    }
+  } catch (err: any) {
+    log(`✗ Fout in runOptimizer: ${err.message}`)
+    throw err
   }
 }
 
@@ -204,8 +233,18 @@ async function main() {
     process.exit(0)
   }
   log('SEO Optimizer gestart — interval: 15m')
-  await runOptimizer()
-  setInterval(runOptimizer, INTERVAL_MS)
+  try {
+    await runOptimizer()
+  } catch (err: any) {
+    log(`✗ Eerste run fout: ${err.message}`)
+  }
+  setInterval(async () => {
+    try {
+      await runOptimizer()
+    } catch (err: any) {
+      log(`✗ Scheduled run fout: ${err.message}`)
+    }
+  }, INTERVAL_MS)
 }
 
 main().catch(err => {
