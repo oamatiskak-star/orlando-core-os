@@ -177,6 +177,39 @@ services:
       - key: LOG_LEVEL
         value: "info"
 
+  - type: web
+    name: orlando-watchdog
+    runtime: node
+    rootDir: watchdog-engine
+    buildCommand: npm install --include=dev && npm run build
+    startCommand: node dist/index.js
+    plan: starter
+    autoDeploy: true
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: "3006"
+      - key: CHECK_INTERVAL_MS
+        value: "60000"
+      - key: MAX_RECOVERY_ATTEMPTS
+        value: "2"
+      - key: RENDER_API_KEY
+        sync: false
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+      - key: TELEGRAM_BOT_TOKEN
+        sync: false
+      - key: TELEGRAM_CHAT_ID
+        sync: false
+      - key: WATCHDOG_DENYLIST
+        value: ""
+      - key: LOG_LEVEL
+        value: "info"
+
   - type: redis
     name: orlando-redis
     plan: starter

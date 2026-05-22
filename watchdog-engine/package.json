@@ -1,0 +1,23 @@
+{
+  "name": "orlando-watchdog-engine",
+  "version": "1.0.0",
+  "description": "Render fleet watchdog — detects failures across all Render services and auto-recovers (restart -> redeploy -> Telegram escalation -> Claude Code task).",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "dev": "ts-node --transpile-only src/index.ts"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.45.0",
+    "axios": "^1.7.7",
+    "dotenv": "^16.4.5",
+    "express": "^4.21.0"
+  },
+  "devDependencies": {
+    "@types/express": "^4.17.21",
+    "@types/node": "^20.14.0",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.4.5"
+  }
+}
