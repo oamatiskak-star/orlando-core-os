@@ -462,6 +462,30 @@ LIMIT 10;
 - Endpoints: `POST /workers/alert-anomaly-detection/run`
 - Cron schedule: Every 2 hours (0 */2 * * *)
 
+### Week 16: Advanced Notifications & Alert Delivery ✅
+- Distributes deal alerts via multi-channel delivery: email, SMS, in-app notifications
+- Email notifications: HTML templates with severity badges, deal info, action recommendations, dashboard links
+- SMS alerts: optimized for character limits, only for high/critical severity (prevents alert fatigue)
+- In-app notifications: stored as structured records with deep linking to deal profiles
+- User notification preferences: controls frequency, channels, alert types, severity filters
+- User configuration: digest mode (daily/weekly batches), max notifications/day, channel selection
+- Alert type filtering: users can choose which alert types to receive (price_drop, opportunity_*, etc.)
+- Severity filtering: users set minimum severity threshold (low/medium/high/critical)
+- Rate limiting per user: max 20 notifications/day to prevent notification fatigue
+- Notification deduplication: prevents duplicate notifications (same alert+user+channel within 12h)
+- Notification history tracking: stores all notifications with delivery status (pending/sent/failed/bounced)
+- Retry mechanism: failed notifications can be retried within 24h window
+- Unsubscribe support: includes preference management links in email notifications
+- Digest mode: batches multiple alerts instead of individual notifications (daily/weekly)
+- In-app notifications: always delivered (no rate limiting), deep linked to deal profiles
+- Email templates: HTML with severity indicators (🔴 kritiek, 🟠 hoog, 🟡 gemiddeld, 🟢 laag)
+- SMS templates: character-optimized messages for high/critical alerts only
+- Rate limit: 500 req/hour (email/SMS provider API calls), batch processes 100 alerts per run with 50ms delay
+- Requires: acq_user_notification_preferences table for storing user settings
+- Stores in acq_notifications: user_id, deal_id, alert_id, channel, message, delivery_status, sent_at timestamp
+- Endpoints: `POST /workers/notification/run`
+- Cron schedule: Every hour (0 * * * *)
+
 ## Future Enhancements
 
 1. **Predictive Models Enhancements**
@@ -469,14 +493,14 @@ LIMIT 10;
    - Ensemble forecasting methods
    - Feature importance analysis
    
-2. **Advanced Alerts & Notifications**
-   - Real-time email/SMS notifications for high-severity alerts
-   - Custom alert rules per investor profile
-   - Alerting on custom metrics and thresholds
-   - Alert resolution workflow and tracking
-   
-3. **Market Intelligence Integration**
+2. **Market Intelligence Integration**
    - Track real-time market sentiment from news/social feeds
    - Competitive intelligence gathering
    - Demographic shift detection
    - Infrastructure/development announcements
+   
+3. **Advanced Custom Rules Engine**
+   - User-defined alert rules with custom thresholds
+   - Multi-factor alert criteria (e.g., price drop + opportunity decline)
+   - Alert templating and customization
+   - Alert workflows (escalation, resolution tracking)
