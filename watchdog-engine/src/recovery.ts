@@ -13,6 +13,10 @@ interface RecoveryState {
 const recoveryByDeploy = new Map<string, RecoveryState>()
 const lastSeenDeployStatus = new Map<string, DeployStatus>()
 const ATTEMPT_COOLDOWN_MS = 4 * 60 * 1000
+// Only auto-recover deploys whose failure is recent. Older failed deploys are
+// considered abandoned/known-broken and only logged silently to avoid spamming
+// alerts and burning build minutes on hopeless retries.
+const RECENT_FAILURE_WINDOW_MS = parseInt(process.env.WATCHDOG_RECENT_FAILURE_MINUTES ?? '180', 10) * 60 * 1000
 
 export interface CheckOptions {
   selfServiceId?: string
@@ -83,6 +87,25 @@ async function checkService(client: RenderClient, svc: RenderService, opts: Chec
   }
 
   if (!FAILED_STATES.includes(latest.status)) return
+
+  const finishedAt = latest.finishedAt ? new Date(latest.finishedAt).getTime() : 0
+  if (finishedAt && Date.now() - finishedAt > RECENT_FAILURE_WINDOW_MS) {
+    // Stale failure — log once and skip auto-recovery to avoid spam on abandoned services
+    if (!lastSeenDeployStatus.has(`${svc.id}:stale-logged`)) {
+      lastSeenDeployStatus.set(`${svc.id}:stale-logged`, latest.status)
+      await recordEvent({
+        service_id: svc.id,
+        service_name: svc.name,
+        service_type: svc.type,
+        kind: 'fail_detected',
+        deploy_id: latest.id,
+        deploy_status: latest.status,
+        message: 'stale failure (older than recent-window) — skipped auto-recovery',
+        metadata: { finished_at: latest.finishedAt, age_minutes: Math.round((Date.now() - finishedAt) / 60000) }
+      })
+    }
+    return
+  }
 
   await handleFailure(client, svc, latest, opts)
 }
