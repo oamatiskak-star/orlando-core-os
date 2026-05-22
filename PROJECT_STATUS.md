@@ -2,11 +2,31 @@
 
 > **Sessie protocol** (CLAUDE.md): Lees dit bestand bij elke nieuwe Claude Code sessie. Update na elke voltooide taak. Houd het herstel-blok actueel.
 
-**Laatste update:** 2026-05-20 — Acquisition Intelligence Layer LIVE (deployed Vercel)
+**Laatste update:** 2026-05-22 — Watchdog auto-recovery service LIVE op Render
 
 ---
 
 ## 🔴 HERSTEL HIER NA CRASH
+
+**Sessie focus (2026-05-22)**: Render fleet self-healing watchdog gebouwd & gedeployed ✅
+
+**Wat is gedaan:**
+- Build error op commit 259d3de gefixt (`youtube-engine/src/marketing-orchestrator.ts` Recommendation interface miste `executed_at`). Fix in commit `b9dbec8`.
+- Beide gefaalde services (`orlando-youtube-engine` + `orlando-competitor-scanner`) live op commit b9dbec8 ✅
+- Nieuwe service `orlando-watchdog` (srv-d8831g3bc2fs73ehlujg) gebouwd in `watchdog-engine/`
+  - Pollt Render API elke 60s, monitort alle non-suspended services (ondersteund door denylist env)
+  - Bij failed deploy: restart → redeploy (clearCache op 2e poging) → na 2 mislukte pogingen escalatie naar `infra_watchdog_incidents` + critical Telegram alert
+  - Skip-window: alleen acteren op deploys < 180 min geleden gefaald (`WATCHDOG_RECENT_FAILURE_MINUTES`)
+  - Telegram bot YT_Agent_OS_Bot, chat 7583931210
+- Migration `080_watchdog.sql` applied — `infra_watchdog_events` + `infra_watchdog_incidents` tabellen
+- `WATCHDOG_DENYLIST` gevuld met 20 oude `ao-*` services (legacy bouw — niet auto-recoveren)
+- Health: https://orlando-watchdog.onrender.com/health
+- Render dashboard: https://dashboard.render.com/web/srv-d8831g3bc2fs73ehlujg
+
+**Open punten:**
+- Optioneel: verlaag of suspend de 20 oude ao-* services in Render dashboard om verwarring te voorkomen
+- Optioneel: Vercel/Next.js dashboard page voor `infra_watchdog_events` + open incidents
+- Optioneel: hook escalatie naar Claude Code agent invoke (nu: incident row + Telegram only)
 
 **Sessie focus (2026-05-20, sessie 2)**: Executive Intelligence Layer (Fase 7) — AI C-suite bovenop Media Holding OS. ✅ Code compleet, deploy pending.
 
