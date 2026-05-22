@@ -23,6 +23,8 @@ interface Recommendation {
   action_items: string[]
   estimated_impact_views: number
   status: string
+  executed_at?: string | null
+  scheduled_for?: string | null
 }
 
 async function sendSlack(webhook: string | undefined, message: string, emoji: string): Promise<void> {
