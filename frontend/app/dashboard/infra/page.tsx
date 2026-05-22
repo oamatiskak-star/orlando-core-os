@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
-import { Server, Cpu, MemoryStick, Activity, AlertTriangle, CheckCircle, WifiOff } from 'lucide-react'
+import Link from 'next/link'
+import { Server, Cpu, MemoryStick, Activity, AlertTriangle, CheckCircle, WifiOff, Shield, ChevronRight } from 'lucide-react'
 import InfraClient from './InfraClient'
 
 export const dynamic  = 'force-dynamic'
@@ -36,12 +37,16 @@ const WORKER_LABELS: Record<string, string> = {
 export default async function InfraPage() {
   const supabase = await createClient()
 
-  const { data: workers } = await supabase
-    .from('infra_workers')
-    .select('*')
-    .order('worker_id')
+  const [{ data: workers }, { count: openIncidentCount }] = await Promise.all([
+    supabase.from('infra_workers').select('*').order('worker_id'),
+    supabase
+      .from('infra_watchdog_incidents')
+      .select('*', { count: 'exact', head: true })
+      .eq('status', 'open'),
+  ])
 
   const rows = (workers ?? []) as InfraWorker[]
+  const openIncidents = openIncidentCount ?? 0
 
   const online   = rows.filter(w => w.status === 'online').length
   const degraded = rows.filter(w => w.status === 'degraded').length
@@ -65,6 +70,40 @@ export default async function InfraPage() {
           <span className="text-[11px] text-white/45">Realtime · 30s</span>
         </div>
       </div>
+
+      {/* Watchdog banner */}
+      <Link
+        href="/dashboard/infra/watchdog"
+        className={`flex items-center gap-3 rounded-xl p-3 border transition ${
+          openIncidents > 0
+            ? 'bg-red-500/[0.06] border-red-500/25 hover:bg-red-500/[0.10]'
+            : 'bg-white/[0.04] border-white/10 hover:bg-white/[0.06]'
+        }`}
+      >
+        <div
+          className={`w-8 h-8 rounded-lg flex items-center justify-center ${
+            openIncidents > 0 ? 'bg-red-500/15 text-red-400' : 'bg-rose-500/10 text-rose-400'
+          }`}
+        >
+          <Shield size={14} />
+        </div>
+        <div className="flex-1 min-w-0">
+          <p className="text-xs font-medium text-white">Watchdog · self-healing fleet</p>
+          <p className="text-[11px] text-white/50">
+            Auto-recovery voor Render + lokale PM2 workers (CLI-R + CLI-L)
+          </p>
+        </div>
+        {openIncidents > 0 ? (
+          <span className="px-2 py-0.5 rounded-full bg-red-500/20 text-red-300 text-[11px] font-medium">
+            {openIncidents} open incident{openIncidents !== 1 ? 's' : ''}
+          </span>
+        ) : (
+          <span className="px-2 py-0.5 rounded-full bg-green-500/15 text-green-300 text-[11px] font-medium">
+            0 open
+          </span>
+        )}
+        <ChevronRight size={14} className="text-white/40" />
+      </Link>
 
       {/* Stats */}
       <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
