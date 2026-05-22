@@ -12,10 +12,10 @@ const OLLAMA_URL = process.env.OLLAMA_URL || 'http://localhost:11434';
 const OLLAMA_MODEL = process.env.OLLAMA_MODEL || 'llama3:latest';
 const USE_LM_STUDIO = process.env.USE_LM_STUDIO !== 'false';
 const INTERVAL_MS = 15 * 60 * 1000;
-const BATCH_SIZE = 10; // videos per run — verhoogd voor betere dekking
-const FULL_AUDIT = process.argv.includes('--audit'); // npm run seo -- --audit
+const BATCH_SIZE = 10; // videos per batch
+const FULL_AUDIT = process.argv.includes('--audit');
 function log(msg) {
-    console.log(`[${new Date().toLocaleTimeString('nl-NL')}] [seo] ${msg}`);
+    console.log(`[${new Date().toISOString()}] [seo-optimizer] ${msg}`);
 }
 async function callAI(prompt) {
     if (USE_LM_STUDIO) {
@@ -29,7 +29,7 @@ async function callAI(prompt) {
             return res.data.choices[0].message.content;
         }
         catch (err) {
-            log(`⚠ LM_STUDIO connection failed, falling back to OLLAMA: ${err instanceof Error ? err.message : err}`);
+            log(`WARN LM_STUDIO unavailable, using OLLAMA fallback: ${err instanceof Error ? err.message : err}`);
         }
     }
     try {
@@ -42,7 +42,9 @@ async function callAI(prompt) {
         return res.data.response;
     }
     catch (err) {
-        throw new Error(`AI service unavailable (LM_STUDIO=${USE_LM_STUDIO}): ${err instanceof Error ? err.message : err}`);
+        const msg = `AI_SERVICE_UNAVAILABLE (LM_STUDIO=${USE_LM_STUDIO}, OLLAMA=${OLLAMA_URL}): ${err instanceof Error ? err.message : String(err)}`;
+        log(`ERROR ${msg}`);
+        throw new Error(msg);
     }
 }
 function buildPrompt(title, description, language) {
@@ -93,13 +95,13 @@ async function optimizeVideo(video) {
             raw = await callAI(prompt);
         }
         catch (err) {
-            log(`✗ AI fout voor ${video.id}: ${err.message}`);
+            log(`✗ AI error for ${video.id}: ${err.message}`);
             return;
         }
         const stripped = raw.replace(/```(?:json)?/g, '').replace(/```/g, '');
         const jsonMatch = stripped.match(/\{[\s\S]*\}/);
         if (!jsonMatch) {
-            log(`✗ Geen JSON voor ${video.id}`);
+            log(`✗ No JSON found for ${video.id}`);
             return;
         }
         let result;
@@ -107,13 +109,13 @@ async function optimizeVideo(video) {
             result = JSON.parse(jsonMatch[0]);
         }
         catch (err) {
-            log(`✗ JSON parse fout voor ${video.id}: ${err instanceof Error ? err.message : err}`);
+            log(`✗ JSON parse error for ${video.id}: ${err instanceof Error ? err.message : err}`);
             return;
         }
         if (!result.title || result.title.length > 100)
             return;
         if (result.title === video.title)
-            return; // geen verbetering
+            return;
         await db.from('youtube_videos').update({
             title: result.title,
             tags: result.tags ?? [],
@@ -122,7 +124,7 @@ async function optimizeVideo(video) {
         log(`✓ SEO: "${video.title.slice(0, 40)}" → "${result.title.slice(0, 40)}"`);
     }
     catch (err) {
-        log(`✗ Fout bij optimizeVideo(${video.id}): ${err.message}`);
+        log(`✗ Error in optimizeVideo(${video.id}): ${err.message}`);
         throw err;
     }
 }
@@ -135,21 +137,21 @@ async function runOptimizer() {
             .order('created_at', { ascending: true })
             .limit(BATCH_SIZE);
         if (!FULL_AUDIT) {
-            // Normale modus: alleen video's die nog niet gepubliceerd zijn
+            // Normal mode: only videos not yet published
             query = query.in('status', ['queued', 'planned', 'scheduled']);
         }
-        // --audit modus: alle video's zonder seo_optimized_at, inclusief live
+        // --audit mode: all videos without seo_optimized_at, including live
         const { data: videos, error } = await query;
         if (error) {
-            log(`✗ Database fout bij video fetch: ${error.message}`);
+            log(`✗ Database error fetching videos: ${error.message}`);
             throw error;
         }
         if (!videos?.length) {
             if (FULL_AUDIT)
-                log('Audit klaar — alle video\'s geoptimaliseerd');
+                log('Audit complete — all videos optimized');
             return;
         }
-        log(`${videos.length} videos te optimaliseren${FULL_AUDIT ? ' (audit modus)' : ''}`);
+        log(`${videos.length} videos to optimize${FULL_AUDIT ? ' (audit mode)' : ''}`);
         for (const video of videos) {
             try {
                 await optimizeVideo(video);
@@ -158,26 +160,26 @@ async function runOptimizer() {
                     .eq('id', video.id);
             }
             catch (videoErr) {
-                log(`✗ Fout bij verwerking van video ${video.id}: ${videoErr.message}`);
+                log(`✗ Error processing video ${video.id}: ${videoErr.message}`);
                 // Continue with next video instead of failing entire batch
             }
         }
     }
     catch (err) {
-        log(`✗ Fout in runOptimizer: ${err.message}`);
+        log(`✗ Error in runOptimizer: ${err.message}`);
         throw err;
     }
 }
 async function runFullAudit() {
     log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-    log('  SEO Full Audit — alle kanalen');
+    log('  SEO Full Audit — all channels');
     log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
     const { data: channels } = await db
         .from('youtube_channels')
         .select('id, naam')
         .order('naam');
     if (!channels?.length) {
-        log('Geen kanalen gevonden');
+        log('No channels found');
         return;
     }
     for (const ch of channels) {
@@ -186,9 +188,9 @@ async function runFullAudit() {
             .select('id', { count: 'exact', head: true })
             .eq('channel_id', ch.id)
             .is('seo_optimized_at', null);
-        log(`${ch.naam}: ${count ?? 0} videos wachten op SEO`);
+        log(`${ch.naam}: ${count ?? 0} videos waiting for SEO`);
     }
-    log('Start batch optimalisatie...');
+    log('Starting batch optimization...');
     let totalDone = 0;
     let hasMore = true;
     while (hasMore) {
@@ -209,32 +211,32 @@ async function runFullAudit() {
                 .eq('id', video.id);
             totalDone++;
         }
-        log(`${totalDone} videos afgerond...`);
+        log(`${totalDone} videos completed...`);
     }
-    log(`SEO audit voltooid — ${totalDone} videos geoptimaliseerd`);
+    log(`SEO audit completed — ${totalDone} videos optimized`);
 }
 async function main() {
     if (FULL_AUDIT) {
         await runFullAudit();
         process.exit(0);
     }
-    log('SEO Optimizer gestart — interval: 15m');
+    log('SEO Optimizer started — interval: 15m');
     try {
         await runOptimizer();
     }
     catch (err) {
-        log(`✗ Eerste run fout: ${err.message}`);
+        log(`✗ First run error: ${err.message}`);
     }
     setInterval(async () => {
         try {
             await runOptimizer();
         }
         catch (err) {
-            log(`✗ Scheduled run fout: ${err.message}`);
+            log(`✗ Scheduled run error: ${err.message}`);
         }
     }, INTERVAL_MS);
 }
 main().catch(err => {
-    console.error('[seo] Fatal:', err.message);
+    console.error('[seo-optimizer] Fatal:', err.message);
     process.exit(1);
 });

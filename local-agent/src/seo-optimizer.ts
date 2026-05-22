@@ -13,11 +13,11 @@ const OLLAMA_URL     = process.env.OLLAMA_URL       || 'http://localhost:11434'
 const OLLAMA_MODEL   = process.env.OLLAMA_MODEL     || 'llama3:latest'
 const USE_LM_STUDIO  = process.env.USE_LM_STUDIO   !== 'false'
 const INTERVAL_MS    = 15 * 60 * 1000
-const BATCH_SIZE     = 10   // videos per run — verhoogd voor betere dekking
-const FULL_AUDIT     = process.argv.includes('--audit')  // npm run seo -- --audit
+const BATCH_SIZE     = 10   // videos per batch
+const FULL_AUDIT     = process.argv.includes('--audit')
 
 function log(msg: string) {
-  console.log(`[${new Date().toLocaleTimeString('nl-NL')}] [seo] ${msg}`)
+  console.log(`[${new Date().toISOString()}] [seo-optimizer] ${msg}`)
 }
 
 async function callAI(prompt: string): Promise<string> {
@@ -31,7 +31,7 @@ async function callAI(prompt: string): Promise<string> {
       }, { timeout: 30_000 })
       return res.data.choices[0].message.content as string
     } catch (err) {
-      log(`⚠ LM_STUDIO connection failed, falling back to OLLAMA: ${err instanceof Error ? err.message : err}`)
+      log(`WARN LM_STUDIO unavailable, using OLLAMA fallback: ${err instanceof Error ? err.message : err}`)
     }
   }
   try {
@@ -43,7 +43,9 @@ async function callAI(prompt: string): Promise<string> {
     }, { timeout: 60_000 })
     return res.data.response as string
   } catch (err) {
-    throw new Error(`AI service unavailable (LM_STUDIO=${USE_LM_STUDIO}): ${err instanceof Error ? err.message : err}`)
+    const msg = `AI_SERVICE_UNAVAILABLE (LM_STUDIO=${USE_LM_STUDIO}, OLLAMA=${OLLAMA_URL}): ${err instanceof Error ? err.message : String(err)}`
+    log(`ERROR ${msg}`)
+    throw new Error(msg)
   }
 }
 
@@ -102,22 +104,22 @@ async function optimizeVideo(video: {
     try {
       raw = await callAI(prompt)
     } catch (err: any) {
-      log(`✗ AI fout voor ${video.id}: ${err.message}`)
+      log(`✗ AI error for ${video.id}: ${err.message}`)
       return
     }
 
     const stripped   = raw.replace(/```(?:json)?/g, '').replace(/```/g, '')
     const jsonMatch  = stripped.match(/\{[\s\S]*\}/)
-    if (!jsonMatch) { log(`✗ Geen JSON voor ${video.id}`); return }
+    if (!jsonMatch) { log(`✗ No JSON found for ${video.id}`); return }
 
     let result: { title?: string; tags?: string[] }
     try { result = JSON.parse(jsonMatch[0]) } catch (err) {
-      log(`✗ JSON parse fout voor ${video.id}: ${err instanceof Error ? err.message : err}`)
+      log(`✗ JSON parse error for ${video.id}: ${err instanceof Error ? err.message : err}`)
       return
     }
 
     if (!result.title || result.title.length > 100) return
-    if (result.title === video.title) return  // geen verbetering
+    if (result.title === video.title) return
 
     await db.from('youtube_videos').update({
       title:      result.title,
@@ -127,7 +129,7 @@ async function optimizeVideo(video: {
 
     log(`✓ SEO: "${video.title.slice(0, 40)}" → "${result.title.slice(0, 40)}"`)
   } catch (err: any) {
-    log(`✗ Fout bij optimizeVideo(${video.id}): ${err.message}`)
+    log(`✗ Error in optimizeVideo(${video.id}): ${err.message}`)
     throw err
   }
 }
@@ -142,23 +144,23 @@ async function runOptimizer(): Promise<void> {
       .limit(BATCH_SIZE)
 
     if (!FULL_AUDIT) {
-      // Normale modus: alleen video's die nog niet gepubliceerd zijn
+      // Normal mode: only videos not yet published
       query = query.in('status', ['queued', 'planned', 'scheduled'])
     }
-    // --audit modus: alle video's zonder seo_optimized_at, inclusief live
+    // --audit mode: all videos without seo_optimized_at, including live
 
     const { data: videos, error } = await query
 
     if (error) {
-      log(`✗ Database fout bij video fetch: ${error.message}`)
+      log(`✗ Database error fetching videos: ${error.message}`)
       throw error
     }
 
     if (!videos?.length) {
-      if (FULL_AUDIT) log('Audit klaar — alle video\'s geoptimaliseerd')
+      if (FULL_AUDIT) log('Audit complete — all videos optimized')
       return
     }
-    log(`${videos.length} videos te optimaliseren${FULL_AUDIT ? ' (audit modus)' : ''}`)
+    log(`${videos.length} videos to optimize${FULL_AUDIT ? ' (audit mode)' : ''}`)
 
     for (const video of videos) {
       try {
@@ -167,19 +169,19 @@ async function runOptimizer(): Promise<void> {
           .update({ seo_optimized_at: new Date().toISOString() } as any)
           .eq('id', video.id)
       } catch (videoErr: any) {
-        log(`✗ Fout bij verwerking van video ${video.id}: ${videoErr.message}`)
+        log(`✗ Error processing video ${video.id}: ${videoErr.message}`)
         // Continue with next video instead of failing entire batch
       }
     }
   } catch (err: any) {
-    log(`✗ Fout in runOptimizer: ${err.message}`)
+    log(`✗ Error in runOptimizer: ${err.message}`)
     throw err
   }
 }
 
 async function runFullAudit(): Promise<void> {
   log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━')
-  log('  SEO Full Audit — alle kanalen')
+  log('  SEO Full Audit — all channels')
   log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━')
 
   const { data: channels } = await db
@@ -187,7 +189,7 @@ async function runFullAudit(): Promise<void> {
     .select('id, naam')
     .order('naam')
 
-  if (!channels?.length) { log('Geen kanalen gevonden'); return }
+  if (!channels?.length) { log('No channels found'); return }
 
   for (const ch of channels) {
     const { count } = await db
@@ -196,10 +198,10 @@ async function runFullAudit(): Promise<void> {
       .eq('channel_id', ch.id)
       .is('seo_optimized_at', null)
 
-    log(`${(ch as any).naam}: ${count ?? 0} videos wachten op SEO`)
+    log(`${(ch as any).naam}: ${count ?? 0} videos waiting for SEO`)
   }
 
-  log('Start batch optimalisatie...')
+  log('Starting batch optimization...')
   let totalDone = 0
   let hasMore   = true
 
@@ -221,10 +223,10 @@ async function runFullAudit(): Promise<void> {
       totalDone++
     }
 
-    log(`${totalDone} videos afgerond...`)
+    log(`${totalDone} videos completed...`)
   }
 
-  log(`SEO audit voltooid — ${totalDone} videos geoptimaliseerd`)
+  log(`SEO audit completed — ${totalDone} videos optimized`)
 }
 
 async function main() {
@@ -232,22 +234,22 @@ async function main() {
     await runFullAudit()
     process.exit(0)
   }
-  log('SEO Optimizer gestart — interval: 15m')
+  log('SEO Optimizer started — interval: 15m')
   try {
     await runOptimizer()
   } catch (err: any) {
-    log(`✗ Eerste run fout: ${err.message}`)
+    log(`✗ First run error: ${err.message}`)
   }
   setInterval(async () => {
     try {
       await runOptimizer()
     } catch (err: any) {
-      log(`✗ Scheduled run fout: ${err.message}`)
+      log(`✗ Scheduled run error: ${err.message}`)
     }
   }, INTERVAL_MS)
 }
 
 main().catch(err => {
-  console.error('[seo] Fatal:', err.message)
+  console.error('[seo-optimizer] Fatal:', err.message)
   process.exit(1)
 })
