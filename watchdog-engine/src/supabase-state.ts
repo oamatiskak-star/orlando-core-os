@@ -40,6 +40,7 @@ export async function recordEvent(ev: WatchdogEvent): Promise<void> {
   if (!c) return
   try {
     const { error } = await c.from('infra_watchdog_events').insert({
+      host_id: 'render',
       service_id: ev.service_id,
       service_name: ev.service_name,
       service_type: ev.service_type,
@@ -77,6 +78,7 @@ export async function openIncident(input: IncidentInput): Promise<void> {
   try {
     const { error } = await c.from('infra_watchdog_incidents').upsert(
       {
+        host_id: 'render',
         service_id: input.service_id,
         deploy_id: input.deploy_id,
         service_name: input.service_name,
@@ -91,7 +93,7 @@ export async function openIncident(input: IncidentInput): Promise<void> {
         status: 'open',
         opened_at: new Date().toISOString()
       },
-      { onConflict: 'deploy_id' }
+      { onConflict: 'host_id,deploy_id' }
     )
     if (error) console.error('[watchdog/supabase] upsert incident error:', error.message)
   } catch (err) {
@@ -106,6 +108,7 @@ export async function resolveIncident(deployId: string): Promise<void> {
     await c
       .from('infra_watchdog_incidents')
       .update({ status: 'resolved', resolved_at: new Date().toISOString() })
+      .eq('host_id', 'render')
       .eq('deploy_id', deployId)
       .eq('status', 'open')
   } catch (err) {
