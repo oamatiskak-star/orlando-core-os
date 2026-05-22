@@ -15,3 +15,11 @@ monitoring-agent/dist/
 content-worker/node_modules/
 youtube-engine/node_modules/
 youtube-engine/dist/
+watchdog-engine/node_modules/
+watchdog-engine/dist/
+acquisition-engine/node_modules/
+acquisition-engine/dist/
+executive-engine/node_modules/
+executive-engine/dist/
+planning-engine/node_modules/
+planning-engine/dist/
