@@ -79,7 +79,7 @@ export default async function BuildTrackerPage() {
           {builds.map((b) => {
             const badge = STATUS_BADGE[b.status] ?? STATUS_BADGE.planned
             return (
-              <div key={b.id} className="bg-white/[0.04] border border-white/[0.06] rounded-xl p-4">
+              <Link key={b.id} href={`/dashboard/build-tracker/${b.id}`} className="bg-white/[0.04] border border-white/[0.06] rounded-xl p-4 hover:bg-white/[0.06] hover:border-white/[0.12] transition-colors cursor-pointer">
                 <div className="flex items-center gap-2 mb-2">
                   <span className={`text-[9px] font-semibold px-1.5 py-0.5 rounded ${badge.color}`}>{badge.label}</span>
                   {b.current_milestone && (
@@ -119,7 +119,7 @@ export default async function BuildTrackerPage() {
                     )}
                   </div>
                 </div>
-              </div>
+              </Link>
             )
           })}
         </div>
