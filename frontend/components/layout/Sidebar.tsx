@@ -30,12 +30,17 @@ export default function Sidebar({ isOpen, onClose }: { isOpen: boolean; onClose:
       pathname === mod.href ||
       (mod.href !== '/dashboard' && pathname.startsWith(mod.href))
 
+    const externalProps = mod.external
+      ? { target: '_blank' as const, rel: 'noopener noreferrer' as const }
+      : {}
+
     return (
       <Link
         key={mod.key}
         href={mod.href}
         onClick={onClose}
         title={collapsed ? mod.label : undefined}
+        {...externalProps}
         className={clsx(
           'flex items-center gap-2.5 px-2 py-1.5 rounded-md text-xs transition-colors relative',
           active

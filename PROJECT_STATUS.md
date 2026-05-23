@@ -2,7 +2,7 @@
 
 > **Sessie protocol** (CLAUDE.md): Lees dit bestand bij elke nieuwe Claude Code sessie. Update na elke voltooide taak. Houd het herstel-blok actueel.
 
-**Laatste update:** 2026-05-23 (sessie 3 — voltooid incl. Phase 2) — Aquier Checkout Auditor pipeline **100% end-to-end werkend** inclusief auth flow + Stripe LIVE API observability + webhook delivery latency. **20 unique audit findings**, €515K/mo recovery scope, 11 approved → aquier.com dev team queue. Approvals queue 0 pending.
+**Laatste update:** 2026-05-23 (sessie 4) — Multi-entity dashboard refactor + Build Tracker + Aquier timeline + Supabase project swap (sterkbouww → orlando-core-os). Sessie 3 (Aquier Checkout Auditor pipeline, €515K/mo recovery scope) gearchiveerd onderaan.
 
 ---
 
@@ -88,6 +88,93 @@ Concreet wat te coden — uit de 11 approved findings:
 ---
 
 **Recovery potentieel als alle 11 approved + 3 Stripe-config items worden gefixt:** ~€530K/mo = **€6.4M/yr** boven Y1 €3M target.
+
+---
+
+## 🔵 Sessie 4 update (Dashboard UX + Build Tracker + DB-swap)
+
+**Sessie focus (2026-05-23, sessie 4)**: Dashboard UX-overhaul (cookie-synced per-entity landings, role-based nav, Build Tracker) + DB-swap fundatie. 🔄 Lokaal LIVE, Vercel + Render envs swap pending.
+
+### Wat is gedaan deze sessie
+- ✅ **DB swap diagnose**: frontend `.env.local` wees naar legacy `pmovazftwoxjopqkuuhp` (sterkbouww, dec 2025). Geswapt naar `shaunumewswpxhmgbtvv` (orlando-core-os) waar alle recente data zit. Anon + service_role keys ingevuld.
+- ✅ **Migratie 086** `aquier_projects_timeline.sql` applied — 40 rijen: 26 doc-projecten (AQ-M00 t/m AQ-M25) retrospectief apr-jun 2026 + 14 execution-projecten (AQ-EX-M-1 t/m AQ-EX-M12) gefaseerd 2026-05-25 → 2027-06-30 obv `25_IMPLEMENTATION_ROADMAP/ROADMAP.md`. Phase/month_index/mrr_target/customers_target metadata per row.
+- ✅ **Migratie 087** `per_entity_fundatie.sql` applied — `companies.slug` kolom (unique), 3 ontbrekende companies toegevoegd (osm/modiwe-media/modiwe-software) zodat alle 7 entities matchen. `companies.type` constraint uitgebreid met 'persoon'. `tasks.company_id` toegevoegd. `build_tracker` tabel met status enum + progress + owner + milestone + dates.
+- ✅ **Migratie 088** `build_tracker_seed.sql` applied — 25 real-world builds verdeeld (osm 5, modiwerijo 2, modiwe-media 5, modiwe-software 6, strkbeheer 3, strkbouw 2, bouwproffs 2). Idempotent via unique index (company_id, name).
+- ✅ **Nav-config cleanup** — `frontend/lib/nav-config.ts` 362 → 319 regels. Role-based: Juridisch/Operations Center/Mail Engine/AI&Workflow/Systeem alleen `osm`; Media Holding alleen `modiwe-media`; Aquier+Scrapers+SaaS alleen `modiwe-software`; Vastgoed deals alleen `strkbeheer`; Calculaties alleen `strkbouw`+`bouwproffs`. Sectie-counts 12-14 → 5-10 per entity.
+- ✅ **FB scrapers verhuisd** — `fb_offmarket`+`fb_property` van "Scrapers & Data" naar "Aquier" sectie.
+- ✅ **Verzamelaar externe link** — `aquier_verzamelaar` → `https://aquier.com/verzamelaar`. NavModuleDef heeft nu `external?: boolean` → Sidebar + EntityLanding renderen met `target="_blank"`.
+- ✅ **Per-entity dashboard landings** — `lib/active-company-server.ts` (cookie reader), CompanyProvider schrijft cookie + `router.refresh()` na switch. `app/dashboard/page.tsx` is dispatcher: osm → `DashboardOsm`; andere 6 → `EntityLanding` met hero in company-kleur + quick-access tiles.
+- ✅ **Build Tracker route** — `/dashboard/build-tracker/page.tsx` server-component met directe Postgres slug-filter via `companies!inner(slug)` join (geen JS-mapping). Module toegevoegd aan alle 7 COMPANY_NAV's onder "Operationeel".
+- ✅ **Dashboard UX agent** — `~/.claude/agents/dashboard-ux-agent.md` geregistreerd met 3-fase werkwijze (audit → voorstel → refactor), hard regels uit CLAUDE.md.
+- ✅ **Security fix** — `local-watchdog/.env` + `local-watchdog/Supabase*.txt` toegevoegd aan `.gitignore` (bevatten plain service_role keys).
+
+### Open punten (vereisen Orlando-actie)
+
+1. **Vercel envs swappen + redeploy** — `https://vercel.com/orlandos-projects-664da775/orlando-core-os/settings/environment-variables` → update `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY` voor Production/Preview/Development. Daarna laatste prod deploy → Redeploy zonder cache.
+2. **Render 7 services envs swappen** — `dashboard.render.com` → per service (orlando-youtube-engine, executor, mail-engine, executive-engine, acquisition-engine, watchdog, checkout-auditor) → Environment → update SUPABASE_URL + SUPABASE_SERVICE_ROLE_KEY → Manual Deploy. competitor-scanner overslaan (paused).
+3. **CLI-R Mac local-watchdog deploy** — kopieer `local-watchdog/.env` naar CLI-R, wijzig `WATCHDOG_HOST_ID=cli-r`, plak Telegram bot token. Verifieer of PM2 daadwerkelijk op CLI-L draait (`which pm2` retournde "not found" deze sessie).
+
+### Verificatie commands
+
+```bash
+cd /Users/o.s.m.amatiskak/Github/orlando-core-os/frontend
+# Dev server draait via nohup:
+curl -s -o /dev/null -w "%{http_code}\n" http://localhost:3000/dashboard
+# Log: tail -f /tmp/orlando-dev.log
+
+# Build_tracker counts per entity (switch via sidebar):
+# osm:5, modiwerijo:2, modiwe-media:5, modiwe-software:6, strkbeheer:3, strkbouw:2, bouwproffs:2
+```
+
+### Bekende kwesties
+
+- `PROJECT_STATUS.md` was UU merge — opgelost in sessie 4. `git add PROJECT_STATUS.md` om af te ronden.
+- Module-level cache in `lib/scoped-queries.ts` vervangen door React `cache()` (dedup per-request).
+- 30+ uncommitted bestanden (frontend, migraties, agents). Commit-bericht voorbereid in chat.
+
+---
+
+## 🚨 Sessie 3 archief (Media Holding OS Showcase UX + Algorithm Intelligence Center)
+
+**Sessie focus (2026-05-23, sessie 3)**: Media Holding OS — Showcase-grade UX + Algorithm Intelligence Center 🔄 Code compleet, migratie 084 + Render deploy pending.
+
+> **Migratie-collision opgelost:** Sessie 2 (Aquier) had al `082_aquier_command_center.sql` + `083_aquier_kickoff_seed.sql` applied. Mijn Media Holding targets migratie zit nu op **084_media_holding_targets.sql** om dubbele-nummering te voorkomen. Volgende vrij nummer = 086 (085_checkout_audit_artifacts_bucket bestaat al).
+
+**Wat is gedaan deze sessie:**
+- ✅ `frontend/components/executive/` uitgebreid met: KpiTileV2, Sparkline, MetricDelta, LiveBadge, SectionCard, ActionCTA, BreakoutCard, TrendHeatmap, AutopilotSwitch, ShowcaseProvider, ShowcaseToggle.
+- ✅ `globals.css` accent-tokens + glow/shimmer keyframes + `html[data-showcase="on"]` mode (contrast +10%, glow +85%, animations 1.6× sneller).
+- ✅ `framer-motion@^12.40.0` toegevoegd voor count-up + slide-in micro-interactions.
+- ✅ Migratie **084_media_holding_targets.sql** — business-plan overlay tabel + seed van ecosystem-wide targets (views_24h 25k, retention 0.55, ctr 0.06, breakouts_7d 12, etc.) + `v_media_holding_kpi_targets` view.
+- ✅ API routes nieuw:
+  - `GET /api/algorithm/signals` — geaggregeerde feed (KPI's, gravity events verrijkt met channel/content, viral_opportunities top 50, trend signals top 200 → 36, autopilot config, latest strategy report).
+  - `POST /api/algorithm/actions` — swarm/clone/push/expand CTA → schrijft naar `orchestrator_tasks` (executor=content_factory) + `executive_recommendations` (status=approved).
+  - `PATCH /api/algorithm/autopilot` — toggle `autopilot_config.enabled` voor gravity_to_winner / gravity_to_language / viral_to_factory / upload_to_crossplatform.
+  - `GET /api/algorithm/targets` — lichtgewicht read voor business-plan overlay (faalt zacht als migratie 084 nog niet applied).
+- ✅ `frontend/lib/realtime.ts` — `useRealtimeChannel` Supabase realtime wrapper (postgres_changes); fallback silent als env mist.
+- ✅ **`/dashboard/media-holding/executive/algorithm`** volledig herschreven van JSON-viewer naar Algorithm Intelligence Center: Signal Strip (5 KPI tiles met targets) + Breakout Feed (verrijkte gravity events + Swarm/Clone/Push/Expand CTA's) + Trend Heatmap + Algorithm Strategist Report (kaartweergave i.p.v. JSON) + Autopilot Switchboard + Top viral opportunities grid.
+- ✅ **`/dashboard/media-holding/executive`** Overview pagina geupgrade naar KpiTileV2 met target-overlay + ATLAS commentary sectie + realtime alerts + CtaLink naar Algorithm Center.
+- ✅ **`executive/layout.tsx`** wrapped in ShowcaseProvider met ShowcaseToggle in header (toggle `?showcase=1`).
+- ✅ `executive-engine/src/agents/algorithm-strategist.ts` — fan-out hook: swarm_opportunities met variants_to_make≥3 worden auto-gedispatched als `orchestrator_tasks` met executor=content_factory; priority=2 (hoog) als er ook een breakout in 24h-window zat, anders 4.
+
+**Open punten (vereisen Orlando-actie):**
+1. **Migratie 084 applien** — Supabase MCP: `apply_migration` met inhoud van `supabase/migrations/084_media_holding_targets.sql`. Anders blijft `/api/algorithm/targets` leeg en valt KPI target-overlay terug op hardcoded defaults.
+2. **Render Executive Engine deploy** — push naar GitHub → `orlando-executive-engine` Render service → ANTHROPIC_API_KEY env zetten in Render dashboard.
+3. **Vercel env** — `EXECUTIVE_ENGINE_URL=https://orlando-executive-engine.onrender.com` zetten zodat `Run Strategist` knop kan POST'en naar Render.
+4. **Autopilot activeren** — via nieuwe AutopilotSwitchboard in Algorithm Center, of SQL: `update autopilot_config set enabled=true where link_key in ('gravity_to_winner','gravity_to_language')`. Start met lage threshold om eerst gedrag te observeren.
+5. **First-run test** — open `/dashboard/media-holding/executive/algorithm` → check dat Breakout Feed + Trend Heatmap data tonen (data komt uit bestaande viral-scan + trend-scan crons, dus actief).
+
+**Verificatie commands:**
+```bash
+cd /Users/o.s.m.amatiskak/Github/orlando-core-os/frontend
+npm run dev
+# open http://localhost:3000/dashboard/media-holding/executive/algorithm
+# toggle Showcase ON in header → animaties versnellen, body contrast verhoogt
+# klik Swarm op een breakout → check orchestrator_tasks tabel voor nieuwe row
+```
+
+---
+
+## 🚨 Sessie 2 archief (Aquier Command Center kickoff)
 
 **Sessie focus (2026-05-23, sessie 2)**: Aquier Command Center toegevoegd aan Modiwe Software dashboard. AI Project Leider (CHRONOS-AQ) staat klaar voor maandag 2026-05-25 09:00 kickoff. ✅
 
@@ -204,8 +291,6 @@ Concreet wat te coden — uit de 11 approved findings:
 
 ---
 
-## 🚨 Vorige sessie focus (gearchiveerd)
-
 **2026-05-20 sessie 1**: Viral Intelligence Engine van orchestrator_task-poller naar **directe Vercel cron routes**. ✅ AUTONOOM LIVE per 16:22 UTC — alle 3 endpoints succesvol manueel getriggerd, data binnen (viral 156→234, audio 77→83, trend 346→411).
 
 - ✅ Media Holding inhaalsprong (Settings, Analytics, Compete, Archives modules + API routes + migraties 073-075)
@@ -242,7 +327,7 @@ Concreet wat te coden — uit de 11 approved findings:
 | 4 — AI System Behavior | ✅ Completed | 100% |
 | 5 — Infrastructure Rules | ✅ Completed | 100% |
 | 6 — Long Term Scale | ✅ Completed | 100% |
-| 7 — Executive Intelligence Layer | 🔄 Building | 40% (code+DB live, Render deploy pending) |
+| 7 — Executive Intelligence Layer | 🔄 Building | 60% (code+DB live, Algorithm Intelligence Center UI live, Render deploy + migratie 083 pending) |
 | 8 — Acquisition Intelligence Layer | ✅ Completed | 100% (DB+API+UI live, workers todo) |
 
 ### Render services (deploy status)

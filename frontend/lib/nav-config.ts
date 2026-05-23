@@ -20,6 +20,7 @@ export type NavModuleDef = {
   href: string
   icon: LucideIcon
   badge?: number
+  external?: boolean  // open in nieuw tabblad (voor externe URLs)
 }
 
 export type NavSection = {
@@ -171,6 +172,10 @@ export const NAV_MODULES: Record<string, NavModuleDef> = {
   aquier_approvals:    { key: 'aquier_approvals',    label: 'Approve / Decline',       href: '/dashboard/aquier/approvals',        icon: ThumbsUp },
   aquier_audit:        { key: 'aquier_audit',        label: 'Checkout Audit',          href: '/dashboard/aquier/audit',            icon: ShieldAlert },
   aquier_forecast:     { key: 'aquier_forecast',     label: 'Forecast',                href: '/dashboard/aquier-forecast',         icon: BarChart3 },
+  aquier_verzamelaar:  { key: 'aquier_verzamelaar',  label: 'Verzamelaar (Aquier.com)', href: 'https://aquier.com/verzamelaar',    icon: Archive, external: true },
+
+  // ── BUILD TRACKER (per-entity) ────────────────────────────────────────────
+  build_tracker:       { key: 'build_tracker',       label: 'Build Tracker',           href: '/dashboard/build-tracker',           icon: Hammer },
 
   // ── ACQUISITION INTELLIGENCE ─────────────────────────────────────────────
   acq_deal_desk:      { key: 'acq_deal_desk',      label: 'Deal Desk',            href: '/dashboard/acquisition',                     icon: Target },
@@ -188,34 +193,41 @@ export const NAV_MODULES: Record<string, NavModuleDef> = {
   acq_agents:         { key: 'acq_agents',         label: 'Acquisition Agents',   href: '/dashboard/acquisition/agents',              icon: Bot },
 }
 
+// ─────────────────────────────────────────────────────────────────────────
+// Role-based nav (sessie 2026-05-23 cleanup):
+//   - Juridisch (advocaat_* + ai_advocaat_*)  → osm only
+//   - Media Holding + YouTube + Social        → modiwe-media only
+//   - Aquier + Scrapers + SaaS Tools          → modiwe-software only
+//   - Vastgoed deals + Acquisitie             → strkbeheer
+//   - Calculaties + Bouw                       → strkbouw + bouwproffs
+//   - Operations Center + Mail Engine + AI    → osm only
+//   - Systeem (administratie/gebruikers)      → osm only
+//   - Finance + Operationeel                  → per company waar relevant
+// ─────────────────────────────────────────────────────────────────────────
 export const COMPANY_NAV: Record<string, CompanyNav> = {
 
-  // O.S.M. AMATISKAK
+  // O.S.M. AMATISKAK — eigenaar (volledige governance + persoonlijk)
   osm: {
     sections: [
       { modules: ['dashboard'] },
       { title: 'Juridisch', modules: ['advocaat_dashboard', 'advocaat_dossiers', 'advocaat_curator', 'advocaat_mail_def', 'advocaat_bewijs', 'advocaat_tijdlijn', 'advocaat_strategie', 'advocaat_imports', 'ai_advocaat', 'ai_adv_dossiers', 'ai_adv_contracten', 'ai_adv_deadlines'] },
       { title: 'OSIL', modules: ['osil_dashboard', 'osil_board', 'osil_kansen', 'osil_recovery', 'osil_optimalisatie', 'osil_fiscalist', 'osil_rapport'] },
-      { title: 'Acquisitie', modules: ['acq_deal_desk', 'acq_deals', 'acq_offmarket', 'acq_permits', 'acq_municipalities', 'acq_investors', 'acq_analytics', 'acq_settings'] },
       { title: 'Persoonlijk', modules: ['dyme_os', 'personal_finance', 'dga_loonstrook', 'loonstroken', 'financien'] },
       { title: 'Bedrijven', modules: ['bedrijven'] },
-      { title: 'Media Holding', modules: ['media_holding'] },
-      { title: 'Operationeel', modules: ['agenda', 'taken', 'planning', 'crm'] },
+      { title: 'Operationeel', modules: ['build_tracker', 'agenda', 'taken', 'planning', 'crm'] },
       { title: 'Operations Center', modules: ['ops_dashboard', 'ops_workflows', 'ops_routines', 'ops_agents', 'ops_scheduler', 'ops_queue', 'ops_logs', 'ops_errors', 'ops_automations', 'ops_api', 'ops_dil', 'ops_suggestions', 'ops_manual', 'ops_templates', 'ops_webhooks', 'ops_analytics', 'ops_company_settings', 'ops_global_settings', 'infra', 'worktree_manager'] },
       { title: 'Mail Engine', modules: ['mail_dashboard', 'mail_agents', 'mail_workflows', 'mail_rules', 'mail_dossiers', 'mail_inbox'] },
       { title: 'AI & Workflow', modules: ['agents', 'workflows', 'orchestrator'] },
-      { title: 'Systeem', modules: ['administratie', 'belasting', 'abonnementen', 'documenten'] },
+      { title: 'Systeem', modules: ['administratie', 'belasting', 'abonnementen', 'documenten', 'gebruikers'] },
     ],
     globalBottom: ['health', 'meldingen', 'instellingen'],
   },
 
-  // Modiwerijo Financial Management BV
+  // Modiwerijo Financial Management BV — financiële holding
   modiwerijo: {
     sections: [
       { modules: ['dashboard'] },
-      { title: 'Juridisch', modules: ['advocaat_dashboard', 'advocaat_dossiers', 'advocaat_curator', 'advocaat_mail_def', 'advocaat_bewijs', 'advocaat_tijdlijn', 'advocaat_strategie', 'advocaat_imports', 'ai_advocaat', 'ai_adv_dossiers', 'ai_adv_contracten', 'ai_adv_deadlines'] },
       { title: 'OSIL', modules: ['osil_dashboard', 'osil_board', 'osil_kansen', 'osil_recovery', 'osil_optimalisatie', 'osil_fiscalist', 'osil_rapport'] },
-      { title: 'Acquisitie', modules: ['acq_deal_desk', 'acq_deals', 'acq_offmarket', 'acq_investors', 'acq_analytics'] },
       { title: 'Finance', modules: ['finance_incasso', 'moneybird_live', 'financien', 'belasting', 'abonnementen'] },
       { title: 'Bedrijven', modules: ['bedrijven'] },
       {
@@ -224,20 +236,15 @@ export const COMPANY_NAV: Record<string, CompanyNav> = {
           'personeel_loon', 'personeel_admini', 'personeel_ubo',
         ],
       },
-      { title: 'Operationeel', modules: ['projecten', 'planning', 'crm', 'documenten', 'agenda', 'taken'] },
-      { title: 'Operations Center', modules: ['ops_dashboard', 'ops_workflows', 'ops_routines', 'ops_agents', 'ops_scheduler', 'ops_queue', 'ops_logs', 'ops_errors', 'ops_automations', 'ops_api', 'ops_dil', 'ops_suggestions', 'ops_manual', 'ops_templates', 'ops_webhooks', 'ops_analytics', 'ops_company_settings', 'ops_global_settings', 'infra', 'worktree_manager'] },
-      { title: 'Mail Engine', modules: ['mail_dashboard', 'mail_agents', 'mail_workflows', 'mail_rules', 'mail_dossiers', 'mail_inbox'] },
-      { title: 'AI & Workflow', modules: ['agents', 'workflows', 'orchestrator'] },
-      { title: 'Systeem', modules: ['administratie', 'gebruikers'] },
+      { title: 'Operationeel', modules: ['build_tracker', 'projecten', 'planning', 'crm', 'documenten', 'agenda', 'taken'] },
     ],
-    globalBottom: ['health', 'meldingen', 'instellingen'],
+    globalBottom: ['meldingen', 'instellingen'],
   },
 
-  // Modiwe Media BV
+  // Modiwe Media BV — media + content (Media Holding only here)
   'modiwe-media': {
     sections: [
       { modules: ['dashboard'] },
-      { title: 'Juridisch', modules: ['advocaat_dashboard', 'advocaat_dossiers', 'advocaat_curator', 'advocaat_mail_def', 'advocaat_bewijs', 'advocaat_tijdlijn', 'advocaat_strategie', 'advocaat_imports', 'ai_advocaat', 'ai_adv_dossiers', 'ai_adv_contracten', 'ai_adv_deadlines'] },
       { title: 'Media Holding', modules: ['media_holding'] },
       {
         title: 'YouTube', modules: [
@@ -247,50 +254,32 @@ export const COMPANY_NAV: Record<string, CompanyNav> = {
         ],
       },
       { title: 'YouTube Tools', modules: ['youtube_workflow', 'youtube_analytics', 'youtube_queue', 'youtube_automation', 'youtube_calendar', 'youtube_scheduled', 'youtube_logs', 'youtube_growth'] },
-      { title: 'Social Media', modules: ['instagram', 'tiktok', 'fb_offmarket', 'fb_property'] },
-      { title: 'Vastgoed', modules: ['vastgoed'] },
-      { title: 'Operationeel', modules: ['projecten', 'planning', 'crm', 'documenten', 'agenda', 'taken'] },
-      { title: 'Finance', modules: ['finance_incasso', 'financien', 'belasting', 'abonnementen'] },
-      { title: 'Operations Center', modules: ['ops_dashboard', 'ops_workflows', 'ops_routines', 'ops_agents', 'ops_scheduler', 'ops_queue', 'ops_logs', 'ops_errors', 'ops_automations', 'ops_api', 'ops_dil', 'ops_suggestions', 'ops_manual', 'ops_templates', 'ops_webhooks', 'ops_analytics', 'ops_company_settings', 'ops_global_settings', 'infra', 'worktree_manager'] },
-      { title: 'Mail Engine', modules: ['mail_dashboard', 'mail_agents', 'mail_workflows', 'mail_rules', 'mail_dossiers', 'mail_inbox'] },
-      { title: 'AI & Workflow', modules: ['agents', 'workflows', 'orchestrator'] },
-      { title: 'Systeem', modules: ['administratie', 'gebruikers'] },
+      { title: 'Social Media', modules: ['instagram', 'tiktok'] },
+      { title: 'Finance', modules: ['finance_incasso', 'financien'] },
+      { title: 'Operationeel', modules: ['build_tracker', 'projecten', 'planning', 'crm', 'documenten', 'agenda', 'taken'] },
     ],
     globalBottom: ['meldingen', 'instellingen'],
   },
 
-  // Modiwe Software BV
+  // Modiwe Software BV — Aquier + scrapers + SaaS tools
   'modiwe-software': {
     sections: [
       { modules: ['dashboard'] },
-      { title: 'Aquier', modules: ['aquier_hub', 'aquier_projecten', 'aquier_planning', 'aquier_agenda', 'aquier_ai_lead', 'aquier_monitor', 'aquier_approvals', 'aquier_audit', 'aquier_forecast'] },
-      { title: 'Juridisch', modules: ['advocaat_dashboard', 'advocaat_dossiers', 'advocaat_curator', 'advocaat_mail_def', 'advocaat_bewijs', 'advocaat_tijdlijn', 'advocaat_strategie', 'advocaat_imports', 'ai_advocaat', 'ai_adv_dossiers', 'ai_adv_contracten', 'ai_adv_deadlines'] },
-      { title: 'SaaS', modules: ['calculaties', 'vastgoed', 'projecten'] },
-      { title: 'Media Holding', modules: ['media_holding'] },
-      {
-        title: 'YouTube', modules: [
-          'youtube',
-          'youtube_vermogen', 'youtube_spaartv', 'youtube_vastgoed',
-          'youtube_crypto', 'youtube_beleggingstv', 'youtube_investor', 'youtube_aquier', 'youtube_aquieres',
-        ],
-      },
-      { title: 'Operationeel', modules: ['planning', 'crm', 'documenten', 'agenda', 'taken'] },
-      { title: 'Finance', modules: ['finance_incasso', 'financien', 'belasting', 'abonnementen'] },
-      { title: 'Operations Center', modules: ['ops_dashboard', 'ops_workflows', 'ops_routines', 'ops_agents', 'ops_scheduler', 'ops_queue', 'ops_logs', 'ops_errors', 'ops_automations', 'ops_api', 'ops_dil', 'ops_suggestions', 'ops_manual', 'ops_templates', 'ops_webhooks', 'ops_analytics', 'ops_company_settings', 'ops_global_settings', 'infra', 'worktree_manager'] },
-      { title: 'Mail Engine', modules: ['mail_dashboard', 'mail_agents', 'mail_workflows', 'mail_rules', 'mail_dossiers', 'mail_inbox'] },
-      { title: 'AI & Workflow', modules: ['agents', 'workflows', 'orchestrator'] },
-      { title: 'Systeem', modules: ['administratie', 'gebruikers'] },
+      { title: 'Aquier', modules: ['aquier_hub', 'aquier_verzamelaar', 'aquier_projecten', 'aquier_planning', 'aquier_agenda', 'aquier_ai_lead', 'aquier_monitor', 'aquier_approvals', 'aquier_audit', 'aquier_forecast', 'fb_offmarket', 'fb_property'] },
+      { title: 'Scrapers & Data', modules: ['acq_offmarket', 'acq_permits', 'acq_municipalities'] },
+      { title: 'SaaS', modules: ['projecten'] },
+      { title: 'Finance', modules: ['finance_incasso', 'financien'] },
+      { title: 'Operationeel', modules: ['build_tracker', 'planning', 'crm', 'documenten', 'agenda', 'taken'] },
     ],
     globalBottom: ['meldingen', 'instellingen'],
   },
 
-  // STRKBEHEER BV
+  // STRKBEHEER BV — vastgoed deals + holding
   strkbeheer: {
     sections: [
       { modules: ['dashboard'] },
-      { title: 'Juridisch', modules: ['advocaat_dashboard', 'advocaat_dossiers', 'advocaat_curator', 'advocaat_mail_def', 'advocaat_bewijs', 'advocaat_tijdlijn', 'advocaat_strategie', 'advocaat_imports', 'ai_advocaat', 'ai_adv_dossiers', 'ai_adv_contracten', 'ai_adv_deadlines'] },
-      { title: 'Vastgoed', modules: ['vastgoed', 'calculaties', 'projecten', 'planning'] },
-      { title: 'Acquisitie', modules: ['acq_deal_desk', 'acq_deals', 'acq_build_opps', 'acq_offmarket', 'acq_permits', 'acq_municipalities', 'acq_investors', 'acq_crm', 'acq_outreach', 'acq_analytics', 'acq_agents', 'acq_scaling', 'acq_settings'] },
+      { title: 'Vastgoed', modules: ['vastgoed', 'projecten', 'planning'] },
+      { title: 'Acquisitie', modules: ['acq_deal_desk', 'acq_deals', 'acq_build_opps', 'acq_investors', 'acq_crm', 'acq_outreach', 'acq_analytics', 'acq_agents', 'acq_scaling', 'acq_settings'] },
       { title: 'Bedrijven', modules: ['bedrijven'] },
       {
         title: 'Personeel', modules: [
@@ -300,49 +289,34 @@ export const COMPANY_NAV: Record<string, CompanyNav> = {
       },
       { title: 'CRM', modules: ['crm'] },
       { title: 'Finance', modules: ['finance_incasso', 'financien', 'belasting', 'abonnementen'] },
-      { title: 'Media Holding', modules: ['media_holding'] },
-      { title: 'Operationeel', modules: ['documenten', 'agenda', 'taken'] },
-      { title: 'Operations Center', modules: ['ops_dashboard', 'ops_workflows', 'ops_routines', 'ops_agents', 'ops_scheduler', 'ops_queue', 'ops_logs', 'ops_errors', 'ops_automations', 'ops_api', 'ops_dil', 'ops_suggestions', 'ops_manual', 'ops_templates', 'ops_webhooks', 'ops_analytics', 'ops_company_settings', 'ops_global_settings', 'infra', 'worktree_manager'] },
-      { title: 'Mail Engine', modules: ['mail_dashboard', 'mail_agents', 'mail_workflows', 'mail_rules', 'mail_dossiers', 'mail_inbox'] },
-      { title: 'AI & Workflow', modules: ['agents', 'workflows', 'orchestrator'] },
-      { title: 'Systeem', modules: ['administratie', 'gebruikers'] },
+      { title: 'Operationeel', modules: ['build_tracker', 'documenten', 'agenda', 'taken'] },
     ],
-    globalBottom: ['health', 'meldingen', 'instellingen'],
+    globalBottom: ['meldingen', 'instellingen'],
   },
 
-  // STRKBOUW BV
+  // STRKBOUW BV — bouwbedrijf
   strkbouw: {
     sections: [
       { modules: ['dashboard'] },
-      { title: 'Juridisch', modules: ['advocaat_dashboard', 'advocaat_dossiers', 'advocaat_curator', 'advocaat_mail_def', 'advocaat_bewijs', 'advocaat_tijdlijn', 'advocaat_strategie', 'advocaat_imports', 'ai_advocaat', 'ai_adv_dossiers', 'ai_adv_contracten', 'ai_adv_deadlines'] },
       { title: 'Bouw', modules: ['calculaties', 'bouwplaats', 'projecten', 'planning'] },
-      { title: 'Portaal', modules: ['kopers_portaal'] },
+      { title: 'Kopers Portaal', modules: ['kopers_portaal'] },
       { title: 'CRM', modules: ['crm'] },
       { title: 'Finance', modules: ['finance_incasso', 'financien', 'belasting', 'abonnementen'] },
-      { title: 'Operationeel', modules: ['documenten', 'agenda', 'taken'] },
-      { title: 'Operations Center', modules: ['ops_dashboard', 'ops_workflows', 'ops_routines', 'ops_agents', 'ops_scheduler', 'ops_queue', 'ops_logs', 'ops_errors', 'ops_automations', 'ops_api', 'ops_dil', 'ops_suggestions', 'ops_manual', 'ops_templates', 'ops_webhooks', 'ops_analytics', 'ops_company_settings', 'ops_global_settings', 'infra', 'worktree_manager'] },
-      { title: 'Mail Engine', modules: ['mail_dashboard', 'mail_agents', 'mail_workflows', 'mail_rules', 'mail_dossiers', 'mail_inbox'] },
-      { title: 'AI & Workflow', modules: ['agents', 'workflows', 'orchestrator'] },
-      { title: 'Systeem', modules: ['administratie', 'gebruikers'] },
+      { title: 'Operationeel', modules: ['build_tracker', 'documenten', 'agenda', 'taken'] },
     ],
-    globalBottom: ['health', 'meldingen', 'instellingen'],
+    globalBottom: ['meldingen', 'instellingen'],
   },
 
-  // Bouwproffs BV
+  // Bouwproffs BV — calculatiebureau
   bouwproffs: {
     sections: [
       { modules: ['dashboard'] },
-      { title: 'Juridisch', modules: ['advocaat_dashboard', 'advocaat_dossiers', 'advocaat_curator', 'advocaat_mail_def', 'advocaat_bewijs', 'advocaat_tijdlijn', 'advocaat_strategie', 'advocaat_imports', 'ai_advocaat', 'ai_adv_dossiers', 'ai_adv_contracten', 'ai_adv_deadlines'] },
       { title: 'Calculatie', modules: ['calculaties', 'projecten', 'planning'] },
       { title: 'CRM', modules: ['crm'] },
       { title: 'Finance', modules: ['finance_incasso', 'moneybird_live', 'financien', 'belasting', 'abonnementen'] },
-      { title: 'Operationeel', modules: ['documenten', 'agenda', 'taken'] },
-      { title: 'Operations Center', modules: ['ops_dashboard', 'ops_workflows', 'ops_routines', 'ops_agents', 'ops_scheduler', 'ops_queue', 'ops_logs', 'ops_errors', 'ops_automations', 'ops_api', 'ops_dil', 'ops_suggestions', 'ops_manual', 'ops_templates', 'ops_webhooks', 'ops_analytics', 'ops_company_settings', 'ops_global_settings', 'infra', 'worktree_manager'] },
-      { title: 'Mail Engine', modules: ['mail_dashboard', 'mail_agents', 'mail_workflows', 'mail_rules', 'mail_dossiers', 'mail_inbox'] },
-      { title: 'AI & Workflow', modules: ['agents', 'workflows', 'orchestrator'] },
-      { title: 'Systeem', modules: ['administratie', 'gebruikers'] },
+      { title: 'Operationeel', modules: ['build_tracker', 'documenten', 'agenda', 'taken'] },
     ],
-    globalBottom: ['health', 'meldingen', 'instellingen'],
+    globalBottom: ['meldingen', 'instellingen'],
   },
 }
 
