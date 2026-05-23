@@ -4,6 +4,7 @@ import { MEMBERSHIP_SELECTORS } from './selectors'
 import { attachNetworkRecorder, type NetworkEvent } from './network-recorder'
 import { assertLocale, type LocaleAssertResult } from './locale-asserts'
 import { driveStripeCheckout, type StripeCheckoutResult } from './stripe-checkout-driver'
+import { loginIfConfigured, type AuthFlowResult } from './auth-flow'
 import { loadStripeTestCards, loadCountries, loadTiers, loadDevices } from '../specs'
 import { uploadArtifact, buildArtifactPath } from '../lib/storage'
 import { supabase } from '../lib/supabase'
@@ -25,6 +26,7 @@ export type WalkthroughResult = {
   pricing_observed_eur: number | null
   post_cta_url: string | null
   post_cta_destination: PostCtaDestination | null
+  auth_flow: AuthFlowResult | null
   stripe_result: StripeCheckoutResult | null
   network_events: NetworkEvent[]
   artifacts: Array<{ kind: string; storage_path: string; size_bytes: number }>
@@ -89,6 +91,7 @@ export async function runWalkthrough(
     pricing_observed_eur: null,
     post_cta_url: null,
     post_cta_destination: null,
+    auth_flow: null,
     stripe_result: null,
     network_events: [],
     artifacts,
@@ -96,6 +99,13 @@ export async function runWalkthrough(
   }
 
   try {
+    // 0. Optional pre-auth login (Phase 2). No-op when TEST_USER_EMAIL/PASSWORD not set.
+    const authResult = await loginIfConfigured(page, context)
+    result.auth_flow = authResult
+    if (authResult.attempted && !authResult.success) {
+      errors.push(`login failed: ${authResult.errors.join('; ') || 'unknown'}`)
+    }
+
     // 1. open /membership
     const membershipUrl = new URL('/membership', env.AQUIER_BASE_URL).toString()
     const loadStart = Date.now()

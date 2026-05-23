@@ -18,6 +18,12 @@ const EnvSchema = z.object({
 
   AQUIER_BASE_URL: z.string().url().default('https://aquier.com'),
 
+  // Phase 2 — pre-authenticated walkthrough (optional).
+  // When both set, auditor logs in before each scenario so Stripe/webhook/DB sync surfaces become testable.
+  // Use a DEDICATED test account on aquier.com (NEVER a real customer).
+  TEST_USER_EMAIL: z.string().email().optional(),
+  TEST_USER_PASSWORD: z.string().min(8).optional(),
+
   TELEGRAM_BOT_TOKEN: z.string().optional(),
   TELEGRAM_CHAT_ID: z.string().optional(),
 

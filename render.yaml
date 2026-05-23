@@ -245,6 +245,11 @@ services:
         value: "claude-sonnet-4-6"
       - key: STRIPE_RESTRICTED_KEY_TEST
         sync: false
+      # Phase 2 — pre-auth flow. Both must be set together. Leave unset for anonymous-only audits.
+      - key: TEST_USER_EMAIL
+        sync: false
+      - key: TEST_USER_PASSWORD
+        sync: false
       - key: TELEGRAM_BOT_TOKEN
         sync: false
       - key: TELEGRAM_CHAT_ID
