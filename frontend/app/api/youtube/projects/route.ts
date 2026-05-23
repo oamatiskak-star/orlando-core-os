@@ -9,12 +9,16 @@ export async function GET(req: NextRequest) {
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const sp = req.nextUrl.searchParams
+  const entityType = sp.get('entityType') ?? 'youtube'
+  const entityId = sp.get('entityId') ?? 'youtube'
   const projectType = sp.get('type') ?? ''
   const status = sp.get('status') ?? ''
 
   let query = supabase
-    .from('youtube_projects')
+    .from('business_projects')
     .select('*', { count: 'exact' })
+    .eq('entity_type', entityType)
+    .eq('entity_id', entityId)
     .order('created_at', { ascending: false })
 
   if (projectType) query = query.eq('type', projectType)
@@ -48,14 +52,18 @@ export async function POST(req: NextRequest) {
     channels,
     clusters,
     metadata,
+    entity_type = 'youtube',
+    entity_id = 'youtube',
   } = body
 
   if (!name) return NextResponse.json({ error: 'Naam vereist' }, { status: 400 })
   if (!type) return NextResponse.json({ error: 'Type vereist' }, { status: 400 })
 
   const { data, error } = await supabase
-    .from('youtube_projects')
+    .from('business_projects')
     .insert({
+      entity_type,
+      entity_id,
       name,
       description: description ?? null,
       type,

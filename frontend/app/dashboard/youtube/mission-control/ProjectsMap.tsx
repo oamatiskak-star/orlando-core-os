@@ -18,8 +18,10 @@ export default async function ProjectsMap() {
   const supabase = await createClient()
 
   const { data: projects, error } = await supabase
-    .from('youtube_projects')
+    .from('business_projects')
     .select('*')
+    .eq('entity_type', 'youtube')
+    .eq('entity_id', 'youtube')
     .order('created_at', { ascending: false })
 
   if (error) {
