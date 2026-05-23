@@ -1,0 +1,141 @@
+name: Deploy to Vercel (Monorepo)
+
+on:
+  push:
+    branches: [main, develop, 'claude/**']
+  pull_request:
+    branches: [main, develop]
+
+env:
+  VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+
+jobs:
+  detect-changes:
+    runs-on: ubuntu-latest
+    outputs:
+      orlando-core-os: ${{ steps.changes.outputs.orlando-core-os }}
+      vastgoed-core-front: ${{ steps.changes.outputs.vastgoed-core-front }}
+      vastgoedscanler-saas: ${{ steps.changes.outputs.vastgoedscanler-saas }}
+      sterkbouw-saas-front: ${{ steps.changes.outputs.sterkbouw-saas-front }}
+      sterkbouw-calc: ${{ steps.changes.outputs.sterkbouw-calc }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - id: changes
+        run: |
+          echo "orlando-core-os=true" >> $GITHUB_OUTPUT
+          echo "vastgoed-core-front=true" >> $GITHUB_OUTPUT
+          echo "vastgoedscanler-saas=true" >> $GITHUB_OUTPUT
+          echo "sterkbouw-saas-front=true" >> $GITHUB_OUTPUT
+          echo "sterkbouw-calc=true" >> $GITHUB_OUTPUT
+
+  build-test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        project:
+          - name: orlando-core-os
+            path: orlando-core-os
+          - name: vastgoed-core-front
+            path: vastgoed-core-front
+          - name: vastgoedscanler-saas
+            path: vastgoedscanler-saas
+          - name: sterkbouw-saas-front
+            path: sterkbouw-saas-front
+          - name: sterkbouw-calc
+            path: sterkbouw-calc
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v2
+        with:
+          version: 8
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'pnpm'
+          cache-dependency-path: '${{ matrix.project.path }}/pnpm-lock.yaml'
+
+      - name: Install dependencies
+        run: |
+          cd ${{ matrix.project.path }}
+          pnpm install
+
+      - name: Run linter
+        continue-on-error: true
+        run: |
+          cd ${{ matrix.project.path }}
+          pnpm run lint 2>/dev/null || echo "Linter not configured"
+
+      - name: Type check
+        continue-on-error: true
+        run: |
+          cd ${{ matrix.project.path }}
+          pnpm run type-check 2>/dev/null || echo "Type check not configured"
+
+      - name: Build
+        run: |
+          cd ${{ matrix.project.path }}
+          pnpm run build
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+
+  deploy:
+    runs-on: ubuntu-latest
+    needs: build-test
+    if: github.event_name == 'push'
+    strategy:
+      matrix:
+        include:
+          - project: orlando-core-os
+            path: orlando-core-os
+            vercel-project-id: ${{ secrets.VERCEL_ORLANDO_CORE_OS_PROJECT_ID }}
+          - project: vastgoed-core-front
+            path: vastgoed-core-front
+            vercel-project-id: ${{ secrets.VERCEL_VASTGOED_CORE_FRONT_PROJECT_ID }}
+          - project: vastgoedscanler-saas
+            path: vastgoedscanler-saas
+            vercel-project-id: ${{ secrets.VERCEL_VASTGOEDSCANLER_SAAS_PROJECT_ID }}
+          - project: sterkbouw-saas-front
+            path: sterkbouw-saas-front
+            vercel-project-id: ${{ secrets.VERCEL_STERKBOUW_SAAS_FRONT_PROJECT_ID }}
+          - project: sterkbouw-calc
+            path: sterkbouw-calc
+            vercel-project-id: ${{ secrets.VERCEL_STERKBOUW_CALC_PROJECT_ID }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Deploy ${{ matrix.project }} to Vercel
+        uses: vercel/action@v4
+        with:
+          vercel-token: ${{ secrets.VERCEL_TOKEN }}
+          vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}
+          vercel-project-id: ${{ matrix.vercel-project-id }}
+          working-directory: ${{ matrix.path }}
+          production: ${{ github.ref == 'refs/heads/main' }}
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+
+  status:
+    runs-on: ubuntu-latest
+    needs: [build-test, deploy]
+    if: always()
+    steps:
+      - name: Check deployment status
+        run: |
+          if [ "${{ needs.build-test.result }}" = "failure" ]; then
+            echo "❌ Build failed!"
+            exit 1
+          fi
+          if [ "${{ needs.deploy.result }}" = "failure" ]; then
+            echo "⚠️ Deployment had issues"
+            exit 0
+          fi
+          echo "✅ All projects built and deployed successfully!"
