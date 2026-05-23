@@ -1,78 +1,103 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 
-async function refreshIfNeeded(admin: ReturnType<typeof createAdminClient>, ch: {
-  id: string; access_token: string | null; token_expires: string | null; refresh_token: string | null
-}) {
-  if (!ch.token_expires) return ch.access_token
-  if (new Date(ch.token_expires) > new Date(Date.now() + 60_000)) return ch.access_token
+// Channel statistics zijn publieke data — geen OAuth nodig.
+// We gebruiken YOUTUBE_DATA_API_KEY zodat sync werkt ongeacht oauth_status.
+// channels.list?id=<csv,max=50>&part=statistics,snippet = 1 quota-unit per batch.
+//
+// Eerder gebruikte deze route per-channel OAuth bearer tokens; bij verlopen
+// OAuth bleef view_count maandenlang stilstaan (BrickPulse Lab probleem).
 
-  const res = await fetch('https://oauth2.googleapis.com/token', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    body: new URLSearchParams({
-      client_id:     process.env.YOUTUBE_CLIENT_ID!,
-      client_secret: process.env.YOUTUBE_CLIENT_SECRET!,
-      refresh_token: ch.refresh_token!,
-      grant_type:    'refresh_token',
-    }),
-  })
-  if (!res.ok) {
-    // Refresh failed — keep using current access_token if still potentially valid, don't wipe oauth_status
-    console.warn(`Token refresh failed for ${ch.id}:`, await res.text())
-    return ch.access_token
-  }
-  const { access_token, expires_in } = await res.json()
-  const token_expires = new Date(Date.now() + (expires_in ?? 3600) * 1000).toISOString()
-  await admin.from('youtube_channels').update({ access_token, token_expires, oauth_status: 'connected', oauth_connected: true }).eq('id', ch.id)
-  return access_token
+interface YtChannelItem {
+  id?: string
+  snippet?: { title?: string; thumbnails?: { default?: { url?: string }; medium?: { url?: string }; high?: { url?: string } } }
+  statistics?: { viewCount?: string; subscriberCount?: string; videoCount?: string }
 }
 
 export async function POST(request: NextRequest) {
   const { channelId } = await request.json().catch(() => ({}))
   const admin = createAdminClient()
 
-  const query = admin.from('youtube_channels').select('id, channel_id, naam, access_token, refresh_token, token_expires, oauth_status')
-  const { data: channels } = channelId
-    ? await query.eq('id', channelId)
-    : await query.in('oauth_status', ['connected', 'expired'])
+  const apiKey = process.env.YOUTUBE_DATA_API_KEY ?? process.env.YOUTUBE_API_KEY
+  if (!apiKey) {
+    return NextResponse.json({ error: 'YOUTUBE_DATA_API_KEY env missing' }, { status: 500 })
+  }
 
+  const query = admin.from('youtube_channels').select('id, channel_id, naam')
+  const { data: channels, error: chErr } = channelId
+    ? await query.eq('id', channelId)
+    : await query.not('channel_id', 'is', null)
+
+  if (chErr) return NextResponse.json({ error: chErr.message }, { status: 500 })
   if (!channels?.length) return NextResponse.json({ synced: 0 })
 
-  const results: { naam: string; status: string }[] = []
+  const ytIdToRow = new Map<string, { id: string; naam: string | null }>()
+  for (const c of channels) {
+    if (c.channel_id) ytIdToRow.set(c.channel_id as string, { id: c.id as string, naam: c.naam })
+  }
+  const ytIds = Array.from(ytIdToRow.keys())
 
-  for (const ch of channels) {
-    const token = await refreshIfNeeded(admin, ch)
-    if (!token || !ch.channel_id) {
-      results.push({ naam: ch.naam, status: 'skipped' })
+  const results: { naam: string | null; status: string }[] = []
+  let quotaUnits = 0
+
+  for (let i = 0; i < ytIds.length; i += 50) {
+    const batch = ytIds.slice(i, i + 50)
+    const url = new URL('https://www.googleapis.com/youtube/v3/channels')
+    url.searchParams.set('part', 'statistics,snippet')
+    url.searchParams.set('id', batch.join(','))
+    url.searchParams.set('key', apiKey)
+    url.searchParams.set('maxResults', '50')
+
+    const res = await fetch(url.toString(), { cache: 'no-store' })
+    quotaUnits += 1
+    if (!res.ok) {
+      const body = await res.text().catch(() => '')
+      for (const ytId of batch) {
+        results.push({ naam: ytIdToRow.get(ytId)?.naam ?? null, status: `http ${res.status}: ${body.slice(0, 120)}` })
+      }
+      if (res.status === 403) break
       continue
     }
 
-    try {
-      const res = await fetch(
-        `https://www.googleapis.com/youtube/v3/channels?part=statistics,snippet&id=${ch.channel_id}`,
-        { headers: { Authorization: `Bearer ${token}` } }
-      )
-      if (!res.ok) throw new Error(await res.text())
-      const data = await res.json()
-      const item = data.items?.[0]
-      if (!item) throw new Error('No channel data')
+    const data = (await res.json()) as { items?: YtChannelItem[] }
+    const items = data.items ?? []
+    const seen = new Set<string>()
 
-      const stats = item.statistics
-      await admin.from('youtube_channels').update({
-        subscriber_count: parseInt(stats.subscriberCount ?? '0'),
-        view_count:        parseInt(stats.viewCount ?? '0'),
-        video_count:       parseInt(stats.videoCount ?? '0'),
-        last_sync:         new Date().toISOString(),
-        status:            'active',
-      }).eq('id', ch.id)
+    for (const item of items) {
+      const ytId = item.id
+      if (!ytId) continue
+      const row = ytIdToRow.get(ytId)
+      if (!row) continue
+      seen.add(ytId)
 
-      results.push({ naam: ch.naam, status: 'ok' })
-    } catch (e: unknown) {
-      const msg = e instanceof Error ? e.message : String(e)
-      results.push({ naam: ch.naam, status: `error: ${msg}` })
+      const s = item.statistics ?? {}
+      const thumb = item.snippet?.thumbnails?.high?.url ?? item.snippet?.thumbnails?.medium?.url ?? item.snippet?.thumbnails?.default?.url ?? null
+
+      const { error: upErr } = await admin
+        .from('youtube_channels')
+        .update({
+          subscriber_count: parseInt(s.subscriberCount ?? '0', 10),
+          view_count:       parseInt(s.viewCount ?? '0', 10),
+          video_count:      parseInt(s.videoCount ?? '0', 10),
+          last_sync:        new Date().toISOString(),
+          status:           'active',
+          ...(thumb ? { thumbnail_url: thumb } : {}),
+        })
+        .eq('id', row.id)
+
+      results.push({ naam: row.naam, status: upErr ? `db: ${upErr.message}` : 'ok' })
+    }
+
+    for (const ytId of batch) {
+      if (!seen.has(ytId)) {
+        results.push({ naam: ytIdToRow.get(ytId)?.naam ?? null, status: 'not_found_on_youtube' })
+      }
     }
   }
 
-  return NextResponse.json({ synced: results.filter(r => r.status === 'ok').length, results })
+  return NextResponse.json({
+    synced: results.filter(r => r.status === 'ok').length,
+    quota_units_used: quotaUnits,
+    results,
+  })
 }
