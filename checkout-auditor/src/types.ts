@@ -123,6 +123,11 @@ export const ObservationsSchema = z.object({
     page_load_ms: z.number().nullable(),
     post_cta_url: z.string().nullable().optional(),
     post_cta_destination: z.string().nullable().optional(),
+    auth_attempted: z.boolean().optional(),
+    auth_success: z.boolean().optional(),
+    auth_post_url: z.string().nullable().optional(),
+    auth_steps: z.array(z.string()).optional(),
+    auth_errors: z.array(z.string()).optional(),
   }),
   stripe_session: z.object({
     session_id: z.string().nullable(),
