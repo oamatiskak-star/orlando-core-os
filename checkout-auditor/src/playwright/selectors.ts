@@ -9,17 +9,29 @@
  */
 
 export const MEMBERSHIP_SELECTORS = {
-  // Tier cards on /membership
+  // Aquier.com uses #tier-<code> as the tier card id; keep fallbacks for other naming conventions
   tier_card_by_name: (displayName: string) => `:text-is("${displayName}")`,
-  tier_card_by_code: (code: string) => `[data-tier="${code}"], [data-tier-code="${code}"]`,
-  cta_button_within_tier: ['role=button[name*="Start"]', 'role=button[name*="Subscribe"]', 'role=link[name*="Choose"]', 'a:has-text("Aanmelden")'],
+  tier_card_by_code: (code: string) => `#tier-${code}, [data-tier="${code}"], [data-tier-code="${code}"]`,
 
-  monthly_toggle: ['role=tab[name="Monthly"]', 'role=tab[name="Maandelijks"]', 'button:has-text("Monthly")', 'button:has-text("Maandelijks")'],
-  yearly_toggle: ['role=tab[name="Yearly"]', 'role=tab[name="Jaarlijks"]', 'button:has-text("Yearly")', 'button:has-text("Jaarlijks")', 'button:has-text("Annual")'],
+  cta_button_within_tier: [
+    'button:has-text("Lid worden")',     // Aquier NL primary (verified on live site)
+    'a:has-text("Lid worden")',
+    'button:has-text("Become a member")',
+    'button:has-text("Word lid")',
+    'button:has-text("Aanmelden")',
+    'role=button[name*="Start"]',
+    'role=button[name*="Subscribe"]',
+    'role=link[name*="Choose"]',
+    'button.bg-gold-500',                 // class-based fallback (Aquier brand)
+  ],
+
+  monthly_toggle: ['role=tab[name="Monthly"]', 'role=tab[name="Maandelijks"]', 'button:has-text("Monthly")', 'button:has-text("Maandelijks")', 'button:has-text("Maand")'],
+  yearly_toggle: ['role=tab[name="Yearly"]', 'role=tab[name="Jaarlijks"]', 'button:has-text("Yearly")', 'button:has-text("Jaarlijks")', 'button:has-text("Annual")', 'button:has-text("Per jaar")'],
   quarterly_toggle: ['role=tab[name="Quarterly"]', 'role=tab[name="Per kwartaal"]', 'button:has-text("Quarterly")', 'button:has-text("Kwartaal")'],
 
   price_text_pattern: /€\s?\d{1,3}(?:[.,]\d{3})*(?:[.,]\d{2})?/g,
   vat_label_keywords: ['vat', 'btw', 'incl.', 'excl.', 'reverse charge'],
+  sales_contact_indicator_text: ['Prijs op aanvraag', 'Contact sales', 'Op aanvraag', 'Custom pricing', 'On request'],
 }
 
 export const STRIPE_CHECKOUT_SELECTORS = {

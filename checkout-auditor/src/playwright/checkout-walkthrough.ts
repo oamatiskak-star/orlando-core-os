@@ -116,6 +116,9 @@ export async function runWalkthrough(
     }
 
     // 4. Find tier card + extract price
+    //    Aquier uses #tier-<code> container with the price in <span class="text-2xl font-black">€299</span>
+    //    followed by <span class="text-xs text-stone-400">/mnd</span>. Description may contain €1.000/m²
+    //    so we MUST find the price element specifically, not just grep the tier text.
     const tierName = tier.display_name
     let tierLocator = page.locator(MEMBERSHIP_SELECTORS.tier_card_by_code(tier.code)).first()
     if (await tierLocator.count() === 0) {
@@ -123,11 +126,33 @@ export async function runWalkthrough(
     }
     if (await tierLocator.count() > 0) {
       result.tier_visible = true
-      const tierText = (await tierLocator.textContent().catch(() => '')) ?? ''
-      const priceMatch = tierText.match(/€\s?(\d{1,3}(?:[.,]\d{3})*(?:[.,]\d{2})?)/)
-      if (priceMatch) {
-        const numStr = priceMatch[1].replace(/\./g, '').replace(',', '.')
-        result.pricing_observed_eur = Number(numStr)
+      // Look for the dedicated price span (largest text, font-black)
+      const priceSpan = tierLocator.locator('span.text-2xl, span.text-3xl, span.font-black').first()
+      let priceText: string | null = null
+      if (await priceSpan.count() > 0) {
+        priceText = (await priceSpan.textContent().catch(() => '')) ?? null
+      }
+      // Fallback: try parsing tier text but EXCLUDE description-paragraph content
+      if (!priceText) {
+        const fullText = (await tierLocator.textContent().catch(() => '')) ?? ''
+        // Find prices that are NOT followed by "/m²" or " per m²" (those are filter values, not tier prices)
+        const matches = Array.from(fullText.matchAll(/€\s?(\d{1,3}(?:[.,]\d{3})*(?:[.,]\d{2})?)(?!\s*\/m²|\s+per\s+m²)/g))
+        // Prefer larger numbers (tier prices typically €100+; filter values are usually €1.000)
+        const candidates = matches.map(m => m[1])
+        priceText = candidates[0] ?? null
+      }
+      if (priceText) {
+        const m = priceText.match(/(\d{1,3}(?:[.,]\d{3})*(?:[.,]\d{2})?)/)
+        if (m) {
+          const numStr = m[1].replace(/\./g, '').replace(',', '.')
+          result.pricing_observed_eur = Number(numStr)
+        }
+      }
+      // Detect "Prijs op aanvraag" / "Contact sales" indicator
+      const tierBlockText = (await tierLocator.textContent().catch(() => '')) ?? ''
+      const hasContactSales = MEMBERSHIP_SELECTORS.sales_contact_indicator_text.some(t => tierBlockText.includes(t))
+      if (hasContactSales) {
+        errors.push(`tier shows contact-sales indicator (no checkout flow on this card)`)
       }
     }
 
