@@ -14,6 +14,9 @@ export async function getBrowser(kind: 'chromium' | 'webkit'): Promise<Browser> 
     }
     return _chromium
   }
+  if (env.SKIP_WEBKIT_DEVICES) {
+    throw new Error('WebKit disabled (SKIP_WEBKIT_DEVICES=true). Add WebKit system libs via Docker to enable Safari testing.')
+  }
   if (!_webkit) {
     _webkit = await webkit.launch({ headless: true })
     logger.info('webkit launched')

@@ -14,8 +14,14 @@ import type { Scenario, ScopeFilter, BillingCycle, Device } from './types'
 export function buildScenarioMatrix(scope: Partial<ScopeFilter> = {}): Scenario[] {
   const tiers = loadTiers()
   const countries = loadCountries()
-  const devices = loadDevices()
+  const allDevices = loadDevices()
   const negatives = loadNegativeScenarios()
+
+  // Skip WebKit devices when the runtime lacks WebKit (set by env on Render where only Chromium is installed)
+  const skipWebkit = process.env.SKIP_WEBKIT_DEVICES === 'true' || process.env.SKIP_WEBKIT_DEVICES === '1'
+  const devices = skipWebkit
+    ? allDevices.filter(d => d.playwright_browser !== 'webkit')
+    : allDevices
 
   const filteredTiers = scope.tier_codes?.length
     ? tiers.filter(t => scope.tier_codes!.includes(t.code))

@@ -214,7 +214,7 @@ services:
     name: orlando-checkout-auditor
     runtime: node
     rootDir: checkout-auditor
-    buildCommand: npm install --include=dev && npx playwright install --with-deps chromium webkit && npm run build
+    buildCommand: npm install --include=dev && npx playwright install chromium && npm run build
     startCommand: node dist/index.js
     plan: standard
     autoDeploy: true
@@ -250,6 +250,8 @@ services:
         value: "20"
       - key: BROWSER_CONCURRENCY
         value: "3"
+      - key: SKIP_WEBKIT_DEVICES
+        value: "true"
       - key: SCENARIO_TIMEOUT_MS
         value: "180000"
       - key: WEBHOOK_WAIT_MAX_MS

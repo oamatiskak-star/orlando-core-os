@@ -23,6 +23,7 @@ const EnvSchema = z.object({
 
   CHECKOUT_AUDITOR_MAX_SCENARIOS_PER_RUN: z.coerce.number().int().positive().default(20),
   BROWSER_CONCURRENCY: z.coerce.number().int().positive().default(3),
+  SKIP_WEBKIT_DEVICES: z.coerce.boolean().default(false),
   SCENARIO_TIMEOUT_MS: z.coerce.number().int().positive().default(180_000),
   WEBHOOK_WAIT_MAX_MS: z.coerce.number().int().positive().default(60_000),
   AUDIT_RETENTION_DAYS: z.coerce.number().int().positive().default(14),
