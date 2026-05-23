@@ -38,9 +38,13 @@ export async function runAuditor(
   let totalTokensOut = 0
   const model = batches.length === 1 ? env.ANTHROPIC_MODEL_PRIMARY : env.ANTHROPIC_MODEL_BATCH
 
+  logger.info({ batches: batches.length, totalScenarios: items.length, model, primary_model: env.ANTHROPIC_MODEL_PRIMARY, batch_model: env.ANTHROPIC_MODEL_BATCH }, 'AI auditor starting')
+
   for (let i = 0; i < batches.length; i++) {
     const batch = batches[i]
     const userPrompt = buildUserPrompt(batch, { run_id: runMeta.run_id, total: totalScenarios, subset_offset: i * MAX_SCENARIOS_PER_BATCH })
+
+    logger.info({ batch: i + 1, model, prompt_chars: userPrompt.length, scenarios_in_batch: batch.length }, 'AI auditor calling Anthropic...')
 
     try {
       const response = await anthropic.messages.create({
@@ -50,7 +54,11 @@ export async function runAuditor(
         messages: [{ role: 'user', content: userPrompt }],
       })
 
+      logger.info({ batch: i + 1, content_blocks: response.content.length, stop_reason: response.stop_reason, usage: response.usage }, 'Anthropic response received')
+
       const text = response.content.map(c => (c.type === 'text' ? c.text : '')).join('')
+      logger.info({ batch: i + 1, response_chars: text.length, first_200: text.slice(0, 200) }, 'Claude response text')
+
       const json = extractJson<unknown>(text)
       const parsed = AuditorOutputSchema.parse(json)
 

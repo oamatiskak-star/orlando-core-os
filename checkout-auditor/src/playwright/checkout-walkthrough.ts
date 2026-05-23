@@ -113,21 +113,31 @@ export async function runWalkthrough(
     const htmlLang = await page.locator('html').getAttribute('lang').catch(() => null)
     result.locale_observations = assertLocale(bodyText, htmlLang, country)
 
-    // 3. Toggle billing cycle if needed
-    const cycleToggle =
-      scenario.billing_cycle === 'yearly' ? MEMBERSHIP_SELECTORS.yearly_toggle :
-      scenario.billing_cycle === 'quarterly' ? MEMBERSHIP_SELECTORS.quarterly_toggle :
-      scenario.billing_cycle === 'monthly' ? MEMBERSHIP_SELECTORS.monthly_toggle :
-      null
-    if (cycleToggle) {
-      for (const sel of cycleToggle) {
-        try {
-          if (await page.locator(sel).count()) {
-            await page.locator(sel).first().click()
-            await page.waitForTimeout(500)
-            break
-          }
-        } catch { /* continue */ }
+    // 3. Toggle billing cycle if needed.
+    //    Aquier defaults to "Maandelijks" — only click for non-monthly scenarios.
+    //    Also check button's aria-pressed/data-active before clicking to avoid toggling off.
+    if (scenario.billing_cycle !== 'monthly') {
+      const cycleToggle =
+        scenario.billing_cycle === 'yearly' ? MEMBERSHIP_SELECTORS.yearly_toggle :
+        scenario.billing_cycle === 'quarterly' ? MEMBERSHIP_SELECTORS.quarterly_toggle :
+        null
+      if (cycleToggle) {
+        for (const sel of cycleToggle) {
+          try {
+            const loc = page.locator(sel).first()
+            if (await loc.count()) {
+              // Skip if already active (aria-pressed=true or class includes active marker)
+              const aria = await loc.getAttribute('aria-pressed').catch(() => null)
+              const className = (await loc.getAttribute('class').catch(() => '')) ?? ''
+              const alreadyActive = aria === 'true' || /\b(active|selected|is-active|bg-stone-900|text-white)\b/.test(className)
+              if (!alreadyActive) {
+                await loc.click()
+                await page.waitForTimeout(500)
+              }
+              break
+            }
+          } catch { /* continue */ }
+        }
       }
     }
 
