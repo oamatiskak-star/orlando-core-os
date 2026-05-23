@@ -98,6 +98,12 @@ nohup node -e "const { notifyBehindSchedule, notifyViralMomentum, notifyNewRecom
 NOTIFIER_PID=$!
 echo -e "${GREEN}✓ Slack/Discord Notifier (PID: $NOTIFIER_PID)${NC}"
 
+# Project Manager
+echo -e "${BLUE}→ Starting Project Manager${NC}"
+nohup npm run start:project-manager -w monitoring-agent > logs/project-manager.log 2>&1 &
+PROJECT_MANAGER_PID=$!
+echo -e "${GREEN}✓ Project Manager (PID: $PROJECT_MANAGER_PID)${NC}"
+
 # Save PIDs
 echo -e "\n${YELLOW}Saving process IDs...${NC}"
 mkdir -p .pids
@@ -105,6 +111,7 @@ echo "$ANALYST_PID" > .pids/analyst.pid
 echo "$INTELLIGENCE_PID" > .pids/intelligence.pid
 echo "$ORCHESTRATOR_PID" > .pids/orchestrator.pid
 echo "$NOTIFIER_PID" > .pids/notifier.pid
+echo "$PROJECT_MANAGER_PID" > .pids/project-manager.pid
 
 # Summary
 echo -e "\n${BLUE}╔════════════════════════════════════════════════════════════════╗${NC}"
@@ -116,18 +123,21 @@ echo -e "  ${GREEN}✓ YouTube Channel Analyst${NC}        - Analyzes channel pe
 echo -e "  ${GREEN}✓ Intelligence Engine${NC}           - Generates AI recommendations"
 echo -e "  ${GREEN}✓ Marketing Orchestrator${NC}        - Executes & schedules actions"
 echo -e "  ${GREEN}✓ Slack/Discord Notifier${NC}       - Team alerts & notifications"
+echo -e "  ${GREEN}✓ Project Manager${NC}              - Daily standup & 12-channel reporting"
 
 echo -e "\n${YELLOW}Metrics:${NC}"
 echo -e "  📊 Analyst runs every: 1 hour"
 echo -e "  💡 Intelligence runs every: 1 hour"
 echo -e "  🎯 Orchestrator runs every: 30 minutes"
 echo -e "  🔔 Notifier runs every: 10 minutes"
+echo -e "  👨‍💼 Project Manager runs every: 24 hours (9 AM)"
 
 echo -e "\n${YELLOW}Logs:${NC}"
 echo -e "  tail -f logs/analyst.log"
 echo -e "  tail -f logs/intelligence.log"
 echo -e "  tail -f logs/orchestrator.log"
 echo -e "  tail -f logs/notifier.log"
+echo -e "  tail -f logs/project-manager.log"
 
 echo -e "\n${YELLOW}Stop services:${NC}"
 echo -e "  bash scripts/stop-marketing-automation.sh"

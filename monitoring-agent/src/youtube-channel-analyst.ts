@@ -514,7 +514,7 @@ async function analyzeAllChannels(): Promise<void> {
     analyses.push(analysis)
 
     // Send email to marketing team if critical thresholds hit
-    if (marketingTeam && marketingTeam.length > 0) {
+    if (marketingTeam && marketingTeam.length > 0 && businessPlan) {
       for (const member of marketingTeam) {
         // Send if behind schedule OR if viral momentum detected
         if (!businessPlan.onTrack || trends[0].growthRate > 75) {
@@ -524,7 +524,7 @@ async function analyzeAllChannels(): Promise<void> {
     }
 
     // Send Telegram alert if behind schedule
-    if (!businessPlan.onTrack) {
+    if (businessPlan && !businessPlan.onTrack) {
       await sendTelegram(
         `⚠️ <b>YouTube Channel Behind Schedule</b>\n\n` +
         `<b>${channel.name}</b>\n` +
