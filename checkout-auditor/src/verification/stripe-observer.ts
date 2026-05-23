@@ -1,5 +1,5 @@
 import type Stripe from 'stripe'
-import { getStripe } from '../lib/stripe'
+import { getStripe, getStripeForSession } from '../lib/stripe'
 import { logger } from '../lib/logger'
 
 export type StripeObservation = {
@@ -57,9 +57,10 @@ export async function observeStripe(sessionId: string | null): Promise<StripeObs
     errors: [],
   }
 
-  const stripe = getStripe()
+  const stripe = getStripeForSession(sessionId)
   if (!stripe) {
-    result.errors.push('Stripe restricted key not configured — observation skipped')
+    const mode = sessionId?.startsWith('cs_live_') ? 'LIVE' : sessionId?.startsWith('cs_test_') ? 'TEST' : 'unknown'
+    result.errors.push(`Stripe restricted key for ${mode} mode not configured — observation skipped (set STRIPE_RESTRICTED_KEY_${mode === 'LIVE' ? 'LIVE' : 'TEST'})`)
     return result
   }
   if (!sessionId) {

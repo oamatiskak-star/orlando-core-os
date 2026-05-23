@@ -245,6 +245,10 @@ services:
         value: "claude-sonnet-4-6"
       - key: STRIPE_RESTRICTED_KEY_TEST
         sync: false
+      # Required when aquier.com runs LIVE Stripe (cs_live_* sessions).
+      # Read-only restricted key — zelfde permissions als TEST maar op live Stripe account.
+      - key: STRIPE_RESTRICTED_KEY_LIVE
+        sync: false
       # Phase 2 — pre-auth flow. Both must be set together. Leave unset for anonymous-only audits.
       - key: TEST_USER_EMAIL
         sync: false
