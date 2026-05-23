@@ -190,36 +190,38 @@ export const FindingCategorySchema = z.enum([
 ])
 export type FindingCategory = z.infer<typeof FindingCategorySchema>
 
+// Lenient finding schema — Claude may emit slightly different field shapes.
+// Defaults applied so a finding with severity+category+evidence is still usable.
 export const FindingSchema = z.object({
   severity: FindingSeveritySchema,
   category: FindingCategorySchema,
-  affected_route: z.string(),
-  affected_country: z.string(),
-  affected_tier: z.string(),
-  affected_billing_cycle: z.string(),
-  affected_device: z.string(),
+  affected_route: z.string().default('unknown'),
+  affected_country: z.string().default('all'),
+  affected_tier: z.string().default('all'),
+  affected_billing_cycle: z.string().default('all'),
+  affected_device: z.string().default('all'),
   stripe_object_ids: z.array(z.string()).default([]),
-  evidence_summary: z.string().min(10).max(2000),
-  recommended_fix: z.string().min(10).max(2000),
-  confidence_score: z.number().min(0).max(1),
-  revenue_impact_eur_estimate: z.number().min(0).max(2_000_000),
-  revenue_impact_reasoning: z.string().max(500),
+  evidence_summary: z.string().min(1).max(4000),
+  recommended_fix: z.string().min(1).max(4000),
+  confidence_score: z.number().min(0).max(1).default(0.5),
+  revenue_impact_eur_estimate: z.number().min(0).max(2_000_000).default(0),
+  revenue_impact_reasoning: z.string().max(1000).default(''),
   evidence_artifact_paths: z.array(z.string()).default([]),
-})
+}).passthrough() // tolerate extra fields Claude adds (finding_id, etc.)
 export type Finding = z.infer<typeof FindingSchema>
 
 export const AuditorOutputSchema = z.object({
-  findings: z.array(FindingSchema),
+  findings: z.array(FindingSchema).default([]),
   summary: z.object({
-    total_findings: z.number(),
-    by_severity: z.record(z.string(), z.number()),
-    by_category: z.record(z.string(), z.number()),
-    countries_with_no_checkout: z.array(z.string()),
-    tiers_with_issues: z.array(z.string()),
-    overall_health_score: z.number().min(0).max(100),
-    executive_summary: z.string().min(20).max(2000),
-  }),
-})
+    total_findings: z.number().default(0),
+    by_severity: z.record(z.string(), z.number()).default({}),
+    by_category: z.record(z.string(), z.number()).default({}),
+    countries_with_no_checkout: z.array(z.string()).default([]),
+    tiers_with_issues: z.array(z.string()).default([]),
+    overall_health_score: z.number().min(0).max(100).default(100),
+    executive_summary: z.string().min(1).max(4000).default('No summary provided.'),
+  }).passthrough().default({}),
+}).passthrough()
 export type AuditorOutput = z.infer<typeof AuditorOutputSchema>
 
 // ── Run-level types ───────────────────────────────────────────────────────

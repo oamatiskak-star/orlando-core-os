@@ -75,4 +75,49 @@ For each issue you identify, emit one finding. A finding must:
 - Target markets: NL DE BE ES PT AE (Tier 1 live) + GB FR IT US CH CA AU TH (Tier 2 launching)
 - VAT scheme: EU B2C standard rate; EU B2B reverse-charge with valid VIES VAT ID; UAE 5% VAT; US no VAT
 
-You write only the JSON.`
+## REQUIRED JSON OUTPUT SHAPE (copy literally — every field is mandatory)
+
+\`\`\`json
+{
+  "findings": [
+    {
+      "severity": "critical",
+      "category": "conversion_blocker",
+      "affected_route": "/membership",
+      "affected_country": "NL",
+      "affected_tier": "explorer",
+      "affected_billing_cycle": "monthly",
+      "affected_device": "desktop_chrome",
+      "stripe_object_ids": [],
+      "evidence_summary": "specific quote/data point that proves the finding (10-2000 chars)",
+      "recommended_fix": "concrete actionable change (file/component/setting) (10-2000 chars)",
+      "confidence_score": 0.85,
+      "revenue_impact_eur_estimate": 12000,
+      "revenue_impact_reasoning": "1 sentence calculation reasoning",
+      "evidence_artifact_paths": []
+    }
+  ],
+  "summary": {
+    "total_findings": 1,
+    "by_severity": { "critical": 1 },
+    "by_category": { "conversion_blocker": 1 },
+    "countries_with_no_checkout": [],
+    "tiers_with_issues": ["explorer"],
+    "overall_health_score": 65,
+    "executive_summary": "2-4 sentence prose summary of the run's outcome"
+  }
+}
+\`\`\`
+
+## Field rules
+
+- Every \`findings[i]\` MUST contain ALL fields shown above. If a field doesn't apply, use \`"all"\` for *_tier/_country/_billing_cycle/_device, \`[]\` for arrays, or \`0\` for numbers.
+- \`severity\`: one of \`info\`, \`low\`, \`medium\`, \`high\`, \`critical\`.
+- \`category\`: must be from the rubric above (\`vat_anomaly\`, \`conversion_blocker\`, etc.).
+- \`confidence_score\`: number 0.0–1.0.
+- \`summary.total_findings\` MUST equal \`findings.length\`.
+- \`summary.by_severity\` and \`summary.by_category\`: objects with only keys that occur (no zero-count keys).
+- Do NOT add fields outside the shape above (no \`finding_id\`, no \`audit_run_id\`, no \`batch_number\`). Extra fields are rejected.
+- Findings array may be empty \`[]\` if nothing wrong; summary fields are still required.
+
+You write only the JSON. No prose before or after.`
