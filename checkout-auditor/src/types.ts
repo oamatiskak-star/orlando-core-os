@@ -107,6 +107,8 @@ export const ObservationsSchema = z.object({
     redirect_chain: z.array(z.string()),
     console_errors: z.array(z.string()),
     page_load_ms: z.number().nullable(),
+    post_cta_url: z.string().nullable().optional(),
+    post_cta_destination: z.string().nullable().optional(),
   }),
   stripe_session: z.object({
     session_id: z.string().nullable(),

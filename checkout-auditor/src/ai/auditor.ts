@@ -67,10 +67,24 @@ export async function runAuditor(
         findings_in_batch: parsed.findings.length,
         tokens_in: response.usage.input_tokens,
         tokens_out: response.usage.output_tokens,
+        model,
       }, 'auditor batch completed')
     } catch (err) {
-      logger.error({ err: String(err), batch: i + 1 }, 'auditor batch failed — skipping')
+      const msg = err instanceof Error ? err.message : String(err)
+      const stack = err instanceof Error ? err.stack : undefined
+      logger.error({
+        err: msg,
+        stack,
+        batch: i + 1,
+        of: batches.length,
+        model,
+        prompt_chars: userPrompt.length,
+      }, 'auditor batch FAILED — skipping (run will show 0 findings)')
     }
+  }
+
+  if (batches.length > 0 && totalTokensIn === 0) {
+    logger.error({ batches: batches.length, totalScenarios: items.length, model }, 'AI AUDITOR ALL BATCHES FAILED — check ANTHROPIC_API_KEY and model availability')
   }
 
   // Compute aggregates
