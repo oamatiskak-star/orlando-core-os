@@ -81,15 +81,21 @@ export async function detectRouteStrategy(country: CountrySpec): Promise<{
   best_route_path: string
   best_probe: ProbeResult
   all_probes: Array<{ path: string; probe: ProbeResult }>
+  country_route_works: boolean
 }> {
   const probes: Array<{ path: string; probe: ProbeResult }> = []
-  for (const candidate of country.route_prefix_candidates) {
+  // Always include plain /membership as final fallback — many sites serve via Accept-Language only
+  const candidates = [...country.route_prefix_candidates, '']
+  for (const candidate of candidates) {
     const path = candidate.endsWith('/membership') ? candidate : `${candidate}/membership`.replace(/\/+/g, '/')
+    if (probes.some(p => p.path === path)) continue // dedupe
     const probe = await probeRoute(country, path)
     probes.push({ path, probe })
     if (probe.status === 200 && !probe.was_redirected) {
+      const usedFallback = candidate === '' || candidate === '/'
       return {
-        routing_strategy: candidate === '' || candidate === '/' ? 'accept_language' : 'path',
+        routing_strategy: usedFallback ? 'accept_language' : 'path',
+        country_route_works: !usedFallback, // true only if country-specific prefix works
         best_route_path: path,
         best_probe: probe,
         all_probes: probes,
@@ -100,6 +106,7 @@ export async function detectRouteStrategy(country: CountrySpec): Promise<{
   const best = probes.sort((a, b) => (b.probe.status ?? 0) - (a.probe.status ?? 0))[0]
   return {
     routing_strategy: best?.probe.was_redirected ? 'cookie' : 'unknown',
+    country_route_works: false,
     best_route_path: best?.path ?? '/membership',
     best_probe: best?.probe ?? probes[0]!.probe,
     all_probes: probes,

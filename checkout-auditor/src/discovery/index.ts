@@ -67,9 +67,24 @@ export async function discoverCountry(runId: string, countryCode: string): Promi
     }
   }
 
+  // Detect <html lang="..."> attribute in the page; compare with expected country locale
+  const langMatch = html.match(/<html[^>]*\blang="([^"]+)"/i)
+  const langAttr = langMatch ? langMatch[1] : null
+  const expectedLangPrefix = country.locale_default.toLowerCase().split('-')[0]
+  const langMismatch = langAttr && !langAttr.toLowerCase().startsWith(expectedLangPrefix)
+
+  const notesParts: string[] = []
+  if (detection.best_probe.notes) notesParts.push(detection.best_probe.notes)
+  if (!detection.country_route_works && detection.best_probe.status === 200) {
+    notesParts.push(`No country-specific route — fell back to plain /membership`)
+  }
+  if (langMismatch) {
+    notesParts.push(`html lang="${langAttr}" mismatches expected ${country.locale_default}`)
+  }
+
   const snapshot: DiscoverySnapshot = {
     country_code: countryCode,
-    locale_resolved: country.locale_default,
+    locale_resolved: langAttr ?? country.locale_default,
     routing_strategy: detection.routing_strategy,
     route_path: detection.best_route_path,
     http_status: detection.best_probe.status,
@@ -77,7 +92,7 @@ export async function discoverCountry(runId: string, countryCode: string): Promi
     tier_codes_visible,
     pricing_observed,
     snapshot_html_artifact_id: snapshotArtifactId,
-    notes: detection.best_probe.notes,
+    notes: notesParts.length > 0 ? notesParts.join('; ') : null,
   }
 
   // Persist
