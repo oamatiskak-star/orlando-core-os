@@ -2,11 +2,50 @@
 
 > **Sessie protocol** (CLAUDE.md): Lees dit bestand bij elke nieuwe Claude Code sessie. Update na elke voltooide taak. Houd het herstel-blok actueel.
 
-**Laatste update:** 2026-05-23 (sessie 2) — Aquier Command Center LIVE in Software-map (dashboard hub + 6 sub-pages + 2 migrations applied)
+**Laatste update:** 2026-05-23 (sessie 3 — voltooid) — Aquier Checkout Auditor end-to-end LIVE. **56-scenario matrix audit voltooid: 16 findings (2 CRITICAL, 8 HIGH), €515.700/mo revenue risk gedetecteerd, 17 pending approvals**. Geo-pricing bug ontdekt: aquier.com gebruikt hardcoded 1.408x markup ipv `vastgoed_core.country_pricing_rules`.
 
 ---
 
 ## 🔴 HERSTEL HIER NA CRASH
+
+**Sessie focus (2026-05-23, sessie 3)**: Aquier Checkout Auditor end-to-end LIVE op Render. 56-scenario matrix audit tegen aquier.com productie geleverd → 16 findings + 17 approvals in queue + €515K/mo revenue risk. ✅
+
+**Wat is gedaan deze sessie:**
+- Nieuwe Render service `orlando-checkout-auditor` (port 3008) — `checkout-auditor/` dir
+- Migrations 082+083+084+085 applied (Aquier command center + checkout-audit schema + Storage bucket)
+- Discovery werkt voor alle 14 landen — RSC JSON parser + tier-availability detector
+- Playwright walkthrough (Chromium 148) klikt CTA, capture screenshots + HAR + network events
+- Stripe restricted key + Anthropic key live op Render
+- Claude Opus 4.7 auditor produceert findings + lenient Zod schema + literal JSON prompt template
+- Approval bridge: HIGH/CRITICAL → automatisch `aquier_approvals` row met categorie 'storing'
+- Telegram alerts + Storage bucket + Vercel cron forwarders (`/api/checkout-audit/cron/*`)
+- Geo-pricing rules geïmporteerd uit `vastgoed_core.country_pricing_rules` in countries.json (PPF × MF per land)
+- Pricing-finding logic vergelijkt tegen per-country expected, NIET tegen NL base
+
+**56-scenario audit run (bd998193-7ea2-45eb-b9bb-456009fae895):**
+- 56/56 scenarios passed; duration 17min; AI cost $0.29; health score 0/100
+- 2 CRITICAL: anonymous checkout blocked alle landen (explorer + developer) — €185K + €180K/mo
+- 8 HIGH (combined €120K/mo):
+  * Developer toont €4.197 in ALLE landen+cycles (hardcoded, niet country-aware)
+  * Explorer monthly €280 in 7 non-NL landen (geen match op country multipliers)
+  * Locale `lang="nl"` voor alle non-NL landen
+  * GB ontbreekt in `country_pricing_rules` (missing_country)
+  * PT/dev/yearly: €4197 vs expected €1943 (×0.65 PPF) — +116% overcharge
+  * US/dev/yearly: €4197 vs expected €3886 — +€311 overcharge
+  * TH/dev/yearly: €4197 vs expected €1345 (×0.45) — **+312% overcharge**
+  * VAT label "vat" (Engels) voor DE/ES/FR/IT/PT (moet MwSt/IVA/TVA)
+- 4 MEDIUM/INFO: BE €199 vs €189 expected, currency labels (AED/CHF/THB/AUD/CAD) missing, US toont VAT label
+
+**Smoking gun**: aquier.com checkout pricing logic gebruikt **NIET** de `vastgoed_core.country_pricing_rules` tabel die door PriceController/finance team wordt onderhouden. Er is een hardcoded 1.408x markup voor non-NL die ALLE per-country PPF/MF multipliers negeert.
+
+**Recovery potentieel als alle CRITICAL+HIGH worden gefixt:** €515K/mo = **€6.2M/yr** — significant boven het Y1 €3M target.
+
+**Open punten next session:**
+- Phase 2: pre-auth test user voor Stripe-half van pipeline (vereist Aquier test account credential)
+- Daily cron al gedefinieerd (vercel.json crons + render.yaml node-cron) — wordt automatisch actief 04:00 UTC daily
+- WebKit deploy via Docker custom image (voor Safari testing)
+- Dashboard pagina `/dashboard/aquier/audit` om runs + findings + queue te tonen
+- 17 pending approvals in `/dashboard/aquier/approvals` wachten op Orlando's beslissingen
 
 **Sessie focus (2026-05-23, sessie 2)**: Aquier Command Center toegevoegd aan Modiwe Software dashboard. AI Project Leider (CHRONOS-AQ) staat klaar voor maandag 2026-05-25 09:00 kickoff. ✅
 
