@@ -10,6 +10,10 @@ export type AuthFlowResult = {
   duration_ms: number
   steps: string[]
   errors: string[]
+  // Diagnostic data captured around the submit moment
+  login_xhr_responses: Array<{ url: string; status: number; body_excerpt: string }>
+  page_text_after_submit: string | null
+  cookies_after_submit: string[]
 }
 
 const LOGIN_FORM_SELECTORS = {
@@ -72,6 +76,9 @@ export async function loginIfConfigured(page: Page, context: BrowserContext): Pr
     duration_ms: 0,
     steps: [],
     errors: [],
+    login_xhr_responses: [],
+    page_text_after_submit: null,
+    cookies_after_submit: [],
   }
   const start = Date.now()
 
@@ -118,7 +125,23 @@ export async function loginIfConfigured(page: Page, context: BrowserContext): Pr
     await page.locator(passwordSel).first().fill(env.TEST_USER_PASSWORD)
     result.steps.push(`password filled via ${passwordSel}`)
 
-    // 5. Submit
+    // 5. Attach XHR response capture for login API calls
+    const xhrHandler = async (response: import('playwright').Response) => {
+      const url = response.url()
+      if (/\/(login|signin|auth|session)/i.test(url) && /api/i.test(url)) {
+        try {
+          const body = await response.text().catch(() => '')
+          result.login_xhr_responses.push({
+            url,
+            status: response.status(),
+            body_excerpt: body.slice(0, 500),
+          })
+        } catch { /* ignore */ }
+      }
+    }
+    page.on('response', xhrHandler)
+
+    // 6. Submit
     const submitSel = await firstAvailable(page, LOGIN_FORM_SELECTORS.submit)
     if (!submitSel) {
       result.errors.push('submit button not found')
@@ -137,18 +160,52 @@ export async function loginIfConfigured(page: Page, context: BrowserContext): Pr
       page.waitForTimeout(20_000),
     ])
 
+    // Allow 3s extra for XHR responses + error rendering
+    await page.waitForTimeout(3000)
+
     result.post_login_url = page.url()
     const stillOnLogin = /\/login/.test(result.post_login_url)
     result.success = !stillOnLogin
 
+    // Always capture diagnostic data after submit
+    try {
+      const fullBodyText = (await page.locator('body').textContent().catch(() => '')) ?? ''
+      // Find lines containing common error keywords (≤200 chars each)
+      const errorLines = fullBodyText
+        .split('\n')
+        .map(l => l.trim())
+        .filter(l => l.length > 0 && l.length < 250 && /error|fout|invalid|incorrect|verkeerd|ongeldig|fail|denied|onjuist|toegang/i.test(l))
+        .slice(0, 5)
+      result.page_text_after_submit = errorLines.length > 0
+        ? errorLines.join(' | ')
+        : fullBodyText.slice(0, 500)
+    } catch { /* ignore */ }
+
+    try {
+      const ck = await context.cookies()
+      result.cookies_after_submit = ck
+        .filter(c => /aquier|session|auth|token|sb-|sb_/i.test(c.name))
+        .map(c => `${c.name}=${c.value.slice(0, 20)}…`)
+    } catch { /* ignore */ }
+
     if (stillOnLogin) {
-      // Look for error message in DOM
-      const errorText = await page.locator('[role="alert"], .error, .text-red-500, .text-red-400').first().textContent().catch(() => null)
-      if (errorText) result.errors.push(`login form error: ${errorText.slice(0, 200)}`)
-      else result.errors.push(`stayed on /login after submit (no error visible) — possibly wrong credentials or rate-limited`)
+      // Look for error message in DOM (broader selectors)
+      const errorText = await page.locator(
+        '[role="alert"], .error, .text-red-500, .text-red-400, .text-red-600, ' +
+        '[class*="error"], [class*="Error"], [data-testid*="error"], ' +
+        '[aria-live="assertive"], [aria-live="polite"]',
+      ).first().textContent().catch(() => null)
+      if (errorText) result.errors.push(`login DOM error: ${errorText.slice(0, 300)}`)
+      else result.errors.push(`stayed on /login after submit — check login_xhr_responses + page_text_after_submit for clues`)
+
+      if (result.login_xhr_responses.length === 0) {
+        result.errors.push('no /login or /auth XHR response captured — form may use non-API submit or different endpoint pattern')
+      }
     } else {
       result.steps.push(`landed on ${result.post_login_url}`)
     }
+
+    page.off('response', xhrHandler)
   } catch (err) {
     result.errors.push(err instanceof Error ? err.message : String(err))
     logger.warn({ err: String(err) }, 'auth flow failed')
