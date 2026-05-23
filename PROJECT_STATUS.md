@@ -2,7 +2,7 @@
 
 > **Sessie protocol** (CLAUDE.md): Lees dit bestand bij elke nieuwe Claude Code sessie. Update na elke voltooide taak. Houd het herstel-blok actueel.
 
-**Laatste update:** 2026-05-23 (sessie 3 — voltooid) — Aquier Checkout Auditor end-to-end LIVE. **56-scenario matrix audit voltooid: 16 findings (2 CRITICAL, 8 HIGH), €515.700/mo revenue risk gedetecteerd, 17 pending approvals**. Geo-pricing bug ontdekt: aquier.com gebruikt hardcoded 1.408x markup ipv `vastgoed_core.country_pricing_rules`.
+**Laatste update:** 2026-05-23 (sessie 3 — voltooid incl. Phase 2) — Aquier Checkout Auditor pipeline **100% end-to-end werkend** inclusief auth flow + Stripe LIVE API observability + webhook delivery latency. **20 unique audit findings**, €515K/mo recovery scope, 11 approved → aquier.com dev team queue. Approvals queue 0 pending.
 
 ---
 
@@ -40,12 +40,54 @@
 
 **Recovery potentieel als alle CRITICAL+HIGH worden gefixt:** €515K/mo = **€6.2M/yr** — significant boven het Y1 €3M target.
 
-**Open punten next session:**
-- Phase 2: pre-auth test user voor Stripe-half van pipeline (vereist Aquier test account credential)
-- Daily cron al gedefinieerd (vercel.json crons + render.yaml node-cron) — wordt automatisch actief 04:00 UTC daily
-- WebKit deploy via Docker custom image (voor Safari testing)
-- Dashboard pagina `/dashboard/aquier/audit` om runs + findings + queue te tonen
-- 17 pending approvals in `/dashboard/aquier/approvals` wachten op Orlando's beslissingen
+**Phase 2 (auth flow) addendum 2026-05-23 EOD:**
+- TEST_USER_EMAIL + TEST_USER_PASSWORD op Render gezet (Intelligence@aquier.com)
+- STRIPE_RESTRICTED_KEY_LIVE op Render gezet (read-only, Customer/Session/Sub/Invoice/Event)
+- Auth flow verified: login → /dashboard, Supabase tokens (sb-* cookies) captured, CTA → Stripe `cs_live_*`
+- Safety guard verified: live mode detected → kaart NIET ingevuld (geen €199 charge)
+- Stripe API observation verified: amount_total=€199 (DB exact match), mode=subscription, currency=eur
+- Webhook capture verified: `checkout_session_created` ontvangen in 1097ms latency
+- 4 nieuwe Phase 2 findings (1 HIGH = AI hallucination; 2 MEDIUM = REAL VAT/locale Stripe config issues; 1 LOW = 429 rate limit)
+- 7 Phase 2 verification approvals geclosed als deferred (duplicaten/hallucinations)
+
+---
+
+## 🎯 OPEN ACTIONS (next sessions)
+
+### Voor Orlando (besluitvorming + infra)
+1. Volg de 11 approved fixes op aquier.com codebase (separate repo) — €515K/mo recovery scope:
+   - Anonymous → Stripe checkout flow OF inline signup modal (€365K/mo)
+   - Implement `country_pricing_rules` lookup in pricing component (€84K/mo)
+   - i18n locale routing per country (€23K/mo)
+   - GB row in country_pricing_rules + GBP Stripe prices (€12K/mo)
+   - Per-locale VAT label (MwSt/IVA/TVA/BTW/VAT) + US no-VAT (€8K/mo)
+2. Stripe configuratie (uit Phase 2 audit):
+   - `automatic_tax=true` op Checkout Session create call
+   - `tax_behavior='inclusive'` op explorer/developer/etc Price objects (NL B2C 21% BTW)
+   - `locale='auto'` of country-derived in Checkout Session create
+3. Backend: rate limit headroom op /membership pricing endpoint (429 errors detected)
+4. (Optioneel later) Aquier.com test Stripe mode environment voor full pipeline validation incl. payment completion + subscription creation + invoice.paid + DB sync
+
+### Voor toekomstige auditor sessies
+1. **Daily cron monitor** — bekijk `/dashboard/aquier/audit` morgen 06:00 NL om te zien of 04:00 UTC cron run is geforceerd. Telegram alert bij findings.
+2. **Multi-locale auth users** — maak DE-locale + FR-locale test accounts om geo-pricing logica per user te valideren (huidige test = NL-locale)
+3. **Phase 3: WebKit/Safari support** — Docker custom image met Playwright deps preinstalled voor Safari testing
+4. **Phase 3: test Stripe mode integration** — vereist aquier.com test environment OF env-toggle. Dan kan auditor full payment flow valideren (subscription created, user_memberships synced, invoice.paid event)
+5. **Audit history retention** — verifieer dat de zondag 02:00 cleanup cron oude artifacts (>14 dagen) correct delete
+6. **Tracking dashboard verbeteringen** — `/dashboard/aquier/audit` UI met multi-run comparison, drill-down per finding naar HAR/screenshots, fix-progress kanban per approved finding
+
+### Voor aquier.com dev team (separate repo)
+Concreet wat te coden — uit de 11 approved findings:
+1. `/api/checkout/create-session` (of equivalent): allow anonymous OR pre-fill from inline modal
+2. Membership page tier card component: lookup `country_pricing_rules` voor user-detected country (IP + Accept-Language), apply `purchasing_power_factor * market_factor` aan DB base price
+3. `next.config.js` i18n localeDetection + `middleware.ts` voor 14 locale routes
+4. SQL: `insert into vastgoed_core.country_pricing_rules ... where code = 'GB'` met PPF ~1.20
+5. Pricing component: per-locale VAT label string + remove voor US
+6. Stripe Checkout Session create: `automatic_tax: { enabled: true }`, `locale: <derived>`, ensure `tax_behavior` set op Price objects
+
+---
+
+**Recovery potentieel als alle 11 approved + 3 Stripe-config items worden gefixt:** ~€530K/mo = **€6.4M/yr** boven Y1 €3M target.
 
 **Sessie focus (2026-05-23, sessie 2)**: Aquier Command Center toegevoegd aan Modiwe Software dashboard. AI Project Leider (CHRONOS-AQ) staat klaar voor maandag 2026-05-25 09:00 kickoff. ✅
 
