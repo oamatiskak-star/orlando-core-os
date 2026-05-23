@@ -34,7 +34,9 @@ export async function probeRoute(country: CountrySpec, routePath: string): Promi
     const finalUrl = response.request?.res?.responseUrl ?? url
     const wasRedirected = finalUrl !== url
     const body = typeof response.data === 'string' ? response.data : JSON.stringify(response.data)
-    const bodyExcerpt = body.slice(0, 5000)
+    // 250KB excerpt — Next.js SSR/RSC payload includes tier+price data in initial HTML stream;
+    // 5KB cutoff was below the RSC chunk boundary so tier detection saw nothing
+    const bodyExcerpt = body.slice(0, 250_000)
 
     let accessibility: DiscoverySnapshot['accessibility'] = 'ok'
     if (response.status === 404) accessibility = 'not_found'
