@@ -8,7 +8,9 @@
     "vat_rate_b2c_standard": 0.21,
     "vat_reverse_charge_b2b": true,
     "route_prefix_candidates": ["/nl", "", "/"],
-    "launch_status_in_plan": "live"
+    "launch_status_in_plan": "live",
+    "pricing_multiplier": { "purchasing_power_factor": 1.00, "market_factor": 1.00, "combined": 1.000 },
+    "expected_prices_eur": { "explorer_monthly": 199, "explorer_yearly": 1910, "developer_monthly": 299, "developer_yearly": 2989 }
   },
   {
     "code": "DE",
@@ -19,7 +21,9 @@
     "vat_rate_b2c_standard": 0.19,
     "vat_reverse_charge_b2b": true,
     "route_prefix_candidates": ["/de", "/de-de"],
-    "launch_status_in_plan": "live"
+    "launch_status_in_plan": "live",
+    "pricing_multiplier": { "purchasing_power_factor": 1.10, "market_factor": 1.00, "combined": 1.100 },
+    "expected_prices_eur": { "explorer_monthly": 219, "explorer_yearly": 2101, "developer_monthly": 329, "developer_yearly": 3288 }
   },
   {
     "code": "BE",
@@ -30,7 +34,9 @@
     "vat_rate_b2c_standard": 0.21,
     "vat_reverse_charge_b2b": true,
     "route_prefix_candidates": ["/be", "/be-nl", "/be-fr"],
-    "launch_status_in_plan": "live"
+    "launch_status_in_plan": "live",
+    "pricing_multiplier": { "purchasing_power_factor": 0.95, "market_factor": 1.00, "combined": 0.950 },
+    "expected_prices_eur": { "explorer_monthly": 189, "explorer_yearly": 1815, "developer_monthly": 284, "developer_yearly": 2840 }
   },
   {
     "code": "ES",
@@ -41,7 +47,9 @@
     "vat_rate_b2c_standard": 0.21,
     "vat_reverse_charge_b2b": true,
     "route_prefix_candidates": ["/es"],
-    "launch_status_in_plan": "live"
+    "launch_status_in_plan": "live",
+    "pricing_multiplier": { "purchasing_power_factor": 0.75, "market_factor": 1.00, "combined": 0.750 },
+    "expected_prices_eur": { "explorer_monthly": 149, "explorer_yearly": 1433, "developer_monthly": 224, "developer_yearly": 2242 }
   },
   {
     "code": "PT",
@@ -52,7 +60,9 @@
     "vat_rate_b2c_standard": 0.23,
     "vat_reverse_charge_b2b": true,
     "route_prefix_candidates": ["/pt"],
-    "launch_status_in_plan": "live"
+    "launch_status_in_plan": "live",
+    "pricing_multiplier": { "purchasing_power_factor": 0.65, "market_factor": 1.00, "combined": 0.650 },
+    "expected_prices_eur": { "explorer_monthly": 129, "explorer_yearly": 1242, "developer_monthly": 194, "developer_yearly": 1943 }
   },
   {
     "code": "AE",
@@ -63,7 +73,9 @@
     "vat_rate_b2c_standard": 0.05,
     "vat_reverse_charge_b2b": false,
     "route_prefix_candidates": ["/uae", "/ae", "/en-ae"],
-    "launch_status_in_plan": "live"
+    "launch_status_in_plan": "live",
+    "pricing_multiplier": { "purchasing_power_factor": 1.40, "market_factor": 1.20, "combined": 1.680 },
+    "expected_prices_eur": { "explorer_monthly": 334, "explorer_yearly": 3209, "developer_monthly": 502, "developer_yearly": 5022 }
   },
   {
     "code": "GB",
@@ -74,7 +86,9 @@
     "vat_rate_b2c_standard": 0.20,
     "vat_reverse_charge_b2b": true,
     "route_prefix_candidates": ["/uk", "/gb", "/en-gb", "/en"],
-    "launch_status_in_plan": "planned"
+    "launch_status_in_plan": "planned",
+    "pricing_multiplier": { "purchasing_power_factor": null, "market_factor": null, "combined": null, "note": "No country_pricing_rules row exists for GB — gap in production DB" },
+    "expected_prices_eur": { "explorer_monthly": null, "explorer_yearly": null, "developer_monthly": null, "developer_yearly": null }
   },
   {
     "code": "FR",
@@ -85,7 +99,9 @@
     "vat_rate_b2c_standard": 0.20,
     "vat_reverse_charge_b2b": true,
     "route_prefix_candidates": ["/fr"],
-    "launch_status_in_plan": "planned"
+    "launch_status_in_plan": "planned",
+    "pricing_multiplier": { "purchasing_power_factor": 1.05, "market_factor": 1.00, "combined": 1.050 },
+    "expected_prices_eur": { "explorer_monthly": 209, "explorer_yearly": 2006, "developer_monthly": 314, "developer_yearly": 3138 }
   },
   {
     "code": "IT",
@@ -96,7 +112,9 @@
     "vat_rate_b2c_standard": 0.22,
     "vat_reverse_charge_b2b": true,
     "route_prefix_candidates": ["/it"],
-    "launch_status_in_plan": "planned"
+    "launch_status_in_plan": "planned",
+    "pricing_multiplier": { "purchasing_power_factor": 0.80, "market_factor": 1.00, "combined": 0.800 },
+    "expected_prices_eur": { "explorer_monthly": 159, "explorer_yearly": 1528, "developer_monthly": 239, "developer_yearly": 2391 }
   },
   {
     "code": "US",
@@ -107,7 +125,9 @@
     "vat_rate_b2c_standard": null,
     "vat_reverse_charge_b2b": false,
     "route_prefix_candidates": ["/us", "/en-us"],
-    "launch_status_in_plan": "planned"
+    "launch_status_in_plan": "planned",
+    "pricing_multiplier": { "purchasing_power_factor": 1.30, "market_factor": 1.00, "combined": 1.300 },
+    "expected_prices_eur": { "explorer_monthly": 259, "explorer_yearly": 2483, "developer_monthly": 389, "developer_yearly": 3886 }
   },
   {
     "code": "CH",
@@ -118,7 +138,9 @@
     "vat_rate_b2c_standard": 0.081,
     "vat_reverse_charge_b2b": false,
     "route_prefix_candidates": ["/ch", "/de-ch"],
-    "launch_status_in_plan": "tier2_future"
+    "launch_status_in_plan": "tier2_future",
+    "pricing_multiplier": { "purchasing_power_factor": 1.60, "market_factor": 1.15, "combined": 1.840 },
+    "expected_prices_eur": { "explorer_monthly": 366, "explorer_yearly": 3514, "developer_monthly": 550, "developer_yearly": 5500 }
   },
   {
     "code": "CA",
@@ -129,7 +151,9 @@
     "vat_rate_b2c_standard": 0.05,
     "vat_reverse_charge_b2b": false,
     "route_prefix_candidates": ["/ca", "/en-ca"],
-    "launch_status_in_plan": "tier2_future"
+    "launch_status_in_plan": "tier2_future",
+    "pricing_multiplier": { "purchasing_power_factor": 1.10, "market_factor": 1.00, "combined": 1.100 },
+    "expected_prices_eur": { "explorer_monthly": 219, "explorer_yearly": 2101, "developer_monthly": 329, "developer_yearly": 3288 }
   },
   {
     "code": "AU",
@@ -140,7 +164,9 @@
     "vat_rate_b2c_standard": 0.10,
     "vat_reverse_charge_b2b": false,
     "route_prefix_candidates": ["/au", "/en-au"],
-    "launch_status_in_plan": "tier2_future"
+    "launch_status_in_plan": "tier2_future",
+    "pricing_multiplier": { "purchasing_power_factor": 1.15, "market_factor": 1.00, "combined": 1.150 },
+    "expected_prices_eur": { "explorer_monthly": 229, "explorer_yearly": 2197, "developer_monthly": 344, "developer_yearly": 3437 }
   },
   {
     "code": "TH",
@@ -151,6 +177,8 @@
     "vat_rate_b2c_standard": 0.07,
     "vat_reverse_charge_b2b": false,
     "route_prefix_candidates": ["/th", "/en-th"],
-    "launch_status_in_plan": "tier2_future"
+    "launch_status_in_plan": "tier2_future",
+    "pricing_multiplier": { "purchasing_power_factor": 0.45, "market_factor": 1.00, "combined": 0.450 },
+    "expected_prices_eur": { "explorer_monthly": 90, "explorer_yearly": 860, "developer_monthly": 135, "developer_yearly": 1345 }
   }
 ]

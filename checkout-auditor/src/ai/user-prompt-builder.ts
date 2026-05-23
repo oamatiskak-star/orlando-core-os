@@ -22,12 +22,25 @@ export function buildUserPrompt(items: ScenarioWithObservations[], runMeta: { ru
     lines.push(`### scenario: ${item.scenario.scenario_code} [db_id ${item.scenario_db_id}]`)
     lines.push(`- intended: tier=${item.scenario.tier_code} (${item.tier_spec.display_name}); billing=${item.scenario.billing_cycle}; country=${item.scenario.country_code} (${item.country_spec.name}); device=${item.scenario.device}; negative=${item.scenario.negative_case ?? 'none'}`)
     lines.push(`- status: ${item.scenario_status}${item.error_message ? ` (error: ${item.error_message})` : ''}`)
-    lines.push(`- tier spec (DB source of truth):`)
-    lines.push(`    expected_prices_eur: ${JSON.stringify(item.tier_spec.expected_prices_eur)}`)
+    lines.push(`- tier spec (DB base — NL pricing):`)
+    lines.push(`    base_prices_eur: ${JSON.stringify(item.tier_spec.expected_prices_eur)}`)
     lines.push(`    flow_type: ${item.tier_spec.flow_type}`)
     lines.push(`- country spec:`)
     lines.push(`    locale: ${item.country_spec.locale_default}; currency: ${item.country_spec.currency_expected}; vat_rate_b2c: ${item.country_spec.vat_rate_b2c_standard}`)
     lines.push(`    launch_status: ${item.country_spec.launch_status_in_plan}`)
+    // Compute expected EUR price for THIS scenario from country_pricing_rules
+    const tierKey = item.scenario.tier_code === 'explorer' ? 'explorer'
+      : item.scenario.tier_code === 'developer' ? 'developer'
+      : null
+    const cycleKey = item.scenario.billing_cycle === 'monthly' ? 'monthly'
+      : item.scenario.billing_cycle === 'yearly' ? 'yearly'
+      : null
+    const expectedKey = tierKey && cycleKey ? `${tierKey}_${cycleKey}` as keyof typeof item.country_spec.expected_prices_eur : null
+    const expectedForCountry = expectedKey ? item.country_spec.expected_prices_eur[expectedKey] : null
+    lines.push(`- geo-pricing rule (vastgoed_core.country_pricing_rules):`)
+    lines.push(`    multiplier: ${JSON.stringify(item.country_spec.pricing_multiplier)}`)
+    lines.push(`    EXPECTED PRICE for ${item.scenario.country_code}/${item.scenario.tier_code}/${item.scenario.billing_cycle} = €${expectedForCountry ?? 'N/A (no rule in DB)'}`)
+    lines.push(`    Geo-pricing IS BY DESIGN — flag pricing_inconsistency ONLY if observed ≠ this country-specific expected, NOT against NL base.`)
     lines.push(`- page observations:`)
     lines.push('```json')
     lines.push(JSON.stringify(item.observations.page_observations, null, 2))

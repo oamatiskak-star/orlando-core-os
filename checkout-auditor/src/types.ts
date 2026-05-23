@@ -31,12 +31,26 @@ export const CountrySpecSchema = z.object({
   code: z.string().length(2),
   name: z.string(),
   tier_classification: z.enum(['tier1', 'tier2']),
-  locale_default: z.string(),                 // e.g. "nl-NL"
-  currency_expected: z.string().length(3),    // ISO-4217
-  vat_rate_b2c_standard: z.number().nullable(),  // e.g. 0.21 for NL; null for "reverse charge B2B"
+  locale_default: z.string(),
+  currency_expected: z.string().length(3),
+  vat_rate_b2c_standard: z.number().nullable(),
   vat_reverse_charge_b2b: z.boolean(),
-  route_prefix_candidates: z.array(z.string()),  // ['/nl', '', '/']
+  route_prefix_candidates: z.array(z.string()),
   launch_status_in_plan: z.enum(['live', 'planned', 'tier2_future']),
+  // From vastgoed_core.country_pricing_rules — geo-pricing multipliers
+  pricing_multiplier: z.object({
+    purchasing_power_factor: z.number().nullable(),
+    market_factor: z.number().nullable(),
+    combined: z.number().nullable(),
+    note: z.string().optional(),
+  }),
+  // Pre-computed expected EUR prices per (tier × cycle); null when country has no pricing rule
+  expected_prices_eur: z.object({
+    explorer_monthly: z.number().nullable(),
+    explorer_yearly: z.number().nullable(),
+    developer_monthly: z.number().nullable(),
+    developer_yearly: z.number().nullable(),
+  }),
 })
 export type CountrySpec = z.infer<typeof CountrySpecSchema>
 

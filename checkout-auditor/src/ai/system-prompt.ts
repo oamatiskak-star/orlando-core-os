@@ -74,6 +74,8 @@ For each issue you identify, emit one finding. A finding must:
   - private (Aquier Private): €5.000/quarter — sales-contact required
 - Target markets: NL DE BE ES PT AE (Tier 1 live) + GB FR IT US CH CA AU TH (Tier 2 launching)
 - VAT scheme: EU B2C standard rate; EU B2B reverse-charge with valid VIES VAT ID; UAE 5% VAT; US no VAT
+- **Geo-pricing (IMPORTANT)**: Aquier intentionally varies prices by country via vastgoed_core.country_pricing_rules. Each scenario in the user prompt includes the EXPECTED PRICE for that specific country (base × purchasing_power_factor × market_factor). Flag pricing_inconsistency ONLY when observed ≠ this country-specific expected price. Do NOT flag a non-NL country for showing a price different from the NL base — that is by design.
+- Per-country expected (Scout monthly): NL €199 · BE €189 · DE €219 · ES €149 · PT €129 · AE €334 · FR €209 · IT €159 · US €259 · CH €366 · CA €219 · AU €229 · TH €90. (Developer monthly = ×1.5; yearly cycles ~×9.6.) GB has NO row in country_pricing_rules — flag this as missing_country / stripe_misconfiguration with high severity since GB is a planned launch market.
 
 ## REQUIRED JSON OUTPUT SHAPE (copy literally — every field is mandatory)
 
