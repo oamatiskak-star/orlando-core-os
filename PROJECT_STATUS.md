@@ -2,13 +2,33 @@
 
 > **Sessie protocol** (CLAUDE.md): Lees dit bestand bij elke nieuwe Claude Code sessie. Update na elke voltooide taak. Houd het herstel-blok actueel.
 
-**Laatste update:** 2026-05-23 — YouTube channel-stat sync gefixt (public API i.p.v. OAuth)
+**Laatste update:** 2026-05-23 (sessie 2) — Aquier Command Center LIVE in Software-map (dashboard hub + 6 sub-pages + 2 migrations applied)
 
 ---
 
 ## 🔴 HERSTEL HIER NA CRASH
 
-**Sessie focus (2026-05-23)**: YouTube dashboard view_count discrepantie ✅
+**Sessie focus (2026-05-23, sessie 2)**: Aquier Command Center toegevoegd aan Modiwe Software dashboard. AI Project Leider (CHRONOS-AQ) staat klaar voor maandag 2026-05-25 09:00 kickoff. ✅
+
+**Wat is gedaan deze sessie:**
+- Nav: 8 nieuwe modules in `lib/nav-config.ts` (aquier_hub, aquier_projecten, aquier_planning, aquier_agenda, aquier_ai_lead, aquier_monitor, aquier_approvals, aquier_forecast)
+- Aquier sectie toegevoegd aan `modiwe-software` COMPANY_NAV (direct na Dashboard)
+- 7 pages gebouwd in `app/dashboard/aquier/`: hub + projecten + planning + agenda + ai-lead + monitor + approvals
+- Approvals page heeft Server Action `actions.ts` voor Approve/Decline/Defer met decision notes
+- Supabase migration `082_aquier_command_center.sql` APPLIED via MCP — 8 tabellen (projects, sprints, tasks, agenda, ai_lead_state, ai_lead_briefs, monitor_events, approvals)
+- Supabase migration `083_aquier_kickoff_seed.sql` APPLIED — sprint W22, 14 tasks, kickoff brief, 4 monitor events, 3 pending approvals
+- AI Lead CHRONOS-AQ singleton in `aquier_ai_lead_state` is `ready`, gekoppeld aan sprint SP-2026-W22, met guardrails (auto-execute ≤€2K, approval >€25K, pause bij KPI miss >30%)
+- Volledig masterplan blijft staan op `~/Desktop/AQUIER_GLOBAL_EXPANSION_MASTERPLAN/` (54 bestanden, 25 modules)
+
+**Open punten voor maandag 2026-05-25:**
+- Verifieer dat dashboard render werkt (vercel deploy van orlando-core-os of localhost test)
+- Eerste daily brief (06:00) — vereist agent runner op Render of via Vercel cron
+- LinkedIn DM lijst voor wave 1 design partner outreach (15 prospects)
+- Notaris afspraak voor Aquier BV oprichting
+
+---
+
+**Sessie focus (2026-05-23, sessie 1)**: YouTube dashboard view_count discrepantie ✅
 
 - ✅ Root cause: `/api/youtube/sync` gebruikte per-channel OAuth bearer tokens; bij `oauth_status='expired'` (BrickPulse Lab, LoopForge AI, SliceTheory, AquierTv, AquierTvEs) bleven `view_count`/`subscriber_count` stilstaan. Dashboard `4.3k` was som van stale waardes.
 - ✅ Fix: route rewriten naar publieke `youtube/v3/channels?id=<csv>&key=YOUTUBE_DATA_API_KEY` — 1 quota-unit per 50 IDs, werkt ongeacht OAuth state. Commit `3f45110`.

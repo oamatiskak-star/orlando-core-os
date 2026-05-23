@@ -11,6 +11,7 @@ import {
   Mail, Shield, GitMerge, Filter, Brain, ShieldAlert, Link,
   Gavel, Lock, Eye, Upload, Server, Tv2,
   Radar, MapPin, Target, Megaphone, UserPlus, Maximize2,
+  Briefcase, GanttChart, UserCog, Gauge, ThumbsUp,
 } from 'lucide-react'
 
 export type NavModuleDef = {
@@ -160,6 +161,16 @@ export const NAV_MODULES: Record<string, NavModuleDef> = {
   infra:                { key: 'infra',                label: 'Infrastructuur',         href: '/dashboard/infra',                          icon: Server },
   worktree_manager:     { key: 'worktree_manager',     label: 'Worktree Manager',       href: '/dashboard/worktrees',                      icon: GitBranch },
 
+  // ── AQUIER — GLOBAL EXPANSION COMMAND ────────────────────────────────────
+  aquier_hub:          { key: 'aquier_hub',          label: 'Aquier',                  href: '/dashboard/aquier',                  icon: Globe },
+  aquier_projecten:    { key: 'aquier_projecten',    label: 'Projecten',               href: '/dashboard/aquier/projecten',        icon: Briefcase },
+  aquier_planning:     { key: 'aquier_planning',     label: 'Planning',                href: '/dashboard/aquier/planning',         icon: GanttChart },
+  aquier_agenda:       { key: 'aquier_agenda',       label: 'Agenda',                  href: '/dashboard/aquier/agenda',           icon: Calendar },
+  aquier_ai_lead:      { key: 'aquier_ai_lead',      label: 'AI Project Leider',       href: '/dashboard/aquier/ai-lead',          icon: UserCog },
+  aquier_monitor:      { key: 'aquier_monitor',      label: 'Dagelijkse Monitoring',   href: '/dashboard/aquier/monitor',          icon: Gauge },
+  aquier_approvals:    { key: 'aquier_approvals',    label: 'Approve / Decline',       href: '/dashboard/aquier/approvals',        icon: ThumbsUp },
+  aquier_forecast:     { key: 'aquier_forecast',     label: 'Forecast',                href: '/dashboard/aquier-forecast',         icon: BarChart3 },
+
   // ── ACQUISITION INTELLIGENCE ─────────────────────────────────────────────
   acq_deal_desk:      { key: 'acq_deal_desk',      label: 'Deal Desk',            href: '/dashboard/acquisition',                     icon: Target },
   acq_deals:          { key: 'acq_deals',          label: 'DealRadar',            href: '/dashboard/acquisition/deals',               icon: Radar },
@@ -251,6 +262,7 @@ export const COMPANY_NAV: Record<string, CompanyNav> = {
   'modiwe-software': {
     sections: [
       { modules: ['dashboard'] },
+      { title: 'Aquier', modules: ['aquier_hub', 'aquier_projecten', 'aquier_planning', 'aquier_agenda', 'aquier_ai_lead', 'aquier_monitor', 'aquier_approvals', 'aquier_forecast'] },
       { title: 'Juridisch', modules: ['advocaat_dashboard', 'advocaat_dossiers', 'advocaat_curator', 'advocaat_mail_def', 'advocaat_bewijs', 'advocaat_tijdlijn', 'advocaat_strategie', 'advocaat_imports', 'ai_advocaat', 'ai_adv_dossiers', 'ai_adv_contracten', 'ai_adv_deadlines'] },
       { title: 'SaaS', modules: ['calculaties', 'vastgoed', 'projecten'] },
       { title: 'Media Holding', modules: ['media_holding'] },
