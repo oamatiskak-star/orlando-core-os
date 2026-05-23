@@ -6,6 +6,7 @@ import {
 } from 'lucide-react'
 import AgentControlPanel  from './AgentControlPanel'
 import InfrastructureMap  from './InfrastructureMap'
+import ProjectsMap        from './ProjectsMap'
 import QuotaMonitor       from './QuotaMonitor'
 import MediaAssetExplorer from './MediaAssetExplorer'
 import WorkflowTimeline   from './WorkflowTimeline'
@@ -156,6 +157,13 @@ export default async function MissionControlPage() {
       <Section icon={Map} title="Infrastructure Map" subtitle="Realtime status van alle componenten">
         <Suspense fallback={<Skeleton />}>
           <InfrastructureMap />
+        </Suspense>
+      </Section>
+
+      {/* Strategic Projects */}
+      <Section icon={CheckCircle} title="Strategic Projects" subtitle="12-channel A/B-test monetization strategy en clusters">
+        <Suspense fallback={<Skeleton />}>
+          <ProjectsMap />
         </Suspense>
       </Section>
 
