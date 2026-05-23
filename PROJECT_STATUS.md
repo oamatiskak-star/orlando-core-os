@@ -2,13 +2,22 @@
 
 > **Sessie protocol** (CLAUDE.md): Lees dit bestand bij elke nieuwe Claude Code sessie. Update na elke voltooide taak. Houd het herstel-blok actueel.
 
-**Laatste update:** 2026-05-22 — Watchdog auto-recovery service LIVE op Render
+**Laatste update:** 2026-05-23 — YouTube channel-stat sync gefixt (public API i.p.v. OAuth)
 
 ---
 
 ## 🔴 HERSTEL HIER NA CRASH
 
-**Sessie focus (2026-05-22)**: Render + Lokaal (PM2) self-healing watchdogs ✅
+**Sessie focus (2026-05-23)**: YouTube dashboard view_count discrepantie ✅
+
+- ✅ Root cause: `/api/youtube/sync` gebruikte per-channel OAuth bearer tokens; bij `oauth_status='expired'` (BrickPulse Lab, LoopForge AI, SliceTheory, AquierTv, AquierTvEs) bleven `view_count`/`subscriber_count` stilstaan. Dashboard `4.3k` was som van stale waardes.
+- ✅ Fix: route rewriten naar publieke `youtube/v3/channels?id=<csv>&key=YOUTUBE_DATA_API_KEY` — 1 quota-unit per 50 IDs, werkt ongeacht OAuth state. Commit `3f45110`.
+- ✅ Schedule blijft `*/30 * * * *` (vercel.json `sync-stats`). Dashboard ververst zelf via RSC bij paginabezoek.
+- ⏳ Na Vercel-deploy: klik `Sync` knop op `/dashboard/youtube` voor directe backfill, of wacht max 30 min op volgende cron tick. Daarna kan MA/Analyst aan de slag met scaling beslissingen.
+
+---
+
+**Vorige sessie focus (2026-05-22)**: Render + Lokaal (PM2) self-healing watchdogs ✅
 
 **Local watchdog (CLI-L LIVE, CLI-R deploy pending):**
 - `local-watchdog/` TS service; pollt `pm2 jlist` elke 30s, restart bij stopped/errored met cooldown, crash-loop detectie (>3 restarts/5min) → automatic stop + npm install + npm run build + restart; na 2 mislukte rebuilds escalatie naar `infra_watchdog_incidents` + critical Telegram
