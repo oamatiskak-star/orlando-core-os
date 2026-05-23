@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
@@ -15,8 +15,31 @@ export default function Sidebar({ isOpen, onClose }: { isOpen: boolean; onClose:
   const router = useRouter()
   const [collapsed, setCollapsed] = useState(false)
   const { activeCompany, setActiveCompany } = useCompany()
+  const touchStartX = useRef(0)
 
   const nav = getCompanyNav(activeCompany.id)
+
+  useEffect(() => {
+    const handleEscape = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && isOpen) {
+        onClose()
+      }
+    }
+    window.addEventListener('keydown', handleEscape)
+    return () => window.removeEventListener('keydown', handleEscape)
+  }, [isOpen, onClose])
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    touchStartX.current = e.touches[0].clientX
+  }
+
+  const handleTouchEnd = (e: React.TouchEvent) => {
+    const touchEndX = e.changedTouches[0].clientX
+    const diff = touchStartX.current - touchEndX
+    if (diff > 50) {
+      onClose()
+    }
+  }
 
   async function handleLogout() {
     const supabase = createClient()
@@ -78,11 +101,13 @@ export default function Sidebar({ isOpen, onClose }: { isOpen: boolean; onClose:
     <aside
       className={clsx(
         'flex flex-col h-screen bg-[#181830] border-r border-white/5 flex-shrink-0',
-        'fixed inset-y-0 left-0 z-50 transition-transform duration-200',
+        'fixed inset-y-0 left-0 z-50 transition-transform duration-300 ease-out',
         isOpen ? 'translate-x-0' : '-translate-x-full',
         'md:static md:translate-x-0 md:z-auto',
         collapsed ? 'w-[60px]' : 'w-[220px]'
       )}
+      onTouchStart={handleTouchStart}
+      onTouchEnd={handleTouchEnd}
     >
       {/* Logo + collapse */}
       <div className="flex items-center justify-between px-3 py-4 border-b border-white/5">
