@@ -13,7 +13,7 @@ export async function GET(req: NextRequest) {
   const status = sp.get('status') ?? ''
 
   let query = supabase
-    .from('projects')
+    .from('youtube_projects')
     .select('*', { count: 'exact' })
     .order('created_at', { ascending: false })
 
@@ -54,7 +54,7 @@ export async function POST(req: NextRequest) {
   if (!type) return NextResponse.json({ error: 'Type vereist' }, { status: 400 })
 
   const { data, error } = await supabase
-    .from('projects')
+    .from('youtube_projects')
     .insert({
       name,
       description: description ?? null,
