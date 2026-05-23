@@ -1,5 +1,7 @@
 .vercel
 .env*.local
+.DS_Store
+**/.DS_Store
 youtube-engine/.env
 mail-engine/.env
 mail-engine/node_modules/
