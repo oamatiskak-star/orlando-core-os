@@ -1,0 +1,156 @@
+[
+  {
+    "code": "NL",
+    "name": "Nederland",
+    "tier_classification": "tier1",
+    "locale_default": "nl-NL",
+    "currency_expected": "EUR",
+    "vat_rate_b2c_standard": 0.21,
+    "vat_reverse_charge_b2b": true,
+    "route_prefix_candidates": ["/nl", "", "/"],
+    "launch_status_in_plan": "live"
+  },
+  {
+    "code": "DE",
+    "name": "Duitsland",
+    "tier_classification": "tier1",
+    "locale_default": "de-DE",
+    "currency_expected": "EUR",
+    "vat_rate_b2c_standard": 0.19,
+    "vat_reverse_charge_b2b": true,
+    "route_prefix_candidates": ["/de", "/de-de"],
+    "launch_status_in_plan": "live"
+  },
+  {
+    "code": "BE",
+    "name": "België",
+    "tier_classification": "tier1",
+    "locale_default": "nl-BE",
+    "currency_expected": "EUR",
+    "vat_rate_b2c_standard": 0.21,
+    "vat_reverse_charge_b2b": true,
+    "route_prefix_candidates": ["/be", "/be-nl", "/be-fr"],
+    "launch_status_in_plan": "live"
+  },
+  {
+    "code": "ES",
+    "name": "Spanje",
+    "tier_classification": "tier1",
+    "locale_default": "es-ES",
+    "currency_expected": "EUR",
+    "vat_rate_b2c_standard": 0.21,
+    "vat_reverse_charge_b2b": true,
+    "route_prefix_candidates": ["/es"],
+    "launch_status_in_plan": "live"
+  },
+  {
+    "code": "PT",
+    "name": "Portugal",
+    "tier_classification": "tier1",
+    "locale_default": "pt-PT",
+    "currency_expected": "EUR",
+    "vat_rate_b2c_standard": 0.23,
+    "vat_reverse_charge_b2b": true,
+    "route_prefix_candidates": ["/pt"],
+    "launch_status_in_plan": "live"
+  },
+  {
+    "code": "AE",
+    "name": "Verenigde Arabische Emiraten",
+    "tier_classification": "tier1",
+    "locale_default": "en-AE",
+    "currency_expected": "AED",
+    "vat_rate_b2c_standard": 0.05,
+    "vat_reverse_charge_b2b": false,
+    "route_prefix_candidates": ["/uae", "/ae", "/en-ae"],
+    "launch_status_in_plan": "live"
+  },
+  {
+    "code": "GB",
+    "name": "United Kingdom",
+    "tier_classification": "tier1",
+    "locale_default": "en-GB",
+    "currency_expected": "GBP",
+    "vat_rate_b2c_standard": 0.20,
+    "vat_reverse_charge_b2b": true,
+    "route_prefix_candidates": ["/uk", "/gb", "/en-gb", "/en"],
+    "launch_status_in_plan": "planned"
+  },
+  {
+    "code": "FR",
+    "name": "Frankrijk",
+    "tier_classification": "tier2",
+    "locale_default": "fr-FR",
+    "currency_expected": "EUR",
+    "vat_rate_b2c_standard": 0.20,
+    "vat_reverse_charge_b2b": true,
+    "route_prefix_candidates": ["/fr"],
+    "launch_status_in_plan": "planned"
+  },
+  {
+    "code": "IT",
+    "name": "Italië",
+    "tier_classification": "tier2",
+    "locale_default": "it-IT",
+    "currency_expected": "EUR",
+    "vat_rate_b2c_standard": 0.22,
+    "vat_reverse_charge_b2b": true,
+    "route_prefix_candidates": ["/it"],
+    "launch_status_in_plan": "planned"
+  },
+  {
+    "code": "US",
+    "name": "United States",
+    "tier_classification": "tier1",
+    "locale_default": "en-US",
+    "currency_expected": "USD",
+    "vat_rate_b2c_standard": null,
+    "vat_reverse_charge_b2b": false,
+    "route_prefix_candidates": ["/us", "/en-us"],
+    "launch_status_in_plan": "planned"
+  },
+  {
+    "code": "CH",
+    "name": "Zwitserland",
+    "tier_classification": "tier2",
+    "locale_default": "de-CH",
+    "currency_expected": "CHF",
+    "vat_rate_b2c_standard": 0.081,
+    "vat_reverse_charge_b2b": false,
+    "route_prefix_candidates": ["/ch", "/de-ch"],
+    "launch_status_in_plan": "tier2_future"
+  },
+  {
+    "code": "CA",
+    "name": "Canada",
+    "tier_classification": "tier2",
+    "locale_default": "en-CA",
+    "currency_expected": "CAD",
+    "vat_rate_b2c_standard": 0.05,
+    "vat_reverse_charge_b2b": false,
+    "route_prefix_candidates": ["/ca", "/en-ca"],
+    "launch_status_in_plan": "tier2_future"
+  },
+  {
+    "code": "AU",
+    "name": "Australië",
+    "tier_classification": "tier2",
+    "locale_default": "en-AU",
+    "currency_expected": "AUD",
+    "vat_rate_b2c_standard": 0.10,
+    "vat_reverse_charge_b2b": false,
+    "route_prefix_candidates": ["/au", "/en-au"],
+    "launch_status_in_plan": "tier2_future"
+  },
+  {
+    "code": "TH",
+    "name": "Thailand",
+    "tier_classification": "tier2",
+    "locale_default": "en-TH",
+    "currency_expected": "THB",
+    "vat_rate_b2c_standard": 0.07,
+    "vat_reverse_charge_b2b": false,
+    "route_prefix_candidates": ["/th", "/en-th"],
+    "launch_status_in_plan": "tier2_future"
+  }
+]

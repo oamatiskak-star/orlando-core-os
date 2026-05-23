@@ -1,0 +1,65 @@
+[
+  {
+    "scenario_id": "card_visa_success",
+    "card_number": "4242424242424242",
+    "exp_month": "12",
+    "exp_year": "2034",
+    "cvc": "123",
+    "expected_outcome": "success",
+    "description": "Standard Visa success — no 3DS"
+  },
+  {
+    "scenario_id": "card_mastercard_success",
+    "card_number": "5555555555554444",
+    "exp_month": "12",
+    "exp_year": "2034",
+    "cvc": "123",
+    "expected_outcome": "success",
+    "description": "Mastercard success"
+  },
+  {
+    "scenario_id": "card_3ds_required_success",
+    "card_number": "4000002500003155",
+    "exp_month": "12",
+    "exp_year": "2034",
+    "cvc": "123",
+    "expected_outcome": "requires_3ds",
+    "description": "3DS challenge required, then succeeds"
+  },
+  {
+    "scenario_id": "card_3ds_required_decline",
+    "card_number": "4000008260003178",
+    "exp_month": "12",
+    "exp_year": "2034",
+    "cvc": "123",
+    "expected_outcome": "declined_after_3ds",
+    "description": "3DS challenge then declines"
+  },
+  {
+    "scenario_id": "card_declined_generic",
+    "card_number": "4000000000000002",
+    "exp_month": "12",
+    "exp_year": "2034",
+    "cvc": "123",
+    "expected_outcome": "declined",
+    "description": "Generic decline"
+  },
+  {
+    "scenario_id": "card_insufficient_funds",
+    "card_number": "4000000000009995",
+    "exp_month": "12",
+    "exp_year": "2034",
+    "cvc": "123",
+    "expected_outcome": "insufficient_funds",
+    "description": "Insufficient funds decline"
+  },
+  {
+    "scenario_id": "card_lost_card",
+    "card_number": "4000000000009987",
+    "exp_month": "12",
+    "exp_year": "2034",
+    "cvc": "123",
+    "expected_outcome": "declined",
+    "description": "Lost card decline"
+  }
+]

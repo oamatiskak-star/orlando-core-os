@@ -1,0 +1,54 @@
+[
+  {
+    "id": "failed_generic_decline",
+    "description": "Card declined at checkout — verify decline message UX + retry path",
+    "trigger": "failed_card",
+    "expected_severity_if_broken": "high",
+    "stripe_test_card_id": "card_declined_generic"
+  },
+  {
+    "id": "failed_insufficient_funds",
+    "description": "Card insufficient funds — verify error messaging",
+    "trigger": "failed_card",
+    "expected_severity_if_broken": "high",
+    "stripe_test_card_id": "card_insufficient_funds"
+  },
+  {
+    "id": "three_ds_required",
+    "description": "3DS challenge flow completes successfully",
+    "trigger": "three_ds_failure",
+    "expected_severity_if_broken": "critical",
+    "stripe_test_card_id": "card_3ds_required_success"
+  },
+  {
+    "id": "three_ds_decline",
+    "description": "3DS challenge → decline — verify UX recovery",
+    "trigger": "three_ds_failure",
+    "expected_severity_if_broken": "high",
+    "stripe_test_card_id": "card_3ds_required_decline"
+  },
+  {
+    "id": "session_expired",
+    "description": "Stripe Checkout session expires after 24h — verify aquier.com handles graceful resume",
+    "trigger": "session_expired",
+    "expected_severity_if_broken": "medium"
+  },
+  {
+    "id": "b2b_vat_id_eu",
+    "description": "EU B2B with valid VAT ID — verify reverse-charge applied (no VAT charged)",
+    "trigger": "b2b_vat_id",
+    "expected_severity_if_broken": "critical"
+  },
+  {
+    "id": "b2b_vat_id_invalid",
+    "description": "Invalid VAT ID entered — verify VIES validation + fallback to B2C VAT",
+    "trigger": "b2b_vat_id",
+    "expected_severity_if_broken": "high"
+  },
+  {
+    "id": "coupon_with_vat",
+    "description": "Coupon applied — verify VAT recalculated on discounted subtotal",
+    "trigger": "coupon_applied",
+    "expected_severity_if_broken": "medium"
+  }
+]

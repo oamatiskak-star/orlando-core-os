@@ -210,6 +210,57 @@ services:
       - key: LOG_LEVEL
         value: "info"
 
+  - type: web
+    name: orlando-checkout-auditor
+    runtime: node
+    rootDir: checkout-auditor
+    buildCommand: npm install --include=dev && npx playwright install --with-deps chromium webkit && npm run build
+    startCommand: node dist/index.js
+    plan: standard
+    autoDeploy: true
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: "3008"
+      - key: LOG_LEVEL
+        value: "info"
+      - key: AQUIER_BASE_URL
+        value: "https://aquier.com"
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+      - key: SUPABASE_STORAGE_BUCKET
+        value: "checkout-audit-artifacts"
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      - key: ANTHROPIC_MODEL_PRIMARY
+        value: "claude-opus-4-7"
+      - key: ANTHROPIC_MODEL_BATCH
+        value: "claude-sonnet-4-6"
+      - key: STRIPE_RESTRICTED_KEY_TEST
+        sync: false
+      - key: TELEGRAM_BOT_TOKEN
+        sync: false
+      - key: TELEGRAM_CHAT_ID
+        sync: false
+      - key: CHECKOUT_AUDITOR_MAX_SCENARIOS_PER_RUN
+        value: "20"
+      - key: BROWSER_CONCURRENCY
+        value: "3"
+      - key: SCENARIO_TIMEOUT_MS
+        value: "180000"
+      - key: WEBHOOK_WAIT_MAX_MS
+        value: "60000"
+      - key: AUDIT_RETENTION_DAYS
+        value: "14"
+      - key: RUN_TRIGGER_SECRET
+        sync: false
+      - key: AGENT_TIMEZONE
+        value: "Europe/Amsterdam"
+
   - type: redis
     name: orlando-redis
     plan: starter

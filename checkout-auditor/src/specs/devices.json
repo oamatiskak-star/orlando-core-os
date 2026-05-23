@@ -1,0 +1,36 @@
+[
+  {
+    "id": "desktop_chrome",
+    "display_name": "Desktop Chrome (1440×900)",
+    "playwright_browser": "chromium",
+    "viewport": { "width": 1440, "height": 900 },
+    "is_mobile": false,
+    "has_touch": false
+  },
+  {
+    "id": "desktop_safari",
+    "display_name": "Desktop Safari (1440×900)",
+    "playwright_browser": "webkit",
+    "viewport": { "width": 1440, "height": 900 },
+    "is_mobile": false,
+    "has_touch": false
+  },
+  {
+    "id": "mobile_chrome",
+    "display_name": "Pixel 7 Chrome (412×915)",
+    "playwright_browser": "chromium",
+    "viewport": { "width": 412, "height": 915 },
+    "user_agent": "Mozilla/5.0 (Linux; Android 13; Pixel 7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36",
+    "is_mobile": true,
+    "has_touch": true
+  },
+  {
+    "id": "mobile_safari",
+    "display_name": "iPhone 15 Safari (393×852)",
+    "playwright_browser": "webkit",
+    "viewport": { "width": 393, "height": 852 },
+    "user_agent": "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1",
+    "is_mobile": true,
+    "has_touch": true
+  }
+]

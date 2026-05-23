@@ -1,0 +1,59 @@
+{
+  "membership_page": [
+    "pricing_visible_for_tier",
+    "currency_matches_country_expected",
+    "locale_matches_country_default",
+    "cta_button_present",
+    "cta_button_clickable",
+    "no_console_errors",
+    "page_load_under_3s",
+    "responsive_layout_intact_on_mobile"
+  ],
+  "stripe_checkout": [
+    "subtotal_matches_db_expected_price",
+    "tax_applied_correct_rate_per_country",
+    "tax_behavior_inclusive_or_exclusive_consistent",
+    "total_equals_subtotal_plus_tax",
+    "currency_matches_country_expected",
+    "locale_formatting_correct",
+    "vat_label_visible_for_eu_b2c",
+    "b2b_vat_field_visible_where_required",
+    "recurring_interval_matches_billing_cycle"
+  ],
+  "subscription_logic": [
+    "stripe_subscription_created_after_payment",
+    "subscription_price_matches_checkout_total",
+    "subscription_interval_correct",
+    "yearly_discount_matches_db_definition",
+    "trial_period_if_applicable_set_correctly"
+  ],
+  "webhooks": [
+    "checkout_session_completed_received_within_60s",
+    "invoice_paid_received_after_payment",
+    "customer_subscription_created_received",
+    "customer_subscription_updated_received_on_modification",
+    "invoice_payment_failed_received_on_failed_card",
+    "webhook_signature_validated"
+  ],
+  "database_sync": [
+    "user_memberships_row_created_after_webhook",
+    "user_memberships_status_active",
+    "user_memberships_tier_id_matches_purchased_tier",
+    "stripe_customer_id_stored",
+    "stripe_subscription_id_stored",
+    "checkout_events_row_logged"
+  ],
+  "email_flow": [
+    "confirmation_email_sent_after_purchase",
+    "invoice_email_contains_correct_amount",
+    "renewal_email_scheduled_for_next_cycle"
+  ],
+  "edge_cases": [
+    "coupon_plus_vat_calculation_correct",
+    "b2b_vat_id_reverse_charge_applied",
+    "failed_card_retry_flow_works",
+    "expired_session_recovers_gracefully",
+    "abandoned_checkout_recoverable",
+    "currency_conversion_consistent_when_localized"
+  ]
+}

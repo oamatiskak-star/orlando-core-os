@@ -1,0 +1,225 @@
+import type { Page } from 'playwright'
+import { newContextForDevice } from './browser-pool'
+import { MEMBERSHIP_SELECTORS } from './selectors'
+import { attachNetworkRecorder, type NetworkEvent } from './network-recorder'
+import { assertLocale, type LocaleAssertResult } from './locale-asserts'
+import { driveStripeCheckout, type StripeCheckoutResult } from './stripe-checkout-driver'
+import { loadStripeTestCards, loadCountries, loadTiers, loadDevices } from '../specs'
+import { uploadArtifact, buildArtifactPath } from '../lib/storage'
+import { supabase } from '../lib/supabase'
+import { env } from '../lib/secrets'
+import { logger } from '../lib/logger'
+import type { Scenario } from '../types'
+
+export type WalkthroughResult = {
+  membership_page_loaded: boolean
+  membership_page_url: string | null
+  redirect_chain: string[]
+  page_load_ms: number | null
+  locale_observations: LocaleAssertResult | null
+  console_errors: string[]
+  tier_visible: boolean
+  cta_clickable: boolean
+  pricing_observed_eur: number | null
+  stripe_result: StripeCheckoutResult | null
+  network_events: NetworkEvent[]
+  artifacts: Array<{ kind: string; storage_path: string; size_bytes: number }>
+  errors: string[]
+}
+
+/**
+ * Runs ONE scenario end-to-end:
+ *   1. open /membership for the given country
+ *   2. select billing cycle + tier
+ *   3. click CTA → Stripe Checkout
+ *   4. fill test card → submit
+ *   5. capture screenshots, video, HAR per step
+ *
+ * For Institutional/Private tiers: only step 1-2 (discovery-only).
+ */
+export async function runWalkthrough(
+  runId: string,
+  scenarioId: string,
+  scenario: Scenario,
+): Promise<WalkthroughResult> {
+  const country = loadCountries().find(c => c.code === scenario.country_code)
+  const tier = loadTiers().find(t => t.code === scenario.tier_code)
+  const device = loadDevices().find(d => d.id === scenario.device)
+  if (!country || !tier || !device) throw new Error(`Missing spec for scenario ${scenario.scenario_code}`)
+
+  const context = await newContextForDevice(device)
+  // Record video
+  await context.tracing.start({ screenshots: true, snapshots: true, sources: false }).catch(() => {})
+
+  const consoleErrors: string[] = []
+  const errors: string[] = []
+  const artifacts: WalkthroughResult['artifacts'] = []
+
+  const page = await context.newPage()
+  await page.context().setExtraHTTPHeaders({ 'Accept-Language': country.locale_default })
+
+  page.on('console', msg => {
+    if (msg.type() === 'error') consoleErrors.push(msg.text())
+  })
+  const recorder = attachNetworkRecorder(page)
+
+  const result: WalkthroughResult = {
+    membership_page_loaded: false,
+    membership_page_url: null,
+    redirect_chain: [],
+    page_load_ms: null,
+    locale_observations: null,
+    console_errors: consoleErrors,
+    tier_visible: false,
+    cta_clickable: false,
+    pricing_observed_eur: null,
+    stripe_result: null,
+    network_events: [],
+    artifacts,
+    errors,
+  }
+
+  try {
+    // 1. open /membership
+    const membershipUrl = new URL('/membership', env.AQUIER_BASE_URL).toString()
+    const loadStart = Date.now()
+    const navResponse = await page.goto(membershipUrl, { waitUntil: 'domcontentloaded', timeout: 30_000 })
+    result.page_load_ms = Date.now() - loadStart
+    result.membership_page_url = page.url()
+    result.membership_page_loaded = navResponse?.status() === 200 || navResponse?.status() === 304
+
+    // Snapshot screenshot of membership page
+    const membershipScreenshot = await page.screenshot({ type: 'png', fullPage: true })
+    artifacts.push(await persistArtifact(runId, scenarioId, 'screenshot-membership', 'png', 'image/png', membershipScreenshot))
+
+    // 2. Locale + currency assertions
+    const bodyText = (await page.locator('body').textContent().catch(() => '')) ?? ''
+    const htmlLang = await page.locator('html').getAttribute('lang').catch(() => null)
+    result.locale_observations = assertLocale(bodyText, htmlLang, country)
+
+    // 3. Toggle billing cycle if needed
+    const cycleToggle =
+      scenario.billing_cycle === 'yearly' ? MEMBERSHIP_SELECTORS.yearly_toggle :
+      scenario.billing_cycle === 'quarterly' ? MEMBERSHIP_SELECTORS.quarterly_toggle :
+      scenario.billing_cycle === 'monthly' ? MEMBERSHIP_SELECTORS.monthly_toggle :
+      null
+    if (cycleToggle) {
+      for (const sel of cycleToggle) {
+        try {
+          if (await page.locator(sel).count()) {
+            await page.locator(sel).first().click()
+            await page.waitForTimeout(500)
+            break
+          }
+        } catch { /* continue */ }
+      }
+    }
+
+    // 4. Find tier card + extract price
+    const tierName = tier.display_name
+    let tierLocator = page.locator(MEMBERSHIP_SELECTORS.tier_card_by_code(tier.code)).first()
+    if (await tierLocator.count() === 0) {
+      tierLocator = page.locator(`:has-text("${tierName}")`).first()
+    }
+    if (await tierLocator.count() > 0) {
+      result.tier_visible = true
+      const tierText = (await tierLocator.textContent().catch(() => '')) ?? ''
+      const priceMatch = tierText.match(/€\s?(\d{1,3}(?:[.,]\d{3})*(?:[.,]\d{2})?)/)
+      if (priceMatch) {
+        const numStr = priceMatch[1].replace(/\./g, '').replace(',', '.')
+        result.pricing_observed_eur = Number(numStr)
+      }
+    }
+
+    // 5. If discovery-only (sales_contact_form), stop here
+    if (scenario.is_discovery_only) {
+      logger.info({ scenario: scenario.scenario_code }, 'discovery-only scenario — stopping after page observation')
+      result.network_events = recorder.getEvents()
+      await context.tracing.stop({ path: `/tmp/trace-${scenarioId}.zip` }).catch(() => {})
+      await context.close().catch(() => {})
+      return result
+    }
+
+    // 6. Click CTA on the tier
+    let ctaClicked = false
+    for (const sel of MEMBERSHIP_SELECTORS.cta_button_within_tier) {
+      try {
+        const ctaLoc = tierLocator.locator(sel).first()
+        if (await ctaLoc.count() > 0) {
+          await ctaLoc.click({ timeout: 10_000 })
+          ctaClicked = true
+          result.cta_clickable = true
+          break
+        }
+      } catch { /* try next */ }
+    }
+    if (!ctaClicked) {
+      // Fallback: any pricing-cta button
+      const fallbackButtons = await page.locator('a:has-text("Start"), button:has-text("Start"), a:has-text("Subscribe")').all()
+      if (fallbackButtons.length > 0) {
+        await fallbackButtons[0].click().catch(err => errors.push(`fallback CTA click: ${err}`))
+        ctaClicked = true
+        result.cta_clickable = true
+      } else {
+        errors.push('No CTA button found for tier')
+      }
+    }
+
+    // 7. Drive Stripe Checkout
+    if (ctaClicked) {
+      await page.waitForTimeout(2000) // give SPA navigation time
+      const testCard = loadStripeTestCards().find(c => c.scenario_id === 'card_visa_success')!
+      result.stripe_result = await driveStripeCheckout(page, testCard, {
+        email: `audit+${scenarioId.slice(0, 8)}@aquier-test.example`,
+        timeoutMs: 90_000,
+      })
+
+      // Screenshot of post-checkout state
+      const postCheckout = await page.screenshot({ type: 'png', fullPage: true }).catch(() => null)
+      if (postCheckout) {
+        artifacts.push(await persistArtifact(runId, scenarioId, 'screenshot-post-checkout', 'png', 'image/png', postCheckout))
+      }
+    }
+
+    result.network_events = recorder.getEvents()
+
+    // Persist HAR-ish network log as JSON
+    const harJson = JSON.stringify({ scenario: scenario.scenario_code, events: result.network_events }, null, 2)
+    artifacts.push(await persistArtifact(runId, scenarioId, 'network-har', 'json', 'application/json', harJson))
+  } catch (err) {
+    errors.push(err instanceof Error ? err.message : String(err))
+    logger.error({ err: String(err), scenario: scenario.scenario_code }, 'walkthrough error')
+  } finally {
+    recorder.stop()
+    await context.tracing.stop({ path: `/tmp/trace-${scenarioId}.zip` }).catch(() => {})
+    await context.close().catch(() => {})
+  }
+
+  return result
+}
+
+async function persistArtifact(
+  runId: string,
+  scenarioId: string,
+  kind: string,
+  ext: string,
+  contentType: string,
+  body: Buffer | string,
+): Promise<{ kind: string; storage_path: string; size_bytes: number }> {
+  const path = buildArtifactPath(runId, scenarioId, kind, ext)
+  try {
+    const uploaded = await uploadArtifact(path, body, contentType)
+    await supabase.from('aquier_audit_artifacts').insert({
+      run_id: runId,
+      scenario_id: scenarioId,
+      kind: kind.includes('screenshot') ? 'screenshot' : kind.includes('network') ? 'har' : 'dom_snapshot',
+      storage_path: uploaded.path,
+      size_bytes: uploaded.size_bytes,
+      mime_type: contentType,
+    })
+    return { kind, storage_path: uploaded.path, size_bytes: uploaded.size_bytes }
+  } catch (err) {
+    logger.warn({ err: String(err), path }, 'artifact persist failed')
+    return { kind, storage_path: path, size_bytes: 0 }
+  }
+}

@@ -1,0 +1,42 @@
+[
+  {
+    "code": "explorer",
+    "display_name": "Aquier Scout",
+    "billing_cycles_supported": ["monthly", "yearly"],
+    "expected_prices_eur": { "monthly": 199.00, "quarterly": null, "yearly": 1910.00 },
+    "flow_type": "self_serve_stripe",
+    "test_priority": "critical"
+  },
+  {
+    "code": "developer",
+    "display_name": "Aquier Developer",
+    "billing_cycles_supported": ["monthly", "yearly"],
+    "expected_prices_eur": { "monthly": 299.00, "quarterly": null, "yearly": 2989.00 },
+    "flow_type": "self_serve_stripe",
+    "test_priority": "critical"
+  },
+  {
+    "code": "black",
+    "display_name": "Aquier Institutional Black",
+    "billing_cycles_supported": ["quarterly", "yearly"],
+    "expected_prices_eur": { "monthly": null, "quarterly": 3735.00, "yearly": 14940.00 },
+    "flow_type": "self_serve_stripe",
+    "test_priority": "high"
+  },
+  {
+    "code": "institutional",
+    "display_name": "Aquier Institutional",
+    "billing_cycles_supported": ["quarterly", "yearly"],
+    "expected_prices_eur": { "monthly": null, "quarterly": 11250.00, "yearly": 45000.00 },
+    "flow_type": "sales_contact_form",
+    "test_priority": "high"
+  },
+  {
+    "code": "private",
+    "display_name": "Aquier Private",
+    "billing_cycles_supported": ["quarterly"],
+    "expected_prices_eur": { "monthly": null, "quarterly": 5000.00, "yearly": null },
+    "flow_type": "sales_contact_form",
+    "test_priority": "medium"
+  }
+]

@@ -99,6 +99,18 @@
     {
       "path": "/api/acquisition/cron/distress-scan",
       "schedule": "30 6 * * *"
+    },
+    {
+      "path": "/api/checkout-audit/cron/discovery",
+      "schedule": "0 1 * * *"
+    },
+    {
+      "path": "/api/checkout-audit/cron/daily-run",
+      "schedule": "0 2 * * *"
+    },
+    {
+      "path": "/api/checkout-audit/cron/cleanup-artifacts",
+      "schedule": "0 0 * * 0"
     }
   ]
 }
