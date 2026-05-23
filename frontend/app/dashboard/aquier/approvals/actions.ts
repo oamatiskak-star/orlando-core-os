@@ -3,13 +3,14 @@
 import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
 
-export async function decideApproval(formData: FormData) {
+export async function decideApproval(formData: FormData): Promise<void> {
   const id = String(formData.get('id') ?? '')
   const decision = String(formData.get('decision') ?? '') as 'approved' | 'declined' | 'deferred'
   const note = String(formData.get('note') ?? '') || null
 
   if (!id || !['approved', 'declined', 'deferred'].includes(decision)) {
-    return { ok: false, error: 'invalid_input' }
+    console.error('[decideApproval] invalid input', { id, decision })
+    return
   }
 
   const supabase = await createClient()
@@ -24,10 +25,10 @@ export async function decideApproval(formData: FormData) {
     .eq('id', id)
 
   if (error) {
-    return { ok: false, error: error.message }
+    console.error('[decideApproval] supabase error', error.message)
+    return
   }
 
   revalidatePath('/dashboard/aquier/approvals')
   revalidatePath('/dashboard/aquier')
-  return { ok: true }
 }
