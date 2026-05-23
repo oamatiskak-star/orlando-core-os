@@ -1,13 +1,9 @@
 import { createAdminClient } from '@/lib/supabase/admin'
 import { TrendingUp, CheckCircle, AlertCircle, XCircle } from 'lucide-react'
 import GrowthClient from './GrowthClient'
+import AgentControls from './AgentControls'
 
 export const revalidate = 0
-
-const CHANNELS = [
-  'VermogenTv', 'SpaarTv', 'VastgoedTv',
-  'CryptoVermogen', 'BeleggingsTv', 'PropertyInvestorTv',
-]
 
 function VerdictBadge({ verdict }: { verdict: string }) {
   if (verdict === 'publish') return (
@@ -39,6 +35,15 @@ function ScoreBar({ score }: { score: number }) {
   )
 }
 
+interface DeepDiveReport {
+  id: string
+  title: string | null
+  summary_md: string | null
+  generated_at: string
+  generated_by_agent: string | null
+  scope: { channel_id?: string } | null
+}
+
 export default async function GrowthPage() {
   const admin = createAdminClient()
   const since7d = new Date(Date.now() - 7 * 86_400_000).toISOString()
@@ -46,6 +51,9 @@ export default async function GrowthPage() {
   const [
     { data: scores },
     { data: channels },
+    { data: mhChannels },
+    { data: reportsRaw },
+    { data: agentRows },
   ] = await Promise.all([
     admin.from('youtube_quality_scores')
       .select('id, channel_id, total_score, verdict, feedback, created_at, youtube_upload_queue(title, channel_id)')
@@ -53,16 +61,65 @@ export default async function GrowthPage() {
       .order('created_at', { ascending: false })
       .limit(100),
     admin.from('youtube_channels')
-      .select('id, naam, research_ideas')
-      .in('naam', CHANNELS)
-      .order('naam'),
+      .select('id, naam, name, view_count, subscriber_count, video_count, research_ideas, oauth_status, last_sync')
+      .not('channel_id', 'is', null)
+      .order('view_count', { ascending: false, nullsFirst: false }),
+    admin.from('media_holding_channels')
+      .select('id, name, youtube_channel_id')
+      .not('youtube_channel_id', 'is', null),
+    admin.from('executive_reports')
+      .select('id, title, summary_md, generated_at, generated_by_agent, scope')
+      .eq('report_kind', 'channel_deep_dive')
+      .order('generated_at', { ascending: false })
+      .limit(200),
+    admin.from('executive_agents')
+      .select('agent_key, name, last_run_at, last_run_status, enabled')
+      .in('agent_key', ['atlas', 'channel_manager', 'algorithm_strategist', 'content_fund_manager', 'retention_scientist', 'viral_analyst']),
   ])
 
   const publishCount = (scores ?? []).filter(s => s.verdict === 'publish').length
   const improveCount = (scores ?? []).filter(s => s.verdict === 'improve').length
   const rejectCount  = (scores ?? []).filter(s => s.verdict === 'reject').length
 
-  const channelMap = new Map((channels ?? []).map(c => [c.naam, c]))
+  // youtube_channels.id → media_holding_channels.id (executive engine target)
+  const ytToMh = new Map<string, string>()
+  for (const m of mhChannels ?? []) {
+    if (m.youtube_channel_id) ytToMh.set(m.youtube_channel_id as string, m.id as string)
+  }
+
+  // Latest deep-dive report per media_holding channel
+  const latestReportByMh = new Map<string, DeepDiveReport>()
+  for (const r of (reportsRaw ?? []) as DeepDiveReport[]) {
+    const mhId = r.scope?.channel_id
+    if (!mhId) continue
+    if (!latestReportByMh.has(mhId)) latestReportByMh.set(mhId, r)
+  }
+
+  const channelRows = (channels ?? []).map(c => {
+    const mhId = ytToMh.get(c.id as string) ?? null
+    const report = mhId ? latestReportByMh.get(mhId) ?? null : null
+    return {
+      ytId:           c.id as string,
+      mhId,
+      naam:           (c.naam ?? c.name ?? '—') as string,
+      viewCount:      Number(c.view_count ?? 0),
+      subscriberCount: Number(c.subscriber_count ?? 0),
+      videoCount:     Number(c.video_count ?? 0),
+      oauthStatus:    (c.oauth_status ?? 'unknown') as string,
+      lastSync:       (c.last_sync ?? null) as string | null,
+      ideas:          (c.research_ideas?.ideas ?? []) as Array<{ title: string; hook_15s: string; thumbnail_concept: string; viral_trigger: string }>,
+      ideasGeneratedAt: (c.research_ideas?.generated_at ?? null) as string | null,
+      report: report ? {
+        id: report.id,
+        title: report.title,
+        summaryMd: report.summary_md,
+        generatedAt: report.generated_at,
+        agent: report.generated_by_agent,
+      } : null,
+    }
+  })
+
+  const agentMap = new Map((agentRows ?? []).map(a => [a.agent_key, a]))
 
   return (
     <div className="space-y-5">
@@ -74,9 +131,20 @@ export default async function GrowthPage() {
         </div>
         <div>
           <h1 className="text-base font-semibold text-white">Growth & Kwaliteit</h1>
-          <p className="text-[11px] text-white/40">AI kwaliteitsscoring + virale research per kanaal</p>
+          <p className="text-[11px] text-white/40">AI Analyst & Marketing Agent · {channelRows.length} kanalen</p>
         </div>
       </div>
+
+      {/* Agent controls — Analyst + Marketing Strategy */}
+      <AgentControls
+        agents={Array.from(agentMap.values()).map(a => ({
+          key: a.agent_key as string,
+          name: a.name as string,
+          lastRunAt: (a.last_run_at ?? null) as string | null,
+          lastRunStatus: (a.last_run_status ?? null) as string | null,
+          enabled: Boolean(a.enabled),
+        }))}
+      />
 
       {/* Stats deze week */}
       <div className="grid grid-cols-3 gap-3">
@@ -106,8 +174,9 @@ export default async function GrowthPage() {
           <p className="text-xs text-white/30 text-center py-6">Nog geen kwaliteitsscores. Start de pipeline om scores te genereren.</p>
         ) : (
           <div className="space-y-2 max-h-72 overflow-y-auto pr-1">
-            {(scores ?? []).map((s: any) => {
-              const title = s.youtube_upload_queue?.title ?? '(geen titel)'
+            {(scores ?? []).map(s => {
+              const queue = Array.isArray(s.youtube_upload_queue) ? s.youtube_upload_queue[0] : s.youtube_upload_queue
+              const title = (queue as { title?: string } | undefined)?.title ?? '(geen titel)'
               return (
                 <div key={s.id} className="flex items-center gap-3 py-2 border-b border-white/[0.04] last:border-0">
                   <div className="flex-1 min-w-0">
@@ -127,25 +196,27 @@ export default async function GrowthPage() {
         )}
       </div>
 
-      {/* Research ideeën per kanaal */}
+      {/* Per-kanaal — Analyst report, virale ideeën, run-knop */}
       <div className="space-y-3">
         <h2 className="text-[11px] font-semibold text-white/40 uppercase tracking-wide">
-          Virale video-ideeën per kanaal
+          Kanalen ({channelRows.length}) — Analyst report & virale ideeën
         </h2>
-        {CHANNELS.map(naam => {
-          const ch = channelMap.get(naam)
-          const ideas: any[] = ch?.research_ideas?.ideas ?? []
-          const generatedAt: string | null = ch?.research_ideas?.generated_at ?? null
-          return (
-            <GrowthClient
-              key={naam}
-              channelNaam={naam}
-              channelId={ch?.id ?? null}
-              initialIdeas={ideas}
-              generatedAt={generatedAt}
-            />
-          )
-        })}
+        {channelRows.map(row => (
+          <GrowthClient
+            key={row.ytId}
+            channelNaam={row.naam}
+            channelId={row.ytId}
+            mediaHoldingId={row.mhId}
+            viewCount={row.viewCount}
+            subscriberCount={row.subscriberCount}
+            videoCount={row.videoCount}
+            oauthStatus={row.oauthStatus}
+            lastSync={row.lastSync}
+            initialIdeas={row.ideas}
+            generatedAt={row.ideasGeneratedAt}
+            report={row.report}
+          />
+        ))}
       </div>
     </div>
   )
