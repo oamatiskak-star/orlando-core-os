@@ -63,6 +63,15 @@ export async function driveStripeCheckout(page: Page, testCard: StripeTestCard, 
       return finalize(result, start)
     }
 
+    // ── SAFETY GUARD: Stripe LIVE mode detection ───────────────────────────
+    // If the checkout session is on live Stripe (cs_live_*), HARD ABORT before
+    // filling any card. We capture session URL + ID for read-only API observation
+    // only — never drive a real charge.
+    if (result.session_id_from_url?.startsWith('cs_live_')) {
+      result.errors.push('SAFETY ABORT: cs_live_* session detected — refusing to fill card (would create real charge). Session URL captured for read-only observation via Stripe API.')
+      return finalize(result, start)
+    }
+
     // Email (if not pre-filled)
     if (opts.email) {
       const emailSel = await firstAvailable(page, STRIPE_CHECKOUT_SELECTORS.email_field)
