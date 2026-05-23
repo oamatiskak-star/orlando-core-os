@@ -3,7 +3,7 @@ import Link from 'next/link'
 import {
   Globe, Briefcase, GanttChart, Calendar, UserCog, Gauge, ThumbsUp,
   ChevronRight, Target, TrendingUp, AlertTriangle, CheckCircle2,
-  Clock, Sparkles,
+  Clock, Sparkles, ShieldCheck,
 } from 'lucide-react'
 
 export const dynamic = 'force-dynamic'
@@ -204,13 +204,14 @@ export default async function AquierHubPage() {
       </div>
 
       {/* Quick actions */}
-      <div className="grid grid-cols-2 lg:grid-cols-6 gap-2">
+      <div className="grid grid-cols-2 lg:grid-cols-7 gap-2">
         {[
           { href: '/dashboard/aquier/projecten', icon: Briefcase, label: 'Projecten', color: 'text-cyan-400' },
           { href: '/dashboard/aquier/planning', icon: GanttChart, label: 'Planning', color: 'text-violet-400' },
           { href: '/dashboard/aquier/agenda', icon: Calendar, label: 'Agenda', color: 'text-indigo-400' },
-          { href: '/dashboard/aquier/ai-lead', icon: UserCog, label: 'AI Project Leider', color: 'text-fuchsia-400' },
+          { href: '/dashboard/aquier/ai-lead', icon: UserCog, label: 'AI Lead', color: 'text-fuchsia-400' },
           { href: '/dashboard/aquier/monitor', icon: Gauge, label: 'Monitoring', color: 'text-blue-400' },
+          { href: '/dashboard/aquier/audit', icon: ShieldCheck, label: 'Audit', color: 'text-indigo-400' },
           { href: '/dashboard/aquier/approvals', icon: ThumbsUp, label: 'Approvals', color: 'text-emerald-400', badge: approvalList.length },
         ].map(action => {
           const Icon = action.icon

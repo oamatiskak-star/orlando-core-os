@@ -169,6 +169,7 @@ export const NAV_MODULES: Record<string, NavModuleDef> = {
   aquier_ai_lead:      { key: 'aquier_ai_lead',      label: 'AI Project Leider',       href: '/dashboard/aquier/ai-lead',          icon: UserCog },
   aquier_monitor:      { key: 'aquier_monitor',      label: 'Dagelijkse Monitoring',   href: '/dashboard/aquier/monitor',          icon: Gauge },
   aquier_approvals:    { key: 'aquier_approvals',    label: 'Approve / Decline',       href: '/dashboard/aquier/approvals',        icon: ThumbsUp },
+  aquier_audit:        { key: 'aquier_audit',        label: 'Checkout Audit',          href: '/dashboard/aquier/audit',            icon: ShieldAlert },
   aquier_forecast:     { key: 'aquier_forecast',     label: 'Forecast',                href: '/dashboard/aquier-forecast',         icon: BarChart3 },
 
   // ── ACQUISITION INTELLIGENCE ─────────────────────────────────────────────
@@ -262,7 +263,7 @@ export const COMPANY_NAV: Record<string, CompanyNav> = {
   'modiwe-software': {
     sections: [
       { modules: ['dashboard'] },
-      { title: 'Aquier', modules: ['aquier_hub', 'aquier_projecten', 'aquier_planning', 'aquier_agenda', 'aquier_ai_lead', 'aquier_monitor', 'aquier_approvals', 'aquier_forecast'] },
+      { title: 'Aquier', modules: ['aquier_hub', 'aquier_projecten', 'aquier_planning', 'aquier_agenda', 'aquier_ai_lead', 'aquier_monitor', 'aquier_approvals', 'aquier_audit', 'aquier_forecast'] },
       { title: 'Juridisch', modules: ['advocaat_dashboard', 'advocaat_dossiers', 'advocaat_curator', 'advocaat_mail_def', 'advocaat_bewijs', 'advocaat_tijdlijn', 'advocaat_strategie', 'advocaat_imports', 'ai_advocaat', 'ai_adv_dossiers', 'ai_adv_contracten', 'ai_adv_deadlines'] },
       { title: 'SaaS', modules: ['calculaties', 'vastgoed', 'projecten'] },
       { title: 'Media Holding', modules: ['media_holding'] },
