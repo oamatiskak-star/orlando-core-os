@@ -88,8 +88,14 @@ async function scheduleRecommendation(rec: Recommendation): Promise<void> {
         })
         .eq('id', rec.id)
     }
-  } else if (rec.recommendation_type === 'thumbnail_ab_test' || rec.recommendation_type === 'title_optimization') {
-    // Schedule for immediate execution
+  } else if (
+    rec.recommendation_type === 'thumbnail_ab_test' ||
+    rec.recommendation_type === 'title_optimization' ||
+    rec.recommendation_type === 'subscriber_cta_optimization' ||
+    rec.recommendation_type === 'subscribe_button_placement' ||
+    rec.recommendation_type === 'end_screen_optimization'
+  ) {
+    // Schedule for immediate execution (especially critical for subscriber recommendations)
     await supabase
       .from('marketing_recommendations')
       .update({
@@ -102,7 +108,13 @@ async function scheduleRecommendation(rec: Recommendation): Promise<void> {
 
 async function executeRecommendation(rec: Recommendation): Promise<boolean> {
   try {
-    if (rec.recommendation_type === 'thumbnail_ab_test' || rec.recommendation_type === 'title_optimization') {
+    if (
+      rec.recommendation_type === 'thumbnail_ab_test' ||
+      rec.recommendation_type === 'title_optimization' ||
+      rec.recommendation_type === 'subscriber_cta_optimization' ||
+      rec.recommendation_type === 'subscribe_button_placement' ||
+      rec.recommendation_type === 'end_screen_optimization'
+    ) {
       // Mark as executing
       await supabase
         .from('marketing_recommendations')
@@ -240,8 +252,149 @@ async function updateRealtimeKPIs(): Promise<void> {
   }
 }
 
+async function generateSubscriberFocusedRecommendations(): Promise<void> {
+  console.log('[orchestrator] 📊 Analyzing subscriber gaps and generating subscriber-focused recommendations...')
+
+  // Get channel analyst reports with high subscriber gaps
+  const { data: reports } = await supabase
+    .from('channel_analyst_reports')
+    .select('channel_id, subscriber_gap, subscriber_gap_percent, subscriber_gap_severity, total_views, total_subscribers')
+    .gte('subscriber_gap', 100) // Only channels with meaningful gaps
+    .order('subscriber_gap', { ascending: false })
+
+  if (!reports || reports.length === 0) {
+    console.log('[orchestrator] No significant subscriber gaps detected')
+    return
+  }
+
+  for (const report of reports) {
+    // Check if subscriber recommendations already exist
+    const { data: existing } = await supabase
+      .from('marketing_recommendations')
+      .select('id')
+      .eq('channel_id', report.channel_id)
+      .in('recommendation_type', [
+        'subscriber_cta_optimization',
+        'subscribe_button_placement',
+        'end_screen_optimization'
+      ])
+      .eq('status', 'pending')
+
+    if (existing && existing.length > 0) continue
+
+    const severity = report.subscriber_gap_severity
+
+    // Generate subscriber-focused recommendations based on gap severity
+    if (severity === 'critical') {
+      // Critical gap - multiple urgent recommendations
+      const recommendations = [
+        {
+          type: 'subscriber_cta_optimization',
+          title: 'Critical: Implement Subscriber Call-to-Action in Every Video',
+          description: `${report.subscriber_gap} subscribers missing. Add verbal CTA every 2-3 minutes + 5-second CTA overlay at 90% mark`,
+          priority: 95,
+          confidence: 0.95,
+          estimatedImpact: Math.round(report.subscriber_gap * 0.4),
+        },
+        {
+          type: 'subscribe_button_placement',
+          title: 'Optimize Subscribe Button Visibility and Placement',
+          description: 'Add subscribe button at 0:00, pinned comment with CTA, and YouTube Cards at key engagement moments',
+          priority: 90,
+          confidence: 0.92,
+          estimatedImpact: Math.round(report.subscriber_gap * 0.3),
+        },
+        {
+          type: 'end_screen_optimization',
+          title: 'End Screen Subscription Strategy',
+          description: 'Replace clickable elements with subscribe button in end screens. Add 10s countdown before outro',
+          priority: 85,
+          confidence: 0.88,
+          estimatedImpact: Math.round(report.subscriber_gap * 0.25),
+        },
+      ]
+
+      for (const rec of recommendations) {
+        await supabase.from('marketing_recommendations').insert({
+          channel_id: report.channel_id,
+          recommendation_type: rec.type,
+          title: rec.title,
+          description: rec.description,
+          priority: rec.priority,
+          ai_confidence: rec.confidence,
+          estimated_impact_views: rec.estimatedImpact,
+          action_items: [
+            'Review current video structure',
+            'Add subscriber CTAs at strategic points',
+            'Test with A/B variants',
+            'Track conversion rate daily'
+          ],
+          status: 'pending'
+        })
+      }
+
+      // Send urgent alert
+      await sendSlack(
+        process.env.SLACK_WEBHOOK_CRITICAL,
+        `🔴 *CRITICAL SUBSCRIBER GAP DETECTED*\n_${report.subscriber_gap} subscribers needed at ${report.total_views} views_\nGenerated 3 high-priority subscriber growth recommendations`,
+        '🔴'
+      )
+
+      await sendTelegram(
+        `🔴 <b>CRITICAL Subscriber Gap</b>\n` +
+        `<b>${report.subscriber_gap.toLocaleString()}</b> subscribers missing\n` +
+        `Current: ${report.total_subscribers.toLocaleString()} subs for ${report.total_views.toLocaleString()} views\n` +
+        `Target: 1 subscriber per 280 views`
+      )
+    } else if (severity === 'high') {
+      // High gap - two key recommendations
+      const recommendations = [
+        {
+          type: 'subscribe_button_placement',
+          title: 'High Priority: Subscribe Button Visibility Audit',
+          description: `${report.subscriber_gap} subscriber gap detected. Ensure subscribe button is visible in every video at key moments`,
+          priority: 85,
+          confidence: 0.90,
+          estimatedImpact: Math.round(report.subscriber_gap * 0.35),
+        },
+        {
+          type: 'subscriber_cta_optimization',
+          title: 'Enhance Subscriber Call-to-Action Strategy',
+          description: 'Add natural CTAs in content + pinned comments with subscription benefits',
+          priority: 80,
+          confidence: 0.85,
+          estimatedImpact: Math.round(report.subscriber_gap * 0.28),
+        },
+      ]
+
+      for (const rec of recommendations) {
+        await supabase.from('marketing_recommendations').insert({
+          channel_id: report.channel_id,
+          recommendation_type: rec.type,
+          title: rec.title,
+          description: rec.description,
+          priority: rec.priority,
+          ai_confidence: rec.confidence,
+          estimated_impact_views: rec.estimatedImpact,
+          action_items: ['Review button placement', 'Add CTAs', 'Monitor conversion'],
+          status: 'pending'
+        })
+      }
+
+      await sendSlack(
+        process.env.SLACK_WEBHOOK_MARKETING,
+        `⚠️ *High Subscriber Gap: ${report.subscriber_gap.toLocaleString()} subs needed*\nGenerated recommendations for subscriber growth optimization`,
+        '⚠️'
+      )
+    }
+  }
+}
+
 async function orchestrateRecommendations(): Promise<void> {
   console.log('[orchestrator] 🎯 Starting orchestration cycle...')
+
+  // First, generate subscriber-focused recommendations
+  await generateSubscriberFocusedRecommendations()
 
   // Fetch pending recommendations
   const { data: pending } = await supabase

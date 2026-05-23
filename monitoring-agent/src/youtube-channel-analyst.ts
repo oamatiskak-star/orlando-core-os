@@ -26,6 +26,18 @@ interface ChannelMetrics {
   averageCTR: number
   videoCount: number
   viralScoreAvg: number
+  subscribers: number
+}
+
+interface SubscriberGapAnalysis {
+  totalViews: number
+  totalSubscribers: number
+  viewsPerSubscriber: number
+  expectedSubscribersAtBenchmark: number
+  subscriberGap: number
+  gapPercentage: number
+  conversionRate: number
+  severity: 'critical' | 'high' | 'medium' | 'low'
 }
 
 interface TrendAnalysis {
@@ -49,6 +61,7 @@ interface ChannelAnalysis {
   }
   recommendations: string[]
   healthScore: number
+  subscriberGapAnalysis?: SubscriberGapAnalysis
   businessPlan?: {
     target: number
     currentViews: number
@@ -84,10 +97,16 @@ async function sendMarketingEmail(
   }
 
   const plan = analysis.businessPlan!
+  const gap = analysis.subscriberGapAnalysis!
   const progressEmoji = plan.onTrack ? '✅' : '⚠️'
   const statusText = plan.onTrack
     ? `ON TRACK! ${plan.progressPercent.toFixed(0)}% naar doel`
     : `ACHTER OP SCHEMA! ${plan.progressPercent.toFixed(0)}% bereikt`
+
+  const gapSeverityEmoji = gap.severity === 'critical' ? '🔴' : gap.severity === 'high' ? '⚠️' : '📊'
+  const gapStatusText = gap.severity === 'critical'
+    ? `CRITICAL GAP: ${gap.subscriberGap.toLocaleString()} subscribers missing!`
+    : `Subscriber gap: ${gap.subscriberGap.toLocaleString()} subs (${gap.gapPercentage.toFixed(0)}% below benchmark)`
 
   const html = `
     <html>
@@ -95,7 +114,7 @@ async function sendMarketingEmail(
         <h1>🎬 YouTube Channel Analyst Report</h1>
         <h2>${channelName}</h2>
 
-        <h3>${progressEmoji} Businessplan Status</h3>
+        <h3>${progressEmoji} Businessplan Status (840K Views)</h3>
         <div style="background: #f0f0f0; padding: 20px; border-radius: 8px; margin: 20px 0;">
           <p><strong>${statusText}</strong></p>
           <p>📊 <strong>${plan.currentViews.toLocaleString()}</strong> van ${plan.target.toLocaleString()} views</p>
@@ -104,9 +123,19 @@ async function sendMarketingEmail(
           <p>🏁 Dagelijks doel: <strong>${DAILY_TARGET.toLocaleString()}</strong> views/dag</p>
         </div>
 
+        <h3>${gapSeverityEmoji} Subscriber Growth Gap Analysis</h3>
+        <div style="background: ${gap.severity === 'critical' ? '#ffe6e6' : '#fff3cd'}; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid ${gap.severity === 'critical' ? '#dc3545' : '#ff9800'};">
+          <p><strong>${gapStatusText}</strong></p>
+          <p>👥 Current: <strong>${gap.totalSubscribers.toLocaleString()}</strong> subscribers</p>
+          <p>🎯 Expected at benchmark: <strong>${gap.expectedSubscribersAtBenchmark.toLocaleString()}</strong> subscribers (1 per ${gap.viewsPerSubscriber} views)</p>
+          <p>📊 Conversion rate: <strong>${gap.conversionRate.toFixed(3)}%</strong> (viewers → subscribers)</p>
+          <p><em>💡 Goal: Each 280k views should generate 1000 subscribers</em></p>
+        </div>
+
         <h3>📈 Channel Metrics (48 uur)</h3>
         <ul>
           <li>Views: <strong>${analysis.channel.totalViews.toLocaleString()}</strong></li>
+          <li>Subscribers: <strong>${analysis.channel.subscribers.toLocaleString()}</strong></li>
           <li>Watch Time: <strong>${Math.round(analysis.channel.totalWatchTimeMinutes).toLocaleString()}m</strong></li>
           <li>CTR: <strong>${(analysis.channel.averageCTR * 100).toFixed(2)}%</strong></li>
           <li>Health Score: <strong>${analysis.healthScore}/100</strong></li>
@@ -156,7 +185,7 @@ async function sendMarketingEmail(
 async function getChannelMetrics(channelId: string): Promise<ChannelMetrics | null> {
   const { data: channel } = await supabase
     .from('youtube_channels')
-    .select('id, name')
+    .select('id, name, subscriber_count')
     .eq('id', channelId)
     .single()
 
@@ -177,6 +206,7 @@ async function getChannelMetrics(channelId: string): Promise<ChannelMetrics | nu
       averageCTR: 0,
       videoCount: 0,
       viralScoreAvg: 0,
+      subscribers: channel.subscriber_count ?? 0,
     }
   }
 
@@ -200,6 +230,7 @@ async function getChannelMetrics(channelId: string): Promise<ChannelMetrics | nu
     averageCTR,
     videoCount: uniqueVideos,
     viralScoreAvg: Math.round(viralScoreAvg),
+    subscribers: channel.subscriber_count ?? 0,
   }
 }
 
@@ -280,6 +311,36 @@ async function getTrendAnalysis(
   }
 }
 
+function analyzeSubscriberGap(
+  totalViews: number,
+  subscribers: number
+): SubscriberGapAnalysis {
+  // Industry benchmarks: 1 subscriber per 200-300 views is healthy
+  // At 280k views: should have 930-1400 subscribers (aiming for 1000)
+  const BENCHMARK_VIEWS_PER_SUBSCRIBER = 280
+
+  const expectedSubscribers = Math.round(totalViews / BENCHMARK_VIEWS_PER_SUBSCRIBER)
+  const gap = Math.max(0, expectedSubscribers - subscribers)
+  const gapPercentage = expectedSubscribers > 0 ? (gap / expectedSubscribers) * 100 : 0
+  const conversionRate = totalViews > 0 ? (subscribers / totalViews) * 100 : 0
+
+  let severity: 'critical' | 'high' | 'medium' | 'low' = 'low'
+  if (gapPercentage > 75) severity = 'critical'
+  else if (gapPercentage > 50) severity = 'high'
+  else if (gapPercentage > 25) severity = 'medium'
+
+  return {
+    totalViews,
+    totalSubscribers: subscribers,
+    viewsPerSubscriber: subscribers > 0 ? Math.round(totalViews / subscribers) : totalViews,
+    expectedSubscribersAtBenchmark: expectedSubscribers,
+    subscriberGap: gap,
+    gapPercentage,
+    conversionRate,
+    severity,
+  }
+}
+
 function calculateBusinessPlanProgress(
   currentViews: number,
   startDate: Date
@@ -304,8 +365,19 @@ function calculateBusinessPlanProgress(
   }
 }
 
-function generateRecommendations(analysis: ChannelMetrics, trends: TrendAnalysis[], plan: ChannelAnalysis['businessPlan']): string[] {
+function generateRecommendations(analysis: ChannelMetrics, trends: TrendAnalysis[], plan: ChannelAnalysis['businessPlan'], gap?: SubscriberGapAnalysis): string[] {
   const recommendations: string[] = []
+
+  // SUBSCRIBER GAP ANALYSIS - HIGH PRIORITY
+  if (gap && gap.severity === 'critical') {
+    recommendations.push(`🔴 CRITICAL SUBSCRIBER GAP: ${gap.subscriberGap.toLocaleString()} subscribers missing! Only ${gap.conversionRate.toFixed(2)}% conversion rate`)
+    recommendations.push(`💪 Strategy: Implement subscribe-focused CTAs in every video + pinned comments with call-to-action`)
+  } else if (gap && gap.severity === 'high') {
+    recommendations.push(`⚠️ HIGH SUBSCRIBER GAP: ${gap.subscriberGap.toLocaleString()} subscribers needed to match view growth (${gap.conversionRate.toFixed(2)}% conversion)`)
+    recommendations.push(`📌 Action: Add Subscribe button placement optimization + End screen cards for subscription`)
+  } else if (gap && gap.severity === 'medium') {
+    recommendations.push(`📊 Subscriber gap detected: Target ${gap.expectedSubscribersAtBenchmark.toLocaleString()} subscribers for ${gap.totalViews.toLocaleString()} views`)
+  }
 
   // Business plan urgency
   if (!plan!.onTrack) {
@@ -421,7 +493,9 @@ async function analyzeAllChannels(): Promise<void> {
       new Date(channel.created_at)
     )
 
-    const recommendations = generateRecommendations(metrics, trends, businessPlan)
+    const subscriberGapAnalysis = analyzeSubscriberGap(metrics.totalViews, metrics.subscribers)
+
+    const recommendations = generateRecommendations(metrics, trends, businessPlan, subscriberGapAnalysis)
     const healthScore = calculateHealthScore(metrics, trends)
 
     const analysis: ChannelAnalysis = {
@@ -433,6 +507,7 @@ async function analyzeAllChannels(): Promise<void> {
       },
       recommendations,
       healthScore,
+      subscriberGapAnalysis,
       businessPlan,
     }
 
@@ -461,21 +536,29 @@ async function analyzeAllChannels(): Promise<void> {
   }
 
   console.log(`\n${'='.repeat(80)}`)
-  console.log('📊 YOUTUBE CHANNEL ANALYST REPORT — 840K BUSINESS PLAN')
+  console.log('📊 YOUTUBE CHANNEL ANALYST REPORT — 840K BUSINESS PLAN + SUBSCRIBER GROWTH')
   console.log(`${'='.repeat(80)}\n`)
 
   for (const analysis of analyses) {
     const plan = analysis.businessPlan!
+    const gap = analysis.subscriberGapAnalysis!
     const statusEmoji = plan.onTrack ? '✅' : '🚨'
     console.log(`${statusEmoji} ${analysis.channel.channelName}`)
-    console.log(`   📊 Progress: ${plan.progressPercent.toFixed(1)}% (${plan.currentViews.toLocaleString()} / ${plan.target.toLocaleString()})`)
+    console.log(`   📊 Views & Subscribers: ${plan.currentViews.toLocaleString()} views | ${analysis.channel.subscribers.toLocaleString()} subscribers`)
+    console.log(`   📈 Progress: ${plan.progressPercent.toFixed(1)}% (${plan.currentViews.toLocaleString()} / ${plan.target.toLocaleString()})`)
     console.log(`   🎯 Daily Pace: ${plan.dailyVelocity.toLocaleString()} views/day (need ${DAILY_TARGET.toLocaleString()})`)
     console.log(`   ⏱️  Days Remaining: ${plan.daysRemaining} | Views Needed: ${plan.viewsNeeded.toLocaleString()}`)
+
+    // Subscriber gap reporting
+    const gapEmoji = gap.severity === 'critical' ? '🔴' : gap.severity === 'high' ? '⚠️' : '📊'
+    console.log(`   ${gapEmoji} Subscriber Gap: ${gap.subscriberGap.toLocaleString()} (${gap.gapPercentage.toFixed(1)}% below benchmark) | Conversion: ${gap.conversionRate.toFixed(3)}%`)
+    console.log(`      Expected: ${gap.expectedSubscribersAtBenchmark.toLocaleString()} subs (1 per ${gap.viewsPerSubscriber} views) | Current: ${gap.totalSubscribers.toLocaleString()}`)
+
     console.log(`   💪 Health: ${analysis.healthScore}/100 | 48h Growth: ${analysis.trends.last48h.growthRate > 0 ? '+' : ''}${analysis.trends.last48h.growthRate}%`)
 
     if (analysis.recommendations.length > 0) {
       console.log(`   💡 Actions:`)
-      analysis.recommendations.slice(0, 3).forEach(rec => console.log(`      ${rec}`))
+      analysis.recommendations.slice(0, 4).forEach(rec => console.log(`      ${rec}`))
     }
 
     console.log()
@@ -489,12 +572,17 @@ async function analyzeAllChannels(): Promise<void> {
       channel_id: a.channel.channelId,
       health_score: a.healthScore,
       total_views: a.channel.totalViews,
+      total_subscribers: a.channel.subscribers,
       watch_time_minutes: a.channel.totalWatchTimeMinutes,
       avg_ctr: a.channel.averageCTR,
       growth_48h: a.trends.last48h.growthRate,
       growth_7d: a.trends.last7d.growthRate,
       growth_30d: a.trends.last30d.growthRate,
       recommendations: a.recommendations,
+      subscriber_gap: a.subscriberGapAnalysis?.subscriberGap,
+      subscriber_gap_percent: a.subscriberGapAnalysis?.gapPercentage,
+      subscriber_conversion_rate: a.subscriberGapAnalysis?.conversionRate,
+      subscriber_gap_severity: a.subscriberGapAnalysis?.severity,
       views_target: a.businessPlan?.target,
       views_progress_percent: a.businessPlan?.progressPercent,
       views_needed: a.businessPlan?.viewsNeeded,
