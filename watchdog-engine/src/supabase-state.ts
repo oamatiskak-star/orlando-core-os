@@ -21,6 +21,10 @@ export type EventKind =
   | 'recovered'
   | 'escalated'
   | 'check_error'
+  | 'cleanup_candidate'
+  | 'cleanup_deleted'
+  | 'cleanup_skipped'
+  | 'cleanup_error'
 
 export interface WatchdogEvent {
   service_id: string

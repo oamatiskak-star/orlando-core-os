@@ -82,6 +82,14 @@ export class RenderClient {
     await this.http.post(`/services/${serviceId}/restart`)
   }
 
+  async deleteService(serviceId: string): Promise<void> {
+    await this.http.delete(`/services/${serviceId}`)
+  }
+
+  async suspendService(serviceId: string): Promise<void> {
+    await this.http.post(`/services/${serviceId}/suspend`)
+  }
+
   async triggerDeploy(serviceId: string, opts: { clearCache?: boolean } = {}): Promise<RenderDeploy> {
     const body: Record<string, unknown> = {}
     if (opts.clearCache) body.clearCache = 'clear'
