@@ -1,6 +1,7 @@
 import 'dotenv/config'
 import cron from 'node-cron'
 import { logger } from './lib/logger'
+import { reportHeartbeat } from './lib/watchdog-heartbeat'
 import { startOrchestratorBridge } from './workers/orchestrator-bridge'
 import { runDailyPlanner } from './workers/daily-planner'
 import { runAgentMonitor } from './workers/agent-monitor'
@@ -57,6 +58,12 @@ async function main() {
   })
 
   startOrchestratorBridge()
+
+  await reportHeartbeat('engine.executor.tick', { machine: process.env.MACHINE_ID ?? null, started: true })
+  setInterval(() => {
+    reportHeartbeat('engine.executor.tick', { machine: process.env.MACHINE_ID ?? null })
+      .catch((e) => logger.error('heartbeat failed', { error: (e as Error).message }))
+  }, 5 * 60_000)
 
   logger.info('All crons registered — engine running autonomously')
 

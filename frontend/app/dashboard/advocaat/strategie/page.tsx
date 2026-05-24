@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { Brain, Zap, Shield, TrendingUp, AlertTriangle, CheckCircle, RefreshCw } from 'lucide-react'
 import type { Dossier } from '@/lib/advocaat/types'
+import { consumeAnalyseStream } from '@/lib/advocaat/stream'
 
 type StrategieResult = {
   strategie: Record<string, unknown>
@@ -50,14 +51,26 @@ export default function StrategiePage() {
   async function analyze() {
     if (!selected) return
     setLoading(true)
-    setResult(null)
-    const res = await fetch('/api/advocaat/analyze', {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ dossier_id: selected, analyse_type: type }),
-    }).then(r => r.json()).catch(() => null)
-    setResult(res)
-    setLoading(false)
+    setResult({ strategie: {}, analyse: '' })
+    try {
+      const res = await fetch('/api/advocaat/analyze', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ dossier_id: selected, analyse_type: type }),
+      })
+      let accumulated = ''
+      const final = await consumeAnalyseStream(res, (event) => {
+        if (event.kind === 'chunk') {
+          accumulated += event.text
+          setResult({ strategie: {}, analyse: accumulated })
+        }
+      })
+      setResult({ strategie: { id: final.strategieId }, analyse: final.analyse })
+    } catch (e) {
+      setResult({ strategie: {}, analyse: `Fout: ${(e as Error).message}` })
+    } finally {
+      setLoading(false)
+    }
   }
 
   const sections = result?.analyse ? parseAnalysis(result.analyse) : []

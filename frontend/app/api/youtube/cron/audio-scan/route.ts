@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { fetchMostPopular, viewVelocity } from '@/lib/youtube-public'
+import { reportHeartbeat } from '@/lib/watchdog/heartbeat'
 
 export const revalidate = 0
 export const maxDuration = 60
@@ -84,6 +85,8 @@ export async function GET(req: NextRequest) {
       else upserted += chunk.length
     }
   }
+
+  await reportHeartbeat('cron.vercel.audio-scan').catch(() => {}) /* watchdog-heartbeat */
 
   return NextResponse.json({
     ok: Object.keys(errors).length === 0,

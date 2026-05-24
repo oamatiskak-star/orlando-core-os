@@ -71,7 +71,24 @@ module.exports = {
       time:        true,
     },
 
-    // ── 5. Daily Scheduler — cron 05:30, maakt dag-taken aan ──
+    // ── 5. Language Engine — multi-locale marketing QA (grammar/tone/SEO/CRO/consistency) ──
+    {
+      name:        'language-engine',
+      cwd:         `${BASE}/language-engine`,
+      script:      'npx',
+      args:        'ts-node --transpile-only src/server/index.ts',
+      interpreter: 'none',
+      watch:       false,
+      autorestart: true,
+      max_restarts: 999,
+      restart_delay: 5000,
+      env: { NODE_ENV: 'production', PORT: '3007' },
+      log_file:    '/tmp/pm2-language-engine.log',
+      error_file:  '/tmp/pm2-language-engine-err.log',
+      time:        true,
+    },
+
+    // ── 6. Daily Scheduler — cron 05:30, maakt dag-taken aan ──
     {
       name:          'daily-scheduler',
       cwd:           `${BASE}/local-agent`,

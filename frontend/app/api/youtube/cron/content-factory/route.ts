@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { reportHeartbeat } from '@/lib/watchdog/heartbeat'
 
 export const revalidate = 0
 export const maxDuration = 60
@@ -286,6 +287,8 @@ export async function GET(req: NextRequest) {
 
     results.push({ task_id: task.id, status: 'completed', detail: contentItem.id })
   }
+
+  await reportHeartbeat('cron.vercel.content-factory').catch(() => {}) /* watchdog-heartbeat */
 
   return NextResponse.json({
     ok:           true,

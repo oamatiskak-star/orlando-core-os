@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { reportHeartbeat } from '@/lib/watchdog/heartbeat'
 import {
   fetchMostPopular, viewVelocity, virailityScore, automationScore,
 } from '@/lib/youtube-public'
@@ -97,6 +98,7 @@ export async function GET(req: NextRequest) {
   }
 
   const durationMs = Date.now() - startedAt
+  await reportHeartbeat('cron.vercel.viral-scan').catch(() => {}) /* watchdog-heartbeat */
   return NextResponse.json({
     ok: Object.keys(errors).length === 0,
     regions,

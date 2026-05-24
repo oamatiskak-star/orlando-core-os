@@ -2,11 +2,50 @@
 
 > **Sessie protocol** (CLAUDE.md): Lees dit bestand bij elke nieuwe Claude Code sessie. Update na elke voltooide taak. Houd het herstel-blok actueel.
 
-**Laatste update:** 2026-05-24 (sessie 5) — Routines & Automation Control Layer ALLE 6 FASES LIVE (089 + 090 intelligence + 091 analytics + 10 routes + runner + recovery + autopilot).
+**Laatste update:** 2026-05-24 (sessie 6) — Organization Watchdog (app/workflow-laag) toegevoegd aan watchdog-engine + heartbeats in 3 engines en 24 Vercel cron routes. Eerdere sessie 5 (Routines & Automation Control Layer 6/6 fases LIVE) gearchiveerd.
 
 ---
 
 ## 🔴 HERSTEL HIER NA CRASH
+
+**Sessie focus (2026-05-24, sessie 6)**: Organization Watchdog — uitbreiding op `watchdog-engine` met 5 nieuwe check types (http_ping, heartbeat, queue_depth, data_freshness, cron_lateness). Monitort nu naast Render-deploys ook alle engines, Vercel crons, verzamelaar/acquisition feeds en datafreshness.
+
+**Wat is gedaan (sessie 6):**
+- Migrations applied via MCP op project `shaunumewswpxhmgbtvv`:
+  - `092_watchdog_organization`: `infra_watchdog_checks` + `infra_watchdog_check_runs` + `infra_watchdog_heartbeats` + `incidents.check_slug/incident_kind` columns
+  - `093_watchdog_seed_checks`: 38 checks geseed (5 http_ping, 3 heartbeat, 24 cron_lateness, 2 queue_depth, 4 data_freshness)
+  - (Migrations werden initieel als 084/085 gemaakt, hernoemd naar 092/093 nadat remote main eigen 084-091 reeks doorzette)
+- `watchdog-engine/src/checks/runners/*.ts` — 5 runners
+- `watchdog-engine/src/checks/runner.ts` — orchestrator met consecutive-failure escalation, info/warn/error/critical Telegram, incident upsert (host_id='organization', deploy_id='check:<slug>:<epoch>')
+- `watchdog-engine/src/index.ts` — tick() roept nu na Render check + cleanup ook `runOrganizationChecks()` aan
+- `watchdog-engine/package.json` — `cron-parser@^4.9.0` toegevoegd
+- `watchdog-engine/heartbeat-snippet.ts` — copy-pasta helper
+- Heartbeats ingebouwd: `youtube-engine` + `planning-engine` + `competitor-scanner` (interval 5min) + 24 Vercel cron routes (via `frontend/lib/watchdog/heartbeat.ts`)
+- `render.yaml` toggle `WATCHDOG_ORG_CHECKS_ENABLED=true` toegevoegd
+
+**Render env vars nog te zetten op `orlando-watchdog`:**
+- `SUPABASE_URL`
+- `SUPABASE_SERVICE_ROLE_KEY`
+- (`WATCHDOG_ORG_CHECKS_ENABLED` zit al in render.yaml)
+
+**Hoe te testen na deploy:**
+```bash
+curl https://orlando-watchdog.onrender.com/health | jq
+# verwacht: orgChecksEnabled: true, lastOrgTickAt: <recent ISO>
+curl -X POST https://orlando-watchdog.onrender.com/check-now
+```
+```sql
+select c.slug, r.ok, r.message, r.ran_at
+from infra_watchdog_check_runs r join infra_watchdog_checks c on c.id=r.check_id
+order by r.ran_at desc limit 20;
+select slug, last_seen_at, status from infra_watchdog_heartbeats order by last_seen_at desc;
+select check_slug, failure_summary, opened_at from infra_watchdog_incidents
+where host_id='organization' and status='open' order by opened_at desc;
+```
+
+---
+
+## 🟢 Sessie 5 archief (Routines & Automation Control Layer — ALLE 6 FASES LIVE)
 
 **Sessie focus (2026-05-24, sessie 5)**: Enterprise Routines Control Center bouwen onder Dashboard Software → Build Tracker → Routines. Fase 1 (read-only observability) ✅ LIVE.
 
@@ -282,7 +321,6 @@ npm run dev
 # open http://localhost:3000/dashboard/media-holding/executive/algorithm
 # toggle Showcase ON in header → animaties versnellen, body contrast verhoogt
 # klik Swarm op een breakout → check orchestrator_tasks tabel voor nieuwe row
-```
 
 ---
 

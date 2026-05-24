@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { reportHeartbeat } from '@/lib/watchdog/heartbeat'
 
 export const revalidate = 0
 export const maxDuration = 60
@@ -124,6 +125,8 @@ export async function GET(req: NextRequest) {
     if (error) errors[`chunk_${i}`] = error.message
     else inserted += chunk.length
   }
+
+  await reportHeartbeat('cron.vercel.trend-scan').catch(() => {}) /* watchdog-heartbeat */
 
   return NextResponse.json({
     ok: Object.keys(errors).length === 0,

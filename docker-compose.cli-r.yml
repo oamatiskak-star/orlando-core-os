@@ -33,6 +33,57 @@ services:
       orlando.service: "redis"
       orlando.node: "cli-r"
 
+  # ── LanguageTool — self-hosted grammar/spelling first-pass voor language-engine ──
+  languagetool:
+    image: erikvl87/languagetool:latest
+    restart: unless-stopped
+    networks: [orlando-net]
+    ports:
+      - "8010:8010"
+    environment:
+      Java_Xms: "512m"
+      Java_Xmx: "2g"
+      langtool_languageModel: "/ngrams"
+      langtool_fasttextModel: "/fasttext/lid.176.bin"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8010/v2/languages | grep -q '\"code\"' || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    labels:
+      orlando.service: "languagetool"
+      orlando.node: "cli-r"
+
+  # ── Language Engine — multi-locale marketing QA via Claude + LanguageTool ──
+  language-engine:
+    build:
+      context: ./language-engine
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    networks: [orlando-net]
+    ports:
+      - "3007:3007"
+    environment:
+      NODE_ENV: production
+      PORT: "3007"
+      LANGUAGETOOL_URL: http://languagetool:8010
+      LOG_LEVEL: info
+    env_file:
+      - .env.cli-r
+    depends_on:
+      languagetool:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:3007/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+    labels:
+      orlando.service: "language-engine"
+      orlando.node: "cli-r"
+
   # ── Ollama — lokale LLM inference ─────────────────────────────────────────
   ollama:
     image: ollama/ollama:latest

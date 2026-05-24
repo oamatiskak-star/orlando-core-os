@@ -207,6 +207,8 @@ services:
         sync: false
       - key: WATCHDOG_DENYLIST
         value: ""
+      - key: WATCHDOG_ORG_CHECKS_ENABLED
+        value: "true"
       - key: LOG_LEVEL
         value: "info"
 

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { reportHeartbeat } from '@/lib/watchdog/heartbeat'
 
 export async function GET(request: NextRequest) {
   const authHeader = request.headers.get('authorization')
@@ -37,5 +38,6 @@ export async function GET(request: NextRequest) {
   }
 
   console.log(`Daily stats snapshot: ${channels.length} channels for ${today}`)
+  await reportHeartbeat('cron.vercel.snapshot-daily-stats').catch(() => {}) /* watchdog-heartbeat */
   return NextResponse.json({ snapshotted: channels.length, date: today })
 }

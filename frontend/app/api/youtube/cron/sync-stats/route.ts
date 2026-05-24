@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { reportHeartbeat } from '@/lib/watchdog/heartbeat'
 
 export async function GET(request: NextRequest) {
   const authHeader = request.headers.get('authorization')
@@ -14,5 +15,6 @@ export async function GET(request: NextRequest) {
   })
 
   const data = await res.json().catch(() => ({}))
+  await reportHeartbeat('cron.vercel.sync-stats').catch(() => {}) /* watchdog-heartbeat */
   return NextResponse.json({ ok: res.ok, ...data })
 }

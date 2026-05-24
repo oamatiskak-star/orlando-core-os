@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { reportHeartbeat } from '@/lib/watchdog/heartbeat'
 
 // How many days of analytics to fetch per run
 const ANALYTICS_WINDOW_DAYS = 7
@@ -221,6 +222,8 @@ export async function GET(request: NextRequest) {
   } catch (e) {
     console.error('[DEDUP] fout tijdens dedup controle:', e)
   }
+
+  await reportHeartbeat('cron.vercel.sync-video-analytics').catch(() => {}) /* watchdog-heartbeat */
 
   return NextResponse.json({ ok, total: channels.length, results, dedup: dedupResult })
 }

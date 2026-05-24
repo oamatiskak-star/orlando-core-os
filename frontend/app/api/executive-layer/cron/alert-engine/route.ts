@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { detectAllAlerts } from '@/lib/executive-layer/alert-detectors'
+import { reportHeartbeat } from '@/lib/watchdog/heartbeat'
 
 export const revalidate = 0
 export const maxDuration = 60
@@ -52,6 +53,8 @@ export async function GET(req: NextRequest) {
 
   const byKind: Record<string, number> = {}
   for (const r of fresh) byKind[r.alert_kind] = (byKind[r.alert_kind] ?? 0) + 1
+
+  await reportHeartbeat('cron.vercel.executive.alert').catch(() => {}) /* watchdog-heartbeat */
 
   return NextResponse.json({
     detected: candidates.length,

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { reportHeartbeat } from '@/lib/watchdog/heartbeat'
 
 export const revalidate = 0
 export const maxDuration = 60
@@ -45,6 +46,8 @@ export async function GET(req: NextRequest) {
     fetch(`${engineUrl}/agents/offmarket-ai/run`, { method: 'POST' })
       .catch(() => { /* fire-and-forget */ })
   }
+
+  await reportHeartbeat('cron.vercel.acquisition.offmarket-scan').catch(() => {}) /* watchdog-heartbeat */
 
   return NextResponse.json({ ok: true, job_id: job.id, new_leads: newLeads, duration_ms: Date.now() - startedAt })
 }
