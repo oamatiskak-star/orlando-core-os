@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
+import { computeNextCron } from '@/lib/routines/cron'
 import type { RoutineKind, RoutineStatus, StepType, TriggerKind } from '@/lib/routines/types'
 
 /**
@@ -480,43 +481,5 @@ export async function dismissAlert(formData: FormData) {
   revalidatePath('/dashboard/build-tracker/routines/recovery')
 }
 
-// ── computeNextCron — minimale cron-evaluatie zonder externe deps ────────
-// Ondersteunt: minute (0-59 of *), hour (0-23 of *), dom/month/dow als * of *.
-// Voor complexere expressies (lijst, range, step) faalt deze en moet je een
-// echte cron-parser gebruiken (komt in Fase 3 met `cron-parser` npm dep).
-export function computeNextCron(expr: string): string | null {
-  const parts = expr.trim().split(/\s+/)
-  if (parts.length !== 5) return null
-
-  const [m, h, dom, mon, dow] = parts
-  if (dom !== '*' || mon !== '*' || dow !== '*') {
-    // Voor v1: alleen wildcard op DOM/MON/DOW
-    return null
-  }
-
-  const now = new Date()
-  const candidate = new Date(now)
-  candidate.setSeconds(0, 0)
-
-  const matchM = m === '*' ? null : Number(m)
-  const matchH = h === '*' ? null : Number(h)
-
-  if (matchM !== null && (matchM < 0 || matchM > 59 || isNaN(matchM))) return null
-  if (matchH !== null && (matchH < 0 || matchH > 23 || isNaN(matchH))) return null
-
-  // Zoek volgende geldige minuut binnen 25 uur
-  for (let i = 0; i < 60 * 25; i++) {
-    candidate.setTime(candidate.getTime() + 60_000)
-    if (matchH !== null && candidate.getHours() !== matchH) continue
-    if (matchM !== null && candidate.getMinutes() !== matchM) continue
-    return candidate.toISOString()
-  }
-
-  // Voor `* * * * *` retourneer gewoon nu + 1 minuut
-  if (m === '*' && h === '*') {
-    candidate.setTime(now.getTime() + 60_000)
-    return candidate.toISOString()
-  }
-
-  return null
-}
+// computeNextCron leeft in @/lib/routines/cron (synchronous helper, mag
+// niet uit een 'use server' module geëxporteerd worden).
