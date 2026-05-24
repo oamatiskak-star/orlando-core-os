@@ -17,6 +17,16 @@ interface CheckState {
 
 const stateByCheckId = new Map<string, CheckState>()
 
+// Boot grace: don't fire Telegram alerts or open incidents during the first
+// few minutes after the watchdog (re)starts. Reason: fresh state means every
+// failing check looks like "consecutiveFailures=1" and would spam the channel.
+// Check_runs are still recorded so the dashboard is accurate from second 0.
+const PROCESS_START_MS = Date.now()
+const BOOT_GRACE_MS = parseInt(process.env.WATCHDOG_BOOT_GRACE_MS ?? '120000', 10)
+function inBootGrace(): boolean {
+  return Date.now() - PROCESS_START_MS < BOOT_GRACE_MS
+}
+
 function defaultState(): CheckState {
   return { consecutiveFailures: 0, lastRunAt: 0, escalated: false, lastIncidentKey: null, wasFailing: false }
 }
@@ -86,6 +96,12 @@ export async function runOrganizationChecks(supabaseUrl: string, supabaseKey: st
     state.wasFailing = true
     stateByCheckId.set(raw.id, state)
 
+    if (inBootGrace()) {
+      // Record the run but stay silent — the dashboard reflects reality from
+      // tick 1, while operators don't get a flood of alerts on every restart.
+      continue
+    }
+
     if (state.consecutiveFailures === 1) {
       await sendTelegram(
         raw.severity,
@@ -100,7 +116,9 @@ export async function runOrganizationChecks(supabaseUrl: string, supabaseKey: st
     }
 
     if (!state.escalated && state.consecutiveFailures >= raw.consecutive_failures_to_escalate) {
-      const incidentKey = `check:${raw.slug}:${now}`
+      // Stable incident key per slug — re-failures after resolution simply
+      // re-open the same row (upsert), avoiding a graveyard of duplicates.
+      const incidentKey = `check:${raw.slug}`
       await openCheckIncident(client, raw, result, incidentKey, state.consecutiveFailures)
       state.escalated = true
       state.lastIncidentKey = incidentKey
@@ -165,6 +183,7 @@ async function openCheckIncident(
         proposed_actions: proposedActions(check, result),
         status: 'open',
         opened_at: new Date().toISOString(),
+        resolved_at: null,
         check_slug: check.slug,
         incident_kind: 'check_failure'
       },
