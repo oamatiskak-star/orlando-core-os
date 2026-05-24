@@ -40,5 +40,18 @@ module.exports = {
       watch:       false,
       env:         { NODE_ENV: 'production' },
     },
+    {
+      name:        'routines-runner',
+      script:      'dist/routines-runner.js',
+      instances:   1,
+      autorestart: true,
+      watch:       false,
+      env:         {
+        NODE_ENV: 'production',
+        ROUTINES_SERVICE_ID:   'local-agent-macmini',
+        ROUTINES_SERVICE_NAME: 'Routines Runner (Mac mini)',
+        WATCHDOG_HOST_ID:      'cli-l',
+      },
+    },
   ],
 }

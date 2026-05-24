@@ -177,6 +177,14 @@ export const NAV_MODULES: Record<string, NavModuleDef> = {
   // ── BUILD TRACKER (per-entity) ────────────────────────────────────────────
   build_tracker:       { key: 'build_tracker',       label: 'Build Tracker',           href: '/dashboard/build-tracker',           icon: Hammer },
 
+  // ── ROUTINES CONTROL CENTER (meta-supervisor laag binnen Build Tracker) ──
+  // Fase 1 modules — read-only observability. Builder/Recovery/Settings/
+  // Intelligence/Analytics komen in latere fases (zie layout sub-nav).
+  routines_hub:    { key: 'routines_hub',    label: 'Routines Control',   href: '/dashboard/build-tracker/routines',         icon: Workflow },
+  routines_live:   { key: 'routines_live',   label: 'Live Operations',    href: '/dashboard/build-tracker/routines/live',    icon: Activity },
+  routines_agents: { key: 'routines_agents', label: 'Routine Agents',     href: '/dashboard/build-tracker/routines/agents',  icon: Bot },
+  routines_logs:   { key: 'routines_logs',   label: 'Routine Audit Log',  href: '/dashboard/build-tracker/routines/logs',    icon: Terminal },
+
   // ── ACQUISITION INTELLIGENCE ─────────────────────────────────────────────
   acq_deal_desk:      { key: 'acq_deal_desk',      label: 'Deal Desk',            href: '/dashboard/acquisition',                     icon: Target },
   acq_deals:          { key: 'acq_deals',          label: 'DealRadar',            href: '/dashboard/acquisition/deals',               icon: Radar },
@@ -215,6 +223,7 @@ export const COMPANY_NAV: Record<string, CompanyNav> = {
       { title: 'Persoonlijk', modules: ['dyme_os', 'personal_finance', 'dga_loonstrook', 'loonstroken', 'financien'] },
       { title: 'Bedrijven', modules: ['bedrijven'] },
       { title: 'Operationeel', modules: ['build_tracker', 'agenda', 'taken', 'planning', 'crm'] },
+      { title: 'Routines Control', modules: ['routines_hub', 'routines_live', 'routines_agents', 'routines_logs'] },
       { title: 'Operations Center', modules: ['ops_dashboard', 'ops_workflows', 'ops_routines', 'ops_agents', 'ops_scheduler', 'ops_queue', 'ops_logs', 'ops_errors', 'ops_automations', 'ops_api', 'ops_dil', 'ops_suggestions', 'ops_manual', 'ops_templates', 'ops_webhooks', 'ops_analytics', 'ops_company_settings', 'ops_global_settings', 'infra', 'worktree_manager'] },
       { title: 'Mail Engine', modules: ['mail_dashboard', 'mail_agents', 'mail_workflows', 'mail_rules', 'mail_dossiers', 'mail_inbox'] },
       { title: 'AI & Workflow', modules: ['agents', 'workflows', 'orchestrator'] },
@@ -237,6 +246,7 @@ export const COMPANY_NAV: Record<string, CompanyNav> = {
         ],
       },
       { title: 'Operationeel', modules: ['build_tracker', 'projecten', 'planning', 'crm', 'documenten', 'agenda', 'taken'] },
+      { title: 'Routines Control', modules: ['routines_hub', 'routines_live', 'routines_agents', 'routines_logs'] },
     ],
     globalBottom: ['meldingen', 'instellingen'],
   },
@@ -257,6 +267,7 @@ export const COMPANY_NAV: Record<string, CompanyNav> = {
       { title: 'Social Media', modules: ['instagram', 'tiktok'] },
       { title: 'Finance', modules: ['finance_incasso', 'financien'] },
       { title: 'Operationeel', modules: ['build_tracker', 'projecten', 'planning', 'crm', 'documenten', 'agenda', 'taken'] },
+      { title: 'Routines Control', modules: ['routines_hub', 'routines_live', 'routines_agents', 'routines_logs'] },
     ],
     globalBottom: ['meldingen', 'instellingen'],
   },
@@ -270,6 +281,7 @@ export const COMPANY_NAV: Record<string, CompanyNav> = {
       { title: 'SaaS', modules: ['projecten'] },
       { title: 'Finance', modules: ['finance_incasso', 'financien'] },
       { title: 'Operationeel', modules: ['build_tracker', 'planning', 'crm', 'documenten', 'agenda', 'taken'] },
+      { title: 'Routines Control', modules: ['routines_hub', 'routines_live', 'routines_agents', 'routines_logs'] },
     ],
     globalBottom: ['meldingen', 'instellingen'],
   },
@@ -290,6 +302,7 @@ export const COMPANY_NAV: Record<string, CompanyNav> = {
       { title: 'CRM', modules: ['crm'] },
       { title: 'Finance', modules: ['finance_incasso', 'financien', 'belasting', 'abonnementen'] },
       { title: 'Operationeel', modules: ['build_tracker', 'documenten', 'agenda', 'taken'] },
+      { title: 'Routines Control', modules: ['routines_hub', 'routines_live', 'routines_agents', 'routines_logs'] },
     ],
     globalBottom: ['meldingen', 'instellingen'],
   },
@@ -303,6 +316,7 @@ export const COMPANY_NAV: Record<string, CompanyNav> = {
       { title: 'CRM', modules: ['crm'] },
       { title: 'Finance', modules: ['finance_incasso', 'financien', 'belasting', 'abonnementen'] },
       { title: 'Operationeel', modules: ['build_tracker', 'documenten', 'agenda', 'taken'] },
+      { title: 'Routines Control', modules: ['routines_hub', 'routines_live', 'routines_agents', 'routines_logs'] },
     ],
     globalBottom: ['meldingen', 'instellingen'],
   },
@@ -315,6 +329,7 @@ export const COMPANY_NAV: Record<string, CompanyNav> = {
       { title: 'CRM', modules: ['crm'] },
       { title: 'Finance', modules: ['finance_incasso', 'moneybird_live', 'financien', 'belasting', 'abonnementen'] },
       { title: 'Operationeel', modules: ['build_tracker', 'documenten', 'agenda', 'taken'] },
+      { title: 'Routines Control', modules: ['routines_hub', 'routines_live', 'routines_agents', 'routines_logs'] },
     ],
     globalBottom: ['meldingen', 'instellingen'],
   },

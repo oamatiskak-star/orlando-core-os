@@ -2,11 +2,123 @@
 
 > **Sessie protocol** (CLAUDE.md): Lees dit bestand bij elke nieuwe Claude Code sessie. Update na elke voltooide taak. Houd het herstel-blok actueel.
 
-**Laatste update:** 2026-05-23 (sessie 4) — Multi-entity dashboard refactor + Build Tracker + Aquier timeline + Supabase project swap (sterkbouww → orlando-core-os). Sessie 3 (Aquier Checkout Auditor pipeline, €515K/mo recovery scope) gearchiveerd onderaan.
+**Laatste update:** 2026-05-24 (sessie 5) — Routines & Automation Control Layer ALLE 6 FASES LIVE (089 + 090 intelligence + 091 analytics + 10 routes + runner + recovery + autopilot).
 
 ---
 
 ## 🔴 HERSTEL HIER NA CRASH
+
+**Sessie focus (2026-05-24, sessie 5)**: Enterprise Routines Control Center bouwen onder Dashboard Software → Build Tracker → Routines. Fase 1 (read-only observability) ✅ LIVE.
+
+**Wat is gedaan deze sessie:**
+- ✅ Migratie 087 (`per_entity_fundatie.sql`) en 088 (`build_tracker_seed.sql`) als idempotente files gereconstrueerd (waren via MCP applied zonder file in repo)
+- ✅ Migratie **089 `routines_control_center.sql`** applied via MCP — 9 nieuwe tabellen + view + functies + pg_cron jobs:
+  * `routines`, `routine_steps`, `routine_triggers`, `routine_runs`, `routine_run_steps`, `routine_approvals`, `routine_agents_map`, `routine_autopilot_config`, `routine_audit_log` (immutable via PG RULE)
+  * ALTER `orchestrator_tasks` + `triggered_by_routine_run_id` column
+  * VIEW `v_system_health` — unions van acq_agent_registry + executive_agents + infra_watchdog_events (<1h) + orchestrator queue depth + routine_runs counts (<24h)
+  * Functies `routines_dispatch_cron_triggers()` + `routines_health_sweep()` (security definer)
+  * pg_cron jobs `routines_dispatch_cron` (`* * * * *`) en `routines_health_sweep` (`*/5 * * * *`)
+  * RLS enabled met `service_role` full access + `authenticated` read-only
+- ✅ Frontend Fase 1 routes onder `/dashboard/build-tracker/routines/`:
+  * `layout.tsx` — sub-nav met 4 actieve + 6 toekomstige routes (greyed met fase-label)
+  * `page.tsx` — Routines hub: 5 KPI tiles (active routines/runs/paused/agents/watchdog) + per-company routine list
+  * `live/page.tsx` — Live Operations: active runs + orchestrator queue per executor + recente runs (24u)
+  * `agents/page.tsx` — System Health: alle bronnen uit v_system_health gegroepeerd (acq/executive/watchdog/orchestrator/routines)
+  * `logs/page.tsx` — Immutable audit log met filter op action+actor + paginatie
+- ✅ Shared lib: `lib/routines/types.ts` + `lib/routines/badges.tsx` (RoutineStatusBadge / RunStatusBadge / HealthStatusBadge)
+- ✅ `nav-config.ts` uitgebreid met 4 modules + "Routines Control" sectie in ALLE 7 COMPANY_NAVs (osm, modiwerijo, modiwe-media, modiwe-software, strkbeheer, strkbouw, bouwproffs)
+- ✅ Type-check pass (tsc --noEmit, exit 0)
+- ✅ Verificatie via MCP: `select source, count(*) from v_system_health group by source` → acq:9, executive:6, orchestrator:12 (live data, no mocks)
+
+**Fase 2 toegevoegd in deze sessie:**
+- ✅ Server actions `actions.ts` — createRoutine, updateRoutine, addStep, setTrigger, runRoutineNow, pauseRoutine, resumeRoutine, cancelRun + ingebouwde minimale cron-parser `computeNextCron`
+- ✅ Builder route `routines/builder/page.tsx` — form-based v1 (name/kind/description/company/status)
+- ✅ Detail route `routines/[id]/page.tsx` — RoutineStatusBadge header, steps list met inline AddStep form, triggers list met inline AddTrigger form, runs table met cancel-action, Run/Pause/Resume knoppen
+- ✅ Layout sub-nav: Builder gemarkeerd als `live`
+- ✅ Local-agent `src/routines-runner.ts` — polling claim van queued runs, step executor (action.http / action.supabase_rpc / delay / condition.jsonpath / approval / fallback), service-heartbeat in infra_watchdog_events, run-heartbeat elke 30s
+- ✅ `ecosystem.config.js` — `routines-runner` PM2 app toegevoegd (env: ROUTINES_SERVICE_ID, ROUTINES_SERVICE_NAME, WATCHDOG_HOST_ID)
+- ✅ TS-check: frontend EXIT=0, local-agent EXIT=0 (na `npm install`)
+
+**Fase 3 toegevoegd in deze sessie:**
+- ✅ `POST /api/routines/heartbeat` — token-protected (X-Routines-Token = env ROUTINES_TOKEN), remote runners updaten routine_runs.heartbeat_at + insert/update routine_run_steps + finaliseer status
+- ✅ `POST /api/routines/webhook/[secret]` — SHA-256 hash check tegen `routine_triggers.config.secret_hash`, alleen voor enabled webhook-triggers waar routine.status='active', enqueue routine_runs + audit log
+- ✅ pg_cron `routines_dispatch_cron` (* * * * *) en `routines_health_sweep` (*/5 * * * *) actief — bevestigd via `cron.job` query
+
+**Fase 4 toegevoegd in deze sessie:**
+- ✅ Server actions toegevoegd aan actions.ts: `restartRun` (zet vorige op `recovered`, enqueue retry met `parent_run_id`), `approveStep` / `denyStep` / `deferStep`, `setAutopilot` (upsert routine_autopilot_config), `ackRecommendation` / `dismissAlert`
+- ✅ `/routines/recovery` — KpiStrip (failed runs / pending approvals / watchdog incidents / routine alerts) + failed+paused runs tabel met restart/cancel acties + pending approvals lijst met inline approve/deny/defer + open watchdog incidents + routine alerts met ack-knop
+- ✅ `/routines/settings` — Per-routine autopilot config UI (`auto_recover` / `auto_escalate` checkboxes + `auto_approve_threshold` cents)
+
+**Fase 5 toegevoegd in deze sessie:**
+- ✅ Migratie **090 `routines_intelligence.sql`** applied — 4 detectie-functies + dispatcher:
+  * `routines_detect_duplications()` — meerdere routines met zelfde HTTP URL → `executive_recommendations.action_kind='dedupe_routines'`
+  * `routines_detect_bottlenecks()` — avg duration >30 min over recent 5+ runs (7d) → `executive_alerts.alert_kind='bottleneck'`
+  * `routines_detect_dead_routines()` — active routine zonder runs in 14d → `executive_recommendations.action_kind='archive_dead_routine'`
+  * `routines_detect_recovery_gaps()` — failed runs zonder retry binnen 24u → `executive_alerts.alert_kind='recovery_gap'`
+  * `routines_intelligence_tick()` — dispatcher, logt naar `routine_audit_log` met `action='intelligence.tick'`
+- ✅ pg_cron `routines_intelligence_tick` (*/15 * * * *) actief
+- ✅ `/routines/intelligence` — Recommendations + Alerts lijst met ack-acties + Tick history tabel
+
+**Fase 6 toegevoegd in deze sessie:**
+- ✅ Migratie **091 `routines_analytics.sql`** applied — 3 SQL functies:
+  * `routine_metrics_window(p_days)` → jsonb met total_runs, success_rate, failure_rate, avg_seconds, total_cost_cents, automation_ratio, human_intervention_ratio
+  * `routine_metrics_by_day(p_days)` → per-dag breakdown (date, total_runs, completed, failed, avg_seconds)
+  * `routine_top_runners(p_days, p_limit)` → top routines op runcount
+- ✅ `/routines/analytics?days=7|14|30|90` — KpiStrip + Automation vs human-intervention block + per-day bar chart + Top runners tabel
+- ✅ `/routines/workflows` — Grid van `kind='workflow'` routines per company met step/trigger counts + last-run-status
+
+**Subnav layout**: alle 10 routes nu `status='live'` (geen greyed F-labels meer).
+
+**3 pg_cron jobs actief**: `routines_dispatch_cron` (* * * * *), `routines_health_sweep` (*/5 * * * *), `routines_intelligence_tick` (*/15 * * * *)
+
+**Open punten (pre-deploy)**:
+1. `ROUTINES_TOKEN` env zetten op Vercel + local-agent `.env` (random 32-char hex)
+2. Local-agent build + start: `cd local-agent && npm install && npm run build && pm2 start ecosystem.config.js --only routines-runner && pm2 save`
+3. End-to-end test: maak routine via Builder → step action.http met url=https://httpbin.org/get → Run now → completed binnen 5s
+
+**Verificatie commands:**
+```bash
+cd /Users/o.s.m.amatiskak/Github/orlando-core-os/frontend
+npm run dev  # of nohup
+
+# Browser:
+#   /dashboard/build-tracker/routines           → KPI strip + routines lijst
+#   /dashboard/build-tracker/routines/builder   → nieuw routine form
+#   /dashboard/build-tracker/routines/<uuid>    → detail: steps + triggers + runs + Run now / Pause / Cancel knoppen
+#   /dashboard/build-tracker/routines/live      → active + orchestrator queue + recente runs (24u)
+#   /dashboard/build-tracker/routines/agents    → acq(9) + executive(6) + watchdog + orchestrator + routines
+#   /dashboard/build-tracker/routines/logs      → immutable audit log met filter
+
+# End-to-end test:
+#   1. Open /builder → maak routine "Health Probe", kind=workflow, status=active
+#   2. Detail-pagina: voeg step type=action met config: {"type": "http", "url": "https://httpbin.org/get"}
+#   3. Klik "Run now" — routine_runs.status='queued' wordt geinsert
+#   4. Local-agent draait via PM2: `pm2 start ecosystem.config.js --only routines-runner`
+#   5. Within 5s: status='running' → completed met output in routine_run_steps
+
+# Supabase MCP:
+#   SELECT source, count(*) FROM v_system_health GROUP BY source;
+#   SELECT jobname, schedule, active FROM cron.job WHERE jobname LIKE 'routines%';
+#   SELECT status, count(*) FROM routine_runs GROUP BY status;
+
+# API test (na ROUTINES_TOKEN gezet op Vercel + lokaal):
+curl -X POST https://<vercel-url>/api/routines/heartbeat \
+  -H "X-Routines-Token: $ROUTINES_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"run_id":"<uuid>","status":"heartbeat","service_id":"test-runner"}'
+```
+
+**Bekende kwesties:**
+- pg_cron `routines_dispatch_cron` draait elke minuut maar doet niets tot een `routine_triggers` rij met `kind='cron'` + `next_run_at` aanwezig is (komt in Fase 2 builder).
+- `oc_routines` + `oc_routine_runs` legacy tabellen onder `/dashboard/operations/routines/` blijven actief naast nieuwe tabellen — geen migratie naar nieuwe schema gepland.
+
+---
+
+## 🔵 Sessie 4 archief (2026-05-23) — Multi-entity dashboard refactor
+
+> Sessie 4 was: dashboard UX-overhaul (cookie-synced per-entity landings, role-based nav, Build Tracker) + DB-swap. Migraties 086 + 087 + 088 applied (laatste twee zonder file). Volledige sessie-notities staan hieronder ongewijzigd.
+
+## 🔴 HERSTEL HIER NA CRASH (vorige sessie)
 
 **Sessie focus (2026-05-23, sessie 3)**: Aquier Checkout Auditor end-to-end LIVE op Render. 56-scenario matrix audit tegen aquier.com productie geleverd → 16 findings + 17 approvals in queue + €515K/mo revenue risk. ✅
 

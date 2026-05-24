@@ -29,3 +29,6 @@ executive-engine/node_modules/
 executive-engine/dist/
 planning-engine/node_modules/
 planning-engine/dist/
+local-agent/node_modules/
+local-agent/dist/
+local-agent/.env
