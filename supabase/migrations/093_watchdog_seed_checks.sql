@@ -34,6 +34,12 @@ values
     '{"max_latency_ms":5000}',
     300, 3, 'critical', 'Self-ping. If watchdog itself goes down, Render watchdog at infra layer should still alert via deploy.'),
 
+  -- ───── HTTP ping: Vercel frontend ─────
+  ('frontend.vastgoed-core.health', 'Vastgoed Frontend /health', 'http_ping', 'app', 'vercel-frontend',
+    '{"url":"https://vastgoed-core-front.vercel.app/api/health","timeout_ms":10000}',
+    '{"max_latency_ms":8000}',
+    120, 2, 'error', 'Vercel frontend deployment. Critical path for UI and cron endpoint discovery.'),
+
   -- ───── Heartbeats: workers without HTTP (youtube-engine, executor, competitor-scanner) ─────
   ('engine.youtube-engine.tick', 'YouTube Engine main loop', 'heartbeat', 'app', 'render-worker',
     '{"slug":"engine.youtube-engine.tick"}',
