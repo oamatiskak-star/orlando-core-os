@@ -1,29 +1,27 @@
-export type AnalyseEvent =
+type StreamEvent =
   | { kind: 'chunk'; text: string }
-  | { kind: 'done'; strategieId: string | null; analyse: string }
+  | { kind: 'done'; analyse: string; strategieId: string | null }
   | { kind: 'error'; error: string }
-
-export type AnalyseFinal = {
-  strategieId: string | null
-  analyse: string
-}
 
 export async function consumeAnalyseStream(
   res: Response,
-  onEvent: (event: AnalyseEvent) => void,
-): Promise<AnalyseFinal> {
+  onEvent: (event: StreamEvent) => void
+): Promise<{ analyse: string; strategieId: string | null }> {
   if (!res.ok || !res.body) {
-    const message = !res.body
-      ? `Geen response stream (status ${res.status})`
-      : `HTTP ${res.status}`
+    let message = `HTTP ${res.status}`
+    try {
+      const text = await res.text()
+      const parsed = JSON.parse(text) as { error?: string }
+      if (parsed.error) message = parsed.error
+    } catch {}
     throw new Error(message)
   }
 
   const reader = res.body.getReader()
   const decoder = new TextDecoder()
   let buffer = ''
-  let final: AnalyseFinal = { strategieId: null, analyse: '' }
-  let errorMessage: string | null = null
+  let finalAnalyse = ''
+  let finalStrategieId: string | null = null
 
   while (true) {
     const { value, done } = await reader.read()
@@ -35,42 +33,28 @@ export async function consumeAnalyseStream(
       const raw = buffer.slice(0, sep)
       buffer = buffer.slice(sep + 2)
 
-      let eventName = 'message'
-      const dataLines: string[] = []
+      let event = 'message'
+      let data = ''
       for (const line of raw.split('\n')) {
-        if (line.startsWith('event:')) {
-          eventName = line.slice(6).trim()
-        } else if (line.startsWith('data:')) {
-          dataLines.push(line.slice(5).replace(/^ /, ''))
-        }
+        if (line.startsWith('event:')) event = line.slice(6).trim()
+        else if (line.startsWith('data:')) data += line.slice(5).trim()
       }
-      if (dataLines.length === 0) continue
+      if (!data) continue
 
-      let payload: unknown
-      try {
-        payload = JSON.parse(dataLines.join('\n'))
-      } catch {
-        continue
-      }
-
-      if (eventName === 'chunk') {
-        const text = (payload as { text?: unknown })?.text
-        if (typeof text === 'string') onEvent({ kind: 'chunk', text })
-      } else if (eventName === 'done') {
-        const p = payload as { strategieId?: unknown; analyse?: unknown }
-        final = {
-          strategieId: typeof p.strategieId === 'string' ? p.strategieId : null,
-          analyse: typeof p.analyse === 'string' ? p.analyse : '',
-        }
-        onEvent({ kind: 'done', strategieId: final.strategieId, analyse: final.analyse })
-      } else if (eventName === 'error') {
-        const err = (payload as { error?: unknown })?.error
-        errorMessage = typeof err === 'string' ? err : 'Onbekende streamfout'
-        onEvent({ kind: 'error', error: errorMessage })
+      const payload = JSON.parse(data)
+      if (event === 'chunk') {
+        finalAnalyse += payload.text
+        onEvent({ kind: 'chunk', text: payload.text })
+      } else if (event === 'done') {
+        finalAnalyse = payload.analyse ?? finalAnalyse
+        finalStrategieId = payload.strategieId ?? null
+        onEvent({ kind: 'done', analyse: finalAnalyse, strategieId: finalStrategieId })
+      } else if (event === 'error') {
+        onEvent({ kind: 'error', error: payload.error })
+        throw new Error(payload.error)
       }
     }
   }
 
-  if (errorMessage) throw new Error(errorMessage)
-  return final
+  return { analyse: finalAnalyse, strategieId: finalStrategieId }
 }
