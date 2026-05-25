@@ -8,6 +8,7 @@ import healthRouter from './routes/health'
 import runRouter from './routes/run'
 import discoverRouter from './routes/discover'
 import cleanupRouter from './routes/cleanup'
+import stripeInspectRouter from './routes/stripe-inspect'
 import { runAudit } from './runner/audit-runner'
 import { runDiscovery } from './discovery'
 import { supabase } from './lib/supabase'
@@ -20,6 +21,7 @@ app.use(healthRouter)
 app.use(runRouter)
 app.use(discoverRouter)
 app.use(cleanupRouter)
+app.use(stripeInspectRouter)
 
 app.get('/', (_req, res) => {
   res.json({ service: 'checkout-auditor', endpoints: ['GET /health', 'POST /run', 'POST /discover', 'POST /cleanup'] })
