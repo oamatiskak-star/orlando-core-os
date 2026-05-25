@@ -9,7 +9,6 @@ import runRouter from './routes/run'
 import discoverRouter from './routes/discover'
 import cleanupRouter from './routes/cleanup'
 import stripeInspectRouter from './routes/stripe-inspect'
-import { runAudit } from './runner/audit-runner'
 import { runDiscovery } from './discovery'
 import { supabase } from './lib/supabase'
 import { deleteArtifact } from './lib/storage'
@@ -61,11 +60,14 @@ cron.schedule('0 3 * * *', () => {
   })()
 }, { timezone: env.AGENT_TIMEZONE })
 
-// 04:00 NL — daily audit
-cron.schedule('0 4 * * *', () => {
-  logger.info('cron: audit start')
-  runAudit({}, 'cron').catch(err => logger.error({ err: String(err) }, 'daily audit failed'))
-}, { timezone: env.AGENT_TIMEZONE })
+// GEEN nachtelijke checkout-audit cron.
+// Een volledige audit-walkthrough klikt de CTA en laat aquier.com een ECHTE
+// cs_live_ Stripe-sessie aanmaken. Nachtelijk draaien (lege scope, cap 20)
+// produceerde elke nacht ~20 verlaten cs_live_ sessies tegen productie-Stripe
+// + vervuilde vastgoed_core.checkout_events + PostHog. De 03:00 discovery dekt
+// de dagelijkse validatie (routes/prijzen/tier-beschikbaarheid, alle tiers)
+// ZONDER sessies te maken. Volledige checkout-audits draai je expliciet via
+// POST /run met een gekozen scope (of in Stripe test-mode — zie Phase 3).
 
 // Sunday 02:00 NL — artifact cleanup
 cron.schedule('0 2 * * 0', () => {
