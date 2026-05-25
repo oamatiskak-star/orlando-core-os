@@ -2,7 +2,49 @@
 
 > **Sessie protocol** (CLAUDE.md): Lees dit bestand bij elke nieuwe Claude Code sessie. Update na elke voltooide taak. Houd het herstel-blok actueel.
 
-**Laatste update:** 2026-05-24 (sessie 6) — Organization Watchdog (app/workflow-laag) toegevoegd aan watchdog-engine + heartbeats in 3 engines en 24 Vercel cron routes. Eerdere sessie 5 (Routines & Automation Control Layer 6/6 fases LIVE) gearchiveerd.
+**Laatste update:** 2026-05-25 (sessie 7) — Incident relay (event-driven) toegevoegd aan Routines Control: pg_trigger op executive_alerts + Vercel `/api/routines/incident-relay` met Telegram + Claude CronCreate 6h durable. Sessie 6 (Organization Watchdog) en sessie 5 (Routines 6/6) gearchiveerd onderaan.
+
+---
+
+## 🔴 HERSTEL HIER NA CRASH (sessie 7)
+
+**Sessie focus (2026-05-25, sessie 7)**: User wilde "alle routines altijd uitvoeren". Eerlijk gemaakt: memory voert niets uit. Wel:
+- Memory `project_routines_control_center.md` geschreven zodat toekomstige Claude-sessies systeem kennen
+- Event-driven incident-pipeline gebouwd (optie C: pg_trigger + CronCreate combined)
+
+**Wat is gedaan (sessie 7):**
+- ✅ Migratie **094 `routines_incident_telegram.sql`** applied via MCP — `routines_incident_config` singleton-tabel + `routines_dispatch_incident_alert(p_alert_id)` SECURITY DEFINER fn + `trg_routines_incident_relay` AFTER INSERT trigger op `executive_alerts` (alleen `target_kind='routine' AND severity in ('critical','high')`)
+- ✅ Vercel endpoint `POST /api/routines/incident-relay`: X-Routines-Token auth, ontvangt pg_trigger payload (alert + routine + context met failed_runs_1h + open_watchdog_incidents), formatteert als MarkdownV2 Telegram-bericht met severity-emoji, schrijft audit-log row. GET geeft config-status terug.
+- ✅ CronCreate job `be915432` — elke 6u (`7 */6 * * *`) doet diepere AI-triage: query alle unack alerts + failed runs (24u) + pending recommendations + v_system_health. Bij findings: rapport + roept incident-relay endpoint aan. Bij niets: één regel "Routines OK". Tool meldde "Session-only" ondanks `durable: true` — gedrag onbekend, mogelijk gone na sessie-exit.
+- ✅ Memory `project_routines_control_center.md` toegevoegd + MEMORY.md index bijgewerkt
+
+**Pre-deploy todo (vóór incident-relay werkt):**
+1. **3 Vercel env vars zetten** op orlando-core-os (Production + Preview + Development):
+   ```
+   ROUTINES_TOKEN     = <openssl rand -hex 32>
+   TELEGRAM_BOT_TOKEN = <bot token uit watchdog Render service>
+   TELEGRAM_CHAT_ID   = 7583931210   # Orlando's chat
+   ```
+2. **routines_incident_config invullen** via Supabase SQL editor (zelfde ROUTINES_TOKEN als Vercel):
+   ```sql
+   UPDATE public.routines_incident_config
+   SET relay_url   = 'https://<vercel-prod-url>/api/routines/incident-relay',
+       relay_token = '<zelfde ROUTINES_TOKEN als Vercel>',
+       enabled     = true,
+       updated_at  = now()
+   WHERE id = 1;
+   ```
+3. **Smoke test pg_trigger**:
+   ```sql
+   INSERT INTO public.executive_alerts (alert_kind, severity, target_kind, target_id, title, message, payload)
+   VALUES ('test_smoke', 'high', 'routine', null, 'Smoke test', 'Verifieer Telegram-relay', '{}'::jsonb);
+   ```
+   Verwacht: Telegram-bericht binnen 2s, audit-log row `incident.telegram_sent`, `net._http_response` entry 200.
+4. **CronCreate persistence verifiëren**: hervat sessie morgen, run `/loop` of CronList. Als job `be915432` weg is → opnieuw CronCreate met expliciet `durable: true`.
+
+---
+
+## 🟡 Sessie 6 archief (Organization Watchdog)
 
 ---
 
