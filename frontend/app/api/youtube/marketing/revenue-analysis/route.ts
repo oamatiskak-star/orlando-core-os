@@ -1,13 +1,10 @@
-import { createClient } from '@supabase/supabase-js'
 import { NextRequest, NextResponse } from 'next/server'
+import { getServerSupabaseClient } from '@/lib/supabase/server-client'
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-)
 
 export async function GET(request: NextRequest) {
   try {
+    const supabase = getServerSupabaseClient()
     const { searchParams } = new URL(request.url)
     const channelId = searchParams.get('channelId')
 
@@ -19,19 +16,19 @@ export async function GET(request: NextRequest) {
     }
 
     // Get revenue by content type
-    const { data: revenueByType, error: revError } = await supabase
-      .from('revenue_per_content_type')
+    const { data: revenueByType, error: revError } = await (supabase
+      .from('revenue_per_content_type') as any)
       .select('*')
       .eq('channel_id', channelId)
-      .order('total_revenue', { ascending: false })
+      .order('total_revenue', { ascending: false }) as { data: any[], error: any }
 
     if (revError) throw revError
 
     // Get total analytics for projection
-    const { data: analytics } = await supabase
-      .from('youtube_video_analytics')
+    const { data: analytics } = await (supabase
+      .from('youtube_video_analytics') as any)
       .select('estimated_revenue, views, watch_time_minutes')
-      .eq('channel_id', channelId)
+      .eq('channel_id', channelId) as { data: { estimated_revenue?: number; views?: number; watch_time_minutes?: number }[] | null }
 
     const totalRevenue = analytics?.reduce((sum, a) => sum + (a.estimated_revenue ?? 0), 0) || 0
     const totalViews = analytics?.reduce((sum, a) => sum + (a.views ?? 0), 0) || 0

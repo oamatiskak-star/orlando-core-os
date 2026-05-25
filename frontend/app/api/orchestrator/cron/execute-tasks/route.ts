@@ -1,14 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
+import { getServerSupabaseClient } from '@/lib/supabase/server-client'
 import Anthropic from '@anthropic-ai/sdk'
 
 export const maxDuration = 60
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL ?? '',
-  process.env.SUPABASE_SERVICE_ROLE_KEY ?? '',
-  { auth: { autoRefreshToken: false, persistSession: false } },
-)
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY ?? '' })
 
@@ -35,7 +29,7 @@ type Persona = {
   capabilities: string[] | null
 }
 
-async function buildSystemPrompt(personaName: string | null): Promise<string> {
+async function buildSystemPrompt(personaName: string | null, supabase: any): Promise<string> {
   const base = 'Je bent een AI-assistent binnen het Orlando Core OS ecosysteem. Geef concrete, directe antwoorden in het Nederlands. Geen overbodige uitleg.'
 
   if (!personaName) return base
@@ -61,7 +55,7 @@ async function buildSystemPrompt(personaName: string | null): Promise<string> {
   return parts.join(' ')
 }
 
-async function executeTask(task: OrchestratorTask): Promise<void> {
+async function executeTask(task: OrchestratorTask, supabase: any): Promise<void> {
   // Claim de taak
   await supabase
     .from('orchestrator_tasks')
@@ -70,7 +64,7 @@ async function executeTask(task: OrchestratorTask): Promise<void> {
 
   try {
     const personaName = (task.payload?.persona as string | null) ?? null
-    const systemPrompt = await buildSystemPrompt(personaName)
+    const systemPrompt = await buildSystemPrompt(personaName, supabase)
 
     // Bouw user message uit objective array
     const userContent = task.objective?.length > 0
@@ -140,6 +134,8 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
+  const supabase = getServerSupabaseClient()
+
   const { data: tasks, error } = await supabase
     .from('orchestrator_tasks')
     .select('id, title, task_type, executor, objective, payload, priority, attempts, max_attempts')
@@ -159,7 +155,7 @@ export async function GET(req: NextRequest) {
 
   for (const task of tasks as OrchestratorTask[]) {
     try {
-      await executeTask(task)
+      await executeTask(task, supabase)
       results.push({ id: task.id, status: 'executed' })
     } catch (e) {
       results.push({ id: task.id, status: `error: ${e instanceof Error ? e.message : String(e)}` })

@@ -1,13 +1,10 @@
-import { createClient } from '@supabase/supabase-js'
 import { NextRequest, NextResponse } from 'next/server'
+import { getServerSupabaseClient } from '@/lib/supabase/server-client'
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-)
 
 export async function GET(request: NextRequest) {
   try {
+    const supabase = getServerSupabaseClient()
     const { searchParams } = new URL(request.url)
     const channelId = searchParams.get('channelId')
 
@@ -18,11 +15,11 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    const { data, error } = await supabase
-      .from('marketing_schedule')
+    const { data, error } = await (supabase
+      .from('marketing_schedule') as any)
       .select('*')
       .eq('channel_id', channelId)
-      .order('optimal_score', { ascending: false })
+      .order('optimal_score', { ascending: false }) as { data: { day_of_week: number; hour_utc: number; optimal_score: number; audience_size_expected: number; ctr_projection: number; viral_probability: number }[] | null, error: any }
 
     if (error) throw error
 
@@ -71,23 +68,26 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
+    const supabase = getServerSupabaseClient()
     const body = await request.json()
     const { channelId, dayOfWeek, hourUTC } = body
 
     // Reserve slot by updating schedule
-    const { data, error } = await supabase
-      .from('marketing_schedule')
-      .update({ competitor_conflicts: (await supabase
-        .from('marketing_schedule')
-        .select('competitor_conflicts')
-        .eq('channel_id', channelId)
-        .eq('day_of_week', dayOfWeek)
-        .eq('hour_utc', hourUTC)
-        .single()).data?.competitor_conflicts + 1 || 1 })
+    const { data: existingSlot } = await (supabase
+      .from('marketing_schedule') as any)
+      .select('competitor_conflicts')
       .eq('channel_id', channelId)
       .eq('day_of_week', dayOfWeek)
       .eq('hour_utc', hourUTC)
-      .select()
+      .single() as { data: { competitor_conflicts?: number } | null }
+
+    const { data, error } = await (supabase
+      .from('marketing_schedule') as any)
+      .update({ competitor_conflicts: (existingSlot?.competitor_conflicts || 0) + 1 })
+      .eq('channel_id', channelId)
+      .eq('day_of_week', dayOfWeek)
+      .eq('hour_utc', hourUTC)
+      .select() as { data: any, error: any }
 
     if (error) throw error
 

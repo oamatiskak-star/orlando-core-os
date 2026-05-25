@@ -1,0 +1,41 @@
+
+> frontend@0.1.0 build
+> next build
+
+▲ Next.js 16.2.6 (Turbopack)
+
+  Creating an optimized production build ...
+Turbopack build encountered 1 warnings:
+./next.config.ts
+Encountered unexpected file in NFT list
+A file was traced that indicates that the whole project was traced unintentionally. Somewhere in the import trace below, there are:
+- filesystem operations (like path.join, path.resolve or fs.readFile), or
+- very dynamic requires (like require('./' + foo)).
+To resolve this, you can
+- remove them if possible, or
+- only use them in development, or
+- make sure they are statically scoped to some subfolder: path.join(process.cwd(), 'data', bar), or
+- add ignore comments: path.join(/*turbopackIgnore: true*/ process.cwd(), bar)
+
+Import trace:
+  App Route:
+    ./next.config.ts
+    ./lib/ing/client.ts
+    ./app/api/bank/ing/sync/route.ts
+
+
+✓ Compiled successfully in 34.9s
+  Running TypeScript ...
+Failed to type check.
+
+./app/api/youtube/marketing/competitor-gaps/route.ts:42:42
+Type error: Property 'description' does not exist on type 'never'.
+
+  [90m40 |[0m
+  [90m41 |[0m     [36mconst[0m yourContentTypes = {
+[31m[1m>[0m [90m42 |[0m       shorts: yourVideos?.filter(v => (v.description || [32m''[0m).includes([32m'short'[0m)).length || [35m0[0m,
+  [90m   |[0m                                          [31m[1m^[0m
+  [90m43 |[0m       longform: yourVideos?.filter(v => (v.description || [32m''[0m).includes([32m'video'[0m)).length || [35m0[0m,
+  [90m44 |[0m       tutorials: yourVideos?.filter(v => (v.description || [32m''[0m).includes([32m'tutorial'[0m)).lengt...
+  [90m45 |[0m       challenges: yourVideos?.filter(v => (v.description || [32m''[0m).includes([32m'challenge'[0m)).len...
+Next.js build worker exited with code: 1 and signal: null

@@ -1,13 +1,10 @@
-import { createClient } from '@supabase/supabase-js'
 import { NextRequest, NextResponse } from 'next/server'
+import { getServerSupabaseClient } from '@/lib/supabase/server-client'
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-)
 
 export async function GET(request: NextRequest) {
   try {
+    const supabase = getServerSupabaseClient()
     const { searchParams } = new URL(request.url)
     const channelId = searchParams.get('channelId')
 
@@ -28,27 +25,27 @@ export async function GET(request: NextRequest) {
     if (kpiError && kpiError.code !== 'PGRST116') throw kpiError
 
     // Get channel info
-    const { data: channel } = await supabase
-      .from('youtube_channels')
+    const { data: channel } = await (supabase
+      .from('youtube_channels') as any)
       .select('*')
       .eq('id', channelId)
-      .single()
+      .single() as { data: { id: string; name: string; created_at: string } }
 
     // Get active recommendations
-    const { data: activeRecs } = await supabase
-      .from('marketing_recommendations')
+    const { data: activeRecs } = await (supabase
+      .from('marketing_recommendations') as any)
       .select('*')
       .eq('channel_id', channelId)
       .eq('status', 'pending')
       .limit(3)
-      .order('priority', { ascending: false })
+      .order('priority', { ascending: false }) as { data: any[] | null }
 
     // Get active A/B tests
-    const { data: tests } = await supabase
-      .from('ab_test_variants')
+    const { data: tests } = await (supabase
+      .from('ab_test_variants') as any)
       .select('*')
       .eq('status', 'active')
-      .limit(2)
+      .limit(2) as { data: any[] | null }
 
     const kpisData = kpis || {
       views_24h: 0,

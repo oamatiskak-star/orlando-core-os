@@ -1,20 +1,17 @@
-import { createClient } from '@supabase/supabase-js'
 import { NextRequest, NextResponse } from 'next/server'
+import { getServerSupabaseClient } from '@/lib/supabase/server-client'
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-)
 
 export async function GET(request: NextRequest) {
   try {
+    const supabase = getServerSupabaseClient()
     const { searchParams } = new URL(request.url)
     const channelId = searchParams.get('channelId')
     const status = searchParams.get('status')
     const limit = parseInt(searchParams.get('limit') || '50', 10)
 
-    let query = supabase
-      .from('marketing_recommendations')
+    let query = (supabase
+      .from('marketing_recommendations') as any)
       .select('*')
       .order('priority', { ascending: false })
       .order('created_at', { ascending: false })
@@ -28,7 +25,7 @@ export async function GET(request: NextRequest) {
       query = query.eq('status', status)
     }
 
-    const { data, error } = await query
+    const { data, error } = await query as { data: any[], error: any }
 
     if (error) throw error
 
@@ -43,11 +40,12 @@ export async function GET(request: NextRequest) {
 
 export async function PATCH(request: NextRequest) {
   try {
+    const supabase = getServerSupabaseClient()
     const body = await request.json()
     const { id, status, executed_at, actual_impact_views, roi_percent } = body
 
-    const { data, error } = await supabase
-      .from('marketing_recommendations')
+    const { data, error } = await (supabase
+      .from('marketing_recommendations') as any)
       .update({
         status,
         executed_at: executed_at || null,
@@ -56,7 +54,7 @@ export async function PATCH(request: NextRequest) {
         updated_at: new Date().toISOString()
       })
       .eq('id', id)
-      .select()
+      .select() as { data: any, error: any }
 
     if (error) throw error
 

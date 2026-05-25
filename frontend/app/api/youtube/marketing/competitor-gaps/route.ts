@@ -1,13 +1,10 @@
-import { createClient } from '@supabase/supabase-js'
 import { NextRequest, NextResponse } from 'next/server'
+import { getServerSupabaseClient } from '@/lib/supabase/server-client'
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-)
 
 export async function GET(request: NextRequest) {
   try {
+    const supabase = getServerSupabaseClient()
     const { searchParams } = new URL(request.url)
     const channelId = searchParams.get('channelId')
 
@@ -19,12 +16,12 @@ export async function GET(request: NextRequest) {
     }
 
     // Get content gaps
-    const { data: gaps, error: gapError } = await supabase
-      .from('content_gap_analysis')
+    const { data: gaps, error: gapError } = await (supabase
+      .from('content_gap_analysis') as any)
       .select('*')
       .eq('channel_id', channelId)
       .eq('status', 'open')
-      .order('opportunity_score', { ascending: false })
+      .order('opportunity_score', { ascending: false }) as { data: { gap_category: string; estimated_views_opportunity: number; suggested_topics: string[]; opportunity_score: number }[] | null, error: any }
 
     if (gapError) throw gapError
 
@@ -36,10 +33,10 @@ export async function GET(request: NextRequest) {
       .single()
 
     // Estimate your content distribution
-    const { data: yourVideos } = await supabase
-      .from('youtube_videos')
+    const { data: yourVideos } = await (supabase
+      .from('youtube_videos') as any)
       .select('description')
-      .eq('channel_id', channelId)
+      .eq('channel_id', channelId) as { data: { description: string | null }[] | null }
 
     const yourContentTypes = {
       shorts: yourVideos?.filter(v => (v.description || '').includes('short')).length || 0,
