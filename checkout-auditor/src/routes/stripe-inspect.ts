@@ -82,14 +82,43 @@ router.get('/stripe/prices', requireTriggerSecret, async (req, res) => {
     res.json({ ok: true, products: out })
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err)
-    logger.error({ err: msg }, 'stripe price inspect failed')
-    // Common case: restricted key lacks Price/Product read permission
-    res.status(502).json({
-      error: msg,
-      hint: msg.includes('permission') || msg.toLowerCase().includes('does not have')
-        ? 'The restricted Stripe key likely lacks READ permission on Products/Prices. Add Read access for Products + Prices to the restricted key in Stripe Dashboard.'
-        : undefined,
-    })
+    logger.warn({ err: msg }, 'prices.list failed — falling back to Events API (price.created)')
+
+    // Fallback: the read key may lack plan_read but DOES have Event read.
+    // Recently-created prices fire price.created events — extract from there.
+    try {
+      const events = await stripe.events.list({ type: 'price.created', limit: 100 })
+      const fromEvents = events.data.map(ev => {
+        const p = ev.data.object as {
+          id: string; product: string; currency: string;
+          unit_amount: number | null; recurring?: { interval?: string }; active: boolean; nickname: string | null
+        }
+        return {
+          price_id: p.id,
+          product_id: p.product,
+          currency: p.currency,
+          unit_amount: p.unit_amount,
+          interval: p.recurring?.interval ?? null,
+          active: p.active,
+          nickname: p.nickname,
+          event_created: ev.created,
+        }
+      })
+      const filtered = productIds.length > 0
+        ? fromEvents.filter(p => productIds.includes(p.product_id))
+        : fromEvents
+      res.json({ ok: true, source: 'events_api', prices: filtered })
+      return
+    } catch (evErr) {
+      const evMsg = evErr instanceof Error ? evErr.message : String(evErr)
+      logger.error({ err: msg, evErr: evMsg }, 'both prices.list and events fallback failed')
+      res.status(502).json({
+        error: msg,
+        events_fallback_error: evMsg,
+        hint: 'Read key lacks Products/Prices read AND Events fallback failed. Add Read on Products to the restricted key in Stripe Dashboard.',
+      })
+      return
+    }
   }
 })
 
