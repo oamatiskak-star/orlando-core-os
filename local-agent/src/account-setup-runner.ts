@@ -391,15 +391,29 @@ async function handleRevenueSync(run: RunRow): Promise<void> {
     const arr = dotGet(res.data, cfg.array_path as string | undefined)
     const rows: unknown[] = Array.isArray(arr) ? arr : [res.data]
     const month = new Date().toISOString().slice(0, 7) + '-01'
+    // amount_divisor: API's die in minor units (cents) teruggeven, bijv. PartnerStack → 100
+    const divisor = Number(cfg.amount_divisor) > 0 ? Number(cfg.amount_divisor) : 1
 
+    // Som commissie per maand (een API-call geeft meerdere line-items per periode).
+    const byPeriod = new Map<string, number>()
     for (const r of rows) {
-      const commission = Number(dotGet(r, cfg.commission_path as string | undefined) ?? 0)
-      if (!Number.isFinite(commission)) continue
+      const raw = Number(dotGet(r, cfg.commission_path as string | undefined) ?? 0)
+      if (!Number.isFinite(raw)) continue
+      const commission = raw / divisor
       const periodRaw = dotGet(r, cfg.period_path as string | undefined)
-      const period = typeof periodRaw === 'string' && /^\d{4}-\d{2}/.test(periodRaw)
-        ? periodRaw.slice(0, 7) + '-01' : month
+      let period = month
+      if (typeof periodRaw === 'string' && /^\d{4}-\d{2}/.test(periodRaw)) period = periodRaw.slice(0, 7) + '-01'
+      else if (typeof periodRaw === 'number' && periodRaw > 0) {
+        // unix epoch (s of ms) → maand
+        const d = new Date(periodRaw < 1e12 ? periodRaw * 1000 : periodRaw)
+        if (!isNaN(d.getTime())) period = d.toISOString().slice(0, 7) + '-01'
+      }
+      byPeriod.set(period, (byPeriod.get(period) ?? 0) + commission)
+    }
+
+    for (const [period, total] of byPeriod) {
       const { error } = await db.from('affiliate_revenue_ledger').upsert(
-        { program_id: run.program_id, period_month: period, commission_revenue: commission, source: 'api' },
+        { program_id: run.program_id, period_month: period, commission_revenue: Number(total.toFixed(2)), source: 'api' },
         { onConflict: 'program_id,period_month' },
       )
       if (!error) synced++
