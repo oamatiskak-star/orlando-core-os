@@ -149,13 +149,23 @@ export default async function PayoutsPage() {
 
       {/* API-connectors */}
       <div className="bg-white/[0.04] rounded-xl border border-white/[0.06] p-4">
-        <div className="flex items-center gap-2 mb-1"><PlugZap size={14} className="text-cyan-300" /><h2 className="text-xs font-medium text-white/70">API-connectors (auto revenue-sync)</h2></div>
-        <p className="text-[10px] text-white/40 mb-3">Per programma een netwerk-API koppelen. <span className="text-white/55">Secret staat NIET in de DB</span> — vul de naam van een env-var (op de runner-host) in via <span className="font-mono">credential_env</span>. &quot;Sync nu&quot; zet een revenue_sync-run in de queue.</p>
+        <div className="flex items-center gap-2 mb-1">
+          <PlugZap size={14} className="text-cyan-300" />
+          <h2 className="text-xs font-medium text-white/70">API-connectors (auto revenue-sync)</h2>
+          {connectors.length > 0 && (
+            <span className="ml-auto text-[10px] text-cyan-300/80 tabular-nums">{connectors.length} geconfigureerd · {connectors.filter(c => c.enabled).length} actief</span>
+          )}
+        </div>
+        <p className="text-[10px] text-white/40 mb-3">Per programma een netwerk-API koppelen. <span className="text-white/55">Secret staat NIET in de DB</span> — vul de naam van een env-var (op de runner-host) in via <span className="font-mono">credential_env</span>. &quot;Sync nu&quot; zet een revenue_sync-run in de queue. Geconfigureerde connectors staan bovenaan.</p>
         <div className="space-y-2">
-          {programs.map(p => {
+          {[...programs].sort((a, b) => {
+            const rank = (id: string) => { const c = connByProgram.get(id); return c ? (c.enabled ? 0 : 1) : 2 }
+            const ra = rank(a.id), rb = rank(b.id)
+            return ra !== rb ? ra - rb : a.name.localeCompare(b.name)
+          }).map(p => {
             const c = connByProgram.get(p.id)
             return (
-              <details key={p.id} className="bg-white/[0.02] border border-white/[0.05] rounded-lg p-2.5">
+              <details key={p.id} open={!!c} className="bg-white/[0.02] border border-white/[0.05] rounded-lg p-2.5">
                 <summary className="flex items-center gap-2 cursor-pointer select-none list-none">
                   <span className="text-[12px] text-white/85 flex-1">{p.name}</span>
                   {c?.enabled
