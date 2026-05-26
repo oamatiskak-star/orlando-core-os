@@ -19,6 +19,8 @@ type Build = {
   started_at: string | null
   target_at: string | null
   last_update_at: string | null
+  requires_account_setup: boolean
+  account_status: string
 }
 
 const STATUS_BADGE: Record<string, { label: string; color: string }> = {
@@ -43,7 +45,7 @@ export default async function BuildTrackerPage() {
   const supabase = await createClient()
   const { data } = await supabase
     .from('build_tracker')
-    .select('id, name, description, status, progress_pct, owner, current_milestone, started_at, target_at, last_update_at, companies!inner(slug)')
+    .select('id, name, description, status, progress_pct, owner, current_milestone, started_at, target_at, last_update_at, requires_account_setup, account_status, companies!inner(slug)')
     .eq('companies.slug', company.id)
     .order('status', { ascending: false })
     .order('progress_pct', { ascending: false })
@@ -131,6 +133,8 @@ export default async function BuildTrackerPage() {
                   currentMilestone={b.current_milestone}
                   progress={b.progress_pct}
                   companyColor={company.color}
+                  requiresAccountSetup={b.requires_account_setup}
+                  accountStatus={b.account_status}
                 />
               </div>
             )

@@ -2,9 +2,11 @@
 
 import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
-import { Eye, ArrowRight, X, Flag, Loader2 } from 'lucide-react'
+import { Eye, ArrowRight, X, Flag, Loader2, KeyRound } from 'lucide-react'
 import { ActionCTA } from '@/components/executive/ActionCTA'
 import { resumeBuild } from './actions'
+import { prepareAccountSetup } from '../accounts/actions'
+import { accountStatusBadge } from '@/lib/account-setup'
 
 type Props = {
   id: string
@@ -14,14 +16,18 @@ type Props = {
   currentMilestone: string | null
   progress: number
   companyColor: string
+  requiresAccountSetup?: boolean
+  accountStatus?: string
 }
 
 export default function BuildCardActions({
   id, name, status, description, currentMilestone, progress, companyColor,
+  requiresAccountSetup, accountStatus,
 }: Props) {
   const router = useRouter()
   const [showPreview, setShowPreview] = useState(false)
   const [pending, startTransition] = useTransition()
+  const [acctPending, startAcct] = useTransition()
 
   const isLive = status === 'live'
 
@@ -33,6 +39,14 @@ export default function BuildCardActions({
     startTransition(async () => {
       await resumeBuild(id)
       router.push(`/dashboard/build-tracker/${id}`)
+    })
+  }
+
+  // "Maak account aan" → bereid voor (status → voorbereiden) en open de agent.
+  function handleAccount() {
+    startAcct(async () => {
+      await prepareAccountSetup(id)
+      router.push(`/dashboard/build-tracker/${id}/account-setup`)
     })
   }
 
@@ -64,7 +78,25 @@ export default function BuildCardActions({
             onClick={handleResume}
           />
         )}
+        {requiresAccountSetup && (
+          <ActionCTA
+            label={acctPending ? 'Bezig…' : 'Maak account aan'}
+            intent="amplify"
+            size="xs"
+            disabled={acctPending}
+            icon={acctPending ? <Loader2 size={11} className="animate-spin" /> : <KeyRound size={11} />}
+            onClick={handleAccount}
+          />
+        )}
       </div>
+
+      {requiresAccountSetup && accountStatus && (
+        <div className="mt-2">
+          <span className={`text-[9px] font-semibold px-1.5 py-0.5 rounded ${accountStatusBadge(accountStatus).color}`}>
+            account: {accountStatusBadge(accountStatus).label}
+          </span>
+        </div>
+      )}
 
       {showPreview && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">

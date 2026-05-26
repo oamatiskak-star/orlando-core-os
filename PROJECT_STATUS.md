@@ -2,7 +2,32 @@
 
 > **Sessie protocol** (CLAUDE.md): Lees dit bestand bij elke nieuwe Claude Code sessie. Update na elke voltooide taak. Houd het herstel-blok actueel.
 
-**Laatste update:** 2026-05-26 (sessie 8) — Build Tracker verdiept (CTA's + Preview + "Ga verder" + detailpagina), Worker Control Center (OpenClaw) over `worker_registry` met echte PM2-actuatie via local-watchdog, en AI Optimizer toegevoegd. Sessie 7 (Incident relay) hieronder.
+**Laatste update:** 2026-05-26 (sessie 9) — Build Tracker uitgebreid met **Account Setup Agent**-flow (per-taak account-velden + "Maak account aan"-knop + agent-pagina + Account & Affiliate Dashboard). Sessie 8 (Build Tracker verdiept / Worker Control / AI Optimizer) en 7 hieronder.
+
+---
+
+## 🔴 HERSTEL HIER NA CRASH (sessie 9)
+
+**Sessie focus (2026-05-26, sessie 9)**: Account Setup Agent bovenop de bestaande Build Tracker. Taken kunnen markeren dat ze een extern/affiliate/partner/social-account vereisen; een agent BEREIDT registratie voor (teksten, checklist, ontbrekende gegevens) maar verzendt nooit autonoom — handmatige goedkeuring blijft verplicht.
+
+**Wat is gedaan (sessie 9) — lokaal getypecheckt (tsc 0 errors) + eslint schoon op alle nieuwe files:**
+
+1. **Migratie 099 `099_account_setup_agent.sql`** — APPLIED via MCP op `shaunumewswpxhmgbtvv` (additief/idempotent):
+   - `build_tracker` + 7 kolommen: `requires_account_setup`, `account_platform`, `account_type`, `expected_revenue_model`, `expected_revenue_amount`, `revenue_currency`, `account_status` (+ check-constraint op 9 statussen).
+   - `business_profiles` (centrale bedrijfsgegevens, 1 rij per company, geseed uit `companies` — 7 rijen).
+   - `account_setups` (uniek per `build_task_id`) + `account_revenues`. RLS-pariteit met build_tracker (uit).
+2. **Gedeelde lib** `frontend/lib/account-setup.ts` — statussen+labels, keuzelijsten, `BUSINESS_FIELDS`, `computeMissingFields`, deterministische tekstgeneratie (`generateApplicationTexts`), checklist/documenten, `toMonthly`/`fmtMoney`. No-mock: ontbrekend = exact `"nog invullen"`.
+3. **Server actions** `frontend/app/dashboard/accounts/actions.ts` — `prepareAccountSetup` (laadt taak+bedrijf, berekent missing, genereert tekst, zet status), `updateAccountSetup`, `setAccountStatus` (sync naar `build_tracker.account_status`), `updateBusinessProfile`, `addRevenue`/`deleteRevenue`. `build-tracker/actions.ts` uitgebreid met account-config patch.
+4. **Account Setup Agent-pagina** `frontend/app/dashboard/build-tracker/[id]/account-setup/{page.tsx,AccountSetupAgent.tsx}` — grenzen-banner, taakgegevens, inline bedrijfsgegevens-editor, ontbrekende velden, gegenereerde teksten (kopieer/regenereer), registratievelden, documenten + checklist, verdiensten.
+5. **Build Tracker UI** — `BuildCardActions.tsx` (knop "Maak account aan" alleen bij `requires_account_setup`, + account-status chip), `[id]/page.tsx` (Account Setup-sectie), `[id]/BuildEditPanel.tsx` (account-config toggle + velden).
+6. **Account & Affiliate Dashboard** `frontend/app/dashboard/accounts/page.tsx` — 8 KPI's (totaal/voorbereiding/ingediend/goedgekeurd/afgewezen/verwacht-maand/werkelijk-maand/openstaande payouts) + lijst gekoppeld aan taak+milestone+verdienmodel.
+7. **Nav** `frontend/lib/nav-config.ts` — module `accounts` (`/dashboard/accounts`) toegevoegd aan elke "Operationeel"-sectie.
+
+**Open / vervolg (sessie 9):**
+1. **Frontend deploy** naar Vercel (orlando-core-os) — nieuwe routes `/dashboard/accounts` + `/dashboard/build-tracker/[id]/account-setup`.
+2. **business_profiles vullen** per BV (adres/IBAN/website/e-mail/pitch) — nu alleen naam/KvK/omschrijving uit `companies`; rest toont `"nog invullen"` tot ingevuld via de agent.
+3. Markeer relevante build-taken als `requires_account_setup=true` (via BuildEditPanel) om de knop te tonen.
+4. Niet gecommit/gepusht — staat lokaal op branch `main` in `~/Github/orlando-core-os`.
 
 ---
 

@@ -1,8 +1,9 @@
-import { ChevronLeft, Hammer, Calendar, User, Flag, Clock } from 'lucide-react'
+import { ChevronLeft, Hammer, Calendar, User, Flag, Clock, KeyRound, ArrowRight, Coins } from 'lucide-react'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { getActiveCompany } from '@/lib/active-company-server'
+import { accountStatusBadge, fmtMoney, PLACEHOLDER } from '@/lib/account-setup'
 import BuildEditPanel from './BuildEditPanel'
 
 export const dynamic = 'force-dynamic'
@@ -19,6 +20,13 @@ type Build = {
   started_at: string | null
   target_at: string | null
   last_update_at: string | null
+  requires_account_setup: boolean
+  account_platform: string | null
+  account_type: string | null
+  expected_revenue_model: string | null
+  expected_revenue_amount: number | null
+  revenue_currency: string | null
+  account_status: string
 }
 
 const STATUS_BADGE: Record<string, { label: string; color: string }> = {
@@ -48,7 +56,7 @@ export default async function BuildDetailPage({ params }: { params: Promise<{ id
 
   const { data } = await supabase
     .from('build_tracker')
-    .select('id, name, description, status, progress_pct, owner, current_milestone, started_at, target_at, last_update_at')
+    .select('id, name, description, status, progress_pct, owner, current_milestone, started_at, target_at, last_update_at, requires_account_setup, account_platform, account_type, expected_revenue_model, expected_revenue_amount, revenue_currency, account_status')
     .eq('id', id)
     .maybeSingle()
 
@@ -122,6 +130,31 @@ export default async function BuildDetailPage({ params }: { params: Promise<{ id
         </p>
       </div>
 
+      {/* Account Setup — alleen tonen als de taak een account vereist */}
+      {b.requires_account_setup && (
+        <div className="bg-white/[0.04] border border-white/[0.06] rounded-xl p-5 space-y-3">
+          <div className="flex items-center justify-between gap-3">
+            <p className="text-[10px] text-white/35 uppercase tracking-wide flex items-center gap-1.5"><KeyRound size={11} /> Account Setup</p>
+            <span className={`text-[10px] font-semibold px-2 py-0.5 rounded ${accountStatusBadge(b.account_status).color}`}>
+              {accountStatusBadge(b.account_status).label}
+            </span>
+          </div>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-[11px]">
+            <div><p className="text-white/35 mb-0.5">Platform</p><p className="text-white/75">{b.account_platform || PLACEHOLDER}</p></div>
+            <div><p className="text-white/35 mb-0.5">Accounttype</p><p className="text-white/75">{b.account_type || PLACEHOLDER}</p></div>
+            <div><p className="text-white/35 mb-0.5">Verdienmodel</p><p className="text-white/75">{b.expected_revenue_model || PLACEHOLDER}</p></div>
+            <div><p className="text-white/35 mb-0.5 flex items-center gap-1"><Coins size={10} /> Verwacht</p><p className="text-white/75">{b.expected_revenue_amount != null ? fmtMoney(b.expected_revenue_amount, b.revenue_currency || 'EUR') : PLACEHOLDER}</p></div>
+          </div>
+          <Link
+            href={`/dashboard/build-tracker/${b.id}/account-setup`}
+            className="inline-flex items-center gap-1.5 text-xs font-medium px-3 py-2 rounded-lg border transition-colors"
+            style={{ backgroundColor: `${company.color}1a`, borderColor: `${company.color}55`, color: company.color }}
+          >
+            <KeyRound size={13} /> Maak account aan <ArrowRight size={12} />
+          </Link>
+        </div>
+      )}
+
       {/* Edit / Ga verder controls */}
       <BuildEditPanel
         id={b.id}
@@ -130,6 +163,14 @@ export default async function BuildDetailPage({ params }: { params: Promise<{ id
         currentMilestone={b.current_milestone}
         description={b.description}
         companyColor={company.color}
+        account={{
+          requires_account_setup: b.requires_account_setup,
+          account_platform: b.account_platform,
+          account_type: b.account_type,
+          expected_revenue_model: b.expected_revenue_model,
+          expected_revenue_amount: b.expected_revenue_amount,
+          revenue_currency: b.revenue_currency,
+        }}
       />
     </div>
   )
