@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { CheckCircle2, Zap, Circle, AlertTriangle, Clock } from 'lucide-react'
+import ContinueInClaude from '@/components/build/ContinueInClaude'
 
 interface Module {
   id: string
@@ -98,34 +99,59 @@ export default function ModuleStatusGrid({ initialModules }: { initialModules: M
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
               {mods.map(mod => (
-                <button
+                <div
                   key={mod.module_key}
-                  onClick={() => cycleStatus(mod)}
-                  disabled={mod.status === 'live' || updating === mod.module_key}
-                  className={`text-left p-3.5 rounded-xl border transition-all ${STATUS_STYLE[mod.status]} ${mod.status !== 'live' ? 'hover:brightness-110 cursor-pointer' : 'cursor-default'} disabled:opacity-60`}
+                  className={`p-3.5 rounded-xl border transition-all ${STATUS_STYLE[mod.status]}`}
                 >
-                  <div className="flex items-center justify-between mb-1.5">
-                    <span className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide">
-                      {updating === mod.module_key ? <Clock size={11} className="animate-spin" /> : STATUS_ICON[mod.status]}
-                      {STATUS_LABEL[mod.status]}
-                    </span>
-                    {mod.gebouwd_door && (
-                      <span className="text-[9px] text-white/25 uppercase">{mod.gebouwd_door}</span>
+                  <button
+                    type="button"
+                    onClick={() => cycleStatus(mod)}
+                    disabled={mod.status === 'live' || updating === mod.module_key}
+                    className={`text-left w-full ${mod.status !== 'live' ? 'hover:brightness-110 cursor-pointer' : 'cursor-default'} disabled:opacity-60`}
+                  >
+                    <div className="flex items-center justify-between mb-1.5">
+                      <span className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide">
+                        {updating === mod.module_key ? <Clock size={11} className="animate-spin" /> : STATUS_ICON[mod.status]}
+                        {STATUS_LABEL[mod.status]}
+                      </span>
+                      {mod.gebouwd_door && (
+                        <span className="text-[9px] text-white/25 uppercase">{mod.gebouwd_door}</span>
+                      )}
+                    </div>
+                    <p className="text-sm font-semibold text-white">{mod.naam}</p>
+                    {mod.omschrijving && (
+                      <p className="text-[11px] text-white/40 mt-1 line-clamp-2">{mod.omschrijving}</p>
                     )}
+                    {mod.live_at && (
+                      <p className="text-[10px] text-white/25 mt-1.5">
+                        {new Date(mod.live_at).toLocaleDateString('nl-NL', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                      </p>
+                    )}
+                    {mod.status !== 'live' && (
+                      <p className="text-[10px] text-white/25 mt-1.5">Klik om naar volgende status</p>
+                    )}
+                  </button>
+
+                  <div className="mt-2.5 pt-2.5 border-t border-white/10">
+                    <ContinueInClaude
+                      companyColor="#a78bfa"
+                      context={{
+                        tracker: 'Media Holding',
+                        itemType: 'module',
+                        name: mod.naam,
+                        statusLabel: STATUS_LABEL[mod.status],
+                        description: mod.omschrijving,
+                        company: 'Media Holding',
+                        route: mod.route,
+                        extra: [
+                          { label: 'Fase', value: String(mod.fase_nr) },
+                          { label: 'Module-key', value: mod.module_key },
+                          { label: 'Gebouwd door', value: mod.gebouwd_door ?? '' },
+                        ],
+                      }}
+                    />
                   </div>
-                  <p className="text-sm font-semibold text-white">{mod.naam}</p>
-                  {mod.omschrijving && (
-                    <p className="text-[11px] text-white/40 mt-1 line-clamp-2">{mod.omschrijving}</p>
-                  )}
-                  {mod.live_at && (
-                    <p className="text-[10px] text-white/25 mt-1.5">
-                      {new Date(mod.live_at).toLocaleDateString('nl-NL', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
-                    </p>
-                  )}
-                  {mod.status !== 'live' && (
-                    <p className="text-[10px] text-white/25 mt-1.5">Klik om naar volgende status</p>
-                  )}
-                </button>
+                </div>
               ))}
             </div>
           </div>

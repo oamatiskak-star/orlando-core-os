@@ -2,7 +2,27 @@
 
 > **Sessie protocol** (CLAUDE.md): Lees dit bestand bij elke nieuwe Claude Code sessie. Update na elke voltooide taak. Houd het herstel-blok actueel.
 
-**Laatste update:** 2026-05-26 (sessie 10) — Affiliate & Revenue Infra: F2 (#44) + F3 (#43) + F4 (#45) + F5 (#46) + **Payouts & API-connectors** (migratie 102, branch `feature/account-setup-payouts`). Build Tracker-milestone 100%, 11 sub-tabs live. Sessie 9 (migratie 099) hieronder.
+**Laatste update:** 2026-05-26 (sessie 10) — **"Ga verder"-knop op alle vier build trackers** die een plak-klare Claude Code prompt genereert (PR #51). Daarvóór sessie 10: Affiliate & Revenue Infra (F2 #44 / F3 #43 / F4 #45 / F5 #46 + Payouts & API-connectors migratie 102). Sessie 9 (migratie 099) hieronder.
+
+## 🔴 HERSTEL HIER NA CRASH (sessie 10 — Ga verder-knop)
+
+**Sessie focus (2026-05-26, sessie 10)**: Orlando wil vanuit elke build tracker direct verder kunnen in een Claude Code terminal-sessie. De bestaande "Ga verder" op de hoofd-Build-Tracker navigeerde alleen intern (kon niet naar terminal). Nu genereert elke tracker een plak-klare prompt.
+
+**Wat is gedaan (sessie 10) — lokaal getypecheckt (tsc 0 errors) + eslint schoon op alle gewijzigde files:**
+
+1. **Gedeelde prompt-builder** `frontend/lib/continue-prompt.ts` (nieuw) — pure `buildContinuePrompt(ctx)` → plak-klare opdracht met SESSIE PROTOCOL-verwijzing (PROJECT_STATUS.md), no-mock-regels en statuscontext. Type `ContinuePromptContext`.
+2. **Herbruikbare component** `frontend/components/build/ContinueInClaude.tsx` (nieuw) — "Ga verder"-knop + modal met readonly prompt-textarea + "Kopieer prompt". `stopPropagation` zodat het binnen klikbare kaarten werkt.
+3. **Bedraad in alle vier build trackers:**
+   - Hoofd-Build-Tracker: `BuildCardActions.tsx` — "Ga verder" (resumeBuild-navigatie) **vervangen** door `<ContinueInClaude>`; detail blijft bereikbaar via kaarttitel + "Open detail" in preview. `page.tsx` geeft nu `companyName` + `statusLabel` door. (`resumeBuild` blijft als ongebruikte export in `actions.ts`.)
+   - Holding Milestones: `holding-milestones/page.tsx` — knop per milestone-kaart.
+   - Media Holding: `media-holding/build/ModuleStatusGrid.tsx` — kaart van `<button>` → `<div>` ge-herstructureerd (status-cycle blijft eigen inner-button) + knop per module.
+   - Aquier USA Domination: `aquier/usa-domination/page.tsx` — knop per sectie-kaart.
+
+**Status (sessie 10): GECOMMIT + PR #51.** Branch `feature/ga-verder-claude-prompt` → `main`. Geen DB-migratie nodig (puur frontend). Na merge triggert Vercel de deploy.
+
+---
+
+## 🟡 Sessie 10 archief (Affiliate & Revenue Infra)
 
 **Payouts + API-integraties (sessie 10) — branch `feature/account-setup-payouts`, migratie 102:**
 - ✅ `affiliate_payouts` (verwacht vs betaald + variance + reconciled) + `v_payout_reconciliation` (commissie−betaald=uitstaand, drempel, discrepanties). `affiliate_api_connectors` (declaratieve per-programma API-koppeling; secret via `credential_env` env-var op runner-host, NIET in DB).

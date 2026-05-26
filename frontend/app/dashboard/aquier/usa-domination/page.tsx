@@ -5,6 +5,7 @@ import {
   CheckCircle2, Zap, Circle, Clock, Telescope,
 } from 'lucide-react'
 import { WAITING_LABEL } from '@/lib/aquier/liveOrWaiting'
+import ContinueInClaude from '@/components/build/ContinueInClaude'
 
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
@@ -252,6 +253,28 @@ export default async function UsaDominationPage() {
                   })}
                 </div>
               )}
+
+              <div className="mt-2.5 pt-2.5 border-t border-white/[0.05]">
+                <ContinueInClaude
+                  companyColor="#f87171"
+                  context={{
+                    tracker: 'Aquier USA Domination',
+                    itemType: 'sectie',
+                    name: s.name,
+                    statusLabel: st.label,
+                    company: 'Aquier',
+                    route: '/dashboard/aquier/usa-domination',
+                    extra: [
+                      { label: 'Sectie-key', value: s.section_key },
+                      { label: 'Workers', value: String(s.live_workers) },
+                      { label: 'Actieve taken', value: String(s.active_tasks) },
+                      { label: 'Wachtrij', value: String(s.pending_tasks) },
+                      { label: 'Mislukte taken', value: String(s.failed_tasks) },
+                      { label: 'Succes ratio', value: `${s.success_ratio}%` },
+                    ],
+                  }}
+                />
+              </div>
             </div>
           )
         })}
