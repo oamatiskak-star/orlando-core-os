@@ -180,6 +180,11 @@ export const NAV_MODULES: Record<string, NavModuleDef> = {
   build_tracker:       { key: 'build_tracker',       label: 'Build Tracker',           href: '/dashboard/build-tracker',           icon: Hammer },
   accounts:            { key: 'accounts',            label: 'Accounts & Affiliates',   href: '/dashboard/accounts',                icon: Key },
 
+  // ── AFFILIATE & REVENUE INFRASTRUCTURE (programma-registry, migratie 100) ──
+  account_setup_hub:     { key: 'account_setup_hub',     label: 'Affiliate Programs', href: '/dashboard/account-setup',                 icon: Layers },
+  account_setup_accounts:{ key: 'account_setup_accounts',label: 'Programma Registry', href: '/dashboard/account-setup/accounts',        icon: UserCheck },
+  account_setup_action:  { key: 'account_setup_action',  label: 'Requires Action',    href: '/dashboard/account-setup/requires-action', icon: AlertCircle },
+
   // ── HOLDING ECOSYSTEM (24-milestone roadmap, holding-niveau) ──────────────
   holding_milestones:  { key: 'holding_milestones',  label: 'Holding Ecosystem',       href: '/dashboard/holding-milestones',      icon: Target },
   seo_network:         { key: 'seo_network',         label: 'SEO Network (M4)',        href: '/dashboard/seo-network',             icon: Globe },
@@ -253,6 +258,7 @@ export const COMPANY_NAV: Record<string, CompanyNav> = {
         ],
       },
       { title: 'Operationeel', modules: ['build_tracker', 'accounts', 'projecten', 'planning', 'crm', 'documenten', 'agenda', 'taken'] },
+      { title: 'Affiliate & Revenue', modules: ['account_setup_hub', 'account_setup_accounts', 'account_setup_action'] },
       { title: 'Routines Control', modules: ['routines_hub', 'routines_live', 'routines_agents', 'routines_logs'] },
     ],
     globalBottom: ['meldingen', 'instellingen'],
