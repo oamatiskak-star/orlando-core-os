@@ -95,9 +95,9 @@ Niet 1→24 lineair. Logische cashflow-volgorde die bestaande assets hergebruikt
 
 ## Actief parallel-spoor
 
-1. ⏳ Milestone-tracking: `holding_milestones` tabel (patroon = `media_holding_modules`) + `/dashboard` build-tracker view.
-2. ⏳ OSIL / Persoonlijke Finance dashboard-module (apex cashflow-sink).
-3. ⏳ Quick-cashflow milestone selecteren + eerste concrete build (M3/M4/M17).
+1. ✅ Milestone-tracking: `holding_milestones` (migratie 096 applied, 24 milestones) + `/dashboard/holding-milestones` view + nav onder modiwe-software.
+2. ⏳ OSIL / Persoonlijke Finance: module bestaat al — netto-na-belasting cashflow erin bedraden (ETL nog te ontwerpen).
+3. 🔄 **M4 Programmatic SEO — building.** Migratie 097 applied: `seo_niches` (5, gevoed door VermogenTv/SpaarTv/VastgoedTv/CryptoVermogen/BeleggingsTv) + `seo_keyword_clusters` (10) + `seo_pages` (status-driven, body NULL = no-mock). **Open:** doeldomein/repo voor render-laag + content-generatie (key-gated). Render-laag hergebruikt Aquier `generateStaticParams`-patroon.
 
 ---
 
