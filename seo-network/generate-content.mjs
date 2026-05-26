@@ -70,7 +70,9 @@ async function generate(page) {
   })
   if (!res.ok) throw new Error(`Anthropic ${res.status}: ${await res.text()}`)
   const data = await res.json()
-  const text = (data.content || []).filter(b => b.type === 'text').map(b => b.text).join('\n').trim()
+  let text = (data.content || []).filter(b => b.type === 'text').map(b => b.text).join('\n').trim()
+  // Strip een leidende H1 — de render-laag toont h1 al uit het title-veld (geen duplicate H1).
+  text = text.replace(/^#\s+.*\r?\n+/, '').trim()
   if (!text || text.length < 200) throw new Error('lege/te korte AI-output — niet opgeslagen (no-mock)')
   return text
 }
