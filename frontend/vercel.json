@@ -27,6 +27,18 @@
     {
       "path": "/api/account-setup/cron/tick",
       "schedule": "*/30 * * * *"
+    },
+    {
+      "path": "/api/youtube/cron/viral-scan",
+      "schedule": "0 */6 * * *"
+    },
+    {
+      "path": "/api/youtube/cron/trend-scan",
+      "schedule": "30 */6 * * *"
+    },
+    {
+      "path": "/api/youtube/cron/run-analyst",
+      "schedule": "30 10 * * *"
     }
   ]
 }
