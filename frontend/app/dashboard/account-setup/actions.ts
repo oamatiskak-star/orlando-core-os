@@ -3,7 +3,7 @@
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
-import type { AccountStatus, ProgramCategory, RunKind, HumanActionStatus } from '@/lib/affiliate-programs/types'
+import type { AccountStatus, ProgramCategory, RunKind, HumanActionStatus, LoginStatus, DocKind, DocStatus } from '@/lib/affiliate-programs/types'
 
 /**
  * Server actions voor Affiliate & Revenue Infrastructure.
@@ -16,6 +16,9 @@ import type { AccountStatus, ProgramCategory, RunKind, HumanActionStatus } from 
 const ALL_CATEGORIES: ProgramCategory[] = ['saas_ai', 'finance_crypto', 'vastgoed_data', 'affiliate_network', 'other']
 const ALL_ACCOUNT_STATUS: AccountStatus[] = ['not_started', 'applied', 'pending', 'approved', 'active', 'payout_active', 'rejected', 'suspended']
 const ALL_RUN_KINDS: RunKind[] = ['account_setup', 'affiliate_registration', 'verification', 'revenue_sync', 'reminder', 'terms_analysis']
+const ALL_LOGIN_STATUS: LoginStatus[] = ['none', 'created', 'verified', 'mfa_pending', 'locked']
+const ALL_DOC_KINDS: DocKind[] = ['kyc_id', 'proof_address', 'tax_form', 'contract', 'bank', 'other']
+const ALL_DOC_STATUS: DocStatus[] = ['required', 'uploaded', 'verified', 'rejected']
 
 const PATH = '/dashboard/account-setup'
 
@@ -47,6 +50,9 @@ function revalidateAll() {
   revalidatePath(PATH)
   revalidatePath(`${PATH}/accounts`)
   revalidatePath(`${PATH}/requires-action`)
+  revalidatePath(`${PATH}/revenue`)
+  revalidatePath(`${PATH}/kyc`)
+  revalidatePath(`${PATH}/links`)
 }
 
 // ── createProgram ──────────────────────────────────────────────────────────
@@ -147,5 +153,107 @@ export async function resolveHumanAction(formData: FormData) {
   if (error) throw new Error(error.message)
 
   await audit(row?.program_id ?? null, row?.run_id ?? null, 'human_action.resolved', { decision })
+  revalidateAll()
+}
+
+// ── F2: addRevenueEntry — maandelijkse revenue boeken (rollup via DB-trigger) ─
+export async function addRevenueEntry(formData: FormData) {
+  const programId = String(formData.get('program_id') ?? '').trim()
+  const month = String(formData.get('period_month') ?? '').trim()        // 'YYYY-MM'
+  const gross = Number(formData.get('gross_revenue') ?? 0)
+  const commission = Number(formData.get('commission_revenue') ?? 0)
+  const currency = String(formData.get('currency') ?? 'USD').trim().toUpperCase().slice(0, 3) || 'USD'
+
+  if (!programId) throw new Error('program_id ontbreekt')
+  if (!/^\d{4}-\d{2}$/.test(month)) throw new Error('Maand moet YYYY-MM zijn')
+  if (!Number.isFinite(gross) || !Number.isFinite(commission) || gross < 0 || commission < 0) {
+    throw new Error('Ongeldige bedragen')
+  }
+
+  const admin = createAdminClient()
+  const period = `${month}-01`
+  // upsert per (program_id, period_month): trigger herberekent monthly/lifetime
+  const { error } = await admin
+    .from('affiliate_revenue_ledger')
+    .upsert(
+      { program_id: programId, period_month: period, gross_revenue: gross, commission_revenue: commission, currency, source: 'manual' },
+      { onConflict: 'program_id,period_month' },
+    )
+  if (error) throw new Error(error.message)
+
+  await audit(programId, null, 'revenue.recorded', { period_month: period, gross, commission, currency })
+  revalidateAll()
+}
+
+// ── F2: updateProgramKeys — affiliate_link/referral_code/login_status/notes ──
+// "Keys staan in notities": API-keys / credentials worden in het notes-veld bewaard.
+export async function updateProgramKeys(formData: FormData) {
+  const programId = String(formData.get('program_id') ?? '').trim()
+  if (!programId) throw new Error('program_id ontbreekt')
+
+  const affiliateLink = String(formData.get('affiliate_link') ?? '').trim()
+  const referralCode = String(formData.get('referral_code') ?? '').trim()
+  const loginStatus = String(formData.get('login_status') ?? '').trim() as LoginStatus
+  const notes = String(formData.get('notes') ?? '')
+
+  const patch: Record<string, unknown> = {
+    affiliate_link: affiliateLink || null,
+    referral_code: referralCode || null,
+    notes: notes.trim() ? notes : null,
+  }
+  if (loginStatus) {
+    if (!ALL_LOGIN_STATUS.includes(loginStatus)) throw new Error('Ongeldige login_status')
+    patch.login_status = loginStatus
+  }
+
+  const admin = createAdminClient()
+  const { error } = await admin.from('affiliate_programs').update(patch).eq('id', programId)
+  if (error) throw new Error(error.message)
+
+  // notes-inhoud (keys) niet in audit loggen — alleen welke velden gewijzigd zijn
+  await audit(programId, null, 'program.keys_updated', {
+    fields: Object.keys(patch).filter(k => k !== 'notes'),
+    notes_changed: true,
+  })
+  revalidateAll()
+}
+
+// ── F2: addDocument — KYC/document-vereiste registreren ──────────────────────
+export async function addDocument(formData: FormData) {
+  const programId = String(formData.get('program_id') ?? '').trim()
+  const docKind = String(formData.get('doc_kind') ?? 'other').trim() as DocKind
+  const notes = String(formData.get('notes') ?? '').trim()
+
+  if (!programId) throw new Error('program_id ontbreekt')
+  if (!ALL_DOC_KINDS.includes(docKind)) throw new Error('Ongeldig document-type')
+
+  const admin = createAdminClient()
+  const { error } = await admin.from('account_setup_documents').insert({
+    program_id: programId, doc_kind: docKind, status: 'required', notes: notes || null,
+  })
+  if (error) throw new Error(error.message)
+
+  await audit(programId, null, 'document.added', { doc_kind: docKind })
+  revalidateAll()
+}
+
+// ── F2: setDocStatus — document-status bijwerken ─────────────────────────────
+export async function setDocStatus(formData: FormData) {
+  const documentId = String(formData.get('document_id') ?? '').trim()
+  const status = String(formData.get('status') ?? '').trim() as DocStatus
+
+  if (!documentId) throw new Error('document_id ontbreekt')
+  if (!ALL_DOC_STATUS.includes(status)) throw new Error('Ongeldige document-status')
+
+  const admin = createAdminClient()
+  const { data: row, error } = await admin
+    .from('account_setup_documents')
+    .update({ status })
+    .eq('id', documentId)
+    .select('program_id')
+    .single()
+  if (error) throw new Error(error.message)
+
+  await audit(row?.program_id ?? null, null, 'document.status_changed', { document_id: documentId, status })
   revalidateAll()
 }

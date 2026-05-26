@@ -146,3 +146,69 @@ export const HUMAN_ACTION_LABEL: Record<HumanActionKind, string> = {
   login_2fa: 'Login 2FA',
   other: 'Overig',
 }
+
+// ── F2: documenten / revenue / affiliate-links ──────────────────────────────
+export type DocKind = 'kyc_id' | 'proof_address' | 'tax_form' | 'contract' | 'bank' | 'other'
+export type DocStatus = 'required' | 'uploaded' | 'verified' | 'rejected'
+
+export type AccountDocumentRow = {
+  id: string
+  program_id: string
+  doc_kind: DocKind
+  storage_path: string | null
+  status: DocStatus
+  notes: string | null
+  created_at: string
+  updated_at: string
+}
+
+export type RevenueLedgerRow = {
+  id: string
+  program_id: string
+  period_month: string
+  gross_revenue: number
+  commission_revenue: number
+  currency: string
+  source: string
+  recorded_at: string
+}
+
+// 066_affiliate_engine.sql — affiliate_performance view (link-niveau tracking)
+export type AffiliatePerformanceRow = {
+  link_id: string
+  product: string | null
+  network: string | null
+  niche: string | null
+  commission_pct: number | null
+  click_count: number
+  conversion_count: number
+  confirmed_count: number
+  confirmed_commission_eur: number
+  pending_commission_eur: number
+  conversion_rate_pct: number
+  epc_eur: number
+}
+
+export const DOC_KIND_LABEL: Record<DocKind, string> = {
+  kyc_id: 'ID / KYC',
+  proof_address: 'Adresbewijs',
+  tax_form: 'Tax form',
+  contract: 'Contract',
+  bank: 'Bankgegevens',
+  other: 'Overig',
+}
+
+export const DOC_STATUS_LABEL: Record<DocStatus, string> = {
+  required: 'Vereist',
+  uploaded: 'Geüpload',
+  verified: 'Geverifieerd',
+  rejected: 'Afgewezen',
+}
+
+export const LOGIN_STATUS_LABEL: Record<LoginStatus, string> = {
+  none: 'Geen login',
+  created: 'Aangemaakt',
+  verified: 'Geverifieerd',
+  mfa_pending: 'MFA pending',
+  locked: 'Geblokkeerd',
+}
