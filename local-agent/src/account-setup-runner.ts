@@ -341,6 +341,31 @@ type ConnectorRow = {
   enabled: boolean
 }
 
+// Dynamische datum-tokens in endpoint-URL. Awin (en vergelijkbare) eisen een
+// startDate/endDate-range; we vullen die per sync automatisch in.
+// Tokens: {startDate} {endDate} {startOfMonth} {endOfMonth} {now}
+// config.date_window: 'current_month' (default) | 'last_31_days' | 'last_7_days'
+function fmtDateTime(d: Date): string {
+  return d.toISOString().slice(0, 19) // YYYY-MM-DDTHH:mm:ss (UTC)
+}
+function applyDateTemplate(url: string, cfg: Record<string, unknown>): string {
+  if (!/\{(startDate|endDate|startOfMonth|endOfMonth|now)\}/.test(url)) return url
+  const now = new Date()
+  const startOfMonth = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1, 0, 0, 0))
+  const endOfMonth = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 0, 23, 59, 59))
+  const windowKind = String(cfg.date_window ?? 'current_month')
+  let start = startOfMonth
+  const end = now // nooit in de toekomst → API's accepteren dit
+  if (windowKind === 'last_31_days') start = new Date(now.getTime() - 31 * 86_400_000)
+  else if (windowKind === 'last_7_days') start = new Date(now.getTime() - 7 * 86_400_000)
+  return url
+    .split('{startDate}').join(fmtDateTime(start))
+    .split('{endDate}').join(fmtDateTime(end))
+    .split('{startOfMonth}').join(fmtDateTime(startOfMonth))
+    .split('{endOfMonth}').join(fmtDateTime(endOfMonth))
+    .split('{now}').join(fmtDateTime(now))
+}
+
 function dotGet(obj: unknown, path: string | undefined): unknown {
   if (!path) return obj
   return path.split('.').reduce<unknown>((acc, k) => {
@@ -370,7 +395,7 @@ async function handleRevenueSync(run: RunRow): Promise<void> {
   }
 
   const cfg = conn.config ?? {}
-  const url = String(cfg.endpoint ?? conn.base_url ?? '')
+  const url = applyDateTemplate(String(cfg.endpoint ?? conn.base_url ?? ''), cfg)
   if (!url) throw new Error('connector zonder endpoint/base_url')
 
   // auth
