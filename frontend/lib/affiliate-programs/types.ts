@@ -268,3 +268,60 @@ export const DOMAIN_LABEL: Record<AccountTypeDomain, string> = {
   marketplace: 'Marketplace',
   investor: 'Investor',
 }
+
+// ── Payout-reconciliatie + API-connectors (migratie 102) ────────────────────
+export type PayoutStatus = 'expected' | 'pending' | 'partial' | 'paid' | 'discrepancy' | 'written_off'
+export type ConnectorAuthType = 'none' | 'bearer' | 'api_key' | 'basic'
+
+export type PayoutRow = {
+  id: string
+  program_id: string
+  period_month: string | null
+  expected_amount: number
+  paid_amount: number
+  currency: string
+  status: PayoutStatus
+  expected_at: string | null
+  paid_at: string | null
+  external_ref: string | null
+  variance_amount: number
+  reconciled: boolean
+  notes: string | null
+}
+
+export type ReconciliationRow = {
+  program_id: string
+  company_id: string | null
+  name: string
+  payout_currency: string
+  payout_threshold: number | null
+  commission_total: number
+  total_paid: number
+  outstanding: number
+  at_threshold: boolean
+  open_expected: number
+  discrepancies: number
+}
+
+export type ConnectorRow = {
+  id: string
+  program_id: string
+  provider: string | null
+  base_url: string | null
+  auth_type: ConnectorAuthType
+  credential_env: string | null
+  config: Record<string, unknown>
+  enabled: boolean
+  last_sync_at: string | null
+  last_sync_status: string | null
+  last_error: string | null
+}
+
+export const PAYOUT_STATUS_LABEL: Record<PayoutStatus, string> = {
+  expected: 'Verwacht',
+  pending: 'In behandeling',
+  partial: 'Deels betaald',
+  paid: 'Betaald',
+  discrepancy: 'Discrepantie',
+  written_off: 'Afgeschreven',
+}

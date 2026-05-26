@@ -2,7 +2,12 @@
 
 > **Sessie protocol** (CLAUDE.md): Lees dit bestand bij elke nieuwe Claude Code sessie. Update na elke voltooide taak. Houd het herstel-blok actueel.
 
-**Laatste update:** 2026-05-26 (sessie 10) — Affiliate & Revenue Infra (migratie 100) + **F2** (#44) + **F3** (#43) + **F4** (#45) + **F5 scaling-framework** (migratie 101, branch `feature/account-setup-f5`). Build Tracker-milestone 88%, 10 sub-tabs live. Sessie 9 (migratie 099) hieronder.
+**Laatste update:** 2026-05-26 (sessie 10) — Affiliate & Revenue Infra: F2 (#44) + F3 (#43) + F4 (#45) + F5 (#46) + **Payouts & API-connectors** (migratie 102, branch `feature/account-setup-payouts`). Build Tracker-milestone 100%, 11 sub-tabs live. Sessie 9 (migratie 099) hieronder.
+
+**Payouts + API-integraties (sessie 10) — branch `feature/account-setup-payouts`, migratie 102:**
+- ✅ `affiliate_payouts` (verwacht vs betaald + variance + reconciled) + `v_payout_reconciliation` (commissie−betaald=uitstaand, drempel, discrepanties). `affiliate_api_connectors` (declaratieve per-programma API-koppeling; secret via `credential_env` env-var op runner-host, NIET in DB).
+- ✅ Runner `handleRevenueSync`: echte generieke API-puller (auth bearer/api_key/basic, dot-path mapping → upsert ledger source='api'); uit zolang connector disabled. Cron-tick: payout-reconciliatie-pass (expected payout bij drempel + human-action).
+- ✅ Frontend `/payouts`-tab (reconciliatie + payout boeken + connector-config + "Sync nu"). actions: addPayout/upsertConnector. layout: Payouts & Sync live.
 
 **F5 (sessie 10) — branch `feature/account-setup-f5`, migratie 101:**
 - ✅ `account_setup_types` tabel (11 types: affiliate/linkedin/youtube/stripe/llc/vat/domain/email/social/marketplace/investor) met declaratieve checklist + required_docs per type. `affiliate_programs.account_type` kolom (default affiliate_program → bestaande rijen breken niet).
