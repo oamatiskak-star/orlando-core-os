@@ -2,7 +2,12 @@
 
 > **Sessie protocol** (CLAUDE.md): Lees dit bestand bij elke nieuwe Claude Code sessie. Update na elke voltooide taak. Houd het herstel-blok actueel.
 
-**Laatste update:** 2026-05-26 (sessie 10) — Affiliate & Revenue Infra (migratie 100, PR #41) + **F3** (runner+cron, PR #43) + **F2** (Revenue/KYC/Links, PR #44) + **F4** (YouTube Connector + Aquier Revenue, branch `feature/account-setup-f4`). Build Tracker-milestone 75%. Sessie 9 (migratie 099) hieronder.
+**Laatste update:** 2026-05-26 (sessie 10) — Affiliate & Revenue Infra (migratie 100) + **F2** (#44) + **F3** (#43) + **F4** (#45) + **F5 scaling-framework** (migratie 101, branch `feature/account-setup-f5`). Build Tracker-milestone 88%, 10 sub-tabs live. Sessie 9 (migratie 099) hieronder.
+
+**F5 (sessie 10) — branch `feature/account-setup-f5`, migratie 101:**
+- ✅ `account_setup_types` tabel (11 types: affiliate/linkedin/youtube/stripe/llc/vat/domain/email/social/marketplace/investor) met declaratieve checklist + required_docs per type. `affiliate_programs.account_type` kolom (default affiliate_program → bestaande rijen breken niet).
+- ✅ Runner: `handleOnboarding` is nu template-gedreven — leest het type-template en genereert per checklist-stap een human-action + per required_doc een 'required'-document. Schaalt naar elk type zonder code.
+- ✅ Frontend: `/scaling`-tab (types per domein + "account aanmaken" → createAndProvisionAccount zet onboarding-run in queue). `createProgram` + accounts-tabel tonen account_type.
 
 **F4 (sessie 10) — branch `feature/account-setup-f4`:**
 - ✅ `youtube/page.tsx` — YouTube Channel Connector: koppelt affiliate-programma's ↔ `youtube_channels` via `affiliate_programs.connected_channels` (uuid[]); per-kanaal chips + add/remove (`setChannelLink`).

@@ -63,12 +63,20 @@ type ProgramRow = {
   id: string
   name: string
   category: string
+  account_type: string
   url: string | null
   notes: string | null
   payout_model: string | null
   recurring: boolean | null
   kyc_requirements: string | null
   country_availability: string[] | null
+}
+
+type AccountTypeRow = {
+  type_key: string
+  label: string
+  checklist: { step: string; action_kind: string }[]
+  required_docs: string[]
 }
 
 type StepKind =
@@ -166,10 +174,48 @@ async function claimNextRun(): Promise<RunRow | null> {
 async function loadProgram(programId: string): Promise<ProgramRow | null> {
   const { data } = await db
     .from('affiliate_programs')
-    .select('id, name, category, url, notes, payout_model, recurring, kyc_requirements, country_availability')
+    .select('id, name, category, account_type, url, notes, payout_model, recurring, kyc_requirements, country_availability')
     .eq('id', programId)
     .maybeSingle()
   return (data as ProgramRow) ?? null
+}
+
+async function loadAccountType(typeKey: string): Promise<AccountTypeRow | null> {
+  const { data } = await db
+    .from('account_setup_types')
+    .select('type_key, label, checklist, required_docs')
+    .eq('type_key', typeKey)
+    .maybeSingle()
+  return (data as AccountTypeRow) ?? null
+}
+
+// human-action aanmaken per UNIEKE titel (niet dedupe op kind — een template
+// kan meerdere 'manual_review'-stappen hebben).
+async function ensureHumanActionByTitle(programId: string, runId: string, kind: string, title: string, description: string) {
+  const { data: existing } = await db
+    .from('account_setup_human_actions')
+    .select('id')
+    .eq('program_id', programId)
+    .eq('title', title)
+    .in('status', ['open', 'in_progress'])
+    .maybeSingle()
+  if (existing) return false
+  await db.from('account_setup_human_actions').insert({
+    program_id: programId, run_id: runId, action_kind: kind, title, description, status: 'open',
+  })
+  return true
+}
+
+async function ensureRequiredDoc(programId: string, docKind: string) {
+  const { data: existing } = await db
+    .from('account_setup_documents')
+    .select('id')
+    .eq('program_id', programId)
+    .eq('doc_kind', docKind)
+    .maybeSingle()
+  if (existing) return false
+  await db.from('account_setup_documents').insert({ program_id: programId, doc_kind: docKind, status: 'required' })
+  return true
 }
 
 async function handleTermsAnalysis(run: RunRow): Promise<void> {
@@ -237,15 +283,45 @@ async function handleReminder(run: RunRow): Promise<void> {
   await audit(program.id, run.id, 'reminder.processed', {})
 }
 
+// Template-gedreven onboarding: leest het account_setup_types-template van het
+// account-type en genereert per checklist-stap een human-action + per vereist
+// document een 'required'-rij. Zo schaalt onboarding naar elk type zonder code.
 async function handleOnboarding(run: RunRow): Promise<void> {
   if (!run.program_id) throw new Error('onboarding vereist program_id')
   const program = await loadProgram(run.program_id)
   if (!program) throw new Error(`Programma ${run.program_id} niet gevonden`)
-  await ensureHumanAction(program.id, run.id, 'manual_review',
-    `Onboarding voorbereiden: ${program.name}`,
-    'Onboarding-stappen klaarzetten (account aanmaken, gegevens invoeren). Handmatige actie vereist.')
-  await recordStep(run.id, 'prepare_onboarding', 'completed', { program: program.name })
-  await audit(program.id, run.id, 'onboarding.prepared', {})
+
+  const tmpl = await loadAccountType(program.account_type)
+  if (!tmpl) {
+    // fallback: onbekend type → één generieke actie
+    await ensureHumanActionByTitle(program.id, run.id, 'manual_review',
+      `Onboarding voorbereiden: ${program.name}`, 'Account-type zonder template — handmatige onboarding.')
+    await recordStep(run.id, 'prepare_onboarding', 'completed', { account_type: program.account_type, template: false })
+    await audit(program.id, run.id, 'onboarding.prepared', { account_type: program.account_type, template: false })
+    return
+  }
+
+  let actionsCreated = 0
+  for (const item of tmpl.checklist ?? []) {
+    const created = await ensureHumanActionByTitle(
+      program.id, run.id, item.action_kind || 'manual_review',
+      `${tmpl.label}: ${item.step} — ${program.name}`,
+      `Onboarding-stap voor ${tmpl.label}. Handmatige actie vereist (agent verzendt niet autonoom).`,
+    )
+    if (created) actionsCreated++
+  }
+
+  let docsCreated = 0
+  for (const docKind of tmpl.required_docs ?? []) {
+    if (await ensureRequiredDoc(program.id, docKind)) docsCreated++
+  }
+
+  await recordStep(run.id, 'prepare_onboarding', 'completed', {
+    account_type: program.account_type, template: tmpl.label, actions_created: actionsCreated, docs_created: docsCreated,
+  })
+  await audit(program.id, run.id, 'onboarding.prepared', {
+    account_type: program.account_type, actions_created: actionsCreated, docs_created: docsCreated,
+  })
 }
 
 async function handleVerification(run: RunRow): Promise<void> {

@@ -1,7 +1,7 @@
 import Link from 'next/link'
 import {
   UserCheck, LayoutGrid, AlertCircle, Wallet, ShieldCheck,
-  Link as LinkIcon, Tv2, Globe, Zap,
+  Link as LinkIcon, Tv2, Globe, Boxes,
 } from 'lucide-react'
 import { getActiveCompany } from '@/lib/active-company-server'
 import type { ReactNode } from 'react'
@@ -23,7 +23,7 @@ const SUB_NAV: SubNavEntry[] = [
   { href: '/dashboard/account-setup/links',           label: 'Affiliate Links',  icon: LinkIcon,    status: 'live' },
   { href: '/dashboard/account-setup/youtube',         label: 'YouTube Connector',icon: Tv2,         status: 'live' },
   { href: '/dashboard/account-setup/aquier',          label: 'Aquier Revenue',   icon: Globe,       status: 'live' },
-  { href: '/dashboard/account-setup/automation',      label: 'Automation',       icon: Zap,         status: 'planned', phase: 3 },
+  { href: '/dashboard/account-setup/scaling',         label: 'Scaling',          icon: Boxes,       status: 'live' },
 ]
 
 export default async function AccountSetupLayout({ children }: { children: ReactNode }) {

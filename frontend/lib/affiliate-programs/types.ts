@@ -59,6 +59,7 @@ export type AffiliateProgramRow = {
   id: string
   company_id: string | null
   name: string
+  account_type: string
   category: ProgramCategory
   url: string | null
   payout_model: string | null
@@ -241,4 +242,29 @@ export type AquierMonitorRow = {
 // Channel display-naam (naam heeft voorrang op name)
 export function channelLabel(c: { name: string | null; naam: string | null; handle: string | null }): string {
   return c.naam || c.name || c.handle || 'Onbekend kanaal'
+}
+
+// ── F5: account-type scaling framework ──────────────────────────────────────
+export type AccountTypeDomain = 'affiliate' | 'social' | 'finance' | 'legal' | 'infra' | 'marketplace' | 'investor'
+
+export type AccountSetupTypeRow = {
+  type_key: string
+  label: string
+  domain: AccountTypeDomain
+  description: string | null
+  checklist: { step: string; action_kind: string }[]
+  required_docs: string[]
+  default_run_kind: string
+  active: boolean
+  sort_order: number
+}
+
+export const DOMAIN_LABEL: Record<AccountTypeDomain, string> = {
+  affiliate: 'Affiliate',
+  social: 'Social',
+  finance: 'Finance',
+  legal: 'Legal',
+  infra: 'Infrastructuur',
+  marketplace: 'Marketplace',
+  investor: 'Investor',
 }
