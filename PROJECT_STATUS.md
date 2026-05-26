@@ -23,11 +23,14 @@
 6. **Account & Affiliate Dashboard** `frontend/app/dashboard/accounts/page.tsx` — 8 KPI's (totaal/voorbereiding/ingediend/goedgekeurd/afgewezen/verwacht-maand/werkelijk-maand/openstaande payouts) + lijst gekoppeld aan taak+milestone+verdienmodel.
 7. **Nav** `frontend/lib/nav-config.ts` — module `accounts` (`/dashboard/accounts`) toegevoegd aan elke "Operationeel"-sectie.
 
+**Status (sessie 9): GEDEPLOYD.**
+- ✅ Code: PR #39 (`feature/account-setup-agent`) gemerged naar `main` (merge-commit `8c53970`).
+- ✅ Frontend deploy: getriggerd via Vercel git-integratie op `main` (project `frontend`, root `frontend/`). Build-status verifiëren in Vercel-dashboard (MCP kan dit project niet zien — staat onder `bouwproffsnederlandbv`-account).
+- ✅ DB: migratie 099 al toegepast op prod (`shaunumewswpxhmgbtvv`) → routes `/dashboard/accounts` + `/dashboard/build-tracker/[id]/account-setup` direct functioneel zodra build live is.
+
 **Open / vervolg (sessie 9):**
-1. **Frontend deploy** naar Vercel (orlando-core-os) — nieuwe routes `/dashboard/accounts` + `/dashboard/build-tracker/[id]/account-setup`.
-2. **business_profiles vullen** per BV (adres/IBAN/website/e-mail/pitch) — nu alleen naam/KvK/omschrijving uit `companies`; rest toont `"nog invullen"` tot ingevuld via de agent.
-3. Markeer relevante build-taken als `requires_account_setup=true` (via BuildEditPanel) om de knop te tonen.
-4. Niet gecommit/gepusht — staat lokaal op branch `main` in `~/Github/orlando-core-os`.
+1. **business_profiles vullen** per BV (adres/IBAN/website/e-mail/pitch) — nu alleen naam/KvK/omschrijving uit `companies`; rest toont `"nog invullen"` tot ingevuld via de agent.
+2. Markeer relevante build-taken als `requires_account_setup=true` (via BuildEditPanel) om de knop te tonen.
 
 ---
 
