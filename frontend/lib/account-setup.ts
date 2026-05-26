@@ -106,9 +106,37 @@ export const BUSINESS_FIELDS: { key: keyof BusinessProfile; label: string; requi
   { key: 'contact_email',        label: 'Contact e-mail',      required: true },
   { key: 'contact_phone',        label: 'Telefoon',            required: false },
   { key: 'iban',                 label: 'IBAN',                required: false },
-  { key: 'business_description', label: 'Bedrijfsomschrijving', required: true },
-  { key: 'short_pitch',          label: 'Korte pitch',         required: false },
+  // business_description + short_pitch worden door de agent gegenereerd
+  // (afgeleid van naam, rechtsvorm/sector en platform/verdienmodel) — niet
+  // door de gebruiker verplicht in te vullen. Wel achteraf bewerkbaar.
+  { key: 'business_description', label: 'Bedrijfsomschrijving (agent genereert)', required: false },
+  { key: 'short_pitch',          label: 'Korte pitch (agent genereert)',         required: false },
 ]
+
+// Alleen harde feiten die de agent NIET kan verzinnen blijven verplicht
+// (KvK, adres, website, e-mail, …). Sector wordt afgeleid van company.type.
+const SECTOR_BY_TYPE: Record<string, string> = {
+  media_bv: 'media, contentproductie en online publishing',
+  software_bv: 'softwareontwikkeling en SaaS',
+  holding: 'holding- en beheeractiviteiten',
+  financial_bv: 'financieel beheer en administratie',
+  vastgoed_bv: 'vastgoedontwikkeling en -beheer',
+  beheer_bv: 'vastgoedbeheer',
+  bouw_bv: 'bouw en aanneming',
+  persoon: 'ondernemersactiviteiten',
+}
+
+export function sectorFromType(type?: string | null): string {
+  const key = (type ?? '').toLowerCase().trim()
+  if (!key) return ''
+  if (SECTOR_BY_TYPE[key]) return SECTOR_BY_TYPE[key]
+  if (key.includes('media')) return 'media en content'
+  if (key.includes('soft')) return 'software en SaaS'
+  if (key.includes('financ')) return 'financieel beheer'
+  if (key.includes('vastgoed') || key.includes('beheer')) return 'vastgoed'
+  if (key.includes('bouw')) return 'bouw en aanneming'
+  return ''
+}
 
 function empty(v: unknown): boolean {
   return v === null || v === undefined || String(v).trim() === ''
@@ -132,6 +160,8 @@ export type TaskContext = {
   platformName?: string | null
   accountType?: string | null
   revenueModel?: string | null
+  companyName?: string | null
+  companyType?: string | null
 }
 
 export type GeneratedTexts = {
@@ -141,16 +171,51 @@ export type GeneratedTexts = {
   cta: string
 }
 
+/** Naam van het bedrijf uit profiel of company-fallback. */
+export function resolveCompanyName(profile: BusinessProfile | null | undefined, ctx: TaskContext): string {
+  const p = profile ?? {}
+  const trade = (p.trade_name ?? '').toString().trim()
+  const legal = (p.legal_name ?? '').toString().trim()
+  return trade || legal || (ctx.companyName ?? '').toString().trim() || PLACEHOLDER
+}
+
+/** Agent genereert een feitelijke bedrijfsomschrijving uit naam + sector + platform/verdienmodel. */
+export function deriveBusinessDescription(profile: BusinessProfile | null | undefined, ctx: TaskContext): string {
+  const name = resolveCompanyName(profile, ctx)
+  const sector = sectorFromType(ctx.companyType)
+  const base = sector
+    ? `${name} is een Nederlandse onderneming actief in ${sector}.`
+    : `${name} is een Nederlandse onderneming.`
+  const platform = (ctx.platformName ?? '').toString().trim()
+  const model = (ctx.revenueModel ?? '').toString().trim()
+  if (platform && model) {
+    return `${base} Voor ${platform} richt ${name} zich op ${model} via eigen kanalen.`
+  }
+  if (platform) {
+    return `${base} ${name} wil zich aansluiten bij ${platform}.`
+  }
+  return base
+}
+
+/** Agent genereert een korte pitch. */
+export function deriveShortPitch(profile: BusinessProfile | null | undefined, ctx: TaskContext): string {
+  const name = resolveCompanyName(profile, ctx)
+  const sector = sectorFromType(ctx.companyType)
+  return sector ? `${name} — specialist in ${sector}` : name
+}
+
 export function generateApplicationTexts(profile: BusinessProfile | null | undefined, ctx: TaskContext): GeneratedTexts {
   const p = profile ?? {}
-  const name = val(p.trade_name) !== PLACEHOLDER ? val(p.trade_name) : val(p.legal_name)
-  const desc = val(p.business_description)
-  const pitch = val(p.short_pitch) !== PLACEHOLDER ? val(p.short_pitch) : desc
+  const name = resolveCompanyName(profile, ctx)
+  const storedDesc = (p.business_description ?? '').toString().trim()
+  const desc = storedDesc || deriveBusinessDescription(profile, ctx)
+  const storedPitch = (p.short_pitch ?? '').toString().trim()
+  const pitch = storedPitch || deriveShortPitch(profile, ctx)
   const website = val(p.website)
   const platform = ctx.platformName?.trim() || PLACEHOLDER
   const model = ctx.revenueModel?.trim() || PLACEHOLDER
 
-  const business_description = `${name} — ${desc}`
+  const business_description = desc
 
   const affiliate_application = [
     `Aanvraag ${ctx.accountType?.trim() || 'account'} voor ${platform}`,
@@ -169,7 +234,7 @@ export function generateApplicationTexts(profile: BusinessProfile | null | undef
   ].join('\n')
 
   const linkedin_about = [
-    `${name} — ${pitch}`,
+    pitch,
     ``,
     `${desc}`,
     website !== PLACEHOLDER ? `Meer info: ${website}` : `Website: ${PLACEHOLDER}`,

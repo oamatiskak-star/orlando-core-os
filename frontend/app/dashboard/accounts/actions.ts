@@ -8,6 +8,8 @@ import {
   generateApplicationTexts,
   buildRequiredDocuments,
   deriveStatusAfterPrepare,
+  deriveBusinessDescription,
+  deriveShortPitch,
   type BusinessProfile,
   type TaskContext,
 } from '@/lib/account-setup'
@@ -27,18 +29,23 @@ async function loadTaskBundle(buildTaskId: string) {
     .eq('id', buildTaskId)
     .maybeSingle()
 
-  if (taskErr || !task) return { supabase, task: null, profile: null }
+  if (taskErr || !task) return { supabase, task: null, profile: null, company: null }
 
   let profile: BusinessProfile | null = null
+  let company: { name: string | null; type: string | null } | null = null
   if (task.company_id) {
-    const { data: prof } = await supabase
-      .from('business_profiles')
-      .select('legal_name, trade_name, kvk_number, vat_number, address, postal_code, city, country, website, contact_email, contact_phone, iban, business_description, short_pitch')
-      .eq('company_id', task.company_id)
-      .maybeSingle()
+    const [{ data: prof }, { data: comp }] = await Promise.all([
+      supabase
+        .from('business_profiles')
+        .select('legal_name, trade_name, kvk_number, vat_number, address, postal_code, city, country, website, contact_email, contact_phone, iban, business_description, short_pitch')
+        .eq('company_id', task.company_id)
+        .maybeSingle(),
+      supabase.from('companies').select('name, type').eq('id', task.company_id).maybeSingle(),
+    ])
     profile = (prof as BusinessProfile) ?? null
+    company = (comp as { name: string | null; type: string | null }) ?? null
   }
-  return { supabase, task, profile }
+  return { supabase, task, profile, company }
 }
 
 // ── "Maak account aan" → laad/maak account-setup en bereid alles voor ─────
@@ -46,8 +53,9 @@ export async function prepareAccountSetup(buildTaskId: string): Promise<Result> 
   const id = (buildTaskId ?? '').trim()
   if (!id) return { ok: false, error: 'Build task id ontbreekt' }
 
-  const { supabase, task, profile } = await loadTaskBundle(id)
+  const { supabase, task, profile, company } = await loadTaskBundle(id)
   if (!task) return { ok: false, error: 'Build-taak niet gevonden' }
+  let effProfile: BusinessProfile | null = profile
 
   const ctx: TaskContext = {
     taskName: task.name,
@@ -56,10 +64,30 @@ export async function prepareAccountSetup(buildTaskId: string): Promise<Result> 
     platformName: task.account_platform,
     accountType: task.account_type,
     revenueModel: task.expected_revenue_model,
+    companyName: company?.name ?? null,
+    companyType: company?.type ?? null,
   }
 
-  const missing = computeMissingFields(profile)
-  const texts = generateApplicationTexts(profile, ctx)
+  // Agent genereert omschrijving + pitch centraal als die nog leeg zijn
+  // (gebruiker hoeft dit niet zelf te typen). Harde feiten blijven aan de gebruiker.
+  if (task.company_id) {
+    const profilePatch: Record<string, unknown> = {}
+    if (!((effProfile?.business_description ?? '').toString().trim())) {
+      profilePatch.business_description = deriveBusinessDescription(effProfile, ctx)
+    }
+    if (!((effProfile?.short_pitch ?? '').toString().trim())) {
+      profilePatch.short_pitch = deriveShortPitch(effProfile, ctx)
+    }
+    if (Object.keys(profilePatch).length) {
+      profilePatch.company_id = task.company_id
+      profilePatch.updated_at = nowISO()
+      await supabase.from('business_profiles').upsert(profilePatch, { onConflict: 'company_id' })
+      effProfile = { ...(effProfile ?? {}), ...profilePatch } as BusinessProfile
+    }
+  }
+
+  const missing = computeMissingFields(effProfile)
+  const texts = generateApplicationTexts(effProfile, ctx)
   const docs = buildRequiredDocuments(task.account_type)
   const status = deriveStatusAfterPrepare(missing)
 
