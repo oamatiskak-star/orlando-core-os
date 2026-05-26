@@ -12,3 +12,8 @@ export {
   AffiliateIntelligenceEngine,
   createAffiliateIntelligenceEngine,
 } from './affiliate-intelligence-engine';
+
+// Syncer exports
+export { AffiliateChannelSyncer } from './affiliate-channel-syncer';
+export { AffiliateCountrySyncer } from './affiliate-country-syncer';
+export { AffiliateIntelligenceSync, createAffiliateIntelligenceSync } from './database-sync';
