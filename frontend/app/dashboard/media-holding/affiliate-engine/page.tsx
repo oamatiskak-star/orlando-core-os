@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from 'react'
 import Link from 'next/link'
 import { Link as LinkIcon, ChevronLeft, Plus, Trash2, Power, ExternalLink, MousePointerClick, TrendingUp } from 'lucide-react'
 import clsx from 'clsx'
+import { AiRecommendationPanel } from './ai-recommendation-panel'
 
 type AffLink = {
   id: string
@@ -65,6 +66,7 @@ export default function AffiliateEnginePage() {
   const [msg, setMsg] = useState('')
   const [creating, setCreating] = useState(false)
   const [newLink, setNewLink] = useState(NEW_LINK)
+  const [showRecommendations, setShowRecommendations] = useState(false)
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -167,6 +169,18 @@ export default function AffiliateEnginePage() {
       {/* New link form */}
       <div className="bg-white/[0.04] border border-white/8 rounded-xl p-4">
         <h2 className="text-[10px] font-semibold text-white/40 uppercase tracking-wider mb-3">Nieuwe affiliate link</h2>
+
+        {showRecommendations && newLink.channel_id && (
+          <AiRecommendationPanel
+            channelId={newLink.channel_id}
+            onSelectRecommendation={(affiliateId) => {
+              setNewLink({ ...newLink, affiliate_id: affiliateId })
+              setShowRecommendations(false)
+            }}
+            onDismiss={() => setShowRecommendations(false)}
+          />
+        )}
+
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-3">
           <Field label="affiliate_id"   value={newLink.affiliate_id}   onChange={(v) => setNewLink({ ...newLink, affiliate_id: v })} placeholder="bv. 12345" />
           <Field label="product"        value={newLink.product}        onChange={(v) => setNewLink({ ...newLink, product: v })} placeholder="bv. AeroPress" />
@@ -180,7 +194,14 @@ export default function AffiliateEnginePage() {
             <p className="text-[9px] text-white/40 uppercase tracking-wider mb-1">channel</p>
             <select
               value={newLink.channel_id}
-              onChange={(e) => setNewLink({ ...newLink, channel_id: e.target.value })}
+              onChange={(e) => {
+                setNewLink({ ...newLink, channel_id: e.target.value })
+                if (e.target.value) {
+                  setShowRecommendations(true)
+                } else {
+                  setShowRecommendations(false)
+                }
+              }}
               className="w-full bg-white/[0.06] border border-white/10 rounded px-2 py-1.5 text-xs text-white"
             >
               <option value="">— geen —</option>
