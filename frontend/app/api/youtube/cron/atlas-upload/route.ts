@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { reportHeartbeat } from '@/lib/watchdog/heartbeat'
 
 export const revalidate = 0
 export const maxDuration = 60
@@ -183,6 +184,8 @@ export async function GET(req: NextRequest) {
     await completeTask(admin, task, `youtube_videos=${ytVideo.id} queue=${queueRow?.id}`)
     results.push({ task_id: task.id, status: 'queued', detail: `yt_video=${ytVideo.id}` })
   }
+
+  await reportHeartbeat('cron.vercel.atlas-upload').catch(() => {}) /* watchdog-heartbeat */
 
   return NextResponse.json({
     ok:           true,

@@ -14,6 +14,10 @@ import type {
   Dossier, CuratorDossier, LegalDocument, LegalRisk, TimelineEvent,
   Priority, RiskSeverity,
 } from '@/lib/advocaat/types'
+import { consumeAnalyseStream } from '@/lib/advocaat/stream'
+import { NotesPanel } from '../_components/NotesPanel'
+import { DilDocumentsPanel } from '../_components/DilDocumentsPanel'
+import { ExpertPanel } from '../_components/ExpertPanel'
 
 const PRIORITY_COLOR: Record<Priority, string> = {
   kritiek: 'text-red-400 bg-red-500/10 border-red-500/30',
@@ -139,16 +143,22 @@ export default function DossierDetailPage() {
   async function runAnalyse(analyse_type: string = 'volledig') {
     if (!data) return
     setAnalyzing(true)
-    setAnalyseTxt(null)
+    setAnalyseTxt('')
     try {
       const res = await fetch('/api/advocaat/analyze', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ dossier_id: id, analyse_type }),
       })
-      const json = await res.json()
-      if (!res.ok) throw new Error(json.error ?? 'Analyse mislukt')
-      setAnalyseTxt(json.analyse ?? null)
+      let accumulated = ''
+      await consumeAnalyseStream(res, (event) => {
+        if (event.kind === 'chunk') {
+          accumulated += event.text
+          setAnalyseTxt(accumulated)
+        } else if (event.kind === 'done') {
+          setAnalyseTxt(event.analyse)
+        }
+      })
     } catch (e) {
       setAnalyseTxt(`Fout: ${(e as Error).message}`)
     } finally {
@@ -425,6 +435,15 @@ export default function DossierDetailPage() {
           </p>
         )}
       </div>
+
+      {/* ── Centraal ingelezen documenten (DIL) ─────────────────────────── */}
+      <DilDocumentsPanel dossierId={id as string} />
+
+      {/* ── Briefing / Chat aan AI Advocaat ──────────────────────────────── */}
+      <NotesPanel dossierId={id as string} />
+
+      {/* ── Expert panel — multi-role parallel analyse ──────────────────── */}
+      <ExpertPanel dossierId={id as string} />
 
       {/* ── Curator block (alleen als faillissement-dossier) ───────────────── */}
       {curator && (

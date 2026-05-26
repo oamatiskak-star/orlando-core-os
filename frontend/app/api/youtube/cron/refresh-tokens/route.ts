@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { createClient } from '@/lib/supabase/server'
+import { reportHeartbeat } from '@/lib/watchdog/heartbeat'
 
 async function runRefresh() {
   const admin = createAdminClient()
@@ -97,5 +98,6 @@ export async function POST(_request: NextRequest) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  await reportHeartbeat('cron.vercel.refresh-tokens').catch(() => {}) /* watchdog-heartbeat */
   return NextResponse.json(await runRefresh())
 }

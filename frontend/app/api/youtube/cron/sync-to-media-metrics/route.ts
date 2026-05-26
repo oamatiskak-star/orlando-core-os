@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { reportHeartbeat } from '@/lib/watchdog/heartbeat'
 
 export const revalidate = 0
 export const maxDuration = 60
@@ -106,6 +107,8 @@ export async function GET(req: NextRequest) {
     }
     videoSynced = videoRows.length
   }
+
+  await reportHeartbeat('cron.vercel.sync-to-media-metrics').catch(() => {}) /* watchdog-heartbeat */
 
   return NextResponse.json({
     channels_synced: channelsSynced,

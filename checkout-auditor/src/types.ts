@@ -31,12 +31,26 @@ export const CountrySpecSchema = z.object({
   code: z.string().length(2),
   name: z.string(),
   tier_classification: z.enum(['tier1', 'tier2']),
-  locale_default: z.string(),                 // e.g. "nl-NL"
-  currency_expected: z.string().length(3),    // ISO-4217
-  vat_rate_b2c_standard: z.number().nullable(),  // e.g. 0.21 for NL; null for "reverse charge B2B"
+  locale_default: z.string(),
+  currency_expected: z.string().length(3),
+  vat_rate_b2c_standard: z.number().nullable(),
   vat_reverse_charge_b2b: z.boolean(),
-  route_prefix_candidates: z.array(z.string()),  // ['/nl', '', '/']
+  route_prefix_candidates: z.array(z.string()),
   launch_status_in_plan: z.enum(['live', 'planned', 'tier2_future']),
+  // From vastgoed_core.country_pricing_rules — geo-pricing multipliers
+  pricing_multiplier: z.object({
+    purchasing_power_factor: z.number().nullable(),
+    market_factor: z.number().nullable(),
+    combined: z.number().nullable(),
+    note: z.string().optional(),
+  }),
+  // Pre-computed expected EUR prices per (tier × cycle); null when country has no pricing rule
+  expected_prices_eur: z.object({
+    explorer_monthly: z.number().nullable(),
+    explorer_yearly: z.number().nullable(),
+    developer_monthly: z.number().nullable(),
+    developer_yearly: z.number().nullable(),
+  }),
 })
 export type CountrySpec = z.infer<typeof CountrySpecSchema>
 
@@ -107,6 +121,20 @@ export const ObservationsSchema = z.object({
     redirect_chain: z.array(z.string()),
     console_errors: z.array(z.string()),
     page_load_ms: z.number().nullable(),
+    post_cta_url: z.string().nullable().optional(),
+    post_cta_destination: z.string().nullable().optional(),
+    auth_attempted: z.boolean().optional(),
+    auth_success: z.boolean().optional(),
+    auth_post_url: z.string().nullable().optional(),
+    auth_steps: z.array(z.string()).optional(),
+    auth_errors: z.array(z.string()).optional(),
+    auth_xhr_responses: z.array(z.object({
+      url: z.string(),
+      status: z.number(),
+      body_excerpt: z.string(),
+    })).optional(),
+    auth_page_text_after_submit: z.string().nullable().optional(),
+    auth_cookies_after_submit: z.array(z.string()).optional(),
   }),
   stripe_session: z.object({
     session_id: z.string().nullable(),
@@ -188,36 +216,38 @@ export const FindingCategorySchema = z.enum([
 ])
 export type FindingCategory = z.infer<typeof FindingCategorySchema>
 
+// Lenient finding schema — Claude may emit slightly different field shapes.
+// Defaults applied so a finding with severity+category+evidence is still usable.
 export const FindingSchema = z.object({
   severity: FindingSeveritySchema,
   category: FindingCategorySchema,
-  affected_route: z.string(),
-  affected_country: z.string(),
-  affected_tier: z.string(),
-  affected_billing_cycle: z.string(),
-  affected_device: z.string(),
+  affected_route: z.string().default('unknown'),
+  affected_country: z.string().default('all'),
+  affected_tier: z.string().default('all'),
+  affected_billing_cycle: z.string().default('all'),
+  affected_device: z.string().default('all'),
   stripe_object_ids: z.array(z.string()).default([]),
-  evidence_summary: z.string().min(10).max(2000),
-  recommended_fix: z.string().min(10).max(2000),
-  confidence_score: z.number().min(0).max(1),
-  revenue_impact_eur_estimate: z.number().min(0).max(2_000_000),
-  revenue_impact_reasoning: z.string().max(500),
+  evidence_summary: z.string().min(1).max(4000),
+  recommended_fix: z.string().min(1).max(4000),
+  confidence_score: z.number().min(0).max(1).default(0.5),
+  revenue_impact_eur_estimate: z.number().min(0).max(2_000_000).default(0),
+  revenue_impact_reasoning: z.string().max(1000).default(''),
   evidence_artifact_paths: z.array(z.string()).default([]),
-})
+}).passthrough() // tolerate extra fields Claude adds (finding_id, etc.)
 export type Finding = z.infer<typeof FindingSchema>
 
 export const AuditorOutputSchema = z.object({
-  findings: z.array(FindingSchema),
+  findings: z.array(FindingSchema).default([]),
   summary: z.object({
-    total_findings: z.number(),
-    by_severity: z.record(z.string(), z.number()),
-    by_category: z.record(z.string(), z.number()),
-    countries_with_no_checkout: z.array(z.string()),
-    tiers_with_issues: z.array(z.string()),
-    overall_health_score: z.number().min(0).max(100),
-    executive_summary: z.string().min(20).max(2000),
-  }),
-})
+    total_findings: z.number().default(0),
+    by_severity: z.record(z.string(), z.number()).default({}),
+    by_category: z.record(z.string(), z.number()).default({}),
+    countries_with_no_checkout: z.array(z.string()).default([]),
+    tiers_with_issues: z.array(z.string()).default([]),
+    overall_health_score: z.number().min(0).max(100).default(100),
+    executive_summary: z.string().min(1).max(4000).default('No summary provided.'),
+  }).passthrough().default({}),
+}).passthrough()
 export type AuditorOutput = z.infer<typeof AuditorOutputSchema>
 
 // ── Run-level types ───────────────────────────────────────────────────────

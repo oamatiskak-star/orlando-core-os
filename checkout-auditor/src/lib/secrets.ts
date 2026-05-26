@@ -15,8 +15,17 @@ const EnvSchema = z.object({
   ANTHROPIC_MODEL_BATCH: z.string().default('claude-sonnet-4-6'),
 
   STRIPE_RESTRICTED_KEY_TEST: z.string().optional(),
+  // Required when aquier.com runs LIVE Stripe (cs_live_* sessions). Read-only restricted key
+  // with permissions on Customer/Checkout Session/Subscription/Invoice/Event. NO write perms.
+  STRIPE_RESTRICTED_KEY_LIVE: z.string().optional(),
 
   AQUIER_BASE_URL: z.string().url().default('https://aquier.com'),
+
+  // Phase 2 — pre-authenticated walkthrough (optional).
+  // When both set, auditor logs in before each scenario so Stripe/webhook/DB sync surfaces become testable.
+  // Use a DEDICATED test account on aquier.com (NEVER a real customer).
+  TEST_USER_EMAIL: z.string().email().optional(),
+  TEST_USER_PASSWORD: z.string().min(8).optional(),
 
   TELEGRAM_BOT_TOKEN: z.string().optional(),
   TELEGRAM_CHAT_ID: z.string().optional(),
@@ -37,5 +46,18 @@ export type Env = z.infer<typeof EnvSchema>
 export const env: Env = EnvSchema.parse(process.env)
 
 export function hasStripeKey(): boolean {
-  return !!env.STRIPE_RESTRICTED_KEY_TEST && env.STRIPE_RESTRICTED_KEY_TEST.startsWith('rk_')
+  const t = env.STRIPE_RESTRICTED_KEY_TEST
+  const l = env.STRIPE_RESTRICTED_KEY_LIVE
+  return (!!t && t.startsWith('rk_')) || (!!l && l.startsWith('rk_'))
+}
+
+/**
+ * Pick the appropriate Stripe restricted key based on the observed session ID prefix.
+ * cs_live_* sessions require the LIVE key; cs_test_* requires the TEST key.
+ */
+export function pickStripeKey(sessionId: string | null): string | null {
+  if (sessionId?.startsWith('cs_live_')) return env.STRIPE_RESTRICTED_KEY_LIVE ?? null
+  if (sessionId?.startsWith('cs_test_')) return env.STRIPE_RESTRICTED_KEY_TEST ?? null
+  // Unknown / no session id — try live first (most likely on aquier.com prod), fall back to test
+  return env.STRIPE_RESTRICTED_KEY_LIVE ?? env.STRIPE_RESTRICTED_KEY_TEST ?? null
 }

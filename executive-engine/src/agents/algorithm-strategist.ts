@@ -75,5 +75,44 @@ Maximum 10 upload_windows (next 48h), 5 swarm_opportunities, 5 pivot_signals, 5 
   })
 
   await persistRecommendations(reportId, output.recommendations ?? [])
+
+  // ─────────────────────────────────────────────────────────────────────
+  // Fan-out hook: zet swarm_opportunities met >=3 variants direct als
+  // orchestrator_task uit naar de content_factory. Hiermee gaat de
+  // Algorithm Intelligence Center loop onmiddellijk in beweging zonder
+  // dat Orlando per breakout handmatig een task hoeft te dispatchen.
+  // ─────────────────────────────────────────────────────────────────────
+  const swarmOps = output.swarm_opportunities ?? []
+  const autoSwarm = swarmOps.filter(op => (op.variants_to_make ?? 0) >= 3)
+  if (autoSwarm.length > 0) {
+    const breakoutInWindow = (snapshot.gravity_events_24h as Array<{ event_type: string }>).some(e => e.event_type === 'breakout')
+    const tasks = autoSwarm.map(op => ({
+      company_id: 'modiwerijo',
+      title: `Algorithm Swarm — ${op.variants_to_make} variants (${op.reason.slice(0, 60)})`,
+      task_type: 'algorithm_swarm',
+      project: 'media-holding',
+      executor: 'content_factory',
+      priority: breakoutInWindow ? 2 : 4,
+      payload: {
+        source: 'algorithm-strategist-autofan',
+        report_id: reportId,
+        run_id: result.runId,
+        content_item_id: op.content_item_id ?? null,
+        channel_id: op.channel_id ?? null,
+        variants_to_make: op.variants_to_make,
+        reason: op.reason,
+        issued_at: new Date().toISOString(),
+      },
+      objective: [`Genereer ${op.variants_to_make} variants voor swarm: ${op.reason}`],
+      success_condition: [`${op.variants_to_make} content_items in status pending|rendering|ready`],
+    }))
+    const { error: fanErr } = await supabase.from('orchestrator_tasks').insert(tasks)
+    if (fanErr) {
+      logger.warn('Algorithm Strategist fan-out swarm dispatch failed', { err: fanErr.message })
+    } else {
+      logger.info('Algorithm Strategist auto-dispatched swarm tasks', { count: tasks.length, breakoutInWindow })
+    }
+  }
+
   return { runId: result.runId, reportId }
 }

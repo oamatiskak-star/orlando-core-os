@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { generateText } from 'ai'
 import { claude } from '@/lib/ai/client'
+import { reportHeartbeat } from '@/lib/watchdog/heartbeat'
 
 async function scoreVideo(
   title: string,
@@ -217,5 +218,6 @@ export async function GET(request: NextRequest) {
   }
 
   console.log(`Pipeline cron: ${totalJobs} jobs aangemaakt voor ${publishDate}`, results)
+  await reportHeartbeat('cron.vercel.run-pipeline').catch(() => {}) /* watchdog-heartbeat */
   return NextResponse.json({ date: publishDate, totalJobs, results })
 }

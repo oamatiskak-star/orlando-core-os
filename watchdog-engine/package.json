@@ -1,7 +1,7 @@
 {
   "name": "orlando-watchdog-engine",
   "version": "1.0.0",
-  "description": "Render fleet watchdog — detects failures across all Render services and auto-recovers (restart -> redeploy -> Telegram escalation -> Claude Code task).",
+  "description": "Orlando organization watchdog — Render fleet auto-recovery + application-layer checks (HTTP pings, heartbeats, queue depth, data freshness, cron lateness) across all engines, crons and verzamelaars.",
   "main": "dist/index.js",
   "scripts": {
     "build": "tsc",
@@ -11,6 +11,7 @@
   "dependencies": {
     "@supabase/supabase-js": "^2.45.0",
     "axios": "^1.7.7",
+    "cron-parser": "^4.9.0",
     "dotenv": "^16.4.5",
     "express": "^4.21.0"
   },

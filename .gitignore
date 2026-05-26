@@ -1,5 +1,7 @@
 .vercel
 .env*.local
+.DS_Store
+**/.DS_Store
 youtube-engine/.env
 mail-engine/.env
 mail-engine/node_modules/
@@ -19,9 +21,14 @@ watchdog-engine/node_modules/
 watchdog-engine/dist/
 local-watchdog/node_modules/
 local-watchdog/dist/
+local-watchdog/.env
+local-watchdog/Supabase*.txt
 acquisition-engine/node_modules/
 acquisition-engine/dist/
 executive-engine/node_modules/
 executive-engine/dist/
 planning-engine/node_modules/
 planning-engine/dist/
+local-agent/node_modules/
+local-agent/dist/
+local-agent/.env

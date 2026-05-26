@@ -1,6 +1,7 @@
 import 'dotenv/config'
 import { logger } from './lib/logger'
 import { getRedis } from './lib/redis-queue'
+import { reportHeartbeat } from './lib/watchdog-heartbeat'
 import { startUploadOrchestrator } from './workers/upload-orchestrator'
 import { startFfmpegNormalizerWorker } from './workers/ffmpeg-normalizer-worker'
 import { startYouTubeUploadWorker } from './workers/youtube-upload-worker'
@@ -39,6 +40,12 @@ async function main() {
 
   logger.info(`${workers.length} workers running`)
   logger.info('Engine is live — watching for upload jobs')
+
+  await reportHeartbeat('engine.youtube-engine.tick', { workers: workers.length, started: true })
+  setInterval(() => {
+    reportHeartbeat('engine.youtube-engine.tick', { workers: workers.length })
+      .catch((e) => logger.error('heartbeat failed', { error: (e as Error).message }))
+  }, 5 * 60_000)
 
   async function gracefulShutdown(signal: string) {
     logger.info(`Received ${signal} — graceful shutdown`)

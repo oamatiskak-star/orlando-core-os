@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { reportHeartbeat } from '@/lib/watchdog/heartbeat'
 
 export const revalidate = 0
 export const maxDuration = 60
@@ -229,6 +230,8 @@ export async function GET(req: NextRequest) {
     .select('id')
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+
+  await reportHeartbeat('cron.vercel.acquisition.distress-scan').catch(() => {}) /* watchdog-heartbeat */
 
   return NextResponse.json({
     ok:                   true,

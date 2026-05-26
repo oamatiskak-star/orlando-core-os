@@ -3,6 +3,18 @@
 :root {
   --background: #121220;
   --foreground: #ffffff;
+
+  /* Executive accent tokens */
+  --accent-amplify: #8b5cf6;
+  --accent-breakout: #10b981;
+  --accent-warn: #f59e0b;
+  --accent-decay: #ef4444;
+  --accent-momentum: #6366f1;
+
+  /* Showcase intensity (overridden by ShowcaseProvider) */
+  --showcase-contrast: 1;
+  --showcase-glow: 0.35;
+  --showcase-speed: 1;
 }
 
 @theme inline {
@@ -25,4 +37,51 @@ body {
 * {
   scrollbar-width: thin;
   scrollbar-color: rgba(255,255,255,0.15) transparent;
+}
+
+/* Executive primitives ────────────────────────────────────────────── */
+
+@keyframes exec-pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50%      { opacity: 0.55; transform: scale(0.92); }
+}
+
+@keyframes exec-glow {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(255,255,255,0); }
+  50%      { box-shadow: 0 0 24px 2px var(--glow-color, rgba(139,92,246,0.35)); }
+}
+
+@keyframes exec-shimmer {
+  0%   { background-position: -200% 0; }
+  100% { background-position:  200% 0; }
+}
+
+.exec-live-dot {
+  width: 7px; height: 7px; border-radius: 9999px;
+  background: var(--accent-breakout);
+  box-shadow: 0 0 8px rgba(16,185,129,0.7);
+  animation: exec-pulse calc(1.4s / var(--showcase-speed)) ease-in-out infinite;
+}
+
+.exec-glow-amplify  { --glow-color: rgba(139, 92,246,calc(var(--showcase-glow))); animation: exec-glow calc(3s / var(--showcase-speed)) ease-in-out infinite; }
+.exec-glow-breakout { --glow-color: rgba( 16,185,129,calc(var(--showcase-glow))); animation: exec-glow calc(3s / var(--showcase-speed)) ease-in-out infinite; }
+.exec-glow-warn     { --glow-color: rgba(245,158, 11,calc(var(--showcase-glow))); animation: exec-glow calc(3s / var(--showcase-speed)) ease-in-out infinite; }
+.exec-glow-decay    { --glow-color: rgba(239, 68, 68,calc(var(--showcase-glow))); animation: exec-glow calc(3s / var(--showcase-speed)) ease-in-out infinite; }
+
+.exec-shimmer-bg {
+  background: linear-gradient(110deg, transparent 30%, rgba(255,255,255,0.05) 50%, transparent 70%);
+  background-size: 200% 100%;
+  animation: exec-shimmer calc(4s / var(--showcase-speed)) linear infinite;
+}
+
+/* Showcase mode overrides — enabled by ShowcaseProvider via [data-showcase="on"] on <html> */
+html[data-showcase="on"] {
+  --showcase-contrast: 1.1;
+  --showcase-glow: 0.65;
+  --showcase-speed: 1.6;
+}
+
+html[data-showcase="on"] body {
+  background: #08081a;
+  filter: contrast(var(--showcase-contrast));
 }

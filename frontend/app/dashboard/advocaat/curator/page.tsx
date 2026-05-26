@@ -7,6 +7,7 @@ import {
   CheckCircle, XCircle, Clock, FileText, Brain,
 } from 'lucide-react'
 import type { CuratorDossier } from '@/lib/advocaat/types'
+import { consumeAnalyseStream } from '@/lib/advocaat/stream'
 
 const RISK_COLOR: Record<string, string> = {
   kritiek: 'text-red-400 bg-red-500/10 border-red-500/30',
@@ -56,13 +57,17 @@ export default function CuratorPage() {
   async function analyze(c: CuratorDossier) {
     if (!c.dossier_id) return
     setAnalyzing(true)
-    await fetch('/api/advocaat/analyze', {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ dossier_id: c.dossier_id, analyse_type: 'curator' }),
-    })
-    setAnalyzing(false)
-    load()
+    try {
+      const res = await fetch('/api/advocaat/analyze', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ dossier_id: c.dossier_id, analyse_type: 'curator' }),
+      })
+      await consumeAnalyseStream(res, () => {})
+    } finally {
+      setAnalyzing(false)
+      load()
+    }
   }
 
   async function submit() {

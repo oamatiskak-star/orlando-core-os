@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { Shield, AlertTriangle, CheckCircle, Activity, RefreshCw, Hammer, Siren } from 'lucide-react'
 import WatchdogClient from './WatchdogClient'
+import OrganizationChecks from './OrganizationChecks'
 
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
@@ -130,6 +131,8 @@ export default async function WatchdogPage() {
           })
         )}
       </div>
+
+      <OrganizationChecks />
 
       <WatchdogClient initialIncidents={incidents} initialEvents={events} hostLabels={HOST_LABELS} />
     </div>

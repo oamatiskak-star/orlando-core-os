@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { classifyAllChannels } from '@/lib/executive-layer/decision-engine'
+import { reportHeartbeat } from '@/lib/watchdog/heartbeat'
 
 export const revalidate = 0
 export const maxDuration = 60
@@ -40,6 +41,8 @@ export async function GET(req: NextRequest) {
 
   const byStatus: Record<string, number> = {}
   for (const o of outcomes) byStatus[o.status] = (byStatus[o.status] ?? 0) + 1
+
+  await reportHeartbeat('cron.vercel.executive.decision').catch(() => {}) /* watchdog-heartbeat */
 
   return NextResponse.json({
     decided: rows.length,

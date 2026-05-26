@@ -4,12 +4,15 @@ import { MEMBERSHIP_SELECTORS } from './selectors'
 import { attachNetworkRecorder, type NetworkEvent } from './network-recorder'
 import { assertLocale, type LocaleAssertResult } from './locale-asserts'
 import { driveStripeCheckout, type StripeCheckoutResult } from './stripe-checkout-driver'
+import { loginIfConfigured, type AuthFlowResult } from './auth-flow'
 import { loadStripeTestCards, loadCountries, loadTiers, loadDevices } from '../specs'
 import { uploadArtifact, buildArtifactPath } from '../lib/storage'
 import { supabase } from '../lib/supabase'
 import { env } from '../lib/secrets'
 import { logger } from '../lib/logger'
 import type { Scenario } from '../types'
+
+export type PostCtaDestination = 'stripe' | 'signup' | 'login' | 'register' | 'dashboard' | 'membership' | 'unknown'
 
 export type WalkthroughResult = {
   membership_page_loaded: boolean
@@ -21,10 +24,23 @@ export type WalkthroughResult = {
   tier_visible: boolean
   cta_clickable: boolean
   pricing_observed_eur: number | null
+  post_cta_url: string | null
+  post_cta_destination: PostCtaDestination | null
+  auth_flow: AuthFlowResult | null
   stripe_result: StripeCheckoutResult | null
   network_events: NetworkEvent[]
   artifacts: Array<{ kind: string; storage_path: string; size_bytes: number }>
   errors: string[]
+}
+
+function classifyDestination(url: string): PostCtaDestination {
+  if (/checkout\.stripe\.com/.test(url)) return 'stripe'
+  if (/\/signup(\b|\?|\/)/.test(url)) return 'signup'
+  if (/\/register(\b|\?|\/)/.test(url)) return 'register'
+  if (/\/login(\b|\?|\/)/.test(url)) return 'login'
+  if (/\/dashboard(\b|\?|\/)/.test(url)) return 'dashboard'
+  if (/\/membership(\b|\?|\/)/.test(url)) return 'membership'
+  return 'unknown'
 }
 
 /**
@@ -73,6 +89,9 @@ export async function runWalkthrough(
     tier_visible: false,
     cta_clickable: false,
     pricing_observed_eur: null,
+    post_cta_url: null,
+    post_cta_destination: null,
+    auth_flow: null,
     stripe_result: null,
     network_events: [],
     artifacts,
@@ -80,6 +99,13 @@ export async function runWalkthrough(
   }
 
   try {
+    // 0. Optional pre-auth login (Phase 2). No-op when TEST_USER_EMAIL/PASSWORD not set.
+    const authResult = await loginIfConfigured(page, context)
+    result.auth_flow = authResult
+    if (authResult.attempted && !authResult.success) {
+      errors.push(`login failed: ${authResult.errors.join('; ') || 'unknown'}`)
+    }
+
     // 1. open /membership
     const membershipUrl = new URL('/membership', env.AQUIER_BASE_URL).toString()
     const loadStart = Date.now()
@@ -97,21 +123,31 @@ export async function runWalkthrough(
     const htmlLang = await page.locator('html').getAttribute('lang').catch(() => null)
     result.locale_observations = assertLocale(bodyText, htmlLang, country)
 
-    // 3. Toggle billing cycle if needed
-    const cycleToggle =
-      scenario.billing_cycle === 'yearly' ? MEMBERSHIP_SELECTORS.yearly_toggle :
-      scenario.billing_cycle === 'quarterly' ? MEMBERSHIP_SELECTORS.quarterly_toggle :
-      scenario.billing_cycle === 'monthly' ? MEMBERSHIP_SELECTORS.monthly_toggle :
-      null
-    if (cycleToggle) {
-      for (const sel of cycleToggle) {
-        try {
-          if (await page.locator(sel).count()) {
-            await page.locator(sel).first().click()
-            await page.waitForTimeout(500)
-            break
-          }
-        } catch { /* continue */ }
+    // 3. Toggle billing cycle if needed.
+    //    Aquier defaults to "Maandelijks" — only click for non-monthly scenarios.
+    //    Also check button's aria-pressed/data-active before clicking to avoid toggling off.
+    if (scenario.billing_cycle !== 'monthly') {
+      const cycleToggle =
+        scenario.billing_cycle === 'yearly' ? MEMBERSHIP_SELECTORS.yearly_toggle :
+        scenario.billing_cycle === 'quarterly' ? MEMBERSHIP_SELECTORS.quarterly_toggle :
+        null
+      if (cycleToggle) {
+        for (const sel of cycleToggle) {
+          try {
+            const loc = page.locator(sel).first()
+            if (await loc.count()) {
+              // Skip if already active (aria-pressed=true or class includes active marker)
+              const aria = await loc.getAttribute('aria-pressed').catch(() => null)
+              const className = (await loc.getAttribute('class').catch(() => '')) ?? ''
+              const alreadyActive = aria === 'true' || /\b(active|selected|is-active|bg-stone-900|text-white)\b/.test(className)
+              if (!alreadyActive) {
+                await loc.click()
+                await page.waitForTimeout(500)
+              }
+              break
+            }
+          } catch { /* continue */ }
+        }
       }
     }
 
@@ -190,16 +226,27 @@ export async function runWalkthrough(
       }
     }
 
-    // 7. Drive Stripe Checkout
+    // 7. Capture post-CTA destination — classify before attempting Stripe driver
     if (ctaClicked) {
-      await page.waitForTimeout(2000) // give SPA navigation time
-      const testCard = loadStripeTestCards().find(c => c.scenario_id === 'card_visa_success')!
-      result.stripe_result = await driveStripeCheckout(page, testCard, {
-        email: `audit+${scenarioId.slice(0, 8)}@aquier-test.example`,
-        timeoutMs: 90_000,
-      })
+      await page.waitForTimeout(2500) // give navigation / SPA route change time
+      const postCtaUrl = page.url()
+      result.post_cta_url = postCtaUrl
+      result.post_cta_destination = classifyDestination(postCtaUrl)
 
-      // Screenshot of post-checkout state
+      logger.info({ scenario: scenario.scenario_code, post_cta_url: postCtaUrl, dest: result.post_cta_destination }, 'CTA clicked')
+
+      // Only drive Stripe if we actually landed on Stripe Checkout
+      if (result.post_cta_destination === 'stripe') {
+        const testCard = loadStripeTestCards().find(c => c.scenario_id === 'card_visa_success')!
+        result.stripe_result = await driveStripeCheckout(page, testCard, {
+          email: `audit+${scenarioId.slice(0, 8)}@aquier-test.example`,
+          timeoutMs: 90_000,
+        })
+      } else {
+        errors.push(`CTA landed on ${result.post_cta_destination} (${postCtaUrl}) instead of Stripe Checkout`)
+      }
+
+      // Always capture post-CTA screenshot (regardless of destination)
       const postCheckout = await page.screenshot({ type: 'png', fullPage: true }).catch(() => null)
       if (postCheckout) {
         artifacts.push(await persistArtifact(runId, scenarioId, 'screenshot-post-checkout', 'png', 'image/png', postCheckout))

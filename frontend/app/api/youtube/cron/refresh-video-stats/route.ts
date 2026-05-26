@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { reportHeartbeat } from '@/lib/watchdog/heartbeat'
 
 export const revalidate = 0
 export const maxDuration = 60
@@ -95,6 +96,8 @@ export async function GET(request: NextRequest) {
       if (!upErr) totalUpdated += 1
     }
   }
+
+  await reportHeartbeat('cron.vercel.refresh-video-stats').catch(() => {}) /* watchdog-heartbeat */
 
   return NextResponse.json({
     videos_in_batch: ytIds.length,

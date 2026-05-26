@@ -1,5 +1,6 @@
 'use client'
 
+import { Suspense } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import clsx from 'clsx'
@@ -7,6 +8,8 @@ import {
   LayoutDashboard, Briefcase, Building2, Activity,
   Zap, Eye, Wallet,
 } from 'lucide-react'
+import { ShowcaseProvider } from '@/components/executive/ShowcaseProvider'
+import { ShowcaseToggle } from '@/components/executive/ShowcaseToggle'
 
 const SUBTABS = [
   { label: 'Overview',          href: '/dashboard/media-holding/executive',                icon: LayoutDashboard },
@@ -18,12 +21,11 @@ const SUBTABS = [
   { label: 'Content Fund',      href: '/dashboard/media-holding/executive/fund',           icon: Wallet },
 ]
 
-export default function ExecutiveLayout({ children }: { children: React.ReactNode }) {
+function ExecutiveTabs() {
   const pathname = usePathname()
-
   return (
-    <div className="space-y-4">
-      <nav className="flex gap-1 border border-white/5 bg-white/[0.02] rounded-xl p-1 overflow-x-auto">
+    <nav className="flex items-center gap-1 border border-white/5 bg-white/[0.02] rounded-xl p-1 overflow-x-auto">
+      <div className="flex gap-1 flex-1 min-w-0">
         {SUBTABS.map(t => {
           const Icon = t.icon
           const active = pathname === t.href || (t.href !== '/dashboard/media-holding/executive' && pathname.startsWith(t.href))
@@ -43,8 +45,23 @@ export default function ExecutiveLayout({ children }: { children: React.ReactNod
             </Link>
           )
         })}
-      </nav>
-      {children}
-    </div>
+      </div>
+      <div className="shrink-0 pl-2">
+        <ShowcaseToggle />
+      </div>
+    </nav>
+  )
+}
+
+export default function ExecutiveLayout({ children }: { children: React.ReactNode }) {
+  return (
+    <Suspense fallback={<div className="text-xs text-white/40">Executive layout laden…</div>}>
+      <ShowcaseProvider>
+        <div className="space-y-4">
+          <ExecutiveTabs />
+          {children}
+        </div>
+      </ShowcaseProvider>
+    </Suspense>
   )
 }

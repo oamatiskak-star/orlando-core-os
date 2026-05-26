@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { reportHeartbeat } from '@/lib/watchdog/heartbeat'
 
 export const revalidate = 0
 export const maxDuration = 120
@@ -23,6 +24,8 @@ export async function GET(req: NextRequest) {
     .catch(err => ({ ok: false, status: 0, json: async () => ({ error: (err as Error).message }) }))
 
   const body = await res.json().catch(() => ({}))
+
+  await reportHeartbeat('cron.vercel.acquisition.director-briefing').catch(() => {}) /* watchdog-heartbeat */
 
   return NextResponse.json({ ok: res.ok, engine_response: body })
 }

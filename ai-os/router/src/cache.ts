@@ -31,7 +31,7 @@ export async function cacheGet(key: string): Promise<CompletionResponse | null> 
   if (data.expires_at && new Date(data.expires_at).getTime() < Date.now()) return null
 
   // bump hit count (best-effort, not awaited critically)
-  await db().rpc('noop').catch(() => {})
+  await db().rpc('noop').then(() => {}, () => {})
   await db()
     .from('ai_cache')
     .update({ hits: (data as any).hits ? (data as any).hits + 1 : 1 })

@@ -2,6 +2,7 @@ import 'dotenv/config'
 import { getSupabase } from '../lib/supabase'
 import { logger, workerLogger } from '../lib/logger'
 import { getWorkerConfig, setWorkerStatus, workerExists } from '../lib/worker-heartbeat'
+import { reportHeartbeat } from '../lib/watchdog-heartbeat'
 import { scanCompetitor, CompetitorRow, ScanResult } from './scanner'
 
 const log = workerLogger('competitor-scanner')
@@ -98,10 +99,12 @@ async function loop() {
       const stats = await sweep()
       log.info('Sweep klaar', stats)
       await setWorkerStatus(WORKER_NAME, 'idle', { queue_depth: stats.competitors, last_error: null })
+      await reportHeartbeat('engine.competitor-scanner.tick', { ...stats })
     } catch (err) {
       const msg = (err as Error).message
       log.error('Sweep faalde', { error: msg })
       await setWorkerStatus(WORKER_NAME, 'error', { last_error: msg })
+      await reportHeartbeat('engine.competitor-scanner.tick', { error: msg }, 'error')
     }
 
     const sleepMs = Math.max(1, interval) * 60_000

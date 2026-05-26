@@ -264,8 +264,9 @@ Geef uitsluitend geldige JSON:
 
       const bySupplier: Record<string, number[]> = {}
       for (const tx of txs ?? []) {
-        if (!bySupplier[tx.supplier_id]) bySupplier[tx.supplier_id] = []
-        bySupplier[tx.supplier_id].push(tx.amount_incl)
+        const sid = tx.supplier_id as string
+        if (!bySupplier[sid]) bySupplier[sid] = []
+        bySupplier[sid].push(tx.amount_incl)
       }
 
       let detected = 0
