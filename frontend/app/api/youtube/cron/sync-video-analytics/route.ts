@@ -52,7 +52,11 @@ async function getVideoAnalytics(
   url.searchParams.set('ids', `channel==${ytChannelId}`)
   url.searchParams.set('startDate', startDate)
   url.searchParams.set('endDate', endDate)
-  url.searchParams.set('metrics', 'views,estimatedMinutesWatched,averageViewPercentage,likes,comments,annotationClickThroughRate,impressions,estimatedRevenue')
+  // NB: 'impressions' is geen geldige identifier voor het video-report (geeft 400),
+  // 'estimatedRevenue' vereist de yt-analytics-monetary.readonly scope en
+  // 'annotationClickThroughRate' is gedepreceerd. Daarom alleen de core-metrics.
+  // ctr/impressions/estimated_revenue worden via een aparte report-call gevuld (TODO).
+  url.searchParams.set('metrics', 'views,estimatedMinutesWatched,averageViewPercentage,likes,comments')
   url.searchParams.set('dimensions', 'video')
   url.searchParams.set('filters', `video==${videoIds.join(',')}`)
   url.searchParams.set('maxResults', '200')
@@ -67,16 +71,18 @@ async function getVideoAnalytics(
   const result: Record<string, any> = {}
 
   for (const row of data.rows ?? []) {
-    const [videoId, views, watchMin, avgPct, likes, comments, ctr, impressions, revenue] = row
+    // Volgorde matcht de metrics-string hierboven: views, estimatedMinutesWatched,
+    // averageViewPercentage, likes, comments.
+    const [videoId, views, watchMin, avgPct, likes, comments] = row
     result[videoId] = {
       views:               Math.round(views ?? 0),
       watch_time_minutes:  Number((watchMin ?? 0).toFixed(2)),
       avg_view_percentage: Number((avgPct ?? 0).toFixed(2)),
       likes:               Math.round(likes ?? 0),
       comments:            Math.round(comments ?? 0),
-      ctr:                 Number(((ctr ?? 0) * 100).toFixed(2)),
-      impressions:         Math.round(impressions ?? 0),
-      estimated_revenue:   Number((revenue ?? 0).toFixed(4)),
+      ctr:                 0,
+      impressions:         0,
+      estimated_revenue:   0,
     }
   }
 
