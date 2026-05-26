@@ -392,3 +392,23 @@ services:
     labels:
       orlando.service: "monitoring-agent"
       orlando.node: "cli-r"
+
+  # ── YouTube Channel Analyst — leest analytics, schrijft channel_analyst_reports ──
+  # Herbruikt de monitoring-agent image (zelfde build) maar draait de analyst i.p.v.
+  # de heartbeat. Geen docker.sock nodig. Interval: 1 uur.
+  youtube-analyst:
+    build:
+      context: ./monitoring-agent
+      dockerfile: Dockerfile
+    command: ["node", "dist/youtube-channel-analyst.js"]
+    restart: unless-stopped
+    networks: [orlando-net]
+    environment:
+      NODE_ENV: production
+      NODE_ID: cli-r
+      POLL_INTERVAL_MS: "3600000"
+    env_file:
+      - .env.cli-r
+    labels:
+      orlando.service: "youtube-analyst"
+      orlando.node: "cli-r"
