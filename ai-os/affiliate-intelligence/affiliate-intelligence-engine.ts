@@ -1,3 +1,4 @@
+import { SupabaseClient } from '@supabase/supabase-js';
 import {
   RecommendationRequest,
   RecommendationResponse,
@@ -17,7 +18,7 @@ export class AffiliateIntelligenceEngine {
   private performanceScorer: PerformanceScorer;
   private modelVersion = '1.0.0';
 
-  constructor() {
+  constructor(private supabase?: SupabaseClient) {
     this.channelMatcher = new ChannelProfileMatcher();
     this.audienceMatcher = new AudienceMatcher();
     this.contentAnalyzer = new ContentAnalyzer();
@@ -27,13 +28,22 @@ export class AffiliateIntelligenceEngine {
   /**
    * Main recommendation engine
    * Takes a video and returns top N affiliate recommendations
+   * Uses database data if available, falls back to hardcoded strategies
    */
   async recommend(request: RecommendationRequest): Promise<RecommendationResponse> {
     const { video_id, channel_id, content_metadata, audience_profile, viewer_country, count = 3 } = request;
 
     // 1. Get channel's recommended affiliates
     const channelProfile = this.channelMatcher.getChannelProfile(channel_id);
-    const recommendedForChannel = this.channelMatcher.getRecommendedAffiliatesForChannel(channel_id);
+    let recommendedForChannel = this.channelMatcher.getRecommendedAffiliatesForChannel(channel_id);
+
+    // Try to fetch actual performance data from database if available
+    if (this.supabase && channel_id) {
+      const databaseMappings = await this.getChannelMappingsFromDatabase(channel_id);
+      if (databaseMappings && databaseMappings.length > 0) {
+        recommendedForChannel = databaseMappings;
+      }
+    }
 
     if (!channelProfile || recommendedForChannel.length === 0) {
       throw new Error(`No affiliate strategy found for channel: ${channel_id}`);
@@ -275,13 +285,83 @@ export class AffiliateIntelligenceEngine {
   }
 
   /**
+   * Fetch channel mappings from database
+   * Falls back to hardcoded data if database is unavailable
+   */
+  private async getChannelMappingsFromDatabase(
+    channelId: string
+  ): Promise<Array<{ affiliate_id: string; priority: number }> | null> {
+    if (!this.supabase) return null;
+
+    try {
+      const { data, error } = await this.supabase
+        .from('affiliate_channel_mappings')
+        .select(`
+          affiliate_program_id,
+          priority,
+          affiliate_programs(name)
+        `)
+        .eq('channel_id', channelId)
+        .eq('is_active', true)
+        .order('priority', { ascending: true });
+
+      if (error || !data) {
+        console.warn(`Failed to fetch database channel mappings: ${error?.message || 'No data'}`);
+        return null;
+      }
+
+      return data.map((row: any) => ({
+        affiliate_id: row.affiliate_programs?.name || '',
+        priority: row.priority,
+      })).filter((m: any) => m.affiliate_id);
+    } catch (error) {
+      console.warn(`Database fetch error: ${error instanceof Error ? error.message : String(error)}`);
+      return null;
+    }
+  }
+
+  /**
+   * Get performance metrics from database for an affiliate-channel pair
+   */
+  private async getPerformanceMetricsFromDatabase(
+    affiliateId: string,
+    channelId: string
+  ): Promise<{ conversion_rate: number; epc: number } | null> {
+    if (!this.supabase) return null;
+
+    try {
+      const { data, error } = await this.supabase
+        .from('affiliate_channel_mappings')
+        .select('est_conversion_rate, est_epc')
+        .eq('channel_id', channelId)
+        .match({
+          affiliate_program_id: affiliateId,
+          is_active: true,
+        })
+        .single();
+
+      if (error || !data) {
+        return null;
+      }
+
+      return {
+        conversion_rate: data.est_conversion_rate || 0,
+        epc: data.est_epc || 0,
+      };
+    } catch (error) {
+      return null;
+    }
+  }
+
+  /**
    * Health check - verify engine initialization
    */
-  healthCheck(): { status: string; model_version: string; components_initialized: boolean } {
+  healthCheck(): { status: string; model_version: string; components_initialized: boolean; database_connected: boolean } {
     return {
       status: 'healthy',
       model_version: this.modelVersion,
       components_initialized: true,
+      database_connected: !!this.supabase,
     };
   }
 }
@@ -289,6 +369,6 @@ export class AffiliateIntelligenceEngine {
 /**
  * Factory function for creating the engine
  */
-export function createAffiliateIntelligenceEngine(): AffiliateIntelligenceEngine {
-  return new AffiliateIntelligenceEngine();
+export function createAffiliateIntelligenceEngine(supabase?: SupabaseClient): AffiliateIntelligenceEngine {
+  return new AffiliateIntelligenceEngine(supabase);
 }

@@ -75,22 +75,37 @@ export class AquierLandingMapper {
     config: AquierLandingConfig,
     visitorContext: VisitorContext
   ): Promise<AquierLandingRecommendation> {
-    // Get affiliate recommendations from the intelligence engine
-    const recommendations = await this.engine.recommend(
-      config.channelId,
-      config.contentKeywords,
-      visitorContext.country,
-      config.targetAudience
-    );
+    // Build recommendation request for the intelligence engine
+    const recommendationRequest = {
+      video_id: config.videoId,
+      channel_id: config.channelId,
+      content_metadata: {
+        title: config.title,
+        description: config.description,
+        keywords: config.contentKeywords,
+        topic: config.contentKeywords[0] || 'general',
+        audience_target: config.targetAudience,
+      },
+      audience_profile: {
+        audience_type: config.targetAudience,
+        primary_countries: [visitorContext.country],
+        interests: config.contentKeywords,
+      },
+      viewer_country: visitorContext.country,
+      count: 3,
+    };
 
-    if (!recommendations || recommendations.length === 0) {
+    // Get affiliate recommendations from the intelligence engine
+    const response = await this.engine.recommend(recommendationRequest);
+
+    if (!response || !response.recommendations || response.recommendations.length === 0) {
       throw new Error('No affiliate recommendations available for this content');
     }
 
-    const primary = recommendations[0];
-    const alternatives = recommendations.slice(1, 4).map((rec) => ({
+    const primary = response.recommendations[0];
+    const alternatives = response.recommendations.slice(1, 4).map((rec) => ({
       affiliateId: rec.affiliate_id,
-      affiliateName: rec.affiliate_id,
+      affiliateName: rec.affiliate_name,
       confidenceScore: rec.confidence_score,
     }));
 
@@ -101,12 +116,12 @@ export class AquierLandingMapper {
     const alternativeOffers = this.getAlternativeOffers(config.channelId, config.funnelType);
 
     // Generate CTA text based on primary affiliate and goal
-    const callToActionText = this.getCallToActionText(primary.affiliate_id, config.primaryGoal);
+    const callToActionText = this.getCallToActionText(primary.affiliate_name, config.primaryGoal);
 
     return {
       landingPageUrl: this.generateLandingPageUrl(config, visitorContext),
       primaryAffiliateId: primary.affiliate_id,
-      primaryAffiliateName: primary.affiliate_id,
+      primaryAffiliateName: primary.affiliate_name,
       alternativeAffiliates: alternatives,
       leadCaptureFields,
       funnelType: config.funnelType,
