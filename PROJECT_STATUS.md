@@ -27,6 +27,7 @@
 3. **local-watchdog — echte PM2-actuatie**
    - `local-watchdog/src/worker-commander.ts` (nieuw) — `reconcileWorkerCommands()`: leest controllable workers, matcht op PM2 app-naam in `pm2 jlist` van dít host, voert `pm2 restart/stop/start` uit, schrijft `last_command_result` + cleart `restart_requested_at`. Workers van ander host worden overgeslagen.
    - `local-watchdog/src/index.ts` — `commandTick()` op eigen interval (`COMMAND_INTERVAL_MS`, default 8s) + exposed in `/health`.
+   - **Aan/uit houdt nu stand**: recovery self-healer (`recovery.ts`) zou een `pm2 stop` als "failed" zien en binnen ~90s terug aanzetten. `index.ts/tick()` voegt nu bewust-gestopte workers (`getDeliberatelyStoppedPm2Names()` — controllable + desired_state='stopped', zonder openstaande restart) bij de deny-set, zodat een dashboard-"uit" niet wordt teruggevochten. (sessie 8, follow-up: aquier-executor + claude-bridge bestuurbaar gemaakt in worker_registry.)
    - `local-watchdog/src/supabase-state.ts` — `getClient()` nu geëxporteerd.
    - Getypecheckt: `npm install` + `tsc --noEmit` schoon.
 

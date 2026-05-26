@@ -34,6 +34,33 @@ function pm2NameFor(w: WorkerRow): string | null {
   return w.pm2_name || meta.pm2_name || w.display_name || w.id || null
 }
 
+/**
+ * PM2 app-namen van workers die Orlando bewust heeft uitgezet
+ * (controllable + desired_state='stopped'). De recovery self-healer moet deze
+ * met rust laten — anders vecht hij de "uit"-stand uit het dashboard terug.
+ */
+export async function getDeliberatelyStoppedPm2Names(): Promise<Set<string>> {
+  const out = new Set<string>()
+  const c = getClient()
+  if (!c) return out
+  const { data, error } = await c
+    .from('worker_registry')
+    .select('id, display_name, host, pm2_name, controllable, desired_state, status, restart_requested_at, metadata')
+    .eq('controllable', true)
+    .eq('desired_state', 'stopped')
+  if (error) {
+    console.error('[worker-commander] stopped-set query error:', error.message)
+    return out
+  }
+  for (const w of (data ?? []) as WorkerRow[]) {
+    // Een lopende herstart-aanvraag heeft voorrang: dan niet overslaan.
+    if (w.restart_requested_at) continue
+    const name = pm2NameFor(w)
+    if (name) out.add(name)
+  }
+  return out
+}
+
 async function writeBack(
   id: string,
   fields: { status?: string; result: string; clearRestart?: boolean }
