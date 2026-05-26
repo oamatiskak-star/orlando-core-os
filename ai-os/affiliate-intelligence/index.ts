@@ -17,3 +17,6 @@ export {
 export { AffiliateChannelSyncer } from './affiliate-channel-syncer';
 export { AffiliateCountrySyncer } from './affiliate-country-syncer';
 export { AffiliateIntelligenceSync, createAffiliateIntelligenceSync } from './database-sync';
+
+// Aquier integration exports
+export { AquierLandingMapper, createAquierLandingMapper } from './aquier-landing-mapper';
