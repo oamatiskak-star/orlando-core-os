@@ -61,6 +61,7 @@ function revalidateAll() {
 export async function createProgram(formData: FormData) {
   const name = String(formData.get('name') ?? '').trim()
   const category = String(formData.get('category') ?? 'other').trim() as ProgramCategory
+  const accountType = String(formData.get('account_type') ?? 'affiliate_program').trim() || 'affiliate_program'
   const url = String(formData.get('url') ?? '').trim()
   const companySlug = String(formData.get('company_slug') ?? '').trim()
 
@@ -78,13 +79,53 @@ export async function createProgram(formData: FormData) {
 
   const { data: inserted, error } = await admin
     .from('affiliate_programs')
-    .insert({ name, category, url: url || null, company_id: companyId })
+    .insert({ name, category, account_type: accountType, url: url || null, company_id: companyId })
     .select('id')
     .single()
 
   if (error || !inserted) throw new Error(error?.message ?? 'Aanmaken mislukt')
 
-  await audit(inserted.id, null, 'program.created', { name, category })
+  await audit(inserted.id, null, 'program.created', { name, category, account_type: accountType })
+  revalidateAll()
+}
+
+// ── F5: createAndProvisionAccount — account van willekeurig type + onboarding-run ─
+export async function createAndProvisionAccount(formData: FormData) {
+  const name = String(formData.get('name') ?? '').trim()
+  const accountType = String(formData.get('account_type') ?? '').trim()
+  const companySlug = String(formData.get('company_slug') ?? '').trim()
+
+  if (!name) throw new Error('Naam is verplicht')
+  if (!accountType) throw new Error('Account-type is verplicht')
+
+  const admin = createAdminClient()
+
+  // valideer type tegen registry
+  const { data: typeRow } = await admin
+    .from('account_setup_types').select('type_key, default_run_kind').eq('type_key', accountType).maybeSingle()
+  if (!typeRow) throw new Error(`Onbekend account-type: ${accountType}`)
+
+  let companyId: string | null = null
+  if (companySlug) {
+    const { data } = await admin.from('companies').select('id').eq('slug', companySlug).maybeSingle()
+    companyId = data?.id ?? null
+  }
+
+  const { data: acc, error } = await admin
+    .from('affiliate_programs')
+    .insert({ name, account_type: accountType, category: 'other', company_id: companyId })
+    .select('id')
+    .single()
+  if (error || !acc) throw new Error(error?.message ?? 'Aanmaken mislukt')
+
+  // onboarding-run in de queue → runner provisioned checklist + documenten uit template
+  const { data: run } = await admin
+    .from('account_setup_runs')
+    .insert({ program_id: acc.id, run_kind: 'account_setup', status: 'queued', trigger_kind: 'manual' })
+    .select('id')
+    .single()
+
+  await audit(acc.id, run?.id ?? null, 'account.provisioned', { account_type: accountType })
   revalidateAll()
 }
 

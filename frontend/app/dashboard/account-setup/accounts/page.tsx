@@ -43,7 +43,7 @@ export default async function AccountsPage({
 
   let query = supabase
     .from('affiliate_programs')
-    .select('id, company_id, name, category, url, payout_model, recurring, account_status, login_status, payout_threshold, payout_currency, affiliate_link, referral_code, connected_channels, connected_brands, tax_requirements, kyc_requirements, country_availability, api_available, notes, assigned_agent, monthly_revenue, lifetime_revenue, last_status_check_at, next_action_at, created_at, updated_at')
+    .select('id, company_id, name, account_type, category, url, payout_model, recurring, account_status, login_status, payout_threshold, payout_currency, affiliate_link, referral_code, connected_channels, connected_brands, tax_requirements, kyc_requirements, country_availability, api_available, notes, assigned_agent, monthly_revenue, lifetime_revenue, last_status_check_at, next_action_at, created_at, updated_at')
 
   query = companyId
     ? query.or(`company_id.eq.${companyId},company_id.is.null`)
@@ -122,6 +122,9 @@ export default async function AccountsPage({
                           </a>
                         )}
                       </div>
+                      {p.account_type && p.account_type !== 'affiliate_program' && (
+                        <div className="text-[9px] text-violet-300/70 font-mono">{p.account_type}</div>
+                      )}
                       {p.affiliate_link && (
                         <div className="text-[9.5px] text-emerald-300/70 font-mono truncate max-w-[220px]">{p.affiliate_link}</div>
                       )}
