@@ -56,3 +56,59 @@ export async function createBuild(input: CreateBuildInput) {
   revalidatePath('/dashboard/build-tracker')
   return { ok: true }
 }
+
+type UpdateBuildInput = {
+  id: string
+  status?: string
+  progress_pct?: number
+  current_milestone?: string | null
+  description?: string | null
+  target_at?: string | null
+  owner?: string | null
+}
+
+export async function updateBuild(input: UpdateBuildInput) {
+  const id = (input.id ?? '').trim()
+  if (!id) return { ok: false, error: 'Build id ontbreekt' }
+
+  const patch: Record<string, unknown> = {
+    last_update_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  }
+
+  if (input.status !== undefined) {
+    if (!VALID_STATUS.includes(input.status)) return { ok: false, error: `Ongeldige status "${input.status}"` }
+    patch.status = input.status
+  }
+  if (input.progress_pct !== undefined) {
+    patch.progress_pct = Math.max(0, Math.min(100, Number(input.progress_pct) || 0))
+  }
+  if (input.current_milestone !== undefined) patch.current_milestone = input.current_milestone?.trim() || null
+  if (input.description !== undefined) patch.description = input.description?.trim() || null
+  if (input.owner !== undefined) patch.owner = input.owner?.trim() || null
+  if (input.target_at !== undefined) patch.target_at = input.target_at || null
+
+  const supabase = await createClient()
+  const { error } = await supabase.from('build_tracker').update(patch).eq('id', id)
+  if (error) return { ok: false, error: error.message }
+
+  revalidatePath('/dashboard/build-tracker')
+  revalidatePath(`/dashboard/build-tracker/${id}`)
+  return { ok: true }
+}
+
+// "Ga verder" — markeer een build als actief (building) zodat hij bovenaan komt
+// en de voortgang doorloopt. Pure status-overgang, geen autonome agent-trigger.
+export async function resumeBuild(id: string) {
+  if (!id) return { ok: false, error: 'Build id ontbreekt' }
+  const supabase = await createClient()
+  const { error } = await supabase
+    .from('build_tracker')
+    .update({ status: 'building', last_update_at: new Date().toISOString(), updated_at: new Date().toISOString() })
+    .eq('id', id)
+    .neq('status', 'live')
+  if (error) return { ok: false, error: error.message }
+  revalidatePath('/dashboard/build-tracker')
+  revalidatePath(`/dashboard/build-tracker/${id}`)
+  return { ok: true }
+}
