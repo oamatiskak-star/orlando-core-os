@@ -2,13 +2,19 @@
 
 > **Sessie protocol** (CLAUDE.md): Lees dit bestand bij elke nieuwe Claude Code sessie. Update na elke voltooide taak. Houd het herstel-blok actueel.
 
-**Laatste update:** 2026-05-26 (sessie 10) — **Affiliate & Revenue Infrastructure** (additieve laag, migratie 100, PR #41 gemerged) + **Fase 3 autonome agent** (account-setup-runner + Vercel cron reminder-engine). Sessie 9 (Account Setup Agent build-tracker-flow, migratie 099) hieronder.
+**Laatste update:** 2026-05-26 (sessie 10) — Affiliate & Revenue Infra (migratie 100, PR #41) + **Fase 3** (runner + cron, PR #43 gemerged) + **Fase 2** (Revenue/KYC/Links-tabs, branch `feature/account-setup-f2`). Sessie 9 (migratie 099) hieronder.
 
 ---
 
 ## 🔴 HERSTEL HIER NA CRASH (sessie 10)
 
-**Sessie focus (2026-05-26, sessie 10)**: Tweede, additieve laag naast 099 — standalone affiliate-PROGRAMMA-registry (migratie 100, `affiliate_programs` + queue + revenue, `/dashboard/account-setup` onder modiwerijo). PR #41 gemerged in main. Daarna Fase 3 gebouwd.
+**Sessie focus (2026-05-26, sessie 10)**: Tweede, additieve laag naast 099 — standalone affiliate-PROGRAMMA-registry (migratie 100, `affiliate_programs` + queue + revenue, `/dashboard/account-setup` onder modiwerijo). PR #41 + #43 gemerged in main.
+
+**Wat is gebouwd (sessie 10, Fase 2) — branch `feature/account-setup-f2`:**
+- ✅ `revenue/page.tsx` — MRR/lifetime/recurring KPI + per-programma revenue + maand-entry boeken (`addRevenueEntry` → `affiliate_revenue_ledger` upsert, rollup via DB-trigger) + ledger.
+- ✅ `kyc/page.tsx` — per programma: login_status + **Notities (keys/credentials)** bewerkbaar + referral/affiliate-link (`updateProgramKeys`) + documenten (`addDocument`/`setDocStatus`). "Keys staan in notities" → notes-veld is de credential-store (RLS authenticated-only).
+- ✅ `links/page.tsx` — registry-links + koppeling aan bestaande 066 `affiliate_performance` (clicks/conv/commissie, read-only).
+- ✅ `actions.ts` uitgebreid (addRevenueEntry/updateProgramKeys/addDocument/setDocStatus); `types.ts` (Doc*/Revenue/Performance); layout: revenue/kyc/links → `live`.
 
 **Wat is gebouwd (sessie 10, Fase 3) — branch `feature/account-setup-fase3`:**
 - ✅ `local-agent/src/account-setup-runner.ts` — PM2-runner die `account_setup_runs` (queued) atomair claimt en per `run_kind` uitvoert. `terms_analysis` roept lokale LLM (LM Studio→Ollama fallback) aan en schrijft payout_model/recurring/kyc/country terug naar `affiliate_programs`. Heartbeat (run + infra_watchdog_events) + immutable audit. GEEN mock (LLM down → run faalt expliciet).
