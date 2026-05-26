@@ -34,6 +34,7 @@ export async function GET(req: NextRequest) {
 
   let remindersCreated = 0
   let verificationsFlagged = 0
+  let payoutsExpected = 0
 
   try {
     // Programma's met open human-actions (om duplicaten te vermijden)
@@ -94,8 +95,38 @@ export async function GET(req: NextRequest) {
       })
     }
 
-    await reportHeartbeat('account-setup-cron-tick', { remindersCreated, verificationsFlagged }, 'ok')
-    return NextResponse.json({ ok: true, remindersCreated, verificationsFlagged })
+    // 3) Payout-reconciliatie — programma's op/over drempel zonder open expected payout
+    const { data: recRows } = await admin
+      .from('v_payout_reconciliation')
+      .select('program_id, name, payout_currency, outstanding, at_threshold, open_expected')
+      .eq('at_threshold', true)
+      .eq('open_expected', 0)
+      .limit(200)
+
+    for (const r of (recRows ?? []) as { program_id: string; name: string; payout_currency: string; outstanding: number }[]) {
+      const outstanding = Number(r.outstanding ?? 0)
+      if (outstanding <= 0) continue
+      await admin.from('affiliate_payouts').insert({
+        program_id: r.program_id, expected_amount: outstanding, currency: r.payout_currency ?? 'USD',
+        status: 'expected', expected_at: nowIso, period_month: `${now.toISOString().slice(0, 7)}-01`,
+      })
+      if (!hasOpen.has(r.program_id)) {
+        await admin.from('account_setup_human_actions').insert({
+          program_id: r.program_id, action_kind: 'payout_setup',
+          title: `Payout aanvragen: ${r.name}`,
+          description: `Uitbetalingsdrempel bereikt (uitstaand ${outstanding} ${r.payout_currency ?? 'USD'}). Vraag payout aan / verwacht uitbetaling.`,
+          status: 'open',
+        })
+        hasOpen.add(r.program_id)
+      }
+      payoutsExpected++
+      await admin.from('account_setup_audit_log').insert({
+        program_id: r.program_id, action: 'payout.expected_created', actor: 'system', detail: { outstanding },
+      })
+    }
+
+    await reportHeartbeat('account-setup-cron-tick', { remindersCreated, verificationsFlagged, payoutsExpected }, 'ok')
+    return NextResponse.json({ ok: true, remindersCreated, verificationsFlagged, payoutsExpected })
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err)
     await reportHeartbeat('account-setup-cron-tick', { error: msg }, 'error')

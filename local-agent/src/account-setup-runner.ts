@@ -331,10 +331,92 @@ async function handleVerification(run: RunRow): Promise<void> {
   await audit(run.program_id, run.id, 'verification.checked', {})
 }
 
+type ConnectorRow = {
+  id: string
+  provider: string | null
+  base_url: string | null
+  auth_type: 'none' | 'bearer' | 'api_key' | 'basic'
+  credential_env: string | null
+  config: Record<string, unknown>
+  enabled: boolean
+}
+
+function dotGet(obj: unknown, path: string | undefined): unknown {
+  if (!path) return obj
+  return path.split('.').reduce<unknown>((acc, k) => {
+    if (acc && typeof acc === 'object' && k in (acc as Record<string, unknown>)) {
+      return (acc as Record<string, unknown>)[k]
+    }
+    return undefined
+  }, obj)
+}
+
+// Generieke revenue-sync via affiliate_api_connectors. Secret komt uit env-var
+// (credential_env) op de runner-host — NOOIT uit de DB. Uit zolang niet enabled.
 async function handleRevenueSync(run: RunRow): Promise<void> {
-  // Placeholder voor toekomstige API-koppeling per netwerk; markeert sync-tijdstip.
-  await recordStep(run.id, 'revenue_sync', 'completed', { note: 'revenue_sync stub — API-koppeling volgt' })
-  await audit(run.program_id ?? null, run.id, 'revenue_sync.noop', {})
+  if (!run.program_id) { await recordStep(run.id, 'revenue_sync', 'completed', { note: 'geen program_id' }); return }
+
+  const { data: connData } = await db
+    .from('affiliate_api_connectors')
+    .select('id, provider, base_url, auth_type, credential_env, config, enabled')
+    .eq('program_id', run.program_id)
+    .maybeSingle()
+  const conn = connData as ConnectorRow | null
+
+  if (!conn || !conn.enabled) {
+    await recordStep(run.id, 'revenue_sync', 'skipped', { reason: conn ? 'connector_disabled' : 'no_connector' })
+    await audit(run.program_id, run.id, 'revenue_sync.skipped', { has_connector: !!conn })
+    return
+  }
+
+  const cfg = conn.config ?? {}
+  const url = String(cfg.endpoint ?? conn.base_url ?? '')
+  if (!url) throw new Error('connector zonder endpoint/base_url')
+
+  // auth
+  const headers: Record<string, string> = { 'Accept': 'application/json' }
+  if (conn.auth_type !== 'none') {
+    const secret = conn.credential_env ? process.env[conn.credential_env] : undefined
+    if (!secret) throw new Error(`credential_env '${conn.credential_env}' niet gezet op runner-host`)
+    if (conn.auth_type === 'bearer') headers['Authorization'] = `Bearer ${secret}`
+    else if (conn.auth_type === 'basic') headers['Authorization'] = `Basic ${Buffer.from(secret).toString('base64')}`
+    else if (conn.auth_type === 'api_key') headers[String(cfg.header_name ?? 'X-API-Key')] = secret
+  }
+
+  let synced = 0
+  try {
+    const res = await axios.request({
+      url, method: String(cfg.method ?? 'GET'), headers, timeout: 60_000,
+    })
+    const arr = dotGet(res.data, cfg.array_path as string | undefined)
+    const rows: unknown[] = Array.isArray(arr) ? arr : [res.data]
+    const month = new Date().toISOString().slice(0, 7) + '-01'
+
+    for (const r of rows) {
+      const commission = Number(dotGet(r, cfg.commission_path as string | undefined) ?? 0)
+      if (!Number.isFinite(commission)) continue
+      const periodRaw = dotGet(r, cfg.period_path as string | undefined)
+      const period = typeof periodRaw === 'string' && /^\d{4}-\d{2}/.test(periodRaw)
+        ? periodRaw.slice(0, 7) + '-01' : month
+      const { error } = await db.from('affiliate_revenue_ledger').upsert(
+        { program_id: run.program_id, period_month: period, commission_revenue: commission, source: 'api' },
+        { onConflict: 'program_id,period_month' },
+      )
+      if (!error) synced++
+    }
+
+    await db.from('affiliate_api_connectors').update({
+      last_sync_at: new Date().toISOString(), last_sync_status: 'ok', last_error: null,
+    }).eq('id', conn.id)
+    await recordStep(run.id, 'revenue_sync', 'completed', { provider: conn.provider, rows_synced: synced })
+    await audit(run.program_id, run.id, 'revenue_sync.ok', { provider: conn.provider, rows_synced: synced })
+  } catch (e) {
+    const msg = (e as Error).message
+    await db.from('affiliate_api_connectors').update({
+      last_sync_at: new Date().toISOString(), last_sync_status: 'error', last_error: msg,
+    }).eq('id', conn.id)
+    throw new Error(`revenue_sync API-fout: ${msg}`)
+  }
 }
 
 // ── Run executor ─────────────────────────────────────────────────────────────

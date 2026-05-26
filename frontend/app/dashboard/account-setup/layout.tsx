@@ -1,7 +1,7 @@
 import Link from 'next/link'
 import {
   UserCheck, LayoutGrid, AlertCircle, Wallet, ShieldCheck,
-  Link as LinkIcon, Tv2, Globe, Boxes,
+  Link as LinkIcon, Tv2, Globe, Boxes, Coins,
 } from 'lucide-react'
 import { getActiveCompany } from '@/lib/active-company-server'
 import type { ReactNode } from 'react'
@@ -19,6 +19,7 @@ const SUB_NAV: SubNavEntry[] = [
   { href: '/dashboard/account-setup/accounts',        label: 'Accounts',         icon: UserCheck,   status: 'live' },
   { href: '/dashboard/account-setup/requires-action', label: 'Requires Action',  icon: AlertCircle, status: 'live' },
   { href: '/dashboard/account-setup/revenue',         label: 'Revenue',          icon: Wallet,      status: 'live' },
+  { href: '/dashboard/account-setup/payouts',         label: 'Payouts & Sync',   icon: Coins,       status: 'live' },
   { href: '/dashboard/account-setup/kyc',             label: 'KYC / Verification',icon: ShieldCheck, status: 'live' },
   { href: '/dashboard/account-setup/links',           label: 'Affiliate Links',  icon: LinkIcon,    status: 'live' },
   { href: '/dashboard/account-setup/youtube',         label: 'YouTube Connector',icon: Tv2,         status: 'live' },

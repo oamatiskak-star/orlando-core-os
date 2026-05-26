@@ -55,6 +55,7 @@ function revalidateAll() {
   revalidatePath(`${PATH}/links`)
   revalidatePath(`${PATH}/youtube`)
   revalidatePath(`${PATH}/aquier`)
+  revalidatePath(`${PATH}/payouts`)
 }
 
 // ── createProgram ──────────────────────────────────────────────────────────
@@ -327,5 +328,88 @@ export async function setChannelLink(formData: FormData) {
   if (error) throw new Error(error.message)
 
   await audit(programId, null, 'channel.link_changed', { channel_id: channelId, op })
+  revalidateAll()
+}
+
+// ── F: addPayout — betaalde payout boeken + reconcileren tegen verwachting ───
+export async function addPayout(formData: FormData) {
+  const programId = String(formData.get('program_id') ?? '').trim()
+  const paid = Number(formData.get('paid_amount') ?? 0)
+  const currency = String(formData.get('currency') ?? 'USD').trim().toUpperCase().slice(0, 3) || 'USD'
+  const paidAtRaw = String(formData.get('paid_at') ?? '').trim()
+  const externalRef = String(formData.get('external_ref') ?? '').trim()
+
+  if (!programId) throw new Error('program_id ontbreekt')
+  if (!Number.isFinite(paid) || paid < 0) throw new Error('Ongeldig bedrag')
+  const paidAt = paidAtRaw ? new Date(paidAtRaw).toISOString() : new Date().toISOString()
+
+  const admin = createAdminClient()
+
+  // zoek openstaande verwachting om tegen te reconcileren
+  const { data: expected } = await admin
+    .from('affiliate_payouts')
+    .select('id, expected_amount')
+    .eq('program_id', programId)
+    .in('status', ['expected', 'pending'])
+    .order('expected_at', { ascending: true })
+    .limit(1)
+    .maybeSingle()
+
+  let status: string
+  let variance = 0
+  if (expected) {
+    const exp = Number(expected.expected_amount ?? 0)
+    variance = Number((paid - exp).toFixed(2))
+    const tol = Math.max(0.01, exp * 0.01)
+    if (exp > 0 && paid + tol < exp) status = paid > 0 ? 'partial' : 'discrepancy'
+    else status = 'paid'
+    await admin.from('affiliate_payouts').update({
+      paid_amount: paid, paid_at: paidAt, currency, external_ref: externalRef || null,
+      variance_amount: variance, status, reconciled: status === 'paid',
+    }).eq('id', expected.id)
+  } else {
+    status = 'paid'
+    await admin.from('affiliate_payouts').insert({
+      program_id: programId, expected_amount: paid, paid_amount: paid, currency,
+      paid_at: paidAt, external_ref: externalRef || null, variance_amount: 0, status, reconciled: true,
+    })
+  }
+
+  await audit(programId, null, 'payout.recorded', { paid, currency, status, variance })
+  revalidateAll()
+}
+
+// ── F: upsertConnector — declaratieve API-koppeling (secret via env, niet DB) ─
+export async function upsertConnector(formData: FormData) {
+  const programId = String(formData.get('program_id') ?? '').trim()
+  if (!programId) throw new Error('program_id ontbreekt')
+
+  const authType = String(formData.get('auth_type') ?? 'none').trim()
+  if (!['none', 'bearer', 'api_key', 'basic'].includes(authType)) throw new Error('Ongeldig auth_type')
+
+  const config: Record<string, unknown> = {
+    endpoint: String(formData.get('endpoint') ?? '').trim() || undefined,
+    method: String(formData.get('method') ?? 'GET').trim() || 'GET',
+    header_name: String(formData.get('header_name') ?? '').trim() || undefined,
+    array_path: String(formData.get('array_path') ?? '').trim() || undefined,
+    period_path: String(formData.get('period_path') ?? '').trim() || undefined,
+    commission_path: String(formData.get('commission_path') ?? '').trim() || undefined,
+  }
+
+  const row = {
+    program_id: programId,
+    provider: String(formData.get('provider') ?? '').trim() || null,
+    base_url: String(formData.get('base_url') ?? '').trim() || null,
+    auth_type: authType,
+    credential_env: String(formData.get('credential_env') ?? '').trim() || null,
+    config,
+    enabled: String(formData.get('enabled') ?? '') === 'on',
+  }
+
+  const admin = createAdminClient()
+  const { error } = await admin.from('affiliate_api_connectors').upsert(row, { onConflict: 'program_id' })
+  if (error) throw new Error(error.message)
+
+  await audit(programId, null, 'connector.upserted', { provider: row.provider, enabled: row.enabled, auth_type: authType })
   revalidateAll()
 }
