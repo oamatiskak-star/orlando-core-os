@@ -2,9 +2,27 @@
 
 > **Sessie protocol** (CLAUDE.md): Lees dit bestand bij elke nieuwe Claude Code sessie. Update na elke voltooide taak. Houd het herstel-blok actueel.
 
-**Laatste update:** 2026-05-26 (sessie 9) — Build Tracker uitgebreid met **Account Setup Agent**-flow (per-taak account-velden + "Maak account aan"-knop + agent-pagina + Account & Affiliate Dashboard). Sessie 8 (Build Tracker verdiept / Worker Control / AI Optimizer) en 7 hieronder.
+**Laatste update:** 2026-05-26 (sessie 10) — **Affiliate & Revenue Infrastructure** (additieve laag, migratie 100, PR #41 gemerged) + **Fase 3 autonome agent** (account-setup-runner + Vercel cron reminder-engine). Sessie 9 (Account Setup Agent build-tracker-flow, migratie 099) hieronder.
 
 ---
+
+## 🔴 HERSTEL HIER NA CRASH (sessie 10)
+
+**Sessie focus (2026-05-26, sessie 10)**: Tweede, additieve laag naast 099 — standalone affiliate-PROGRAMMA-registry (migratie 100, `affiliate_programs` + queue + revenue, `/dashboard/account-setup` onder modiwerijo). PR #41 gemerged in main. Daarna Fase 3 gebouwd.
+
+**Wat is gebouwd (sessie 10, Fase 3) — branch `feature/account-setup-fase3`:**
+- ✅ `local-agent/src/account-setup-runner.ts` — PM2-runner die `account_setup_runs` (queued) atomair claimt en per `run_kind` uitvoert. `terms_analysis` roept lokale LLM (LM Studio→Ollama fallback) aan en schrijft payout_model/recurring/kyc/country terug naar `affiliate_programs`. Heartbeat (run + infra_watchdog_events) + immutable audit. GEEN mock (LLM down → run faalt expliciet).
+- ✅ `frontend/app/api/account-setup/cron/tick/route.ts` — Vercel cron (`*/30`): reminder-engine (next_action_at due → human-action + wissen) + verlopen-verificatie (applied/pending >14d → human-action). CRON_SECRET auth + reportHeartbeat slug `account-setup-cron-tick`.
+- ✅ `ecosystem.config.js` — PM2-app `account-setup-runner` toegevoegd. `vercel.json` — cron-entry toegevoegd.
+
+**Pre-deploy todo (vóór Fase 3 live werkt):**
+1. PM2 op Mac mini: `pm2 start ecosystem.config.js --only account-setup-runner` (env: SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, LM_STUDIO_URL/MODEL of USE_LM_STUDIO=false + OLLAMA_*).
+2. Vercel: `CRON_SECRET` env moet gezet zijn (bestaat al voor andere crons) — cron `/api/account-setup/cron/tick` draait dan automatisch.
+3. Test: zet een programma `next_action_at` in verleden → cron maakt human-action; klik "Analyse" op /dashboard/account-setup/accounts → runner vult velden in.
+
+---
+
+## 🟡 Sessie 9 archief (Account Setup Agent — build-tracker-flow / migratie 099)
 
 ## 🔴 HERSTEL HIER NA CRASH (sessie 9)
 
