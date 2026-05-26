@@ -19,6 +19,23 @@ module.exports = {
       time:        true,
     },
 
+    // ── Account Setup Runner — claimt account_setup_runs, LLM terms_analysis ──
+    {
+      name:        'account-setup-runner',
+      cwd:         `${BASE}/local-agent`,
+      script:      'npx',
+      args:        'ts-node --transpile-only src/account-setup-runner.ts',
+      interpreter: 'none',
+      watch:       false,
+      autorestart: true,
+      max_restarts: 999,
+      restart_delay: 5000,
+      env: { NODE_ENV: 'production' },
+      log_file:    '/tmp/pm2-account-setup-runner.log',
+      error_file:  '/tmp/pm2-account-setup-runner-err.log',
+      time:        true,
+    },
+
     // ── 2. YouTube Engine — altijd actief, slot-filler + upload + verificatie ──
     {
       name:        'youtube-engine',
