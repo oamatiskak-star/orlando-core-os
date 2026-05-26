@@ -179,6 +179,7 @@ export const NAV_MODULES: Record<string, NavModuleDef> = {
 
   // ── HOLDING ECOSYSTEM (24-milestone roadmap, holding-niveau) ──────────────
   holding_milestones:  { key: 'holding_milestones',  label: 'Holding Ecosystem',       href: '/dashboard/holding-milestones',      icon: Target },
+  seo_network:         { key: 'seo_network',         label: 'SEO Network (M4)',        href: '/dashboard/seo-network',             icon: Globe },
 
   // ── ROUTINES CONTROL CENTER (meta-supervisor laag binnen Build Tracker) ──
   // Fase 1 modules — read-only observability. Builder/Recovery/Settings/
@@ -282,7 +283,7 @@ export const COMPANY_NAV: Record<string, CompanyNav> = {
       { title: 'Aquier', modules: ['aquier_hub', 'aquier_verzamelaar', 'aquier_projecten', 'aquier_planning', 'aquier_agenda', 'aquier_ai_lead', 'aquier_monitor', 'aquier_approvals', 'aquier_audit', 'aquier_forecast', 'fb_offmarket', 'fb_property'] },
       { title: 'Scrapers & Data', modules: ['acq_offmarket', 'acq_permits', 'acq_municipalities'] },
       { title: 'SaaS', modules: ['projecten'] },
-      { title: 'Holding Ecosystem', modules: ['holding_milestones'] },
+      { title: 'Holding Ecosystem', modules: ['holding_milestones', 'seo_network'] },
       { title: 'Finance', modules: ['finance_incasso', 'financien'] },
       { title: 'Operationeel', modules: ['build_tracker', 'planning', 'crm', 'documenten', 'agenda', 'taken'] },
       { title: 'Routines Control', modules: ['routines_hub', 'routines_live', 'routines_agents', 'routines_logs'] },
