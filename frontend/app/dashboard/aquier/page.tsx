@@ -3,7 +3,7 @@ import Link from 'next/link'
 import {
   Globe, Briefcase, GanttChart, Calendar, UserCog, Gauge, ThumbsUp,
   ChevronRight, Target, TrendingUp, AlertTriangle, CheckCircle2,
-  Clock, Sparkles, ShieldCheck,
+  Clock, Sparkles, Crosshair, ShieldCheck,
 } from 'lucide-react'
 
 export const dynamic = 'force-dynamic'
@@ -206,6 +206,7 @@ export default async function AquierHubPage() {
       {/* Quick actions */}
       <div className="grid grid-cols-2 lg:grid-cols-7 gap-2">
         {[
+          { href: '/dashboard/aquier/usa-domination', icon: Crosshair, label: 'USA Domination', color: 'text-red-400' },
           { href: '/dashboard/aquier/projecten', icon: Briefcase, label: 'Projecten', color: 'text-cyan-400' },
           { href: '/dashboard/aquier/planning', icon: GanttChart, label: 'Planning', color: 'text-violet-400' },
           { href: '/dashboard/aquier/agenda', icon: Calendar, label: 'Agenda', color: 'text-indigo-400' },

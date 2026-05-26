@@ -1,0 +1,12 @@
+{
+  "name": "@orlando/competitor-intel-engine",
+  "version": "1.0.0",
+  "description": "Orlando Core OS — Competitor Intelligence Engine (Spyglass / CONQUEST-USA). Analyseert publieke marketing/SEO van US-concurrenten voor AQUIER_USA_DOMINATION_ENGINE.",
+  "type": "module",
+  "main": "src/index.mjs",
+  "scripts": {
+    "start": "node src/index.mjs",
+    "once": "START_MODE=once node src/index.mjs"
+  },
+  "engines": { "node": ">=20" }
+}

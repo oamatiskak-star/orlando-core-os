@@ -103,5 +103,24 @@ module.exports = {
       error_file:    '/tmp/pm2-daily-scheduler-err.log',
       time:          true,
     },
+
+    // ── 6. Competitor Intelligence Engine — Spyglass / CONQUEST-USA ──
+    //    Analyseert dagelijks publieke marketing/SEO van US-concurrenten
+    //    voor AQUIER_USA_DOMINATION_ENGINE. Plain Node ESM, geen deps.
+    {
+      name:        'competitor-intel-engine',
+      cwd:         `${BASE}/competitor-intel-engine`,
+      script:      'node',
+      args:        'src/index.mjs',
+      interpreter: 'none',
+      watch:       false,
+      autorestart: true,
+      max_restarts: 999,
+      restart_delay: 5000,
+      env: { NODE_ENV: 'production', PORT: '3007' },
+      log_file:    '/tmp/pm2-competitor-intel-engine.log',
+      error_file:  '/tmp/pm2-competitor-intel-engine-err.log',
+      time:        true,
+    },
   ],
 }
