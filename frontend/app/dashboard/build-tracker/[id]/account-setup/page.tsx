@@ -70,10 +70,11 @@ export default async function AccountSetupPage({ params }: { params: Promise<{ i
   const task = taskData as Task
 
   let companyName = company.name
+  let companyType: string | null = null
   let profile: BusinessProfile | null = null
   if (task.company_id) {
     const [{ data: comp }, { data: prof }] = await Promise.all([
-      supabase.from('companies').select('name').eq('id', task.company_id).maybeSingle(),
+      supabase.from('companies').select('name, type').eq('id', task.company_id).maybeSingle(),
       supabase
         .from('business_profiles')
         .select('legal_name, trade_name, kvk_number, vat_number, address, postal_code, city, country, website, contact_email, contact_phone, iban, business_description, short_pitch')
@@ -81,6 +82,7 @@ export default async function AccountSetupPage({ params }: { params: Promise<{ i
         .maybeSingle(),
     ])
     if (comp?.name) companyName = comp.name
+    companyType = comp?.type ?? null
     profile = (prof as BusinessProfile) ?? null
   }
 
@@ -137,6 +139,7 @@ export default async function AccountSetupPage({ params }: { params: Promise<{ i
           milestone: task.current_milestone,
           companyId: task.company_id,
           companyName,
+          companyType,
           platform: task.account_platform,
           accountType: task.account_type,
           revenueModel: task.expected_revenue_model,

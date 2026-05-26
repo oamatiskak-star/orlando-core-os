@@ -26,6 +26,7 @@ type TaskProp = {
   milestone: string | null
   companyId: string | null
   companyName: string
+  companyType: string | null
   platform: string | null
   accountType: string | null
   revenueModel: string | null
@@ -73,6 +74,8 @@ export default function AccountSetupAgent({ task, profile, setup, revenues, comp
     platformName: setup?.platform_name ?? task.platform,
     accountType: setup?.account_type ?? task.accountType,
     revenueModel: task.revenueModel,
+    companyName: task.companyName,
+    companyType: task.companyType,
   }), [task, setup])
 
   const missing = useMemo(() => computeMissingFields(prof), [prof])
