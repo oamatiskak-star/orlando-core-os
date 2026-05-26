@@ -212,3 +212,33 @@ export const LOGIN_STATUS_LABEL: Record<LoginStatus, string> = {
   mfa_pending: 'MFA pending',
   locked: 'Geblokkeerd',
 }
+
+// ── F4: YouTube Connector + Aquier Revenue ──────────────────────────────────
+export type YoutubeChannelRow = {
+  id: string
+  name: string | null
+  naam: string | null
+  handle: string | null
+  subscriber_count: number | null
+  subscribers: number | null
+  monthly_revenue: number | null
+  estimated_revenue: number | null
+  status: string | null
+  language: string | null
+}
+
+export type AquierMonitorRow = {
+  id: string
+  event_at: string
+  category: string | null
+  title: string | null
+  metric_key: string | null
+  metric_value: number | null
+  metric_target: number | null
+  variance_pct: number | null
+}
+
+// Channel display-naam (naam heeft voorrang op name)
+export function channelLabel(c: { name: string | null; naam: string | null; handle: string | null }): string {
+  return c.naam || c.name || c.handle || 'Onbekend kanaal'
+}
