@@ -85,3 +85,47 @@ html[data-showcase="on"] body {
   background: #08081a;
   filter: contrast(var(--showcase-contrast));
 }
+
+/* ── Daglicht-modus ──────────────────────────────────────────────────
+   Hoog-contrast variant voor buitengebruik / fel zonlicht.
+   Geactiveerd via [data-theme="day"] op <html> (toggle in de Topbar).
+   Donkere achtergronden blijven donker (wit-op-donker = max contrast),
+   maar vage grijze tekst wordt bijna wit en randen/oppervlakken feller.
+   Werkt globaal over alle pagina's zonder per-pagina herschrijving.    */
+
+/* Iets minder diep-zwart → minder glans/reflectie in de zon */
+html[data-theme="day"] { background: #14141f; }
+html[data-theme="day"] body { background: #16162a; }
+
+/* Vage tekst feller maken (de grootste leesbaarheidsbottleneck) */
+html[data-theme="day"] .text-white\/20 { color: rgb(255 255 255 / 0.46) !important; }
+html[data-theme="day"] .text-white\/25 { color: rgb(255 255 255 / 0.52) !important; }
+html[data-theme="day"] .text-white\/30 { color: rgb(255 255 255 / 0.60) !important; }
+html[data-theme="day"] .text-white\/38 { color: rgb(255 255 255 / 0.70) !important; }
+html[data-theme="day"] .text-white\/40 { color: rgb(255 255 255 / 0.72) !important; }
+html[data-theme="day"] .text-white\/45 { color: rgb(255 255 255 / 0.78) !important; }
+html[data-theme="day"] .text-white\/50 { color: rgb(255 255 255 / 0.82) !important; }
+html[data-theme="day"] .text-white\/60 { color: rgb(255 255 255 / 0.90) !important; }
+html[data-theme="day"] .text-white\/65 { color: rgb(255 255 255 / 0.92) !important; }
+html[data-theme="day"] .text-white\/70 { color: rgb(255 255 255 / 0.95) !important; }
+html[data-theme="day"] .text-white\/80 { color: rgb(255 255 255 / 0.97) !important; }
+
+/* Randen beter zichtbaar zodat structuur niet wegvalt */
+html[data-theme="day"] .border-white\/5  { border-color: rgb(255 255 255 / 0.14) !important; }
+html[data-theme="day"] .border-white\/8  { border-color: rgb(255 255 255 / 0.16) !important; }
+html[data-theme="day"] .border-white\/10 { border-color: rgb(255 255 255 / 0.20) !important; }
+
+/* Oppervlakken (cards/panelen) iets meer definitie geven */
+html[data-theme="day"] .bg-white\/\[0\.06\] { background-color: rgb(255 255 255 / 0.10) !important; }
+html[data-theme="day"] .bg-white\/5         { background-color: rgb(255 255 255 / 0.09) !important; }
+
+/* Diepste achtergrond-tokens iets oplichten (minder glans) */
+html[data-theme="day"] .bg-\[\#07070f\] { background-color: #16162a !important; }
+html[data-theme="day"] .bg-\[\#0a0a0f\] { background-color: #17172b !important; }
+html[data-theme="day"] .bg-\[\#0d0d1a\] { background-color: #1a1a2e !important; }
+html[data-theme="day"] .bg-\[\#0f0f14\] { background-color: #1a1a2c !important; }
+html[data-theme="day"] .bg-\[\#0f0f13\] { background-color: #1a1a2c !important; }
+html[data-theme="day"] .bg-\[\#0f1117\] { background-color: #1b1d2e !important; }
+html[data-theme="day"] .bg-\[\#111\]    { background-color: #1c1c30 !important; }
+html[data-theme="day"] .bg-\[\#121220\] { background-color: #1b1b30 !important; }
+html[data-theme="day"] .bg-\[\#181830\] { background-color: #232342 !important; }

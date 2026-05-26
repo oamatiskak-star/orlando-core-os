@@ -1,6 +1,7 @@
 'use client'
 
-import { Bell, Search, Menu } from 'lucide-react'
+import { useEffect, useState } from 'react'
+import { Bell, Search, Menu, Sun, Moon } from 'lucide-react'
 
 interface Props {
   title: string
@@ -8,6 +9,19 @@ interface Props {
 }
 
 export default function Topbar({ title, onMenuOpen }: Props) {
+  const [day, setDay] = useState(false)
+
+  useEffect(() => {
+    setDay(document.documentElement.getAttribute('data-theme') === 'day')
+  }, [])
+
+  function toggleTheme() {
+    const next = !day
+    setDay(next)
+    document.documentElement.setAttribute('data-theme', next ? 'day' : 'night')
+    try { localStorage.setItem('oc-theme', next ? 'day' : 'night') } catch {}
+  }
+
   return (
     <header className="h-12 flex items-center justify-between px-4 border-b border-white/5 bg-[#181830] flex-shrink-0">
       <div className="flex items-center gap-3">
@@ -31,6 +45,14 @@ export default function Topbar({ title, onMenuOpen }: Props) {
             className="bg-transparent text-xs text-white/60 placeholder-white/25 outline-none w-36"
           />
         </div>
+        <button
+          onClick={toggleTheme}
+          className="p-1.5 rounded-lg hover:bg-white/5 text-white/65 hover:text-white transition-colors"
+          aria-label={day ? 'Naar nachtmodus' : 'Naar daglichtmodus'}
+          title={day ? 'Daglichtmodus aan — klik voor nacht' : 'Daglichtmodus (beter leesbaar in de zon)'}
+        >
+          {day ? <Sun size={16} className="text-amber-400" /> : <Moon size={16} />}
+        </button>
         <button className="relative p-1.5 rounded-lg hover:bg-white/5 text-white/65 hover:text-white/70 transition-colors">
           <Bell size={16} />
           <span className="absolute top-0.5 right-0.5 w-2 h-2 bg-indigo-500 rounded-full" />

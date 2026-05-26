@@ -28,6 +28,8 @@ export default async function StrategyPage() {
     { data: campaigns },
     { data: daily },
     { data: planItems },
+    { data: reports },
+    { data: channelNames },
   ] = await Promise.all([
     supabase
       .from('youtube_strategy_campaigns')
@@ -44,10 +46,19 @@ export default async function StrategyPage() {
       .eq('status', 'bezig')
       .order('priority', { ascending: false })
       .limit(20),
+    supabase
+      .from('channel_analyst_reports')
+      .select('*')
+      .order('health_score', { ascending: false }),
+    supabase
+      .from('youtube_channels')
+      .select('id, naam'),
   ])
 
   const cList = campaigns ?? []
   const dList = daily ?? []
+  const rList = reports ?? []
+  const naamById = new Map((channelNames ?? []).map((c) => [c.id, c.naam]))
 
   const totalViewsActual = dList.reduce((s, d) => s + (d.views_actual ?? 0), 0)
   const totalTarget      = cList.reduce((s, c) => s + (c.target_views_total ?? 0), 0)
@@ -205,6 +216,72 @@ export default async function StrategyPage() {
             </div>
           )
         })}
+      </div>
+
+      {/* Analyse-agent — bewijst dat er geanalyseerd wordt + stuurt de strategie */}
+      <div className="bg-white/[0.04] border border-white/8 rounded-2xl p-5">
+        <div className="flex items-center justify-between flex-wrap gap-2 mb-4">
+          <h2 className="text-sm font-semibold text-white flex items-center gap-2">
+            <TrendingUp size={14} className="text-violet-400" />
+            Analyse-agent — health & aanbevelingen
+          </h2>
+          {rList.length > 0 && rList[0].analyzed_at && (
+            <span className="text-[11px] text-white/45">
+              laatste analyse: {new Date(rList[0].analyzed_at).toLocaleString('nl-NL', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
+            </span>
+          )}
+        </div>
+
+        {rList.length === 0 ? (
+          <p className="text-xs text-white/40 py-4 text-center">
+            Nog geen analyse — de <code className="text-white/60">run-analyst</code> cron draait dagelijks 10:30 en vult dit.
+          </p>
+        ) : (
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+            {rList.map((r) => {
+              const naam = naamById.get(r.channel_id) ?? 'Onbekend kanaal'
+              const g48 = r.growth_48h ?? 0
+              const recs: string[] = Array.isArray(r.recommendations) ? r.recommendations : []
+              return (
+                <div key={r.channel_id} className="bg-white/[0.03] border border-white/5 rounded-xl p-3.5 space-y-2.5">
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="text-sm font-semibold text-white truncate">{naam}</p>
+                    <span className={`shrink-0 text-[10px] font-medium px-2 py-0.5 rounded-full border ${
+                      r.on_track
+                        ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400'
+                        : 'bg-red-500/10 border-red-500/20 text-red-400'
+                    }`}>
+                      {r.on_track ? 'on track' : 'achterstand'}
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-3 gap-2 text-center">
+                    <div className="bg-white/[0.04] rounded-lg py-1.5">
+                      <p className="text-[10px] text-white/40 uppercase">Health</p>
+                      <p className="text-sm font-bold text-white tabular-nums">{r.health_score ?? 0}<span className="text-white/30 text-[10px]">/100</span></p>
+                    </div>
+                    <div className="bg-white/[0.04] rounded-lg py-1.5">
+                      <p className="text-[10px] text-white/40 uppercase">Views</p>
+                      <p className="text-sm font-bold text-white tabular-nums">{num(r.total_views ?? 0)}</p>
+                    </div>
+                    <div className="bg-white/[0.04] rounded-lg py-1.5">
+                      <p className="text-[10px] text-white/40 uppercase">Groei 48u</p>
+                      <p className={`text-sm font-bold tabular-nums ${g48 > 0 ? 'text-emerald-400' : g48 < 0 ? 'text-red-400' : 'text-white/60'}`}>
+                        {g48 > 0 ? '+' : ''}{g48}%
+                      </p>
+                    </div>
+                  </div>
+                  {recs.length > 0 && (
+                    <ul className="space-y-1">
+                      {recs.slice(0, 3).map((rec, i) => (
+                        <li key={i} className="text-[11px] text-white/60 leading-snug">{rec}</li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+        )}
       </div>
 
       {/* 10-dag tijdlijn */}
