@@ -53,6 +53,8 @@ function revalidateAll() {
   revalidatePath(`${PATH}/revenue`)
   revalidatePath(`${PATH}/kyc`)
   revalidatePath(`${PATH}/links`)
+  revalidatePath(`${PATH}/youtube`)
+  revalidatePath(`${PATH}/aquier`)
 }
 
 // ── createProgram ──────────────────────────────────────────────────────────
@@ -255,5 +257,34 @@ export async function setDocStatus(formData: FormData) {
   if (error) throw new Error(error.message)
 
   await audit(row?.program_id ?? null, null, 'document.status_changed', { document_id: documentId, status })
+  revalidateAll()
+}
+
+// ── F4: setChannelLink — programma ↔ youtube_channel koppelen/ontkoppelen ────
+export async function setChannelLink(formData: FormData) {
+  const programId = String(formData.get('program_id') ?? '').trim()
+  const channelId = String(formData.get('channel_id') ?? '').trim()
+  const op = String(formData.get('op') ?? '').trim()
+
+  if (!programId || !channelId) throw new Error('program_id en channel_id zijn verplicht')
+  if (op !== 'add' && op !== 'remove') throw new Error('Ongeldige op')
+
+  const admin = createAdminClient()
+  const { data: prog, error: readErr } = await admin
+    .from('affiliate_programs')
+    .select('connected_channels')
+    .eq('id', programId)
+    .single()
+  if (readErr || !prog) throw new Error(readErr?.message ?? 'Programma niet gevonden')
+
+  const current: string[] = Array.isArray(prog.connected_channels) ? prog.connected_channels : []
+  const next = op === 'add'
+    ? Array.from(new Set([...current, channelId]))
+    : current.filter(c => c !== channelId)
+
+  const { error } = await admin.from('affiliate_programs').update({ connected_channels: next }).eq('id', programId)
+  if (error) throw new Error(error.message)
+
+  await audit(programId, null, 'channel.link_changed', { channel_id: channelId, op })
   revalidateAll()
 }

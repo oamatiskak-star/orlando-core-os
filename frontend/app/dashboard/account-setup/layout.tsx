@@ -21,8 +21,8 @@ const SUB_NAV: SubNavEntry[] = [
   { href: '/dashboard/account-setup/revenue',         label: 'Revenue',          icon: Wallet,      status: 'live' },
   { href: '/dashboard/account-setup/kyc',             label: 'KYC / Verification',icon: ShieldCheck, status: 'live' },
   { href: '/dashboard/account-setup/links',           label: 'Affiliate Links',  icon: LinkIcon,    status: 'live' },
-  { href: '/dashboard/account-setup/youtube',         label: 'YouTube Connector',icon: Tv2,         status: 'planned', phase: 4 },
-  { href: '/dashboard/account-setup/aquier',          label: 'Aquier Revenue',   icon: Globe,       status: 'planned', phase: 4 },
+  { href: '/dashboard/account-setup/youtube',         label: 'YouTube Connector',icon: Tv2,         status: 'live' },
+  { href: '/dashboard/account-setup/aquier',          label: 'Aquier Revenue',   icon: Globe,       status: 'live' },
   { href: '/dashboard/account-setup/automation',      label: 'Automation',       icon: Zap,         status: 'planned', phase: 3 },
 ]
 

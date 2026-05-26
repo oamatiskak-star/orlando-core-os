@@ -2,7 +2,12 @@
 
 > **Sessie protocol** (CLAUDE.md): Lees dit bestand bij elke nieuwe Claude Code sessie. Update na elke voltooide taak. Houd het herstel-blok actueel.
 
-**Laatste update:** 2026-05-26 (sessie 10) — Affiliate & Revenue Infra (migratie 100, PR #41) + **Fase 3** (runner + cron, PR #43 gemerged) + **Fase 2** (Revenue/KYC/Links-tabs, branch `feature/account-setup-f2`). Sessie 9 (migratie 099) hieronder.
+**Laatste update:** 2026-05-26 (sessie 10) — Affiliate & Revenue Infra (migratie 100, PR #41) + **F3** (runner+cron, PR #43) + **F2** (Revenue/KYC/Links, PR #44) + **F4** (YouTube Connector + Aquier Revenue, branch `feature/account-setup-f4`). Build Tracker-milestone 75%. Sessie 9 (migratie 099) hieronder.
+
+**F4 (sessie 10) — branch `feature/account-setup-f4`:**
+- ✅ `youtube/page.tsx` — YouTube Channel Connector: koppelt affiliate-programma's ↔ `youtube_channels` via `affiliate_programs.connected_channels` (uuid[]); per-kanaal chips + add/remove (`setChannelLink`).
+- ✅ `aquier/page.tsx` — Aquier Revenue Engine: aggregeert ECHTE bronnen (Aquier-kanalen uit youtube_channels o.b.v. naam-patroon, affiliate-programma's gekoppeld aan Aquier-kanalen via overlap, `aquier_monitor_events` metrics). No-mock: geen lead/membership-fabricatie.
+- ✅ layout: youtube/aquier → `live`. Alle 9 sub-tabs nu live.
 
 ---
 
