@@ -11,7 +11,7 @@ import {
   Mail, Shield, GitMerge, Filter, Brain, ShieldAlert, Link,
   Gavel, Lock, Eye, Upload, Server, Tv2,
   Radar, MapPin, Target, Megaphone, UserPlus, Maximize2,
-  Briefcase, GanttChart, UserCog, Gauge, ThumbsUp,
+  Briefcase, GanttChart, UserCog, Gauge, ThumbsUp, Sparkles,
 } from 'lucide-react'
 
 export type NavModuleDef = {
@@ -145,6 +145,8 @@ export const NAV_MODULES: Record<string, NavModuleDef> = {
   ops_routines:         { key: 'ops_routines',         label: 'Routines',            href: '/dashboard/operations/routines',              icon: ListChecks },
   ops_automations:      { key: 'ops_automations',      label: 'Automations',         href: '/dashboard/operations/automations',           icon: Zap },
   ops_agents:           { key: 'ops_agents',           label: 'AI Agents',           href: '/dashboard/operations/agents',                icon: Bot },
+  ops_worker_control:   { key: 'ops_worker_control',   label: 'Worker Control',      href: '/dashboard/operations/worker-control',        icon: Server },
+  ops_ai_optimizer:     { key: 'ops_ai_optimizer',     label: 'AI Optimizer',        href: '/dashboard/operations/ai-optimizer',          icon: Sparkles },
   ops_scheduler:        { key: 'ops_scheduler',        label: 'Scheduler',           href: '/dashboard/operations/scheduler',             icon: Clock },
   ops_queue:            { key: 'ops_queue',            label: 'Queue Monitor',       href: '/dashboard/operations/queue',                 icon: Package },
   ops_logs:             { key: 'ops_logs',             label: 'Logs',                href: '/dashboard/operations/logs',                  icon: Terminal },
@@ -228,7 +230,7 @@ export const COMPANY_NAV: Record<string, CompanyNav> = {
       { title: 'Bedrijven', modules: ['bedrijven'] },
       { title: 'Operationeel', modules: ['build_tracker', 'agenda', 'taken', 'planning', 'crm'] },
       { title: 'Routines Control', modules: ['routines_hub', 'routines_live', 'routines_agents', 'routines_logs'] },
-      { title: 'Operations Center', modules: ['ops_dashboard', 'ops_workflows', 'ops_routines', 'ops_agents', 'ops_scheduler', 'ops_queue', 'ops_logs', 'ops_errors', 'ops_automations', 'ops_api', 'ops_dil', 'ops_suggestions', 'ops_manual', 'ops_templates', 'ops_webhooks', 'ops_analytics', 'ops_company_settings', 'ops_global_settings', 'infra', 'worktree_manager'] },
+      { title: 'Operations Center', modules: ['ops_dashboard', 'ops_workflows', 'ops_routines', 'ops_agents', 'ops_worker_control', 'ops_ai_optimizer', 'ops_scheduler', 'ops_queue', 'ops_logs', 'ops_errors', 'ops_automations', 'ops_api', 'ops_dil', 'ops_suggestions', 'ops_manual', 'ops_templates', 'ops_webhooks', 'ops_analytics', 'ops_company_settings', 'ops_global_settings', 'infra', 'worktree_manager'] },
       { title: 'Mail Engine', modules: ['mail_dashboard', 'mail_agents', 'mail_workflows', 'mail_rules', 'mail_dossiers', 'mail_inbox'] },
       { title: 'AI & Workflow', modules: ['agents', 'workflows', 'orchestrator'] },
       { title: 'Systeem', modules: ['administratie', 'belasting', 'abonnementen', 'documenten', 'gebruikers'] },

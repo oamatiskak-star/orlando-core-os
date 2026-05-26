@@ -2,7 +2,44 @@
 
 > **Sessie protocol** (CLAUDE.md): Lees dit bestand bij elke nieuwe Claude Code sessie. Update na elke voltooide taak. Houd het herstel-blok actueel.
 
-**Laatste update:** 2026-05-25 (sessie 7) — Incident relay (event-driven) toegevoegd aan Routines Control: pg_trigger op executive_alerts + Vercel `/api/routines/incident-relay` met Telegram + Claude CronCreate 6h durable. Sessie 6 (Organization Watchdog) en sessie 5 (Routines 6/6) gearchiveerd onderaan.
+**Laatste update:** 2026-05-26 (sessie 8) — Build Tracker verdiept (CTA's + Preview + "Ga verder" + detailpagina), Worker Control Center (OpenClaw) over `worker_registry` met echte PM2-actuatie via local-watchdog, en AI Optimizer toegevoegd. Sessie 7 (Incident relay) hieronder.
+
+---
+
+## 🔴 HERSTEL HIER NA CRASH (sessie 8)
+
+**Sessie focus (2026-05-26, sessie 8)**: Dashboard-functionaliteit verdiept op verzoek Orlando: CTA-knoppen + "Ga verder" op onvoltooide builds, taakomschrijving lezen (preview), OpenClaw worker control center (aan/uit/restart), en AI Optimizer.
+
+**Wat is gedaan (sessie 8) — alles lokaal getypecheckt, 0 TS-errors:**
+
+1. **Build Tracker — CTA's + Ga verder + Preview + detail**
+   - `frontend/app/dashboard/build-tracker/actions.ts` — `updateBuild()` + `resumeBuild()` (status→building, geen autonome agent-trigger; bewuste keuze Orlando = "detailpagina openen").
+   - `frontend/app/dashboard/build-tracker/BuildCardActions.tsx` (nieuw) — per kaart: **Preview** (modal met volledige `description` + milestone) en **Ga verder** (push-intent, `resumeBuild` → detail). Live builds tonen "Bekijk".
+   - `frontend/app/dashboard/build-tracker/page.tsx` — kaarttitel linkt naar detail + `<BuildCardActions/>` footer.
+   - `frontend/app/dashboard/build-tracker/[id]/page.tsx` (nieuw) — detail: progress, milestone, meta, **volledige taakomschrijving**, + `<BuildEditPanel/>`.
+   - `frontend/app/dashboard/build-tracker/[id]/BuildEditPanel.tsx` (nieuw) — status/voortgang/milestone/omschrijving bewerken via `updateBuild`.
+   - CTA-styling hergebruikt uit bestaande `components/executive/ActionCTA.tsx`.
+
+2. **Worker Control Center (OpenClaw) — `worker_registry`**
+   - **Migratie 098 `098_worker_control.sql`** APPLIED via MCP op `shaunumewswpxhmgbtvv` — kolommen `desired_state` (check running/stopped), `restart_requested_at`, `pm2_name`, `controllable`, `last_command(_at/_by/_result)` op `worker_registry`. Workers met `host='render'` → `controllable=false`.
+   - `frontend/app/dashboard/operations/worker-control/{page.tsx,WorkerControlGrid.tsx,actions.ts}` (nieuw) — KPI-strip + grid met aan/uit-toggle + herstart per worker + "Herstart alle lokale workers". Auto-refresh 10s via supabase client. Render-workers tonen "niet lokaal bestuurbaar".
+
+3. **local-watchdog — echte PM2-actuatie**
+   - `local-watchdog/src/worker-commander.ts` (nieuw) — `reconcileWorkerCommands()`: leest controllable workers, matcht op PM2 app-naam in `pm2 jlist` van dít host, voert `pm2 restart/stop/start` uit, schrijft `last_command_result` + cleart `restart_requested_at`. Workers van ander host worden overgeslagen.
+   - `local-watchdog/src/index.ts` — `commandTick()` op eigen interval (`COMMAND_INTERVAL_MS`, default 8s) + exposed in `/health`.
+   - `local-watchdog/src/supabase-state.ts` — `getClient()` nu geëxporteerd.
+   - Getypecheckt: `npm install` + `tsc --noEmit` schoon.
+
+4. **AI Optimizer**
+   - `frontend/app/dashboard/operations/ai-optimizer/page.tsx` (nieuw) — deterministische heuristiek over `build_tracker` (deadline verstreken/risico, gestald, hoge WIP) + `worker_registry` (fout, geen heartbeat, diepe queue), gesorteerd op severity met deeplinks naar build-detail / worker-control.
+
+5. **Nav** — `frontend/lib/nav-config.ts`: `ops_worker_control` + `ops_ai_optimizer` toegevoegd aan registry + osm "Operations Center" sectie (Sparkles geïmporteerd).
+
+**Open / vervolg (sessie 8):**
+1. **Deploy local-watchdog** op de Mac Mini host(s) zodat de PM2-actuatie écht draait (`npm run build && pm2 restart local-watchdog`). Tot dan zet het dashboard alleen de command-kolommen; reconciliatie gebeurt zodra de watchdog draait.
+2. **`pm2_name` vullen** voor workers waarvan `display_name`/`id` niet exact matcht met de PM2 app-naam (anders skipt de commander ze). Render-workers blijven `controllable=false`.
+3. **Frontend deploy** naar Vercel (orlando-core-os) — nieuwe routes onder `/dashboard/build-tracker/[id]`, `/dashboard/operations/worker-control`, `/dashboard/operations/ai-optimizer`.
+4. Niet gecommit/gepusht — staat lokaal op branch `main` in `~/Github/orlando-core-os`.
 
 ---
 

@@ -3,6 +3,7 @@ import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
 import { getActiveCompany } from '@/lib/active-company-server'
 import NewBuildButton from './NewBuildButton'
+import BuildCardActions from './BuildCardActions'
 
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
@@ -86,7 +87,9 @@ export default async function BuildTrackerPage() {
                     <span className="text-[10px] text-white/40 truncate">{b.current_milestone}</span>
                   )}
                 </div>
-                <p className="text-[13px] text-white/90 font-medium leading-tight">{b.name}</p>
+                <Link href={`/dashboard/build-tracker/${b.id}`} className="block group">
+                  <p className="text-[13px] text-white/90 font-medium leading-tight group-hover:text-white transition-colors">{b.name}</p>
+                </Link>
                 {b.description && (
                   <p className="text-[10.5px] text-white/50 mt-1 leading-snug line-clamp-2">{b.description}</p>
                 )}
@@ -119,6 +122,16 @@ export default async function BuildTrackerPage() {
                     )}
                   </div>
                 </div>
+
+                <BuildCardActions
+                  id={b.id}
+                  name={b.name}
+                  status={b.status}
+                  description={b.description}
+                  currentMilestone={b.current_milestone}
+                  progress={b.progress_pct}
+                  companyColor={company.color}
+                />
               </div>
             )
           })}
