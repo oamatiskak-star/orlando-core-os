@@ -4,7 +4,8 @@ import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { Eye, ArrowRight, X, Flag, Loader2, KeyRound } from 'lucide-react'
 import { ActionCTA } from '@/components/executive/ActionCTA'
-import { resumeBuild } from './actions'
+import ContinueInClaude from '@/components/build/ContinueInClaude'
+import type { ContinuePromptContext } from '@/lib/continue-prompt'
 import { prepareAccountSetup } from '../accounts/actions'
 import { accountStatusBadge } from '@/lib/account-setup'
 
@@ -12,21 +13,22 @@ type Props = {
   id: string
   name: string
   status: string
+  statusLabel: string
   description: string | null
   currentMilestone: string | null
   progress: number
   companyColor: string
+  companyName: string
   requiresAccountSetup?: boolean
   accountStatus?: string
 }
 
 export default function BuildCardActions({
-  id, name, status, description, currentMilestone, progress, companyColor,
+  id, name, status, statusLabel, description, currentMilestone, progress, companyColor, companyName,
   requiresAccountSetup, accountStatus,
 }: Props) {
   const router = useRouter()
   const [showPreview, setShowPreview] = useState(false)
-  const [pending, startTransition] = useTransition()
   const [acctPending, startAcct] = useTransition()
 
   const isLive = status === 'live'
@@ -35,11 +37,16 @@ export default function BuildCardActions({
     router.push(`/dashboard/build-tracker/${id}`)
   }
 
-  function handleResume() {
-    startTransition(async () => {
-      await resumeBuild(id)
-      router.push(`/dashboard/build-tracker/${id}`)
-    })
+  const continueCtx: ContinuePromptContext = {
+    tracker: 'Build Tracker',
+    itemType: 'build',
+    name,
+    statusLabel,
+    progressPct: progress,
+    milestone: currentMilestone,
+    description,
+    company: companyName,
+    route: `/dashboard/build-tracker/${id}`,
   }
 
   // "Maak account aan" → bereid voor (status → voorbereiden) en open de agent.
@@ -69,14 +76,7 @@ export default function BuildCardActions({
             onClick={goDetail}
           />
         ) : (
-          <ActionCTA
-            label={pending ? 'Bezig…' : 'Ga verder'}
-            intent="push"
-            size="xs"
-            disabled={pending}
-            icon={pending ? <Loader2 size={11} className="animate-spin" /> : <ArrowRight size={11} />}
-            onClick={handleResume}
-          />
+          <ContinueInClaude context={continueCtx} companyColor={companyColor} size="xs" />
         )}
         {requiresAccountSetup && (
           <ActionCTA
@@ -128,14 +128,7 @@ export default function BuildCardActions({
 
               <div className="flex gap-2 pt-2 border-t border-white/[0.06]">
                 {!isLive && (
-                  <button
-                    onClick={handleResume}
-                    disabled={pending}
-                    className="flex-1 flex items-center justify-center gap-1.5 bg-emerald-500/15 border border-emerald-400/40 text-emerald-200 hover:bg-emerald-500/25 disabled:opacity-50 text-xs font-medium py-2 rounded-lg transition-colors"
-                  >
-                    {pending ? <Loader2 size={12} className="animate-spin" /> : <ArrowRight size={12} />}
-                    Ga verder
-                  </button>
+                  <ContinueInClaude context={continueCtx} companyColor={companyColor} size="sm" />
                 )}
                 <button
                   onClick={goDetail}

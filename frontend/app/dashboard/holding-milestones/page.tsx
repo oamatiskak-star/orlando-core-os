@@ -2,6 +2,7 @@ import { Target, ChevronLeft } from 'lucide-react'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
 import { getActiveCompany } from '@/lib/active-company-server'
+import ContinueInClaude from '@/components/build/ContinueInClaude'
 
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
@@ -102,6 +103,26 @@ export default async function HoldingMilestonesPage() {
                   {m.verdienmodel && (
                     <div className="text-[10px] text-white/45">{m.verdienmodel}</div>
                   )}
+                </div>
+
+                <div className="mt-3 pt-3 border-t border-white/[0.06]">
+                  <ContinueInClaude
+                    companyColor={company.color}
+                    context={{
+                      tracker: 'Holding Milestones',
+                      itemType: 'milestone',
+                      name: `M${m.milestone_nr} — ${m.naam}`,
+                      statusLabel: badge.label,
+                      progressPct: m.progress_pct,
+                      description: m.fundament,
+                      company: company.name,
+                      route: '/dashboard/holding-milestones',
+                      extra: [
+                        { label: 'Value stage', value: m.value_stage ?? '' },
+                        { label: 'Verdienmodel', value: m.verdienmodel ?? '' },
+                      ],
+                    }}
+                  />
                 </div>
               </div>
             )

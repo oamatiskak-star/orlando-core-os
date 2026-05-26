@@ -129,10 +129,12 @@ export default async function BuildTrackerPage() {
                   id={b.id}
                   name={b.name}
                   status={b.status}
+                  statusLabel={badge.label}
                   description={b.description}
                   currentMilestone={b.current_milestone}
                   progress={b.progress_pct}
                   companyColor={company.color}
+                  companyName={company.name}
                   requiresAccountSetup={b.requires_account_setup}
                   accountStatus={b.account_status}
                 />
