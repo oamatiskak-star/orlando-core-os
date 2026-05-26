@@ -2,7 +2,7 @@ import 'dotenv/config'
 import express from 'express'
 import { hostname } from 'os'
 import { checkLocalFleet } from './recovery'
-import { reconcileWorkerCommands } from './worker-commander'
+import { reconcileWorkerCommands, getDeliberatelyStoppedPm2Names } from './worker-commander'
 import { sendTelegram } from './telegram'
 
 const PORT = parseInt(process.env.PORT ?? '3007', 10)
@@ -49,10 +49,20 @@ app.post('/check-now', async (_req, res) => {
 
 async function tick(): Promise<void> {
   try {
+    // Bewust uitgezette workers (dashboard) bij de deny-set voegen zodat de
+    // crash-loop self-healer ze niet terug aanzet.
+    let stopped: Set<string>
+    try {
+      stopped = await getDeliberatelyStoppedPm2Names()
+    } catch {
+      stopped = new Set<string>()
+    }
+    const denyList = stopped.size ? new Set<string>([...DENY_LIST, ...stopped]) : DENY_LIST
+
     const result = await checkLocalFleet({
       hostId: HOST_ID,
       selfAppName: SELF_APP_NAME,
-      denyList: DENY_LIST
+      denyList
     })
     lastCheckedCount = result.count
     lastFailingApps = result.failing
