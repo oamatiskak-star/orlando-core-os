@@ -57,9 +57,10 @@ export function startYouTubeUploadWorker(): Worker {
       if (!channel) throw new Error(`Channel ${channelId} not found`)
       if (!queueEntry) throw new Error(`Queue entry ${queueId} not found`)
 
-      // Prefereer persistente storage_path (URL) boven het vluchtige lokale /tmp-pad,
-      // zodat uploads slagen ongeacht container-restarts of welke host rendert.
-      const rawPath = video.storage_path ?? video.normalized_path ?? video.file_path
+      // Volgorde: genormaliseerd (lokaal op Render, mét muziek) → persistente
+      // storage_path (URL, restart-proof) → file_path (vluchtig /tmp, laatste redmiddel).
+      // Zo overleven uploads een restart én gaat normalisatie-met-muziek niet verloren.
+      const rawPath = video.normalized_path ?? video.storage_path ?? video.file_path
       if (!rawPath) throw new Error(`Video ${videoId} has no file_path — bestand al verwijderd?`)
       const isStorageUrl = rawPath.startsWith('http')
 
@@ -80,7 +81,7 @@ export function startYouTubeUploadWorker(): Worker {
         log.info('File not normalized yet, queuing normalization', { queueId })
         const normalizedPath = filePath.replace(/\.mp4$/i, '_normalized.mp4')
         await updateQueueStatus(queueId, 'normalizing')
-        await enqueueNormalize({ queueId, videoId, channelId, inputPath: filePath, outputPath: normalizedPath })
+        await enqueueNormalize({ queueId, videoId, channelId, inputPath: video.storage_path ?? filePath, outputPath: normalizedPath })
         return { queued_normalize: true }
       }
 
@@ -91,7 +92,7 @@ export function startYouTubeUploadWorker(): Worker {
         await addLog(queueId, videoId, 'info', 'Geen audio gedetecteerd — achtergrondmuziek wordt toegevoegd via normalizer')
         const normalizedPath = filePath.replace(/\.mp4$/i, '_normalized.mp4')
         await updateQueueStatus(queueId, 'normalizing')
-        await enqueueNormalize({ queueId, videoId, channelId, inputPath: filePath, outputPath: normalizedPath })
+        await enqueueNormalize({ queueId, videoId, channelId, inputPath: video.storage_path ?? filePath, outputPath: normalizedPath })
         return { queued_normalize: true }
       }
 
