@@ -7,7 +7,7 @@ const execAsync = promisify(exec)
 
 // ── Config (env-overridable) ─────────────────────────────────────────────
 const ENABLED = (process.env.STORAGE_GUARD_ENABLED ?? '1') !== '0'
-const HOST_ID = process.env.WATCHDOG_HOST_ID || hostname()
+export const HOST_ID = process.env.WATCHDOG_HOST_ID || hostname()
 const DATA_VOLUME = process.env.STORAGE_DATA_VOLUME || '/System/Volumes/Data'
 const DOCKER_RAW =
   process.env.STORAGE_DOCKER_RAW ||
@@ -259,5 +259,57 @@ export async function runStorageCheck(): Promise<void> {
   } catch (err) {
     state.lastError = err instanceof Error ? err.message : String(err)
     console.error('[storage-guard] error:', state.lastError)
+  }
+}
+
+// ── Docker recovery (voor restart-docker command) ─────────────────────────
+async function restartDocker(): Promise<string> {
+  // Stop Docker Desktop volledig en start vers (un-wedge + stop CPU-storm).
+  await execAsync(`pkill -f "Docker Desktop" ; pkill -f "com.docker.backend" ; pkill -f "/Applications/Docker.app"`, { timeout: 30_000 }).catch(() => {})
+  await new Promise((r) => setTimeout(r, 4000))
+  await execAsync('open -a Docker', { timeout: 20_000 }).catch(() => {})
+  // Wacht tot de engine reageert (max ~60s).
+  for (let i = 0; i < 10; i++) {
+    await new Promise((r) => setTimeout(r, 6000))
+    try {
+      await execAsync('docker info --format "{{.ServerVersion}}"', { timeout: 8_000 })
+      return 'docker engine herstart ✓'
+    } catch { /* nog niet klaar */ }
+  }
+  return 'docker herstart gestart (engine nog niet bevestigd binnen 60s)'
+}
+
+// ── Command-executor (door storage-commander aangeroepen) ─────────────────
+export async function executeStorageCommand(command: string): Promise<string> {
+  switch (command) {
+    case 'run-cleanup': {
+      const pruned = await safePrune()
+      await reclaimVmSpace()
+      return `run-cleanup ✓ [${pruned}]`
+    }
+    case 'aggressive-cleanup': {
+      const logs = await findOversizedLogs(AGGRESSIVE_LOG_MB).catch(() => [])
+      if (logs.length) await truncateLogs(logs)
+      const pruned = await safePrune()
+      await reclaimVmSpace()
+      return `aggressive-cleanup ✓ [${logs.length} logs getrunceerd, ${pruned}]`
+    }
+    case 'emergency-cleanup': {
+      const logs = await findOversizedLogs(EMERGENCY_LOG_MB).catch(() => [])
+      if (logs.length) await truncateLogs(logs)
+      const pruned = await safePrune()
+      await reclaimVmSpace()
+      return `emergency-cleanup ✓ [${logs.length} logs getrunceerd, ${pruned}]`
+    }
+    case 'reclaim-space': {
+      const before = await getDockerRawGb()
+      await reclaimVmSpace()
+      const after = await getDockerRawGb()
+      return `reclaim-space ✓ [Docker.raw ${before}GB → ${after}GB]`
+    }
+    case 'restart-docker':
+      return await restartDocker()
+    default:
+      throw new Error(`onbekend storage-command: ${command}`)
   }
 }

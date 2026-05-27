@@ -5,6 +5,8 @@ import { checkLocalFleet } from './recovery'
 import { reconcileWorkerCommands, getDeliberatelyStoppedPm2Names } from './worker-commander'
 import { sendTelegram } from './telegram'
 import { runStorageCheck, getStorageState } from './storage-guard'
+import { reportStorageStatus } from './storage-reporter'
+import { reconcileStorageCommands } from './storage-commander'
 
 const PORT = parseInt(process.env.PORT ?? '3007', 10)
 const CHECK_INTERVAL_MS = parseInt(process.env.CHECK_INTERVAL_MS ?? '30000', 10)
@@ -92,6 +94,13 @@ async function commandTick(): Promise<void> {
     lastCommandError = err instanceof Error ? err.message : String(err)
     console.error('[local-watchdog] command tick error:', lastCommandError)
   }
+  // Storage-commando's (dashboard-knoppen) op hetzelfde responsieve interval.
+  try {
+    const sres = await reconcileStorageCommands()
+    if (sres.acted.length) console.log(`[local-watchdog] storage commands: ${sres.acted.join(', ')}`)
+  } catch (err) {
+    console.error('[local-watchdog] storage command error:', err instanceof Error ? err.message : err)
+  }
 }
 
 async function main(): Promise<void> {
@@ -114,8 +123,9 @@ async function main(): Promise<void> {
   }, COMMAND_INTERVAL_MS)
 
   await runStorageCheck()
+  await reportStorageStatus()
   setInterval(() => {
-    void runStorageCheck()
+    void runStorageCheck().then(() => reportStorageStatus())
   }, STORAGE_INTERVAL_MS)
 }
 
