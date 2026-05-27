@@ -254,8 +254,11 @@ export function startFfmpegNormalizerWorker(): Worker {
       return { outputPath, sizeBytes: outputStats.size }
     },
     {
-      connection:  getRedis(),
-      concurrency: 1,
+      connection:      getRedis(),
+      concurrency:     1,
+      lockDuration:    300_000,  // 5 min: storage-download + ffmpeg muziek-encode mag lang duren
+      stalledInterval: 60_000,   // check stalls elke 60s i.p.v. 30s
+      maxStalledCount: 2,        // tolereer 2 stalls (bv. korte Render-restart) vóór falen
     }
   )
 
