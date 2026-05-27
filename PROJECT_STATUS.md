@@ -4,7 +4,33 @@
 
 ---
 
-**Laatste update:** 2026-05-27 (sessie 11) — YouTube Monetization 3-Layer Funnel: M1 afgerond + M2 registratie-prep deterministisch + `AFFILIATE_REGISTRATION_PLAYBOOK.md` (PR #53). Sessie 12 (Fase 7 LIVE) + sessie 10 herstelblokken hieronder.
+**Laatste update:** 2026-05-27 (sessie 13) — Beide deploy-acties AFGEROND. **youtube-analyst LIVE op CLI-R** (3 bouwfixes, PR #54 gemerged) + schrijft `channel_analyst_reports`. **account-setup-runner LIVE op CLI-L** (= "Mac mini") via Ollama — queued `terms_analysis`-run verwerkt, queue leeg (6 completed / 0 queued). Sessie 12 (Fase 7 LIVE) + sessie 11 (YouTube Monetization 3-Layer Funnel, PR #53) hieronder.
+
+## 🔴 HERSTEL HIER NA CRASH (sessie 13 — deploy youtube-analyst + account-setup-runner)
+
+**Sessie focus (2026-05-27, sessie 13)**: De twee openstaande deploy-acties opgepakt. Host = **CLI-R** (mac-2.home).
+
+**Taak 1 — youtube-analyst op CLI-R: ✅ LIVE.**
+- `docker compose -f docker-compose.cli-r.yml up -d --build youtube-analyst` → container `orlando-cli-r-youtube-analyst-1` draait (`Up`, poll 1u).
+- 3 bouwfixes onderweg (branch `fix/youtube-analyst-cli-r-build`, **PR #54**):
+  1. `monitoring-agent/package-lock.json` ontbrak in git (out-of-sync met `axios` → `npm ci` faalde). Nu in sync gecommit.
+  2. `Dockerfile` `node:20-alpine` → `node:22-alpine` (`@supabase/supabase-js@2.106` vereist native WebSocket; Node 20 crashte). NB: gedeelde Dockerfile met `monitoring-agent`-service.
+  3. `youtube-channel-analyst.ts` TS18048 — notificatie-blok achter `if (businessPlan)` guard.
+- Geverifieerd: `channel_analyst_reports` verse rijen `analyzed_at 2026-05-27 12:43`.
+
+**Taak 2 — account-setup-runner (PM2): ✅ LIVE op CLI-L (= "Mac mini", `o.s.m.amatiskak`, repo `~/Github/orlando-core-os`).**
+Via `ssh cli-l` opgezet (CLI-R kon het niet: geen `.env`/LLM). Stappen:
+- `local-agent/.env` aangemaakt — SUPABASE_URL + SUPABASE_SERVICE_ROLE_KEY hergebruikt uit `local-watchdog/.env` (waarden nooit geprint) + `USE_LM_STUDIO=false`, `OLLAMA_URL=http://localhost:11434`, `OLLAMA_MODEL=llama3.2`, `WATCHDOG_HOST_ID=cli-l`. chmod 600.
+- LLM: LM Studio :1234 down, **Ollama :11434 draait** maar had 0 modellen → `ollama pull llama3.2` (2.0 GB).
+- node via **nvm** (v22.22.3); pm2 was niet geïnstalleerd → `npm i -g pm2`.
+- Gestart host-onafhankelijk vanuit `local-agent/`: `pm2 start node_modules/.bin/ts-node --name account-setup-runner --interpreter none -- --transpile-only src/account-setup-runner.ts` + `pm2 save`. (NB: ecosystem.config.js `BASE` is hardcoded naar het CLI-R-pad `/Users/bouwproffsnederlandbv/...` → `--only`-start zou op CLI-L verkeerde `cwd` pakken. Portability-bug, nog te fixen.)
+- Geverifieerd: runner `online` (0 restarts), pakte run `6256078b` (terms_analysis) op en **completed in ~16s via Ollama**; audit `terms_analysis.completed` 14:07:45; queue nu **6 completed / 0 queued**.
+
+**Open follow-ups:**
+1. `pm2 startup` op CLI-L voor herstart-na-reboot (vereist sudo; `pm2 save` is al gedaan voor `pm2 resurrect`).
+2. ecosystem.config.js `BASE` dynamisch maken (bv. `process.env.ORLANDO_REPO || __dirname`-afgeleide) zodat `--only account-setup-runner` op elke host werkt.
+
+---
 
 ## 🔴 HERSTEL HIER NA CRASH (sessie 12 — Fase 7 Executive Intelligence Layer LIVE bevestigd)
 
