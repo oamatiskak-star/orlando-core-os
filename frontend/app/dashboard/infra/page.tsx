@@ -2,6 +2,7 @@ import { createClient } from '@/lib/supabase/server'
 import Link from 'next/link'
 import { Server, Cpu, MemoryStick, Activity, AlertTriangle, CheckCircle, WifiOff, Shield, ChevronRight } from 'lucide-react'
 import InfraClient from './InfraClient'
+import StorageGuard, { type HostStorage, type StorageCommand } from './StorageGuard'
 
 export const dynamic  = 'force-dynamic'
 export const revalidate = 0
@@ -37,16 +38,24 @@ const WORKER_LABELS: Record<string, string> = {
 export default async function InfraPage() {
   const supabase = await createClient()
 
-  const [{ data: workers }, { count: openIncidentCount }] = await Promise.all([
+  const [{ data: workers }, { count: openIncidentCount }, { data: storageRows }, { data: storageCmds }] = await Promise.all([
     supabase.from('infra_workers').select('*').order('worker_id'),
     supabase
       .from('infra_watchdog_incidents')
       .select('*', { count: 'exact', head: true })
       .eq('status', 'open'),
+    supabase.from('host_storage_status').select('*').order('host_id'),
+    supabase
+      .from('storage_commands')
+      .select('id, host_id, command, status, requested_at, finished_at, result')
+      .order('requested_at', { ascending: false })
+      .limit(8),
   ])
 
   const rows = (workers ?? []) as InfraWorker[]
   const openIncidents = openIncidentCount ?? 0
+  const storageStatus = (storageRows ?? []) as HostStorage[]
+  const storageCommands = (storageCmds ?? []) as StorageCommand[]
 
   const online   = rows.filter(w => w.status === 'online').length
   const degraded = rows.filter(w => w.status === 'degraded').length
@@ -142,6 +151,9 @@ export default async function InfraPage() {
           </div>
         </div>
       )}
+
+      {/* Storage Watchdog — disk/Docker status + cleanup-knoppen per host */}
+      <StorageGuard initialStatus={storageStatus} initialCommands={storageCommands} />
 
       {/* Worker tabel — realtime via InfraClient */}
       <InfraClient initialWorkers={rows} workerLabels={WORKER_LABELS} />
