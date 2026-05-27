@@ -1,4 +1,7 @@
-const BASE = '/Users/bouwproffsnederlandbv/Github/orlando-core-os'
+const os = require('os')
+// Repo-root = de map waarin dit bestand staat → host-onafhankelijk (CLI-R, CLI-L, ...).
+// Override mogelijk met ORLANDO_REPO env-var.
+const BASE = process.env.ORLANDO_REPO || __dirname
 
 module.exports = {
   apps: [
@@ -67,7 +70,7 @@ module.exports = {
       env: { NODE_ENV: 'production' },
       log_file:     '/tmp/pm2-youtube-watchdog.log',
       error_file:   '/tmp/pm2-youtube-watchdog-err.log',
-      out_file:     '/Users/bouwproffsnederlandbv/.pm2/logs/youtube-watchdog-out.log',
+      out_file:     `${os.homedir()}/.pm2/logs/youtube-watchdog-out.log`,
       time:         true,
     },
 
