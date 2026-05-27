@@ -25,9 +25,10 @@ export type GmailMessage = {
 
 export class GmailClient {
   private createOAuth2Client(): OAuth2Client {
+    // render.yaml zet GMAIL_CLIENT_ID/SECRET; accepteer ook GOOGLE_* als alias.
     return new google.auth.OAuth2(
-      process.env.GOOGLE_CLIENT_ID!,
-      process.env.GOOGLE_CLIENT_SECRET!
+      process.env.GMAIL_CLIENT_ID ?? process.env.GOOGLE_CLIENT_ID!,
+      process.env.GMAIL_CLIENT_SECRET ?? process.env.GOOGLE_CLIENT_SECRET!
     )
   }
 
