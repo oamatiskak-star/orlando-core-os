@@ -12,6 +12,8 @@ import { runOutreachAI } from './agents/outreach-ai'
 import { runRiskAI } from './agents/risk-ai'
 import { runAcquisitionDirector } from './agents/acquisition-director'
 import { runBuildOppsScanner } from './agents/build-opps-scanner'
+import { runInvestorScoutAI } from './agents/investor-scout-ai'
+import { runFundOutreachAI } from './agents/fund-outreach-ai'
 
 const app = express()
 app.use(express.json())
@@ -126,6 +128,25 @@ app.post('/agents/build-opps-scanner/run', async (_req: Request, res: Response) 
   }
 })
 
+// ── Startup Investor Scout (fundraising voor Modiwe/Aquier) ──────────────────
+app.post('/agents/investor-scout-ai/run', async (_req: Request, res: Response) => {
+  try {
+    const result = await withAgentGuard('InvestorScoutAI', runInvestorScoutAI)
+    res.json({ status: 'ok', ...result })
+  } catch (err) {
+    res.status(500).json({ status: 'error', error: (err as Error).message })
+  }
+})
+
+app.post('/agents/fund-outreach-ai/run', async (_req: Request, res: Response) => {
+  try {
+    const result = await withAgentGuard('FundOutreachAI', runFundOutreachAI)
+    res.json({ status: 'ok', ...result })
+  } catch (err) {
+    res.status(500).json({ status: 'error', error: (err as Error).message })
+  }
+})
+
 // ── Scan jobs endpoint (Vercel cron callback) ────────────────────────────────
 // POST /scan — Vercel cron routes inserteren scan_jobs, worker pakt ze op
 app.post('/scan', async (_req: Request, res: Response) => {
@@ -197,10 +218,22 @@ cron.schedule('30 6 * * *', () => {
     .catch(err => logger.error('Scheduled BuildOppsScanner failed', { err: String(err) }))
 }, { timezone: TZ })
 
+// InvestorScoutAI: 2x per dag startup-investeerders discover/score/queue
+cron.schedule('0 7,15 * * *', () => {
+  withAgentGuard('InvestorScoutAI', runInvestorScoutAI)
+    .catch(err => logger.error('Scheduled InvestorScoutAI failed', { err: String(err) }))
+}, { timezone: TZ })
+
+// FundOutreachAI: elke 30 min fundraising cold-email drafts (klaar_voor_review)
+cron.schedule('*/30 * * * *', () => {
+  withAgentGuard('FundOutreachAI', runFundOutreachAI)
+    .catch(err => logger.error('Scheduled FundOutreachAI failed', { err: String(err) }))
+}, { timezone: TZ })
+
 // ── Start ─────────────────────────────────────────────────────────────────────
 app.listen(PORT, () => {
   logger.info(`Acquisition Engine started on :${PORT} (tz=${TZ})`)
-  logger.info('8 cron schedules: DealHunter, OffMarketAI, PermitAI, MunicipalityAI, InvestorAI, OutreachAI, RiskAI, AcquisitionDirectorAI')
+  logger.info('10 cron schedules: DealHunter, OffMarketAI, PermitAI, MunicipalityAI, InvestorAI, OutreachAI, RiskAI, AcquisitionDirectorAI, InvestorScoutAI, FundOutreachAI')
 })
 
 process.on('SIGTERM', () => {
