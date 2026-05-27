@@ -6,6 +6,7 @@ import { supabase } from './lib/supabase'
 import { UniversalMailConnector } from './connectors/universal'
 import { MailtrapClient } from './mailtrap/client'
 import { IntakeProcessor } from './intake/processor'
+import { syncAffiliateLabels } from './labels/affiliate-labels'
 import { logger } from './lib/logger'
 
 const app = express()
@@ -289,12 +290,29 @@ app.post('/accounts', async (req: Request, res: Response) => {
   res.json({ status: 'created', account: data })
 })
 
+// ─── Affiliate-labels (Account Setup Agent) ─────────────────────────────────────
+
+app.post('/labels/affiliates/sync', async (_req: Request, res: Response) => {
+  try {
+    const result = await syncAffiliateLabels()
+    res.json({ status: 'ok', ...result })
+  } catch (err) {
+    res.status(500).json({ error: err instanceof Error ? err.message : String(err) })
+  }
+})
+
 // ─── Scheduler ────────────────────────────────────────────────────────────────
 
 setInterval(() => {
   syncAllAccounts().catch(err => logger.error('Interval sync failed', { err }))
   retryQueue.processQueue().catch(err => logger.error('Retry queue failed', { err }))
 }, 5 * 60 * 1000)
+
+// Affiliate-labels iets vaker dan de mailsync, zodat een nieuwe "Live setup"
+// snel een Gmail-label krijgt.
+setInterval(() => {
+  syncAffiliateLabels().catch(err => logger.error('Affiliate-label sync failed', { err }))
+}, 60 * 1000)
 
 app.listen(PORT, () => {
   logger.info(`Mail Engine running on port ${PORT}`)
