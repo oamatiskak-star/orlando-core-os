@@ -24,9 +24,15 @@ Via `ssh cli-l` opgezet (CLI-R kon het niet: geen `.env`/LLM). Stappen:
 - Gestart host-onafhankelijk vanuit `local-agent/`: `pm2 start node_modules/.bin/ts-node --name account-setup-runner --interpreter none -- --transpile-only src/account-setup-runner.ts` + `pm2 save`. (NB: ecosystem.config.js `BASE` is hardcoded naar het CLI-R-pad `/Users/bouwproffsnederlandbv/...` → `--only`-start zou op CLI-L verkeerde `cwd` pakken. Portability-bug, nog te fixen.)
 - Geverifieerd: runner `online` (0 restarts), pakte run `6256078b` (terms_analysis) op en **completed in ~16s via Ollama**; audit `terms_analysis.completed` 14:07:45; queue nu **6 completed / 0 queued**.
 
-**Open follow-ups:**
-1. `pm2 startup` op CLI-L voor herstart-na-reboot (vereist sudo; `pm2 save` is al gedaan voor `pm2 resurrect`).
-2. ecosystem.config.js `BASE` dynamisch maken (bv. `process.env.ORLANDO_REPO || __dirname`-afgeleide) zodat `--only account-setup-runner` op elke host werkt.
+**Follow-ups (sessie 13b):**
+1. ✅ **BASE-fix** — `ecosystem.config.js` `BASE` → `process.env.ORLANDO_REPO || __dirname` + `youtube-watchdog out_file` → `os.homedir()` (**PR #56**). Gevalideerd op CLI-L (cwd resolvt naar `/Users/o.s.m.amatiskak/...`). Runner daar **herregistreerd via de config** (`pm2 start ecosystem.config.js --only account-setup-runner` + `pm2 save`) — nu config-gedreven, online.
+2. ⏳ **`pm2 startup` op CLI-L** — vereist sudo-wachtwoord (passwordless sudo NIET aan op CLI-L), dus door Orlando interactief te draaien op `ssh cli-l`:
+   ```
+   sudo env PATH=$PATH:/Users/o.s.m.amatiskak/.nvm/versions/node/v22.22.3/bin \
+     /Users/o.s.m.amatiskak/.nvm/versions/node/v22.22.3/lib/node_modules/pm2/bin/pm2 \
+     startup launchd -u o.s.m.amatiskak --hp /Users/o.s.m.amatiskak
+   ```
+   Daarna draait `pm2 resurrect` (dump al opgeslagen) de runner automatisch na reboot. Tot dan: runner draait, maar overleeft een reboot van CLI-L niet.
 
 ---
 
