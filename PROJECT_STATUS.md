@@ -2,7 +2,26 @@
 
 > **Sessie protocol** (CLAUDE.md): Lees dit bestand bij elke nieuwe Claude Code sessie. Update na elke voltooide taak. Houd het herstel-blok actueel.
 
-**Laatste update:** 2026-05-26 (sessie 10) — **"Ga verder"-knop op alle vier build trackers** die een plak-klare Claude Code prompt genereert (PR #51). Daarvóór sessie 10: Affiliate & Revenue Infra (F2 #44 / F3 #43 / F4 #45 / F5 #46 + Payouts & API-connectors migratie 102). Sessie 9 (migratie 099) hieronder.
+**Laatste update:** 2026-05-26 (sessie 12) — Fase 7 Executive Intelligence Layer geverifieerd **LIVE** → Build Tracker `887fba8f` op `status=live` / 100% gezet. Render-service `/health` 200, ANTHROPIC_API_KEY werkt, 6 agents `completed` zonder errors. Sessie 10 ("Ga verder"-knop) hieronder.
+
+## 🔴 HERSTEL HIER NA CRASH (sessie 12 — Fase 7 Executive Intelligence Layer LIVE bevestigd)
+
+**Sessie focus (2026-05-26, sessie 12)**: Build Tracker-taak `887fba8f-dd0b-4458-938f-2e8de76d595a` ("Fase 7 Executive Intelligence Layer", Modiwe Media BV) stond op 80% / `deploying`, milestone "Render deploy + ANTHROPIC_API_KEY pending". Die status bleek **verouderd** — deploy is al gebeurd en de key werkt.
+
+**Geverifieerd (read-only, geen tokens verbrand):**
+- ✅ Render `https://orlando-executive-engine.onrender.com/health` → **HTTP 200**.
+- ✅ `executive-engine/` compileert schoon (`npm install` + `tsc` → exit 0, `dist/` gegenereerd). 6 agents + express-server + 6 cron-schedules.
+- ✅ `render.yaml` (regel ~130): service `orlando-executive-engine`, 3 secrets op `sync:false` (SUPABASE_URL/SERVICE_ROLE_KEY/ANTHROPIC_API_KEY) — gezet in Render.
+- ✅ `media_holding_workers`: alle 6 agents `idle`, **0 in `error`**, recente `last_seen`.
+- ✅ `executive_agent_runs`: uitsluitend `status=completed` (runs 30–80s = echte Anthropic-calls). Bewijs dat ANTHROPIC_API_KEY werkt — ontbrekende key → throw → `error`-status, die nergens voorkomt.
+
+**Gedaan (sessie 12):** `build_tracker` `887fba8f` via MCP → `status=live`, `progress_pct=100`, milestone = LIVE-omschrijving.
+
+> ⚠️ Sync-conflict gezien: dit bestand werd tijdens de sessie van buitenaf herschreven (sessie 11-lineage → sessie 10/PR#51-lineage). Deze sessie-12-notitie is **toevoegend** geplaatst; controleer of sessie 11 (YouTube Analyst-fix) elders nog vastligt.
+
+**Open / vervolg:** geen blokkers voor Fase 7. Bij eerste `error` in `executive_agent_runs` → Render-logs + ANTHROPIC_API_KEY-quota checken.
+
+---
 
 ## 🔴 HERSTEL HIER NA CRASH (sessie 10 — Ga verder-knop)
 
