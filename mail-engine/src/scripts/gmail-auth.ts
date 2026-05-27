@@ -37,26 +37,43 @@ if (!process.env.SUPABASE_URL || !(process.env.SUPABASE_SERVICE_ROLE_KEY ?? proc
 
 const oauth2 = new google.auth.OAuth2(CLIENT_ID, CLIENT_SECRET, REDIRECT_URI)
 
-async function upsertAccount(tokens: { access_token: string; refresh_token: string; expiry: string }, email: string, displayName: string | null) {
-  const { data: existing } = await supabase
-    .from('mail_accounts').select('id').eq('provider', 'gmail').eq('email', email).maybeSingle()
+/** mail_accounts.user_id is NOT NULL → eigenaar via env of de (enige) auth-user. */
+async function resolveUserId(): Promise<string> {
+  if (process.env.MAIL_ACCOUNT_USER_ID) return process.env.MAIL_ACCOUNT_USER_ID
+  const { data, error } = await supabase.auth.admin.listUsers()
+  if (error || !data?.users?.length) {
+    throw new Error('Geen auth-user gevonden voor mail_accounts.user_id; zet MAIL_ACCOUNT_USER_ID in .env.')
+  }
+  return data.users[0].id
+}
 
-  const row = {
-    provider: 'gmail',
-    email,
-    display_name: displayName,
+async function upsertAccount(tokens: { access_token: string; refresh_token: string; expiry: string }, email: string, displayName: string | null) {
+  const userId = await resolveUserId()
+  // E-mail is uniek over alle providers → match op e-mail, niet op provider.
+  const { data: existing } = await supabase
+    .from('mail_accounts').select('id, user_id, provider').eq('email', email).maybeSingle()
+
+  const tokenFields = {
     gmail_access_token: tokens.access_token,
     gmail_refresh_token: tokens.refresh_token,
     gmail_token_expiry: tokens.expiry,
-    sync_status: 'idle',
   }
 
   if (existing) {
-    const { error } = await supabase.from('mail_accounts').update(row).eq('id', (existing as { id: string }).id)
+    const e = existing as { id: string; user_id: string | null; provider: string }
+    // Bestaande rij (bv. imap) verrijken met Gmail-OAuth-tokens; provider laten
+    // staan zodat de mail-intake ongewijzigd blijft.
+    const { error } = await supabase
+      .from('mail_accounts')
+      .update({ ...tokenFields, user_id: e.user_id ?? userId })
+      .eq('id', e.id)
     if (error) throw new Error(error.message)
-    return { mode: 'updated', id: (existing as { id: string }).id }
+    return { mode: `updated (provider=${e.provider})`, id: e.id }
   }
-  const { data, error } = await supabase.from('mail_accounts').insert(row).select('id').single()
+
+  const { data, error } = await supabase.from('mail_accounts').insert({
+    user_id: userId, provider: 'gmail', email, display_name: displayName, ...tokenFields, sync_status: 'idle',
+  }).select('id').single()
   if (error) throw new Error(error.message)
   return { mode: 'created', id: (data as { id: string }).id }
 }
