@@ -4,10 +4,12 @@ import { hostname } from 'os'
 import { checkLocalFleet } from './recovery'
 import { reconcileWorkerCommands, getDeliberatelyStoppedPm2Names } from './worker-commander'
 import { sendTelegram } from './telegram'
+import { runStorageCheck, getStorageState } from './storage-guard'
 
 const PORT = parseInt(process.env.PORT ?? '3007', 10)
 const CHECK_INTERVAL_MS = parseInt(process.env.CHECK_INTERVAL_MS ?? '30000', 10)
 const COMMAND_INTERVAL_MS = parseInt(process.env.COMMAND_INTERVAL_MS ?? '8000', 10)
+const STORAGE_INTERVAL_MS = parseInt(process.env.STORAGE_INTERVAL_MS ?? '300000', 10)
 const HOST_ID = process.env.WATCHDOG_HOST_ID || hostname()
 const SELF_APP_NAME = process.env.SELF_APP_NAME || 'local-watchdog'
 const DENY_LIST = new Set(
@@ -39,7 +41,9 @@ app.get('/health', (_req, res) => {
     lastCommandAt,
     lastCommandActed,
     lastCommandError,
-    commandIntervalMs: COMMAND_INTERVAL_MS
+    commandIntervalMs: COMMAND_INTERVAL_MS,
+    storage: getStorageState(),
+    storageIntervalMs: STORAGE_INTERVAL_MS
   })
 })
 app.post('/check-now', async (_req, res) => {
@@ -108,6 +112,11 @@ async function main(): Promise<void> {
   setInterval(() => {
     void commandTick()
   }, COMMAND_INTERVAL_MS)
+
+  await runStorageCheck()
+  setInterval(() => {
+    void runStorageCheck()
+  }, STORAGE_INTERVAL_MS)
 }
 
 void main()
