@@ -20,3 +20,48 @@ export { AffiliateIntelligenceSync, createAffiliateIntelligenceSync } from './da
 
 // Aquier integration exports
 export { AquierLandingMapper, createAquierLandingMapper } from './aquier-landing-mapper';
+
+// Country strategy and compliance exports
+export {
+  COUNTRY_STRATEGIES,
+  getCountryStrategy,
+  getActiveCountries,
+  getCountriesByRegion,
+  hasComplianceRequirement,
+  getMembershipPriceAdjustment,
+  type CountryStrategy,
+} from './country-strategies';
+
+export {
+  validateMarketingCompliance,
+  checkAffiliateEligibility,
+  getComplianceChecklist,
+  getTaxNotes,
+  isContentTypeRecommended,
+  getRecommendedContentTypes,
+  getPricingMultiplier,
+  getRequiredLanguages,
+  getRegion,
+  isAffiliateAvailableInCountry,
+  getAllRestrictions,
+  type ComplianceCheckResult,
+  type AffiliateEligibility,
+} from './country-compliance';
+
+export {
+  getAffiliatesForCountry,
+  getCountriesForAffiliate,
+  getCountryAffiliateMatch,
+  filterAffiliatesByCountry,
+  rankAffiliatesByCountry,
+  getRegionalStrategy,
+  getCountryPricingStrategy,
+  getTargetCountries,
+  isCountryInRegion,
+  getCountryPriority,
+  suggestBestAffiliate,
+  getCommonAffiliates,
+  getAllUniqeAffiliates,
+  type CountryAffiliateMatch,
+  type RegionalAffiliateStrategy,
+} from './country-affiliate-utils';
