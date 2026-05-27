@@ -145,6 +145,7 @@ async function claimNextRun(): Promise<RunRow | null> {
     .from('account_setup_runs')
     .select('id')
     .eq('status', 'queued')
+    .neq('run_kind', 'browser_registration') // browser-registration heeft een eigen headed runner
     .order('started_at', { ascending: true })
     .limit(5)
 
