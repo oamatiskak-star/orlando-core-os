@@ -24,11 +24,13 @@ const labelBuilder = new LabelBuilder()
 type PendingRun = { id: string; payload: Record<string, unknown> | null }
 
 async function loadGmailAccount(): Promise<MailAccount | null> {
+  // Match op e-mail + aanwezig refresh-token (account kan provider 'gmail' zijn
+  // of een met Gmail-OAuth verrijkte 'imap'-rij; Gmail-API werkt zodra er tokens zijn).
   const { data } = await supabase
     .from('mail_accounts')
     .select('*')
-    .eq('provider', 'gmail')
     .eq('email', LABEL_ACCOUNT_EMAIL)
+    .not('gmail_refresh_token', 'is', null)
     .maybeSingle()
   return (data as MailAccount) ?? null
 }
