@@ -57,7 +57,9 @@ export function startYouTubeUploadWorker(): Worker {
       if (!channel) throw new Error(`Channel ${channelId} not found`)
       if (!queueEntry) throw new Error(`Queue entry ${queueId} not found`)
 
-      const rawPath = video.normalized_path ?? video.file_path
+      // Prefereer persistente storage_path (URL) boven het vluchtige lokale /tmp-pad,
+      // zodat uploads slagen ongeacht container-restarts of welke host rendert.
+      const rawPath = video.storage_path ?? video.normalized_path ?? video.file_path
       if (!rawPath) throw new Error(`Video ${videoId} has no file_path — bestand al verwijderd?`)
       const isStorageUrl = rawPath.startsWith('http')
 

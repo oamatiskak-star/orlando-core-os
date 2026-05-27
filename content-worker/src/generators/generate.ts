@@ -104,6 +104,13 @@ export async function generateVideo(
     // Clean up raw file
     try { fs.unlinkSync(rawPath) } catch (_) { /* ignore */ }
 
+    // Upload render naar PERSISTENTE Supabase Storage (overleeft container-restart;
+    // /tmp is ephemeral). storage_path = publieke URL → upload-worker downloadt 'm.
+    const storagePath = await uploadRenderToStorage(channel.id, videoId, outputPath)
+    if (!storagePath) {
+      console.warn(`[${config.name}] Storage-upload mislukt voor ${videoId} — val terug op lokaal pad`)
+    }
+
     // Pick a UNIEKE titel (hook×emoji×hashtags, dedupe tegen bestaande titels)
     // + gevarieerde description — voorkomt duplicate-content spam-signaal.
     const title = await buildUniqueTitle(config, channel.id)
@@ -123,6 +130,7 @@ export async function generateVideo(
       upload_status: 'pending',
       is_short: true,
       file_path: outputPath,
+      storage_path: storagePath,
       category_id: config.category_id,
       privacy_status: 'private',
       created_at: new Date().toISOString(),
@@ -153,6 +161,31 @@ function randInt(min: number, max: number): number {
 
 function pick<T>(arr: T[]): T {
   return arr[Math.floor(Math.random() * arr.length)]
+}
+
+const RENDER_BUCKET = process.env.RENDER_BUCKET ?? 'video-renders'
+
+// Upload de gerenderde .mp4 naar persistente Supabase Storage en geef de publieke
+// URL terug. Zo overleeft de render een container-restart (i.t.t. /tmp) en kan de
+// upload-worker hem downloaden ongeacht op welke host die draait.
+async function uploadRenderToStorage(channelId: string, videoId: string, localPath: string): Promise<string | null> {
+  try {
+    const db = getSupabase()
+    const buffer = fs.readFileSync(localPath)
+    const key = `${channelId}/${videoId}.mp4`
+    const { error } = await db.storage.from(RENDER_BUCKET).upload(key, buffer, {
+      contentType: 'video/mp4',
+      upsert: true,
+    })
+    if (error) {
+      console.error(`[storage] Upload mislukt voor ${key}: ${error.message}`)
+      return null
+    }
+    return db.storage.from(RENDER_BUCKET).getPublicUrl(key).data.publicUrl
+  } catch (err) {
+    console.error(`[storage] Upload exception: ${(err as Error).message}`)
+    return null
+  }
 }
 
 // Bouwt title = hook + emoji + hashtagSet en garandeert uniciteit per kanaal
