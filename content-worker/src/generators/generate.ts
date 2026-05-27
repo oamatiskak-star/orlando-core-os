@@ -104,8 +104,10 @@ export async function generateVideo(
     // Clean up raw file
     try { fs.unlinkSync(rawPath) } catch (_) { /* ignore */ }
 
-    // Pick title and build metadata
-    const title = config.titleTemplates[Math.floor(Math.random() * config.titleTemplates.length)]
+    // Pick a UNIEKE titel (hook×emoji×hashtags, dedupe tegen bestaande titels)
+    // + gevarieerde description — voorkomt duplicate-content spam-signaal.
+    const title = await buildUniqueTitle(config, channel.id)
+    const description = buildDescription(config)
     const tags = [...config.tags, ...(channel.default_tags ?? [])]
     const uniqueTags = [...new Set(tags)].slice(0, 500)
 
@@ -115,7 +117,7 @@ export async function generateVideo(
       channel_id: channel.id,
       video_id: `pending_${videoId}`,   // placeholder, replaced by youtube upload worker
       title,
-      description: config.description,
+      description,
       tags: uniqueTags,
       status: 'queued',
       upload_status: 'pending',
@@ -147,4 +149,45 @@ export async function generateVideo(
 
 function randInt(min: number, max: number): number {
   return min + Math.floor(Math.random() * (max - min + 1))
+}
+
+function pick<T>(arr: T[]): T {
+  return arr[Math.floor(Math.random() * arr.length)]
+}
+
+// Bouwt title = hook + emoji + hashtagSet en garandeert uniciteit per kanaal
+// door tegen bestaande youtube_videos.title te checken (max 15 pogingen).
+// hooks×emojis×hashtagSets = honderden combo's → genoeg ruimte voor de queue.
+export async function buildUniqueTitle(config: ChannelConfig, channelId: string): Promise<string> {
+  const db = getSupabase()
+  let candidate = ''
+  for (let attempt = 0; attempt < 15; attempt++) {
+    candidate = `${pick(config.titleHooks)} ${pick(config.titleEmojis)} ${pick(config.hashtagSets)}`
+    const { count } = await db
+      .from('youtube_videos')
+      .select('id', { count: 'exact', head: true })
+      .eq('channel_id', channelId)
+      .eq('title', candidate)
+    if (!count) return candidate
+  }
+  // Fallback: voeg een korte unieke marker toe als alle combo's bezet zijn
+  return `${candidate.replace(/ #/, ` ${randInt(2, 9)}× #`)}`
+}
+
+export function buildDescription(config: ChannelConfig): string {
+  const intro = pick(config.descriptionVariants)
+  const hashtags = config.tags.slice(0, 10).map(t => `#${t}`).join(' ')
+  return `${intro}\n\n${hashtags}`
+}
+
+// Telt de niet-gepubliceerde backlog (queued + scheduled) per kanaal.
+// Gebruikt door de orchestrator om generatie te pauzeren als publiceren vastloopt.
+export async function getScheduledBacklog(channelId: string): Promise<number> {
+  const db = getSupabase()
+  const { count } = await db
+    .from('youtube_videos')
+    .select('id', { count: 'exact', head: true })
+    .eq('channel_id', channelId)
+    .in('status', ['queued', 'scheduled'])
+  return count ?? 0
 }
