@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback } from 'react'
 import {
   FolderKanban, Plus, X, RefreshCw, Pencil, Trash2,
-  Calendar, Building2, Banknote, MapPin, CheckCircle2, Clock, AlertCircle,
+  Calendar, Building2, Banknote, MapPin, CheckCircle2, Clock, AlertCircle, ArrowRight,
 } from 'lucide-react'
 import clsx from 'clsx'
 
@@ -177,6 +177,7 @@ export default function ProjectsPage() {
             const pct  = progress(p)
             const meta = statusMeta[p.status] ?? statusMeta.planning
             const Icon = meta.icon
+            const incomplete = p.status !== 'afgerond' && p.status !== 'geannuleerd'
             return (
               <div key={p.id} className="bg-white/[0.06] border border-white/5 rounded-xl p-5 flex flex-col gap-4 group">
                 <div className="flex items-start justify-between gap-2">
@@ -224,6 +225,17 @@ export default function ProjectsPage() {
                 </div>
 
                 {p.notes && <p className="text-[11px] text-white/38 leading-relaxed line-clamp-2">{p.notes}</p>}
+
+                {/* CTA — alleen voor nog niet volledig uitgevoerde projecten */}
+                {incomplete && (
+                  <button
+                    onClick={() => openEdit(p)}
+                    className="mt-auto flex items-center justify-center gap-2 w-full bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold px-4 py-2.5 rounded-lg transition-colors"
+                  >
+                    Ga verder
+                    <ArrowRight size={13} />
+                  </button>
+                )}
               </div>
             )
           })}

@@ -1,7 +1,7 @@
 import 'dotenv/config'
 import cron from 'node-cron'
 import { CHANNEL_CONFIGS } from './generators/channels'
-import { resolveChannels, getQueueDepth, generateVideo } from './generators/generate'
+import { resolveChannels, getQueueDepth, generateVideo, getScheduledBacklog } from './generators/generate'
 
 const CRON_SCHEDULE = process.env.CONTENT_WORKER_CRON ?? '*/15 * * * *'
 
@@ -21,6 +21,19 @@ async function run(): Promise<void> {
 
     if (!channel) {
       console.warn(`[content-worker] Channel "${config.name}" not found in DB — skipping`)
+      continue
+    }
+
+    // Backlog-throttle: niet doorproduceren als publiceren vastloopt
+    // (anders stapelen onuitgepubliceerde video's op zoals de 600+ backlog).
+    try {
+      const backlog = await getScheduledBacklog(channel.id)
+      if (backlog >= config.maxScheduledBacklog) {
+        console.log(`[${config.name}] Backlog ${backlog}/${config.maxScheduledBacklog} — generatie gepauzeerd tot publiceren bijtrekt`)
+        continue
+      }
+    } catch (err) {
+      console.error(`[content-worker] Backlog check failed for ${config.name}:`, (err as Error).message)
       continue
     }
 

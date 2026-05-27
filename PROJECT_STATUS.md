@@ -4,6 +4,25 @@
 
 ---
 
+**Laatste update:** 2026-05-27 (sessie 11) — YouTube Monetization 3-Layer Funnel: M1 afgerond + M2 registratie-prep deterministisch + `AFFILIATE_REGISTRATION_PLAYBOOK.md` (PR #53). Sessie 12 (Fase 7 LIVE) + sessie 10 herstelblokken hieronder.
+
+## 🔴 HERSTEL HIER NA CRASH (sessie 12 — Fase 7 Executive Intelligence Layer LIVE bevestigd)
+
+**Sessie focus (2026-05-26, sessie 12)**: Build Tracker-taak `887fba8f-dd0b-4458-938f-2e8de76d595a` ("Fase 7 Executive Intelligence Layer", Modiwe Media BV) stond op 80% / `deploying`, milestone "Render deploy + ANTHROPIC_API_KEY pending". Die status bleek **verouderd** — deploy is al gebeurd en de key werkt.
+
+**Geverifieerd (read-only, geen tokens verbrand):**
+- ✅ Render `https://orlando-executive-engine.onrender.com/health` → **HTTP 200**.
+- ✅ `executive-engine/` compileert schoon (`npm install` + `tsc` → exit 0, `dist/` gegenereerd). 6 agents + express-server + 6 cron-schedules.
+- ✅ `render.yaml` (regel ~130): service `orlando-executive-engine`, 3 secrets op `sync:false` (SUPABASE_URL/SERVICE_ROLE_KEY/ANTHROPIC_API_KEY) — gezet in Render.
+- ✅ `media_holding_workers`: alle 6 agents `idle`, **0 in `error`**, recente `last_seen`.
+- ✅ `executive_agent_runs`: uitsluitend `status=completed` (runs 30–80s = echte Anthropic-calls). Bewijs dat ANTHROPIC_API_KEY werkt — ontbrekende key → throw → `error`-status, die nergens voorkomt.
+
+**Gedaan (sessie 12):** `build_tracker` `887fba8f` via MCP → `status=live`, `progress_pct=100`, milestone = LIVE-omschrijving.
+
+**Open / vervolg:** geen blokkers voor Fase 7. Bij eerste `error` in `executive_agent_runs` → Render-logs + ANTHROPIC_API_KEY-quota checken.
+
+---
+
 ## 🔴 HERSTEL HIER NA CRASH (sessie 11 — 2026-05-27)
 
 **Sessie focus**: Build-taak `YouTube Monetization — 3-Layer Funnel` (`a10cfb37-fbf1-4848-91fa-856de9e56787`, Modiwe Media BV). Analyse + afronden van wat niet extern geblokkeerd is.
@@ -12,30 +31,29 @@
 - 5 finance-kanalen samen **~5 subs** (VermogenTv 4, BeleggingsTv 1, rest 0). → Laag 1 (AdSense, 1000 subs/4000u) en Laag 3 (Memberships 1000 subs / Skool audience) zijn **fysiek geblokkeerd**, niet door code op te lossen.
 - M2 had 6 `account_setup_runs` **allemaal queued** (5× affiliate_registration + 1× terms_analysis) → lokale LLM-runner ligt plat.
 - `affiliate_channel_mappings` was leeg, terms-velden van `affiliate_programs` leeg → M1 niet af.
-- Beide aangehaalde docs (`MARKETING_PAID_PLATFORM_STRATEGY.md`, `MODULE_4_9_ASSETS.md`) bestonden niet.
 
 **Wat is gedaan (productieklaar, geen mock):**
-1. ✅ `MARKETING_PAID_PLATFORM_STRATEGY.md` (repo-root) — volledige 3-lagen strategie, MRR-opbouw €10,2k, per-kanaal matching, compliance NL/EU, 14-module statustabel.
-2. ✅ `MODULE_4_9_ASSETS.md` (repo-root) — definitieve Membership-tiers/perks/pinned-comments + Skool community-structuur + Finance/Vastgoed 101 cursus-outlines + activatie-checklists. Maakt "M4+M9 assets klaar"-claim wáár.
+1. ⚠️ Parallel-collisie: `MARKETING_PAID_PLATFORM_STRATEGY.md` + `MODULE_4_9_ASSETS.md` bleken al door een parallelle sessie aangemaakt (commits `f370097`/`3899c8c` op main). Bij merge **main's versies behouden**, mijn duplicaat-versies verworpen (geen overschrijven van andermans werk). Inhoud verschilt — reconciliatie open (zie vervolg).
+2. ✅ **Nieuw + uniek:** `AFFILIATE_REGISTRATION_PLAYBOOK.md` (repo-root) — top-5 + batch1 registratie-prep met NL/EN bio, per-programma checklist, vereiste bedrijfsgegevens.
 3. ✅ **M1 deterministisch afgerond zonder de runner** (DB):
    - 11 niche-programma's verrijkt met **feitelijke publieke terms** (payout_model/recurring/threshold/currency/country/url/kyc/keywords/epc/conv/audience_fit) — Binance, Bybit, Kraken, TradingView, IBKR, Fundrise, Roofstock, Mashvisor, TubeBuddy, vidIQ, M1 Finance. `metadata.terms_enriched=true`.
    - `affiliate_channel_mappings`: **top-5 per kanaal** = 25 rijen (priority + reason + est_conversion + est_epc). Idempotent.
    - `affiliate_link`/`referral_code` blijven `null` + `account_status='not_started'` → handmatige registratie-gate, bewust geen mock.
-4. ✅ `build_tracker` 14% → **32%**, milestone + metadata (module 1 `done`, module 2 `prep_done_registration_gated`, hard_blockers-lijst) bijgewerkt.
-5. ✅ **M2 registratie-prep deterministisch uitgevoerd** (runner lag plat): `AFFILIATE_REGISTRATION_PLAYBOOK.md` (repo-root, top-5 + batch1) + DB: **24 `account_setup_human_actions`** (8 programma's × 3 stappen, source=`m2_deterministic_prep`) + **16 `account_setup_documents`** (tax_form+bank) + `affiliate_programs.notes` gevuld + **5 queued `affiliate_registration`-runs afgerond** (run_steps + audit, actor=`ai`). Awin `terms_analysis` blijft queued voor de runner.
+4. ✅ **M2 registratie-prep deterministisch** (runner lag plat): **24 `account_setup_human_actions`** (8 programma's × 3 stappen, source=`m2_deterministic_prep`) + **16 `account_setup_documents`** (tax_form+bank) + `affiliate_programs.notes` gevuld + **5 queued `affiliate_registration`-runs afgerond** (run_steps + audit, actor=`ai`). Awin `terms_analysis` blijft queued voor de runner.
+5. ✅ `build_tracker` `a10cfb37` 14% → **32%**, milestone + metadata (module 1 `done`, module 2 `prep_done_registration_gated`, hard_blockers-lijst) bijgewerkt.
 
-**Eerstvolgende openstaande stappen (extern geblokkeerd / handmatig):**
-1. Orlando registreert affiliate-accounts (top-prio: Binance, TradingView, IBKR, Bybit, Kraken) → plak `affiliate_link`/`referral_code` terug → `account_status` naar `applied/active`.
-2. `account-setup-runner` PM2 herstarten zodat de 6 queued runs verwerkt worden (deterministische terms uit deze sessie = baseline).
-3. Groei naar 1000 subs (taak `6bb941a8`) deblokkeert Laag 1 + Laag 3.
-4. Vul `business_profiles` Modiwe Media BV (KvK/BTW/IBAN/e-mail/adres/website) — zonder dit blijven aanmeldformulieren incompleet.
-5. Files nog niet gecommit — staan lokaal in `~/Github/orlando-core-os` (root: `MARKETING_PAID_PLATFORM_STRATEGY.md`, `MODULE_4_9_ASSETS.md`, `AFFILIATE_REGISTRATION_PLAYBOOK.md` + `PROJECT_STATUS.md`).
+**Eerstvolgende openstaande stappen:**
+1. **Reconciliatie:** main's `MARKETING_PAID_PLATFORM_STRATEGY.md` (sessie-parallel, draft) bevat verouderde aannames (840k views, 8 kanalen incl. EN, auto-registratie) vs DB-realiteit (~5 subs, handmatige gate). Samenvoegen in één canonieke versie.
+2. Orlando registreert affiliate-accounts (top-prio: Binance, TradingView, IBKR, Bybit, Kraken) → plak `affiliate_link`/`referral_code` terug → `account_status` naar `applied/active`.
+3. `account-setup-runner` PM2 herstarten zodat de queue verwerkt wordt (deterministische terms = baseline).
+4. Vul `business_profiles` Modiwe Media BV (KvK/BTW/IBAN/e-mail/adres/website).
+5. Groei naar 1000 subs (taak `6bb941a8`) deblokkeert Laag 1 + Laag 3.
 
-**Niet aangeraakt:** taak `6bb941a8 (5 YouTube kanalen YPP, 30%)` — puur audience-groei, geen codeerbaar deel buiten bestaande dashboardtracking.
+**Niet aangeraakt:** taak `6bb941a8 (5 YouTube kanalen YPP, 30%)` — puur audience-groei.
 
 ---
 
-**Laatste update:** 2026-05-26 (sessie 10) — **"Ga verder"-knop op alle vier build trackers** die een plak-klare Claude Code prompt genereert (PR #51). Daarvóór sessie 10: Affiliate & Revenue Infra (F2 #44 / F3 #43 / F4 #45 / F5 #46 + Payouts & API-connectors migratie 102). Sessie 9 (migratie 099) hieronder.
+**Laatste update (sessie 10):** 2026-05-26 — **"Ga verder"-knop op alle vier build trackers** die een plak-klare Claude Code prompt genereert (PR #51). Daarvóór sessie 10: Affiliate & Revenue Infra (F2 #44 / F3 #43 / F4 #45 / F5 #46 + Payouts & API-connectors migratie 102). Sessie 9 (migratie 099) hieronder.
 
 ## 🔴 HERSTEL HIER NA CRASH (sessie 10 — Ga verder-knop)
 

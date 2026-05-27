@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
-import { Users, ChevronLeft, Timer } from 'lucide-react'
+import { Users, ChevronLeft, Timer, Activity, BrainCircuit, Radar, RefreshCw } from 'lucide-react'
 import clsx from 'clsx'
 
 type Worker = {
@@ -14,6 +14,17 @@ type Worker = {
   queue_depth: number
   last_error: string | null
   config: { sweep_interval_min?: number } | null
+}
+
+type Cron = { slug: string; last_seen_at: string | null; status: string | null }
+
+// Vercel-cron pipeline: friendly label + rol + max verwachte leeftijd (uur) voor versheid.
+const CRON_META: Record<string, { label: string; role: string; icon: 'analyse' | 'scraper' | 'sync'; maxAgeH: number }> = {
+  'cron.vercel.run-analyst':          { label: 'Analyse-agent',        role: 'analyse', icon: 'analyse', maxAgeH: 26 },
+  'cron.vercel.sync-video-analytics': { label: 'Per-video analytics',  role: 'analyse', icon: 'sync',    maxAgeH: 26 },
+  'cron.vercel.sync-stats':           { label: 'Channel-totalen sync', role: 'sync',    icon: 'sync',    maxAgeH: 26 },
+  'cron.vercel.viral-scan':           { label: 'Algoritme-scraper',    role: 'scraper', icon: 'scraper', maxAgeH: 7 },
+  'cron.vercel.trend-scan':           { label: 'Trend-scanner',        role: 'scraper', icon: 'scraper', maxAgeH: 7 },
 }
 
 const STATUS_COLORS: Record<string, string> = {
@@ -47,15 +58,22 @@ function fmtCountdown(seconds: number): string {
   return `${m}m ${s.toString().padStart(2, '0')}s`
 }
 
+function CronIcon({ icon }: { icon: 'analyse' | 'scraper' | 'sync' }) {
+  if (icon === 'analyse') return <BrainCircuit size={14} className="text-violet-400" />
+  if (icon === 'scraper') return <Radar size={14} className="text-sky-400" />
+  return <RefreshCw size={14} className="text-emerald-400" />
+}
+
 export default function WorkersPage() {
   const [workers, setWorkers] = useState<Worker[]>([])
+  const [crons, setCrons] = useState<Cron[]>([])
   const [loading, setLoading] = useState(true)
   const [, setTick] = useState(0)
 
   useEffect(() => {
     fetch('/api/media-holding/workers')
-      .then((r) => (r.ok ? r.json() : { workers: [] }))
-      .then((j) => { setWorkers(j.workers ?? []); setLoading(false) })
+      .then((r) => (r.ok ? r.json() : { workers: [], crons: [] }))
+      .then((j) => { setWorkers(j.workers ?? []); setCrons(j.crons ?? []); setLoading(false) })
       .catch(() => setLoading(false))
   }, [])
 
@@ -79,6 +97,41 @@ export default function WorkersPage() {
           <p className="text-xs text-white/50">Health en queue depth per Media Holding worker.</p>
         </div>
       </div>
+
+      {/* Cron-pipeline: de echte analyse / scraper / sync jobs met laatste-uitvoering */}
+      {!loading && (
+        <div className="bg-white/[0.04] border border-white/8 rounded-xl p-4">
+          <div className="flex items-center gap-2 mb-3">
+            <Activity size={14} className="text-white/50" />
+            <h2 className="text-sm font-semibold text-white">Pipeline (Vercel-crons)</h2>
+            <span className="text-[11px] text-white/35">analyse · scraper · sync — laatste uitvoering</span>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5">
+            {Object.entries(CRON_META).map(([slug, meta]) => {
+              const hb = crons.find((c) => c.slug === slug)
+              const ageMs = hb?.last_seen_at ? Date.now() - new Date(hb.last_seen_at).getTime() : null
+              const fresh = ageMs !== null && ageMs <= meta.maxAgeH * 3_600_000
+              const everRan = ageMs !== null
+              return (
+                <div key={slug} className="flex items-center gap-3 bg-white/[0.03] border border-white/5 rounded-lg px-3 py-2.5">
+                  <CronIcon icon={meta.icon} />
+                  <div className="min-w-0 flex-1">
+                    <p className="text-xs font-medium text-white/85 truncate">{meta.label}</p>
+                    <p className="text-[11px] text-white/45">{everRan ? fmtAge(hb!.last_seen_at) : 'nog nooit gedraaid'}</p>
+                  </div>
+                  <span
+                    className={clsx(
+                      'shrink-0 w-2 h-2 rounded-full',
+                      !everRan ? 'bg-white/25' : fresh ? 'bg-emerald-400' : 'bg-amber-400',
+                    )}
+                    title={!everRan ? 'nog geen run' : fresh ? 'recent gedraaid' : `>${meta.maxAgeH}u geleden — controleer`}
+                  />
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      )}
 
       {loading ? (
         <div className="p-10 text-center text-xs text-white/40">Laden…</div>

@@ -76,8 +76,10 @@ export function startYouTubeRecoveryWorker(): Worker {
           log.info('Recovery: retranscode and reupload', { queueId })
           await addLog(queueId, videoId, 'info', 'Recovery: retranscoding and reuploading')
 
-          const filePath = String(video.file_path ?? '')
-          const normalizedPath = filePath.replace(/\.mp4$/i, `_recovery_${retryCount}.mp4`)
+          // Prefereer storage_path (URL, restart-proof) zodat de normalizer 'm downloadt
+          // i.p.v. het vluchtige /tmp file_path (bestaat niet op Render na restart).
+          const inputSource = String(video.storage_path ?? video.file_path ?? '')
+          const normalizedPath = `/tmp/orlando-videos/${videoId}_recovery_${retryCount}.mp4`
 
           await db.from('youtube_videos').update({
             normalized_path: null,
@@ -85,7 +87,7 @@ export function startYouTubeRecoveryWorker(): Worker {
           }).eq('id', videoId)
 
           await updateQueueStatus(queueId, 'normalizing', { retry_count: retryCount })
-          await enqueueNormalize({ queueId, videoId, channelId, inputPath: filePath, outputPath: normalizedPath })
+          await enqueueNormalize({ queueId, videoId, channelId, inputPath: inputSource, outputPath: normalizedPath })
           await logRecoveryAction(failureId, queueId, 'retranscode', true, `Re-encoding attempt ${retryCount}`)
           break
         }
