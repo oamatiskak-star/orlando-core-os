@@ -89,7 +89,7 @@ async function audit(programId: string | null, runId: string | null, action: str
   await db.from('account_setup_audit_log').insert({ program_id: programId, run_id: runId, action, actor: 'ai', detail })
 }
 
-async function recordStep(runId: string, stepKind: StepKind, status: 'completed' | 'failed', output?: unknown, error?: unknown) {
+async function recordStep(runId: string, stepKind: StepKind, status: 'completed' | 'failed' | 'skipped', output?: unknown, error?: unknown) {
   await db.from('account_setup_run_steps').insert({
     run_id: runId, step_kind: stepKind, status,
     output: output ?? null, error: error ?? null, ended_at: new Date().toISOString(),

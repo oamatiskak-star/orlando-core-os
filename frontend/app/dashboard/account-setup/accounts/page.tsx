@@ -159,6 +159,13 @@ export default async function AccountsPage({
                             Analyse
                           </button>
                         </form>
+                        <Link
+                          href={`/dashboard/account-setup/${p.id}/live`}
+                          className="px-2 py-1 text-[10px] bg-indigo-500/15 hover:bg-indigo-500/25 border border-indigo-400/30 rounded text-indigo-200"
+                          title="Live: agent vult het registratieformulier in, jij keurt verzending goed"
+                        >
+                          Live setup
+                        </Link>
                       </div>
                     </td>
                   </tr>
