@@ -157,7 +157,7 @@ export async function GET(_req: NextRequest) {
       country_name: new Intl.DisplayNames('en', { type: 'region' }).of(c.country_code) || c.country_code,
       total_revenue: c.total_revenue,
       total_clicks: c.conversions.length,
-      conversion_rate: c.conversions.length > 0 ? (c.conversions.length / Math.max(1, c.conversions.length)) * 100 : 0,
+      conversion_rate: 0, // Would need to join affiliate_clicks by country to calculate
       epc: c.conversions.length > 0 ? c.total_revenue / c.conversions.length : 0,
       top_affiliate: 'N/A',
       top_content_type: 'educational',
