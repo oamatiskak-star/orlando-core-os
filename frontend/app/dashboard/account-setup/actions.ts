@@ -442,3 +442,13 @@ export async function startBrowserRegistration(formData: FormData): Promise<{ ru
   revalidateAll()
   return { runId: run.id as string }
 }
+
+// Signed URL voor een browser-step screenshot. Server-side via service-role,
+// zodat het altijd werkt (authenticated dashboard-gebruikers kunnen zelf geen
+// signed URLs op de private bucket maken).
+export async function signArtifact(path: string): Promise<string | null> {
+  if (!path) return null
+  const admin = createAdminClient()
+  const { data } = await admin.storage.from('account-setup-artifacts').createSignedUrl(path, 120)
+  return data?.signedUrl ?? null
+}

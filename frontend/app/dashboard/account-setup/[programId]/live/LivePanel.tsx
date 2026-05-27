@@ -3,9 +3,8 @@
 import { useCallback, useEffect, useState, useTransition } from 'react'
 import { Play, Check, X, RefreshCw, Loader2 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
-import { startBrowserRegistration, resolveHumanAction } from '../../actions'
+import { startBrowserRegistration, resolveHumanAction, signArtifact } from '../../actions'
 
-const BUCKET = 'account-setup-artifacts'
 const POLL_MS = 2500
 
 type RunRow = { id: string; status: string; started_at: string | null }
@@ -74,8 +73,8 @@ export default function LivePanel({
       path = lastShot ? pathFrom(lastShot.output) : null
     }
     if (path) {
-      const { data: signed } = await supabase.storage.from(BUCKET).createSignedUrl(path, 60)
-      setShotUrl(signed?.signedUrl ?? null)
+      const url = await signArtifact(path)
+      setShotUrl(url)
     } else {
       setShotUrl(null)
     }
