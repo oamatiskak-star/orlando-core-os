@@ -2,7 +2,27 @@
 
 > **Sessie protocol** (CLAUDE.md): Lees dit bestand bij elke nieuwe Claude Code sessie. Update na elke voltooide taak. Houd het herstel-blok actueel.
 
-**Laatste update:** 2026-05-26 (sessie 12) — Fase 7 Executive Intelligence Layer geverifieerd **LIVE** → Build Tracker `887fba8f` op `status=live` / 100% gezet. Render-service `/health` 200, ANTHROPIC_API_KEY werkt, 6 agents `completed` zonder errors. Sessie 10 ("Ga verder"-knop) hieronder.
+**Laatste update:** 2026-05-27 (sessie 13) — Deploy-acties opgepakt. **youtube-analyst draait nu op CLI-R** (3 bouwfixes, PR #54) + schrijft `channel_analyst_reports`. **account-setup-runner GEBLOKKEERD op CLI-R** (geen `.env` + geen LLM) → hoort op Mac mini. Sessie 12 (Fase 7 LIVE) hieronder.
+
+## 🔴 HERSTEL HIER NA CRASH (sessie 13 — deploy youtube-analyst + account-setup-runner)
+
+**Sessie focus (2026-05-27, sessie 13)**: De twee openstaande deploy-acties opgepakt. Host = **CLI-R** (mac-2.home).
+
+**Taak 1 — youtube-analyst op CLI-R: ✅ LIVE.**
+- `docker compose -f docker-compose.cli-r.yml up -d --build youtube-analyst` → container `orlando-cli-r-youtube-analyst-1` draait (`Up`, poll 1u).
+- 3 bouwfixes onderweg (branch `fix/youtube-analyst-cli-r-build`, **PR #54**):
+  1. `monitoring-agent/package-lock.json` ontbrak in git (out-of-sync met `axios` → `npm ci` faalde). Nu in sync gecommit.
+  2. `Dockerfile` `node:20-alpine` → `node:22-alpine` (`@supabase/supabase-js@2.106` vereist native WebSocket; Node 20 crashte). NB: gedeelde Dockerfile met `monitoring-agent`-service.
+  3. `youtube-channel-analyst.ts` TS18048 — notificatie-blok achter `if (businessPlan)` guard.
+- Geverifieerd: `channel_analyst_reports` verse rijen `analyzed_at 2026-05-27 12:43`.
+
+**Taak 2 — account-setup-runner (PM2): ⛔ GEBLOKKEERD op CLI-R.**
+- `local-agent/.env` ONTBREEKT op CLI-R (geen SUPABASE_URL/SERVICE_ROLE_KEY — runner kan niet verbinden) + geen LLM bereikbaar (LM Studio :1234 down, ollama-container draait niet).
+- DB: 5 runs `completed` (eerder elders gedraaid) + **1 `queued` van kind `terms_analysis`** (run `6256078b`, program `f729dc1d`) — vereist juist de lokale LLM.
+- → Hoort op **Mac mini** (waar LM Studio + local-agent `.env` staan). Bewust NIET hier gestart (geen secrets verzinnen; run zou zonder LLM falen).
+- **Mac mini-commando:** `cd <repo>/local-agent && pm2 start ../ecosystem.config.js --only account-setup-runner && pm2 save` (env via `local-agent/.env`: SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, LM_STUDIO_URL/MODEL of USE_LM_STUDIO=false + OLLAMA_*).
+
+---
 
 ## 🔴 HERSTEL HIER NA CRASH (sessie 12 — Fase 7 Executive Intelligence Layer LIVE bevestigd)
 

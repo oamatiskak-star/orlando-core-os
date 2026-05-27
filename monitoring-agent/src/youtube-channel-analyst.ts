@@ -438,25 +438,27 @@ async function analyzeAllChannels(): Promise<void> {
 
     analyses.push(analysis)
 
-    // Send email to marketing team if critical thresholds hit
-    if (marketingTeam && marketingTeam.length > 0) {
-      for (const member of marketingTeam) {
-        // Send if behind schedule OR if viral momentum detected
-        if (!businessPlan.onTrack || trends[0].growthRate > 75) {
-          await sendMarketingEmail(member.email, channel.name, analysis)
+    if (businessPlan) {
+      // Send email to marketing team if critical thresholds hit
+      if (marketingTeam && marketingTeam.length > 0) {
+        for (const member of marketingTeam) {
+          // Send if behind schedule OR if viral momentum detected
+          if (!businessPlan.onTrack || trends[0].growthRate > 75) {
+            await sendMarketingEmail(member.email, channel.name, analysis)
+          }
         }
       }
-    }
 
-    // Send Telegram alert if behind schedule
-    if (!businessPlan.onTrack) {
-      await sendTelegram(
-        `⚠️ <b>YouTube Channel Behind Schedule</b>\n\n` +
-        `<b>${channel.name}</b>\n` +
-        `📊 ${businessPlan.currentViews.toLocaleString()} / ${businessPlan.target.toLocaleString()} views\n` +
-        `📈 Progress: ${businessPlan.progressPercent.toFixed(1)}%\n` +
-        `🎯 Need: ${(businessPlan.viewsNeeded / Math.max(businessPlan.daysRemaining, 1)).toLocaleString()}/day`
-      )
+      // Send Telegram alert if behind schedule
+      if (!businessPlan.onTrack) {
+        await sendTelegram(
+          `⚠️ <b>YouTube Channel Behind Schedule</b>\n\n` +
+          `<b>${channel.name}</b>\n` +
+          `📊 ${businessPlan.currentViews.toLocaleString()} / ${businessPlan.target.toLocaleString()} views\n` +
+          `📈 Progress: ${businessPlan.progressPercent.toFixed(1)}%\n` +
+          `🎯 Need: ${(businessPlan.viewsNeeded / Math.max(businessPlan.daysRemaining, 1)).toLocaleString()}/day`
+        )
+      }
     }
   }
 
