@@ -1,4 +1,7 @@
-const BASE = '/Users/bouwproffsnederlandbv/Github/orlando-core-os'
+const os = require('os')
+// Repo-root = de map waarin dit bestand staat → host-onafhankelijk (CLI-R, CLI-L, ...).
+// Override mogelijk met ORLANDO_REPO env-var.
+const BASE = process.env.ORLANDO_REPO || __dirname
 
 module.exports = {
   apps: [
@@ -36,6 +39,27 @@ module.exports = {
       time:        true,
     },
 
+    // ── Browser Registration Runner — headed Chromium co-pilot (alleen CLI-L) ──
+    // Stuurt een ECHTE browser aan om affiliate-formulieren in te vullen; pauzeert
+    // vóór elke submit tot goedkeuring in het dashboard. Vereist een desktop-sessie
+    // (headed). Draai alleen op de Mac met scherm. `npx playwright install chromium`
+    // moet eenmalig gedraaid zijn op de host.
+    {
+      name:        'browser-registration-runner',
+      cwd:         `${BASE}/local-agent`,
+      script:      'npx',
+      args:        'ts-node --transpile-only src/browser-registration-runner.ts',
+      interpreter: 'none',
+      watch:       false,
+      autorestart: true,
+      max_restarts: 999,
+      restart_delay: 5000,
+      env: { NODE_ENV: 'production' },
+      log_file:    '/tmp/pm2-browser-registration-runner.log',
+      error_file:  '/tmp/pm2-browser-registration-runner-err.log',
+      time:        true,
+    },
+
     // ── 2. YouTube Engine — altijd actief, slot-filler + upload + verificatie ──
     {
       name:        'youtube-engine',
@@ -67,7 +91,7 @@ module.exports = {
       env: { NODE_ENV: 'production' },
       log_file:     '/tmp/pm2-youtube-watchdog.log',
       error_file:   '/tmp/pm2-youtube-watchdog-err.log',
-      out_file:     '/Users/bouwproffsnederlandbv/.pm2/logs/youtube-watchdog-out.log',
+      out_file:     `${os.homedir()}/.pm2/logs/youtube-watchdog-out.log`,
       time:         true,
     },
 

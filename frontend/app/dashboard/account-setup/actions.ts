@@ -413,3 +413,32 @@ export async function upsertConnector(formData: FormData) {
   await audit(programId, null, 'connector.upserted', { provider: row.provider, enabled: row.enabled, auth_type: authType })
   revalidateAll()
 }
+
+// ── Browser-registration (live co-pilot) ──────────────────────────────────────
+// Enqueuet een browser_registration-run die de Mac-mini-runner (CLI-L) oppakt:
+// headed Chromium opent, vult de bekende velden in en pauzeert vóór submit tot
+// goedkeuring. De gewenste Gmail-labelnaam wordt in de payload gezet; het
+// daadwerkelijk aanmaken van het label hoort bij de Mail Agent (los proces) —
+// de gedeployde server kan de Gmail-MCP niet aanroepen.
+export async function startBrowserRegistration(formData: FormData): Promise<{ runId: string }> {
+  const programId = String(formData.get('program_id') ?? '').trim()
+  if (!programId) throw new Error('program_id ontbreekt')
+
+  const admin = createAdminClient()
+  const { data: prog } = await admin.from('affiliate_programs').select('name').eq('id', programId).maybeSingle()
+  const gmailLabel = `Affiliates/${prog?.name ?? programId}`
+
+  const { data: run, error } = await admin
+    .from('account_setup_runs')
+    .insert({
+      program_id: programId, run_kind: 'browser_registration', status: 'queued',
+      trigger_kind: 'manual', payload: { gmail_label: gmailLabel },
+    })
+    .select('id')
+    .single()
+  if (error || !run) throw new Error(error?.message ?? 'Run aanmaken mislukt')
+
+  await audit(programId, run.id, 'browser.registration_enqueued', { gmail_label: gmailLabel })
+  revalidateAll()
+  return { runId: run.id as string }
+}

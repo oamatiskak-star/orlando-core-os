@@ -4,6 +4,25 @@
 
 ---
 
+## 🔴 HERSTEL HIER NA CRASH (sessie 14 — Live browser co-pilot affiliate-registratie)
+
+**Sessie focus (2026-05-27, sessie 14)**: Account Setup Agent die een ECHTE browser aanstuurt om affiliate-formulieren in te vullen; Orlando keurt alleen goed (PR **#57**, branch `feature/account-setup-live-browser`).
+
+**Gebouwd (typecheck + eslint schoon, frontend + local-agent):**
+- **Migratie 103 APPLIED** op `shaunumewswpxhmgbtvv`: `run_kind=browser_registration`, browser-`step_kind`s, `approve_submit`/`approve_action`-acties, tabel `account_setup_field_maps` (data-driven veld→selector + TradingView-seed), private bucket `account-setup-artifacts`. Pauze-statussen bestonden al (100).
+- **Worker** `local-agent/src/browser-registration-runner.ts` (nieuwe PM2-app, alleen CLI-L) + `browser/{storage,field-map}.ts`. Headed Chromium, fill→screenshot→`awaiting_approval`+human-action→poll→submit→detect_result. Wachtwoord alleen in credentialstore (notes), gemaskeerd in screenshots.
+- **Dashboard** `/dashboard/account-setup/[programId]/live` (server + `LivePanel` polling) + `startBrowserRegistration` action + "Live setup"-knop op accounts-pagina.
+- Latente type-fout in `account-setup-runner.ts` (recordStep `'skipped'`) meegefixt.
+
+**Pre-deploy / open (CLI-L):**
+1. `cd local-agent && npm i && npx playwright install chromium` op CLI-L; env `REGISTRATION_EMAIL=o.amatiskak@gmail.com`. `pm2 start ecosystem.config.js --only browser-registration-runner && pm2 save`. Headed vereist een desktop-sessie op de Mac.
+2. `business_profiles` Modiwe Media BV vullen (KvK/BTW/IBAN/e-mail/adres/website) — anders worden velden overgeslagen.
+3. **Mail Agent**: Gmail-labels `Affiliates/<programma>` aanmaken (server kan Gmail-MCP niet; payload bevat de labelnaam).
+4. Field-map-seeds voor Binance/IBKR/etc. (Fase 4) — geen codewijziging nodig.
+5. PR #57 nog niet gemerged.
+
+---
+
 **Laatste update:** 2026-05-27 (sessie 13) — Beide deploy-acties AFGEROND. **youtube-analyst LIVE op CLI-R** (3 bouwfixes, PR #54 gemerged) + schrijft `channel_analyst_reports`. **account-setup-runner LIVE op CLI-L** (= "Mac mini") via Ollama — queued `terms_analysis`-run verwerkt, queue leeg (6 completed / 0 queued). Sessie 12 (Fase 7 LIVE) + sessie 11 (YouTube Monetization 3-Layer Funnel, PR #53) hieronder.
 
 ## 🔴 HERSTEL HIER NA CRASH (sessie 13 — deploy youtube-analyst + account-setup-runner)
