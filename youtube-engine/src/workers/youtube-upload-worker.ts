@@ -85,15 +85,24 @@ export function startYouTubeUploadWorker(): Worker {
         return { queued_normalize: true }
       }
 
-      // Audio check: route through normalizer if no audio stream detected
+      // Audio check: geen-audio video's gaan normaal via de normalizer voor
+      // achtergrondmuziek. Voor visuele faceless-kanalen (SKIP_MUSIC_NORMALIZE_CHANNELS)
+      // slaan we dat over en uploaden we direct vanuit storage — de zware muziek-encode
+      // stalde te vaak op Render. Muziek kan later via een lichter profiel terug.
+      const skipMusicChannels = (process.env.SKIP_MUSIC_NORMALIZE_CHANNELS ?? 'LoopForge AI,BrickPulse Lab')
+        .split(',').map(s => s.trim()).filter(Boolean)
       const hasAudio = await probeHasAudio(filePath)
-      if (!hasAudio) {
+      if (!hasAudio && !skipMusicChannels.includes(String(channel.naam))) {
         log.info('No audio stream — routing through normalizer for background music', { queueId, filePath })
         await addLog(queueId, videoId, 'info', 'Geen audio gedetecteerd — achtergrondmuziek wordt toegevoegd via normalizer')
         const normalizedPath = filePath.replace(/\.mp4$/i, '_normalized.mp4')
         await updateQueueStatus(queueId, 'normalizing')
         await enqueueNormalize({ queueId, videoId, channelId, inputPath: video.storage_path ?? filePath, outputPath: normalizedPath })
         return { queued_normalize: true }
+      }
+      if (!hasAudio) {
+        log.info('No audio — music-normalize bypassed, uploading silent', { queueId, channel: channel.naam })
+        await addLog(queueId, videoId, 'info', `Geen audio — muziek-normalize overgeslagen voor ${channel.naam}, stil geüpload`)
       }
 
       await addLog(queueId, videoId, 'info', 'Starting YouTube upload', {
