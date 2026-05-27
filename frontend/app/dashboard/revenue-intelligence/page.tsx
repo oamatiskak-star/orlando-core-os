@@ -92,187 +92,35 @@ export default function RevenueIntelligencePage() {
   const load = useCallback(async () => {
     setLoading(true)
     try {
-      // Mock data - in real implementation would fetch from backend
+      const response = await fetch('/api/media-holding/revenue-intelligence/metrics')
+      if (!response.ok) {
+        throw new Error('Failed to fetch revenue intelligence data')
+      }
+
+      const data = await response.json()
+
+      setMetrics(data.revenue_metrics)
+      setAffiliates(data.affiliate_performance || [])
+      setChannels(data.channel_performance || [])
+      setCountries(data.country_performance || [])
+      setRecommendations(data.recommendations || [])
+      setMrr(data.summary?.mrr || 0)
+      setArr(data.summary?.arr || 0)
+    } catch (error) {
+      console.error('Error loading revenue intelligence:', error)
+      // Fall back to minimal display
       setMetrics({
-        actual_revenue: 24500,
-        target_revenue: 22000,
-        variance: 2500,
-        variance_percentage: 11.36,
-        performance_status: 'exceeding',
-        projected_final: 245000,
-        days_elapsed: 28,
-        days_remaining: 2,
-        daily_run_rate: 875,
-        required_daily_rate: 1250,
+        actual_revenue: 0,
+        target_revenue: 0,
+        variance: 0,
+        variance_percentage: 0,
+        performance_status: 'at_risk',
+        projected_final: 0,
+        days_elapsed: 0,
+        days_remaining: 0,
+        daily_run_rate: 0,
+        required_daily_rate: 0,
       })
-
-      setAffiliates([
-        {
-          affiliate_id: 'aff_001',
-          affiliate_name: 'TradingView',
-          total_revenue: 8500,
-          total_clicks: 1200,
-          total_conversions: 45,
-          conversion_rate: 3.75,
-          epc: 7.08,
-          ctr: 2.1,
-          roi: 3.2,
-          performance_rank: 1,
-          trend: 'improving',
-          recommendation: 'expand',
-        },
-        {
-          affiliate_id: 'aff_002',
-          affiliate_name: 'Binance',
-          total_revenue: 6200,
-          total_clicks: 980,
-          total_conversions: 28,
-          conversion_rate: 2.86,
-          epc: 6.33,
-          ctr: 1.8,
-          roi: 2.4,
-          performance_rank: 2,
-          trend: 'stable',
-          recommendation: 'keep',
-        },
-        {
-          affiliate_id: 'aff_003',
-          affiliate_name: 'Semrush',
-          total_revenue: 5100,
-          total_clicks: 850,
-          total_conversions: 34,
-          conversion_rate: 4.0,
-          epc: 6.0,
-          ctr: 1.5,
-          roi: 2.8,
-          performance_rank: 3,
-          trend: 'improving',
-          recommendation: 'expand',
-        },
-        {
-          affiliate_id: 'aff_004',
-          affiliate_name: 'Low Performer',
-          total_revenue: 1200,
-          total_clicks: 450,
-          total_conversions: 6,
-          conversion_rate: 1.33,
-          epc: 2.67,
-          ctr: 0.8,
-          roi: 0.8,
-          performance_rank: 4,
-          trend: 'declining',
-          recommendation: 'replace',
-        },
-      ])
-
-      setChannels([
-        {
-          channel_id: 'ch_001',
-          channel_name: 'VermogenTv',
-          total_revenue: 12000,
-          total_affiliates: 4,
-          avg_epc: 6.5,
-          top_affiliate: 'TradingView',
-          conversion_rate: 3.2,
-          growth_rate: 15.4,
-          performance_rank: 1,
-          roi: 2.8,
-        },
-        {
-          channel_id: 'ch_002',
-          channel_name: 'CryptoVermogen',
-          total_revenue: 8500,
-          total_affiliates: 3,
-          avg_epc: 5.8,
-          top_affiliate: 'Binance',
-          conversion_rate: 2.9,
-          growth_rate: 22.1,
-          performance_rank: 2,
-          roi: 2.1,
-        },
-        {
-          channel_id: 'ch_003',
-          channel_name: 'BeleggingsTv',
-          total_revenue: 4000,
-          total_affiliates: 2,
-          avg_epc: 4.2,
-          top_affiliate: 'Interactive Brokers',
-          conversion_rate: 2.1,
-          growth_rate: 8.3,
-          performance_rank: 3,
-          roi: 1.6,
-        },
-      ])
-
-      setCountries([
-        {
-          country_code: 'NL',
-          country_name: 'Netherlands',
-          total_revenue: 10200,
-          total_clicks: 1650,
-          conversion_rate: 3.5,
-          epc: 6.18,
-          top_affiliate: 'TradingView',
-          top_content_type: 'Tutorial',
-          growth_potential: 'medium',
-          performance_rank: 1,
-          priority: 1,
-        },
-        {
-          country_code: 'DE',
-          country_name: 'Germany',
-          total_revenue: 7800,
-          total_clicks: 1200,
-          conversion_rate: 3.2,
-          epc: 6.5,
-          top_affiliate: 'Semrush',
-          top_content_type: 'Review',
-          growth_potential: 'high',
-          performance_rank: 2,
-          priority: 2,
-        },
-        {
-          country_code: 'US',
-          country_name: 'United States',
-          total_revenue: 4500,
-          total_clicks: 850,
-          conversion_rate: 2.8,
-          epc: 5.29,
-          top_affiliate: 'Binance',
-          top_content_type: 'News',
-          growth_potential: 'high',
-          performance_rank: 3,
-          priority: 1,
-        },
-      ])
-
-      setRecommendations([
-        {
-          recommendation_id: 'opt_scale_aff_001',
-          type: 'scale_affiliate',
-          affiliate_id: 'aff_001',
-          current_metrics: { roi: 3.2, epc: 7.08, conversion_rate: 3.75 },
-          expected_improvement: { revenue_increase_pct: 25, conversion_rate_improvement: 5, epc_improvement: 3 },
-          confidence_score: 0.9,
-          implementation_steps: ['Increase ad spend allocation', 'Create additional creative assets', 'Test new traffic sources'],
-          risk_level: 'low',
-          estimated_timeline_days: 14,
-        },
-        {
-          recommendation_id: 'opt_remove_aff_004',
-          type: 'remove_affiliate',
-          affiliate_id: 'aff_004',
-          current_metrics: { roi: 0.8, epc: 2.67, conversion_rate: 1.33 },
-          expected_improvement: { revenue_increase_pct: 5, conversion_rate_improvement: 0.5, epc_improvement: 2 },
-          confidence_score: 0.85,
-          implementation_steps: ['Review contract terms', 'Identify replacement affiliate', 'Update promotions'],
-          risk_level: 'low',
-          estimated_timeline_days: 7,
-        },
-      ])
-
-      setMrr(24500)
-      setArr(24500 * 12)
     } finally {
       setLoading(false)
     }
