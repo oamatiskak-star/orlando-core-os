@@ -2,7 +2,7 @@
 
 > **Sessie protocol** (CLAUDE.md): Lees dit bestand bij elke nieuwe Claude Code sessie. Update na elke voltooide taak. Houd het herstel-blok actueel.
 
-**Laatste update:** 2026-05-27 (sessie 13) — Deploy-acties opgepakt. **youtube-analyst draait nu op CLI-R** (3 bouwfixes, PR #54) + schrijft `channel_analyst_reports`. **account-setup-runner GEBLOKKEERD op CLI-R** (geen `.env` + geen LLM) → hoort op Mac mini. Sessie 12 (Fase 7 LIVE) hieronder.
+**Laatste update:** 2026-05-27 (sessie 13) — Beide deploy-acties AFGEROND. **youtube-analyst LIVE op CLI-R** (3 bouwfixes, PR #54 gemerged) + schrijft `channel_analyst_reports`. **account-setup-runner LIVE op CLI-L** (= "Mac mini") via Ollama — queued `terms_analysis`-run verwerkt, queue leeg (6 completed / 0 queued). Sessie 12 (Fase 7 LIVE) hieronder.
 
 ## 🔴 HERSTEL HIER NA CRASH (sessie 13 — deploy youtube-analyst + account-setup-runner)
 
@@ -16,11 +16,17 @@
   3. `youtube-channel-analyst.ts` TS18048 — notificatie-blok achter `if (businessPlan)` guard.
 - Geverifieerd: `channel_analyst_reports` verse rijen `analyzed_at 2026-05-27 12:43`.
 
-**Taak 2 — account-setup-runner (PM2): ⛔ GEBLOKKEERD op CLI-R.**
-- `local-agent/.env` ONTBREEKT op CLI-R (geen SUPABASE_URL/SERVICE_ROLE_KEY — runner kan niet verbinden) + geen LLM bereikbaar (LM Studio :1234 down, ollama-container draait niet).
-- DB: 5 runs `completed` (eerder elders gedraaid) + **1 `queued` van kind `terms_analysis`** (run `6256078b`, program `f729dc1d`) — vereist juist de lokale LLM.
-- → Hoort op **Mac mini** (waar LM Studio + local-agent `.env` staan). Bewust NIET hier gestart (geen secrets verzinnen; run zou zonder LLM falen).
-- **Mac mini-commando:** `cd <repo>/local-agent && pm2 start ../ecosystem.config.js --only account-setup-runner && pm2 save` (env via `local-agent/.env`: SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, LM_STUDIO_URL/MODEL of USE_LM_STUDIO=false + OLLAMA_*).
+**Taak 2 — account-setup-runner (PM2): ✅ LIVE op CLI-L (= "Mac mini", `o.s.m.amatiskak`, repo `~/Github/orlando-core-os`).**
+Via `ssh cli-l` opgezet (CLI-R kon het niet: geen `.env`/LLM). Stappen:
+- `local-agent/.env` aangemaakt — SUPABASE_URL + SUPABASE_SERVICE_ROLE_KEY hergebruikt uit `local-watchdog/.env` (waarden nooit geprint) + `USE_LM_STUDIO=false`, `OLLAMA_URL=http://localhost:11434`, `OLLAMA_MODEL=llama3.2`, `WATCHDOG_HOST_ID=cli-l`. chmod 600.
+- LLM: LM Studio :1234 down, **Ollama :11434 draait** maar had 0 modellen → `ollama pull llama3.2` (2.0 GB).
+- node via **nvm** (v22.22.3); pm2 was niet geïnstalleerd → `npm i -g pm2`.
+- Gestart host-onafhankelijk vanuit `local-agent/`: `pm2 start node_modules/.bin/ts-node --name account-setup-runner --interpreter none -- --transpile-only src/account-setup-runner.ts` + `pm2 save`. (NB: ecosystem.config.js `BASE` is hardcoded naar het CLI-R-pad `/Users/bouwproffsnederlandbv/...` → `--only`-start zou op CLI-L verkeerde `cwd` pakken. Portability-bug, nog te fixen.)
+- Geverifieerd: runner `online` (0 restarts), pakte run `6256078b` (terms_analysis) op en **completed in ~16s via Ollama**; audit `terms_analysis.completed` 14:07:45; queue nu **6 completed / 0 queued**.
+
+**Open follow-ups:**
+1. `pm2 startup` op CLI-L voor herstart-na-reboot (vereist sudo; `pm2 save` is al gedaan voor `pm2 resurrect`).
+2. ecosystem.config.js `BASE` dynamisch maken (bv. `process.env.ORLANDO_REPO || __dirname`-afgeleide) zodat `--only account-setup-runner` op elke host werkt.
 
 ---
 
