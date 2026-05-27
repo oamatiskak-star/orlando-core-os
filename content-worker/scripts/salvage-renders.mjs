@@ -14,24 +14,33 @@ if (!URL || !KEY) { console.error('SUPABASE_URL en SUPABASE_SERVICE_ROLE_KEY ver
 
 const db = createClient(URL, KEY, { auth: { persistSession: false } })
 const PAGE = 200
-let from = 0, salvaged = 0, missing = 0, failed = 0, scanned = 0
+let salvaged = 0, missing = 0, failed = 0, scanned = 0, iterations = 0
 const perChannelMissing = {}
 
 console.log('[salvage] Start — zoek backlog zonder persistente opslag…')
+// Elke verwerkte rij verlaat de filter (storage_path gezet of status=draft),
+// dus haal steeds vooraan op i.p.v. offset-paginatie (voorkomt overslaan).
 for (;;) {
+  if (++iterations > 1000) { console.warn('[salvage] max iteraties bereikt — stop'); break }
   const { data: rows, error } = await db
     .from('youtube_videos')
     .select('id, channel_id, file_path')
     .in('status', ['queued', 'scheduled'])
     .is('storage_path', null)
     .like('file_path', '/tmp/%')
-    .range(from, from + PAGE - 1)
+    .range(0, PAGE - 1)
   if (error) { console.error('[salvage] query-fout:', error.message); break }
   if (!rows?.length) break
 
   for (const v of rows) {
     scanned++
     if (!v.file_path || !fs.existsSync(v.file_path)) {
+      // Bestand weg + geen storage → haal uit de actieve pipeline (status=draft,
+      // upload_status=deleted) zodat het de backlog-throttle niet blokkeert en
+      // de content-worker verse content kan genereren.
+      await db.from('youtube_videos')
+        .update({ status: 'draft', upload_status: 'deleted', updated_at: new Date().toISOString() })
+        .eq('id', v.id)
       missing++
       perChannelMissing[v.channel_id] = (perChannelMissing[v.channel_id] ?? 0) + 1
       continue
@@ -50,7 +59,6 @@ for (;;) {
       console.error(`[salvage] exception ${v.id}: ${e.message}`); failed++
     }
   }
-  from += PAGE
 }
 
 console.log('\n=== SALVAGE RESULTAAT ===')
