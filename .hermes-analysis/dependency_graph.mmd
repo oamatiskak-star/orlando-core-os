@@ -1,0 +1,129 @@
+%% Hermes Integration — Dependency Graph (Fase 1)
+%% Datum: 2026-05-28
+%% Legend:
+%%   solid arrow  = bestaande flow (geen wijziging)
+%%   dashed arrow = Hermes-observer hook (read-only)
+%%   thick arrow  = Hermes-augment (additieve schrijfactie naar hermes-schema)
+%%
+%% Renderbaar via: https://mermaid.live  OF  VSCode mermaid-preview
+
+flowchart LR
+
+  %% ==================== Subgraph: BRONNEN ====================
+  subgraph SRC["Bron-events (bestaand)"]
+    AO_PROD["AO Executor producer<br/>/executor/nl_produce_and_upload.py"]
+    AO_WORKER["AO Worker<br/>/executor/workers/youtube_calendar_publisher.py"]
+    AO_DAEMON["AO daemon<br/>/executor/nl_queue_processor.py (5min poll)"]
+    YT_QUEUE[("youtube_upload_queue")]
+    LOCAL_AGENT["local-agent<br/>routines-runner.ts (5s poll, 30s heartbeat)"]
+    PGCRON_DISP["pg_cron routines_dispatch_cron (*/1)"]
+    PGCRON_HEALTH["pg_cron routines_health_sweep (*/5)"]
+  end
+
+  %% ==================== Subgraph: WATCHDOG-STACK ====================
+  subgraph WD["Watchdog stack (bestaand)"]
+    WD_LOCAL["local-watchdog<br/>PM2 procs (5)"]
+    WD_YT["youtube-engine watchdog<br/>(5min cyclus)"]
+    WD_INFRA[("infra_watchdog_checks<br/>+ heartbeats + incidents<br/>mig 092")]
+  end
+
+  %% ==================== Subgraph: ALERT-LAAG ====================
+  subgraph ALERT["Alert-/notificatietabellen"]
+    EXEC_ALERTS[("executive_alerts<br/>mig 094")]
+    CFO_ALERTS[("cfo_risk_alerts")]
+    OSIL_ALERTS[("osil_alerts mig 027")]
+    AUTOPILOT[("autopilot_events")]
+    TRG094{{"trg_executive_alerts_autopilot<br/>(after insert critical)"}}
+    RELAY_API["/api/routines/incident-relay<br/>(Next.js route)"]
+    AUDIT[("routine_audit_log")]
+  end
+
+  %% ==================== Subgraph: TELEGRAM (4 senders) ====================
+  subgraph TG["Telegram (bestaand, 4 services)"]
+    TG_LW["local-watchdog/src/telegram.ts"]
+    TG_WE["watchdog-engine/src/telegram.ts"]
+    TG_CA["checkout-auditor/src/lib/telegram.ts"]
+    TG_YE["youtube-engine/src/lib/notifications.ts"]
+    TG_API(["Telegram Bot API"])
+  end
+
+  %% ==================== Subgraph: COMPANIES ====================
+  subgraph CO["Multi-entity (mig 087+088)"]
+    COMPANIES[("companies<br/>7 slugs: osm, modiwerijo,<br/>modiwe-media, modiwe-software,<br/>strkbeheer, strkbouw, bouwproffs")]
+  end
+
+  %% ==================== Subgraph: HERMES (nieuw, additief) ====================
+  subgraph HERMES["Hermes (nieuw — additief)"]
+    direction TB
+    H_CORE["services/hermes/<br/>core + memory"]
+    H_SCHEMA[("hermes-schema<br/>migratie 104:<br/>escalations, recipients,<br/>whatsapp_inbox")]
+    H_WA_AGENT["subagent #16<br/>whatsapp-bridge"]
+    H_EXEC_SUP["subagent #4<br/>Executor Supervisor"]
+    H_WORKFLOW_REPAIR["subagent #5<br/>Workflow Repair"]
+    H_WHATSAPP_API(["Meta WhatsApp<br/>Cloud API"])
+    H_WEBHOOK["/api/hermes/whatsapp/webhook<br/>(HMAC verify)"]
+    H_DASHBOARD["/dashboard/hermes<br/>(nieuwe route)"]
+    H_CHANNEL([("Realtime channel<br/>hermes:events")])
+  end
+
+  %% ==================== EDGES: BESTAANDE FLOW ====================
+  AO_DAEMON --> YT_QUEUE
+  YT_QUEUE --> AO_PROD
+  AO_PROD --> AO_WORKER
+
+  PGCRON_DISP --> LOCAL_AGENT
+  PGCRON_HEALTH --> WD_INFRA
+
+  WD_LOCAL --> TG_LW
+  WD_YT --> TG_YE
+  WD_INFRA --> EXEC_ALERTS
+  WD_YT --> EXEC_ALERTS
+
+  EXEC_ALERTS --> TRG094
+  TRG094 -->|low / medium| TG_API
+  TRG094 -->|high / critical| AUTOPILOT
+  AUTOPILOT --> RELAY_API
+  RELAY_API --> TG_API
+  RELAY_API --> AUDIT
+
+  TG_LW --> TG_API
+  TG_WE --> TG_API
+  TG_CA --> TG_API
+  TG_YE --> TG_API
+
+  EXEC_ALERTS -.bevat company_id.-> COMPANIES
+
+  %% ==================== EDGES: HERMES OBSERVER (dashed) ====================
+  AO_DAEMON -.observe.-> H_EXEC_SUP
+  YT_QUEUE -.observe.-> H_EXEC_SUP
+  WD_INFRA -.observe.-> H_WORKFLOW_REPAIR
+  EXEC_ALERTS -.observe.-> H_WA_AGENT
+  AUTOPILOT -.observe.-> H_WORKFLOW_REPAIR
+  COMPANIES -.lookup os_label.-> H_WA_AGENT
+
+  %% ==================== EDGES: HERMES AUGMENT (thick) ====================
+  H_WA_AGENT ==>|na watchdog faal-recovery + dedup| H_SCHEMA
+  H_SCHEMA ==>|hermes.escalations.status=pending| H_CORE
+  H_CORE ==>|render incident card| H_WHATSAPP_API
+  H_WHATSAPP_API ==>|reply webhook| H_WEBHOOK
+  H_WEBHOOK ==>|action dispatch| H_CORE
+  H_CORE ==>|dispatch quick_fix / full_fix / cancel| H_EXEC_SUP
+  H_CORE ==>|dispatch quick_fix / full_fix / cancel| H_WORKFLOW_REPAIR
+  H_CORE -->|publish| H_CHANNEL
+  H_CHANNEL --> H_DASHBOARD
+  H_SCHEMA --> H_DASHBOARD
+
+  %% ==================== STYLING ====================
+  classDef src fill:#1f2937,color:#fff,stroke:#374151
+  classDef wd fill:#374151,color:#fff,stroke:#4b5563
+  classDef alert fill:#7f1d1d,color:#fff,stroke:#991b1b
+  classDef tg fill:#1e3a8a,color:#fff,stroke:#1d4ed8
+  classDef co fill:#064e3b,color:#fff,stroke:#065f46
+  classDef hermes fill:#581c87,color:#fff,stroke:#6b21a8
+
+  class AO_PROD,AO_WORKER,AO_DAEMON,YT_QUEUE,LOCAL_AGENT,PGCRON_DISP,PGCRON_HEALTH src
+  class WD_LOCAL,WD_YT,WD_INFRA wd
+  class EXEC_ALERTS,CFO_ALERTS,OSIL_ALERTS,AUTOPILOT,TRG094,RELAY_API,AUDIT alert
+  class TG_LW,TG_WE,TG_CA,TG_YE,TG_API tg
+  class COMPANIES co
+  class H_CORE,H_SCHEMA,H_WA_AGENT,H_EXEC_SUP,H_WORKFLOW_REPAIR,H_WHATSAPP_API,H_WEBHOOK,H_DASHBOARD,H_CHANNEL hermes
