@@ -1,0 +1,11 @@
+[project]
+project_id = "shaunumewswpxhmgbtvv"
+
+[functions]
+import_map = "./functions/import_map.json"
+
+[functions.ai-ceo]
+schedule = "0 5 * * *"
+
+[functions.morning-brief]
+schedule = "30 5 * * *"

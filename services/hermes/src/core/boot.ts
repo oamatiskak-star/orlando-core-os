@@ -4,6 +4,7 @@ import { logger } from './logger.js';
 import { supabase } from '../connectors/supabase.js';
 import { verifyWebhookSignature } from '../connectors/whatsapp-cloud-api.js';
 import { WhatsAppBridgeAgent } from '../agents/whatsapp-bridge.js';
+import { ScannerAgent } from '../agents/scanner-agent.js';
 import type { Subagent } from '../agents/base.js';
 
 const cfg = loadConfig();
@@ -27,6 +28,14 @@ async function registerAgents(): Promise<void> {
     logger.error({ err, agent: wa.def.name }, 'subagent register failed — degraded mode');
   }
   agents.push(wa);  // push regardless; tick() en healthcheck() hanteren null-id
+
+  const scanner = new ScannerAgent();
+  try {
+    await scanner.register();
+  } catch (err) {
+    logger.error({ err, agent: scanner.def.name }, 'scanner register failed — degraded mode');
+  }
+  agents.push(scanner);
 }
 
 function startTickLoop(): void {
@@ -111,6 +120,28 @@ async function handleRequest(req: IncomingMessage, res: ServerResponse): Promise
     await handleWhatsappWebhook(raw);
     res.statusCode = 200;
     res.end('ok');
+    return;
+  }
+
+  if (path === '/hermes/scan/incomplete' && method === 'GET') {
+    const scanner = agents.find((a) => a.def.name === 'Hermes Scanner') as any;
+    if (!scanner) {
+      res.statusCode = 503;
+      res.setHeader('content-type', 'application/json');
+      res.end(JSON.stringify({ error: 'scanner not available' }));
+      return;
+    }
+    try {
+      const result = await scanner.scanAllIncomplete();
+      res.statusCode = 200;
+      res.setHeader('content-type', 'application/json');
+      res.end(JSON.stringify(result));
+    } catch (err) {
+      logger.error({ err }, 'scan failed');
+      res.statusCode = 500;
+      res.setHeader('content-type', 'application/json');
+      res.end(JSON.stringify({ error: 'scan failed' }));
+    }
     return;
   }
 
