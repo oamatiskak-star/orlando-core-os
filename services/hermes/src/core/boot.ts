@@ -21,9 +21,12 @@ export async function boot(): Promise<void> {
 
 async function registerAgents(): Promise<void> {
   const wa = new WhatsAppBridgeAgent();
-  await wa.register();
-  agents.push(wa);
-  // Volgende agents (Scheduler Supervisor, Executor Supervisor, ...) komen in latere iteratie.
+  try {
+    await wa.register();
+  } catch (err) {
+    logger.error({ err, agent: wa.def.name }, 'subagent register failed — degraded mode');
+  }
+  agents.push(wa);  // push regardless; tick() en healthcheck() hanteren null-id
 }
 
 function startTickLoop(): void {

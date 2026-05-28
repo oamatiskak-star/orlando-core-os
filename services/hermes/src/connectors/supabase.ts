@@ -1,17 +1,18 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import { loadConfig } from '../core/config.js';
 
-let client: SupabaseClient | null = null;
+let client: SupabaseClient<any, 'hermes'> | null = null;
 
-export function supabase(): SupabaseClient {
+export function supabase(): SupabaseClient<any, 'hermes'> {
   if (client) return client;
   const cfg = loadConfig();
-  client = createClient(cfg.SUPABASE_URL, cfg.SUPABASE_SERVICE_ROLE_KEY, {
+  const c = createClient<any, 'hermes'>(cfg.SUPABASE_URL, cfg.SUPABASE_SERVICE_ROLE_KEY, {
     auth: { persistSession: false, autoRefreshToken: false },
     db: { schema: 'hermes' },
     global: { headers: { 'x-hermes-service': '1' } },
   });
-  return client;
+  client = c;
+  return c;
 }
 
 export function supabasePublic(): SupabaseClient {
