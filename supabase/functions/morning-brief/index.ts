@@ -115,6 +115,25 @@ serve(async (req) => {
       );
     }
 
+    // Send briefing via WhatsApp if configured
+    const supabaseUrl = Deno.env.get("SUPABASE_URL");
+    const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+    if (supabaseUrl && supabaseKey) {
+      fetch(`${supabaseUrl}/functions/v1/whatsapp-briefing-sender`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${supabaseKey}`,
+        },
+        body: JSON.stringify({
+          summary: briefing.summary,
+          per_entity: briefing.per_entity,
+          critical_alerts: briefing.critical_alerts,
+          this_week_top3: briefing.this_week_top3,
+        }),
+      }).catch((e) => console.error("WhatsApp briefing send error:", e));
+    }
+
     return new Response(
       JSON.stringify({
         success: true,
