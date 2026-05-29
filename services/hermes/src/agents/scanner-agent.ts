@@ -138,7 +138,7 @@ export class ScannerAgent extends BaseSubagent {
     }
   }
 
-  async onMessage(_kind: string, _payload: unknown): Promise<void> {
+  override async onMessage(_kind: string, _payload: unknown): Promise<void> {
     // Scanner doesn't handle external messages
   }
 }
