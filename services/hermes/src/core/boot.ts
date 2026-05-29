@@ -63,15 +63,60 @@ async function registerAgents(): Promise<void> {
   agents.push(scanner);
 }
 
+// Minimal 5-field cron matcher (UTC). Honors each subagent's `schedule`:
+// 'event-driven' ticks every loop; cron expressions only when due (once per
+// matching minute). Prevents scheduled agents (e.g. the hourly Scanner) from
+// running on every 5s loop tick.
+function cronFieldMatches(field: string, value: number): boolean {
+  if (field === '*') return true;
+  for (const part of field.split(',')) {
+    if (part.startsWith('*/')) {
+      const step = parseInt(part.slice(2), 10);
+      if (step > 0 && value % step === 0) return true;
+    } else if (part.includes('-')) {
+      const bounds = part.split('-');
+      const a = parseInt(bounds[0] ?? '', 10);
+      const b = parseInt(bounds[1] ?? '', 10);
+      if (!Number.isNaN(a) && !Number.isNaN(b) && value >= a && value <= b) return true;
+    } else if (parseInt(part, 10) === value) {
+      return true;
+    }
+  }
+  return false;
+}
+
+function cronDue(schedule: string, now: Date): boolean {
+  const f = schedule.trim().split(/\s+/);
+  if (f.length !== 5) return false;
+  const [min, hour, dom, mon, dow] = f as [string, string, string, string, string];
+  return (
+    cronFieldMatches(min, now.getUTCMinutes()) &&
+    cronFieldMatches(hour, now.getUTCHours()) &&
+    cronFieldMatches(dom, now.getUTCDate()) &&
+    cronFieldMatches(mon, now.getUTCMonth() + 1) &&
+    cronFieldMatches(dow, now.getUTCDay())
+  );
+}
+
 function startTickLoop(): void {
   const intervalMs = 5_000;
   let running = false;
+  const lastRunMinute = new Map<string, number>();
 
   setInterval(async () => {
     if (running) return;
     running = true;
     try {
       for (const a of agents) {
+        const schedule = a.def.schedule;
+        if (schedule && schedule !== 'event-driven') {
+          const now = new Date();
+          if (!cronDue(schedule, now)) continue;
+          // run at most once per matching minute (loop fires every 5s)
+          const slot = Math.floor(now.getTime() / 60_000);
+          if (lastRunMinute.get(a.def.name) === slot) continue;
+          lastRunMinute.set(a.def.name, slot);
+        }
         try {
           await a.tick();
         } catch (err) {
