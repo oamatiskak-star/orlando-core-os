@@ -49,6 +49,13 @@ serve(async (req) => {
       );
     }
 
+    // Get latest executive snapshot for financial context
+    const { data: executiveSnapshot } = await supabase
+      .from("executive_snapshots")
+      .select("*")
+      .eq("date", today)
+      .maybeSingle();
+
     // Get latest ai_ceo_run
     const { data: latestRun } = await supabase
       .from("ai_ceo_runs")
@@ -63,10 +70,27 @@ serve(async (req) => {
       .select("*")
       .in("status", ["pending", "awaiting_approval"]);
 
+    // Get strategic recommendations and alerts
+    const { data: opportunities } = await supabase
+      .from("osil_opportunities")
+      .select("*")
+      .eq("status", "active")
+      .order("expected_value", { ascending: false })
+      .limit(3);
+
+    const { data: alerts } = await supabase
+      .from("osil_alerts")
+      .select("*")
+      .eq("severity", "critical")
+      .eq("acknowledged", false);
+
     // Generate briefing via Claude
     const briefing = await generateBriefing(
       latestRun,
       pendingApprovals || [],
+      executiveSnapshot || null,
+      opportunities || [],
+      alerts || [],
       Deno.env.get("ANTHROPIC_API_KEY") || ""
     );
 
@@ -116,6 +140,9 @@ serve(async (req) => {
 async function generateBriefing(
   latestRun: any,
   pendingApprovals: any[],
+  executiveSnapshot: any,
+  opportunities: any[],
+  alerts: any[],
   apiKey: string
 ): Promise<BriefingResult> {
   const systemPrompt = `You are IRIS, the communication agent of Orlando's AI company.
@@ -129,20 +156,37 @@ Structure PER ENTITY (only entities with activity today):
 → AI CEO VANDAAG: [what ORLAND-O and team execute autonomously, max 3 bullets]
 → WACHT OP JOU: [open approvals, max 2 bullets]
 
+Financial Summary (always include):
+- Total cash position and runway
+- Any reconciliation issues requiring attention
+- Critical acquisition or investment opportunities
+
+Strategic Context:
+- Active acquisition opportunities with expected value
+- Critical risk alerts requiring immediate action
+- Agent status and team progress
+
 At the end:
 KRITIEKE ALERTS: [only truly urgent items]
 DEZE WEEK: [top 3 priorities for the whole week]
 
-Tone: direct, business-like, no unnecessary words. Write as a trusted EA briefing Orlando every morning.
+Tone: conversational yet professional. Start with "Goedemorgen Orlando," include weather context if available, then flow into team updates and strategic briefing.
+Write as a trusted EA/sparring partner briefing Orlando every morning.
 Return ONLY valid JSON with fields: per_entity (array), critical_alerts, this_week_top3, summary`;
 
   const userPrompt = `Generate morning briefing for today:
+
+Financial Snapshot: ${JSON.stringify(executiveSnapshot, null, 2)}
 
 AI CEO Run (latest): ${JSON.stringify(latestRun, null, 2)}
 
 Pending Approvals: ${JSON.stringify(pendingApprovals, null, 2)}
 
-Generate the briefing in JSON format.`;
+Active Opportunities: ${JSON.stringify(opportunities, null, 2)}
+
+Critical Alerts: ${JSON.stringify(alerts, null, 2)}
+
+Generate the briefing in JSON format. Make it conversational and actionable for Orlando.`;
 
   const response = await fetch("https://api.anthropic.com/v1/messages", {
     method: "POST",
