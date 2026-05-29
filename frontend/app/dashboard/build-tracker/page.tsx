@@ -4,6 +4,7 @@ import { createClient } from '@/lib/supabase/server'
 import { getActiveCompany } from '@/lib/active-company-server'
 import NewBuildButton from './NewBuildButton'
 import BuildCardActions from './BuildCardActions'
+import ResumeSessionCard from './ResumeSessionCard'
 
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
@@ -70,6 +71,8 @@ export default async function BuildTrackerPage() {
         </div>
         <NewBuildButton companyColor={company.color} companyName={company.name} />
       </div>
+
+      <ResumeSessionCard />
 
       {builds.length === 0 ? (
         <div className="py-16 text-center bg-white/[0.02] border border-dashed border-white/10 rounded-xl">
