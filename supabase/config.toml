@@ -10,6 +10,9 @@ schedule = "0 5 * * *"
 [functions.daily-executive-snapshot]
 schedule = "3 5 * * *"
 
+[functions.strategic-insights]
+schedule = "5 5 * * *"
+
 [functions.weekly-ceo-review]
 schedule = "0 5 * * 1"
 
