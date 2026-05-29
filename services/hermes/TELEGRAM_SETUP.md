@@ -48,7 +48,7 @@ curl -s "https://api.telegram.org/bot<TOKEN>/setWebhook" \
 Verifieer met `getWebhookInfo`. Telegram stuurt de secret mee als header
 `X-Telegram-Bot-Api-Secret-Token`; Hermes weigert (401) zonder match.
 
-## 4. Recipient toevoegen (migratie 107)
+## 4. Recipient toevoegen (migratie 108)
 
 `chat_id` is `UNIQUE` → idempotente upsert. Vul je chat_id in.
 
@@ -98,7 +98,7 @@ order by created_at desc limit 1;
 
 ## Architectuur (wat dit PR toevoegt)
 
-- `supabase/migrations/107_hermes_telegram_bridge.sql` — `hermes.telegram_recipients`,
+- `supabase/migrations/108_hermes_telegram_bridge.sql` — `hermes.telegram_recipients`,
   `hermes.telegram_inbox`, `hermes.is_within_quiet_hours_tg`, RLS + grants. **Additief**:
   raakt de WhatsApp-tabellen niet aan.
 - `src/connectors/telegram-bot.ts` — `sendInteractiveList` (inline keyboard), `sendText`,

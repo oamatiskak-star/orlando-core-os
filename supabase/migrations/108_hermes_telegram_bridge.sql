@@ -1,5 +1,5 @@
 -- ============================================================================
--- Migration 107: Hermes Telegram Escalation Bridge
+-- Migration 108: Hermes Telegram Escalation Bridge
 -- ============================================================================
 -- Depends on: 104 (hermes schema), 106 (escalations + whatsapp layer)
 -- Doel: Telegram als gratis, verificatie-vrij alternatief voor de Meta WhatsApp
