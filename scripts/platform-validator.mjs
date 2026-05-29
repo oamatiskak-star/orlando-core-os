@@ -189,6 +189,86 @@ async function httpValidate(routes) {
   return { runId, total, passed, failed, score, sevCount };
 }
 
+// --- P4.1: persona flow-tests ----------------------------------------------
+// Grounded in routes uit de inventaris (no-mock: geen verzonnen routes).
+// Aquier-scope tegen VALIDATOR_AQUIER_URL, orlando-scope tegen VALIDATOR_BASE_URL.
+const AQUIER_URL = process.env.VALIDATOR_AQUIER_URL || ''
+const DEFAULT_FLOWS = [
+  { persona: 'koper', flow_key: 'intake_checkout',
+    steps: [{ path: '/object-indienen', base: 'aquier' }, { path: '/checkout', base: 'aquier' }] },
+  { persona: 'lid', flow_key: 'membership',
+    steps: [{ path: '/dashboard/membership', base: 'aquier', auth: true }, { path: '/dashboard/rapporten', base: 'aquier', auth: true }] },
+  { persona: 'admin', flow_key: 'ops',
+    steps: [{ path: '/dashboard', base: 'orlando', auth: true }, { path: '/dashboard/operations', base: 'orlando', auth: true }, { path: '/dashboard/build-tracker', base: 'orlando', auth: true }] },
+]
+
+// Self-registering: zet de standaard-flows neer als de registry leeg is.
+async function ensureDefaultFlows() {
+  const existing = await pg('GET', 'flow_tests', { query: '?select=id&limit=1' })
+  if (!existing.ok) return false
+  if (JSON.parse(existing.text).length > 0) return true
+  await pg('POST', 'flow_tests', {
+    body: DEFAULT_FLOWS.map((f) => ({ persona: f.persona, flow_key: f.flow_key, steps: f.steps, enabled: true })),
+    prefer: 'return=minimal',
+  })
+  console.log(`[validator] ${DEFAULT_FLOWS.length} standaard-flows geregistreerd`)
+  return true
+}
+
+function baseFor(step) {
+  return step.base === 'aquier' ? AQUIER_URL : BASE_URL
+}
+
+async function runFlows() {
+  const res = await pg('GET', 'flow_tests', { query: '?enabled=eq.true&select=id,persona,flow_key,steps' })
+  if (!res.ok) return null
+  const flows = JSON.parse(res.text)
+  let scoreSum = 0, scoreN = 0
+  for (const f of flows) {
+    const steps = Array.isArray(f.steps) ? f.steps : []
+    if (steps.some((s) => !baseFor(s))) {
+      console.log(`[validator] flow ${f.persona}/${f.flow_key}: base-URL ontbreekt voor scope, overgeslagen`)
+      continue
+    }
+    const runIns = await pg('POST', 'validation_runs', {
+      body: [{ run_kind: 'flow', target_scope: steps[0]?.base ?? 'platform', persona: f.persona,
+               status: 'running', triggered_by: TRIGGERED_BY, started_at: new Date().toISOString() }],
+      prefer: 'return=representation',
+    })
+    if (!runIns.ok) continue
+    const runId = JSON.parse(runIns.text)[0].id
+    let passed = 0, failed = 0
+    const errors = []
+    for (const s of steps) {
+      let status = 0
+      try { status = (await fetch(`${baseFor(s)}${s.path}`, { method: 'GET', redirect: 'manual' })).status } catch { status = 0 }
+      const sev = status === 0 ? 'critical' : severityFor(status, !!s.auth)
+      if (sev) { failed++; errors.push({ run_id: runId, route: s.path, check_kind: 'flow', severity: sev,
+        title: `${f.persona}/${f.flow_key}: HTTP ${status || 'geen respons'} op ${s.path}`,
+        detail: `Stap in persona-flow ${f.persona}`, evidence: { status, auth: !!s.auth, base: s.base } }) }
+      else passed++
+    }
+    if (errors.length) await pg('POST', 'validation_errors', { body: errors, prefer: 'return=minimal' })
+    const total = steps.length
+    const readiness = total ? Math.round((passed / total) * 10000) / 100 : 100
+    scoreSum += readiness; scoreN++
+    await pg('PATCH', 'validation_runs', { query: `?id=eq.${runId}`,
+      body: { status: failed ? 'failed' : 'passed', total_checks: total, passed, failed, production_score: readiness, finished_at: new Date().toISOString() },
+      prefer: 'return=minimal' })
+    await pg('PATCH', 'flow_tests', { query: `?id=eq.${f.id}`,
+      body: { last_run_id: runId, last_status: failed ? 'failed' : 'passed', readiness_score: readiness, last_run_at: new Date().toISOString() },
+      prefer: 'return=minimal' })
+    console.log(`[validator] flow ${f.persona}/${f.flow_key}: ${passed}/${total} ok → readiness ${readiness}`)
+  }
+  if (scoreN) {
+    const avg = Math.round((scoreSum / scoreN) * 100) / 100
+    await pg('POST', 'production_scores', { body: [{ scope: 'platform', dimension: 'flows', score: avg,
+      severity: avg >= 90 ? 'low' : avg >= 70 ? 'medium' : 'high' }], prefer: 'return=minimal' })
+    console.log(`[validator] flows gemiddelde readiness: ${avg}`)
+  }
+  return { flows: flows.length }
+}
+
 // --- main -------------------------------------------------------------------
 (async () => {
   if (!(await governanceReady())) {
@@ -221,5 +301,14 @@ async function httpValidate(routes) {
     console.log(`[validator] severities:`, res.sevCount);
   } else {
     console.log('[validator] VALIDATOR_BASE_URL niet gezet → alleen discovery, geen HTTP-validatie.');
+  }
+
+  // Persona flow-tests (P4.1): VALIDATOR_FLOWS=1
+  if (process.env.VALIDATOR_FLOWS === '1') {
+    await ensureDefaultFlows();
+    const fr = await runFlows();
+    if (fr) console.log(`[validator] flow-tests uitgevoerd over ${fr.flows} flow(s)`);
+  } else {
+    console.log('[validator] VALIDATOR_FLOWS!=1 → flow-tests overgeslagen.');
   }
 })().catch((e) => { console.error('[validator] fout:', e.message); process.exit(1); });
