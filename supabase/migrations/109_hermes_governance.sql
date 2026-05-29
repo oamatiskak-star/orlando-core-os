@@ -170,23 +170,26 @@ create table if not exists hermes.flow_tests (
 -- 10. CAPABILITY REGISTRY — 15 skills (capability-based, on-demand)
 --     enabled=false: alleen uitvoeren wanneer nodig (geen 25 permanente agents).
 -- ----------------------------------------------------------------------------
-insert into hermes.skills (name, version, description, enabled)
-values
-  ('validation',          '1.0.0', 'Route/flow/AI validatie → validation_runs/errors', false),
-  ('entitlement',         '1.0.0', 'Product/tier capability-check tegen entitlements', false),
-  ('flow_test',           '1.0.0', 'Persona-flow simulatie (onboarding→checkout→export)', false),
-  ('discovery',           '1.0.0', 'Auto-discovery van routes/features → route_registry', false),
-  ('repair',              '1.0.0', 'Repair/patch/migratie-suggesties → repair_suggestions', false),
-  ('marketing',           '1.0.0', 'Marketing-orchestratie (staging, geen massale productie)', false),
-  ('seo',                 '1.0.0', 'Keyword-onderzoek + on-page SEO', false),
-  ('content',             '1.0.0', 'Contentgeneratie (gegrond, no-mock)', false),
-  ('social',              '1.0.0', 'Social distributie (FB/YT/affiliate staging)', false),
-  ('analytics',           '1.0.0', 'Funnel/conversie-analyse', false),
-  ('finance',             '1.0.0', 'Finance readiness scoring (Capital Desk)', false),
-  ('capital_matching',    '1.0.0', 'Match project ↔ financieringstype/kapitaal', false),
-  ('project_intelligence','1.0.0', 'Completeness/risk/financeability-duiding', false),
-  ('ui_audit',            '1.0.0', 'Design-consistentie + UX-readiness audit', false),
-  ('route_audit',         '1.0.0', 'Route-integriteit + orphan/dead-route detectie', false)
+-- checksum is NOT NULL op hermes.skills → md5(name||version) als declaratieve hash.
+insert into hermes.skills (name, version, checksum, description, enabled)
+select s.name, '1.0.0', md5(s.name || '1.0.0'), s.descr, false
+from (values
+  ('validation',          'Route/flow/AI validatie → validation_runs/errors'),
+  ('entitlement',         'Product/tier capability-check tegen entitlements'),
+  ('flow_test',           'Persona-flow simulatie (onboarding→checkout→export)'),
+  ('discovery',           'Auto-discovery van routes/features → route_registry'),
+  ('repair',              'Repair/patch/migratie-suggesties → repair_suggestions'),
+  ('marketing',           'Marketing-orchestratie (staging, geen massale productie)'),
+  ('seo',                 'Keyword-onderzoek + on-page SEO'),
+  ('content',             'Contentgeneratie (gegrond, no-mock)'),
+  ('social',              'Social distributie (FB/YT/affiliate staging)'),
+  ('analytics',           'Funnel/conversie-analyse'),
+  ('finance',             'Finance readiness scoring (Capital Desk)'),
+  ('capital_matching',    'Match project ↔ financieringstype/kapitaal'),
+  ('project_intelligence','Completeness/risk/financeability-duiding'),
+  ('ui_audit',            'Design-consistentie + UX-readiness audit'),
+  ('route_audit',         'Route-integriteit + orphan/dead-route detectie')
+) as s(name, descr)
 on conflict (name, version) do nothing;
 
 -- ----------------------------------------------------------------------------
