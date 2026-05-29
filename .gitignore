@@ -12,6 +12,7 @@ executor/*.log
 .env.prod
 .env.pull
 .env.cli-r
+.env.gh-secrets
 monitoring-agent/node_modules/
 monitoring-agent/dist/
 content-worker/node_modules/
