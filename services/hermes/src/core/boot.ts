@@ -1,14 +1,25 @@
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
-import { loadConfig, whatsappEnabled } from './config.js';
+import {
+  loadConfig,
+  whatsappEnabled,
+  telegramEnabled,
+  activeEscalationChannels,
+} from './config.js';
 import { logger } from './logger.js';
 import { supabase } from '../connectors/supabase.js';
 import { verifyWebhookSignature } from '../connectors/whatsapp-cloud-api.js';
+import {
+  verifyTelegramSecret,
+  answerCallbackQuery,
+} from '../connectors/telegram-bot.js';
 import { WhatsAppBridgeAgent } from '../agents/whatsapp-bridge.js';
+import { TelegramBridgeAgent } from '../agents/telegram-bridge.js';
 import { ScannerAgent } from '../agents/scanner-agent.js';
 import type { Subagent } from '../agents/base.js';
 
 const cfg = loadConfig();
 const agents: Subagent[] = [];
+const channels = activeEscalationChannels(cfg);
 
 export async function boot(): Promise<void> {
   logger.info({ env: cfg.HERMES_ENV, port: cfg.HERMES_PORT }, 'hermes booting');
@@ -21,13 +32,27 @@ export async function boot(): Promise<void> {
 }
 
 async function registerAgents(): Promise<void> {
-  const wa = new WhatsAppBridgeAgent();
-  try {
-    await wa.register();
-  } catch (err) {
-    logger.error({ err, agent: wa.def.name }, 'subagent register failed — degraded mode');
+  logger.info({ channels: [...channels] }, 'active escalation channels');
+
+  if (channels.has('whatsapp')) {
+    const wa = new WhatsAppBridgeAgent();
+    try {
+      await wa.register();
+    } catch (err) {
+      logger.error({ err, agent: wa.def.name }, 'subagent register failed — degraded mode');
+    }
+    agents.push(wa);  // push regardless; tick() en healthcheck() hanteren null-id
   }
-  agents.push(wa);  // push regardless; tick() en healthcheck() hanteren null-id
+
+  if (channels.has('telegram')) {
+    const tg = new TelegramBridgeAgent();
+    try {
+      await tg.register();
+    } catch (err) {
+      logger.error({ err, agent: tg.def.name }, 'subagent register failed — degraded mode');
+    }
+    agents.push(tg);
+  }
 
   const scanner = new ScannerAgent();
   try {
@@ -88,7 +113,9 @@ async function handleRequest(req: IncomingMessage, res: ServerResponse): Promise
         status: 'ok',
         env: cfg.HERMES_ENV,
         agents: agents.map((a) => a.def.name),
+        channels: [...channels],
         whatsapp: whatsappEnabled(cfg) ? 'configured' : 'disabled',
+        telegram: telegramEnabled(cfg) ? 'configured' : 'disabled',
       }),
     );
     return;
@@ -118,6 +145,21 @@ async function handleRequest(req: IncomingMessage, res: ServerResponse): Promise
       return;
     }
     await handleWhatsappWebhook(raw);
+    res.statusCode = 200;
+    res.end('ok');
+    return;
+  }
+
+  if (path === '/hermes/telegram/webhook' && method === 'POST') {
+    const secret = req.headers['x-telegram-bot-api-secret-token'];
+    if (typeof secret !== 'string' || !verifyTelegramSecret(secret)) {
+      res.statusCode = 401;
+      res.end('invalid_secret');
+      return;
+    }
+    const raw = await readBody(req);
+    await handleTelegramWebhook(raw);
+    // Telegram verwacht altijd 200, anders blijft het de update herhalen.
     res.statusCode = 200;
     res.end('ok');
     return;
@@ -254,4 +296,91 @@ function extractChoice(m: Record<string, unknown>): string | null {
     if (text && /^[1-9]$|^10$/.test(text)) return text;
   }
   return null;
+}
+
+type TelegramCallbackQuery = {
+  id: string;
+  data?: string;
+  message?: { message_id?: number; chat?: { id?: number | string } };
+  from?: { id?: number | string };
+};
+
+async function handleTelegramWebhook(raw: string): Promise<void> {
+  const update = JSON.parse(raw) as {
+    update_id?: number;
+    callback_query?: TelegramCallbackQuery;
+  };
+
+  const updateId = update.update_id;
+  const cq = update.callback_query;
+  // We verwerken alleen knop-drukken (inline keyboard). Vrije tekst negeren we.
+  if (typeof updateId !== 'number' || !cq) return;
+
+  const db = supabase();
+  const fromChat = String(cq.message?.chat?.id ?? cq.from?.id ?? '');
+  const choice = cq.data ?? null;
+  const messageId =
+    cq.message?.message_id != null ? String(cq.message.message_id) : null;
+
+  // Idempotency: insert in inbox op unieke update_id, skip duplicaten.
+  const { error: insertErr } = await db.from('telegram_inbox').insert({
+    update_id: updateId,
+    from_chat_id: fromChat,
+    message_type: 'callback_query',
+    body: update,
+  });
+  if (insertErr) {
+    logger.debug({ updateId }, 'duplicate or insert failed, skipping');
+    return;
+  }
+
+  // Spinner in Telegram-client direct dismissen.
+  await answerCallbackQuery(cq.id);
+
+  if (!choice || !messageId) {
+    await db
+      .from('telegram_inbox')
+      .update({
+        processed_at: new Date().toISOString(),
+        processing_error: !choice ? 'no_choice' : 'no_message_id',
+      })
+      .eq('update_id', updateId);
+    return;
+  }
+
+  const { data: matched } = await db
+    .from('escalations')
+    .select('id')
+    .eq('whatsapp_message_id', messageId)
+    .eq('status', 'sent')
+    .limit(1)
+    .maybeSingle();
+
+  if (!matched) {
+    await db
+      .from('telegram_inbox')
+      .update({
+        processed_at: new Date().toISOString(),
+        processing_error: 'no_matching_escalation',
+      })
+      .eq('update_id', updateId);
+    return;
+  }
+
+  const tg = agents.find((a) => a.def.name === 'telegram-bridge');
+  if (tg) {
+    await tg.onMessage('telegram_reply', {
+      escalation_id: matched.id,
+      user_choice: choice,
+      reply_from_chat: fromChat,
+    });
+  }
+
+  await db
+    .from('telegram_inbox')
+    .update({
+      processed_at: new Date().toISOString(),
+      matched_escalation_id: matched.id,
+    })
+    .eq('update_id', updateId);
 }
