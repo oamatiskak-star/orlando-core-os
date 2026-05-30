@@ -72,3 +72,24 @@ Breakdown: hout €103.417, tegelwerk €70.939, elektra €62.986, keuken €48
 - ✅ Geëxtraheerd (echt, geanonimiseerd): 4 projecten (Utrecht woonzorg, Friesland kerk, Drenthe winkelpand, Zuid-Holland renovatie).
 - ⏳ **Gieten Brink 9 (Drenthe, mixed-use voormalig hotel)** — niet in de iCloud-kopie aangetroffen; nog te leveren (staat alleen op T7/OneDrive). Bekend extern: bouwofferte ~€5,6 mln ex btw in 4 fases.
 - Veelvoorkomende ontbrekende posten: aankoop, VON/eindwaarde en BAR/NAR ontbreken in de meeste aannemersdossiers (die bevatten de bouwkant). Voor volledige stichtingskostenopzet + rendement zijn de aankoop-/taxatiedocumenten per project nodig.
+
+---
+
+# Vergunningsdata (OMGEVINGSVERGUNNING DEEP-SCAN — taak 282e219f)
+
+Gerichte extractie uit omgevingsvergunning-dossiers (alleen tekst-PDF's < 5MB; tekeningen/beeld-PDF's overgeslagen). Bevestigt/vult de gemodelleerde cijfers met **echte vergunningsdata**. Geanonimiseerd: type + regio, geen plaatsnaam/adres/NAW. Alle waarden REËEL uit het vergunningsdoc.
+
+| # | Type (regio) | Units | m² | Exploitatie / leges / kostenverhaal | Bron-confidence |
+|---|---|---|---|---|---|
+| V1 | Transformatie kerk → zorgappartementen (Friesland) | **32** (24 kerk+pastorie + 8 solitair) | nieuwbouwdeel 288 BVO / 382 GBO; kerk 1.017→1.142 BVO | **Leges € 38.386** (bouwen €28.717 + welstand €3.256 + buitenplanse afwijking €6.806); ambtshalve bouwkosten **€ 2.125.990** (opgegeven €1.600.000 = enkel verbouwing kerk+pastorie) | hoog |
+| V2 | Sloop-nieuwbouw → 6 appartementen (Drenthe) | **6** | 784 BVO; 90–100 m² netto/unit | Bestaande functie horeca/centrum → **volledig wonen** (géén commerciële plint — corrigeert de aanname). Anterieure + planschadeverhaal-overeenkomst gesloten (geen bedrag in stuk). Bouwkosten €1.143.273 (uit begroting) | hoog |
+| V3 | Herontwikkeling → 4 luxe appartementen (Limburg) | **4** (2 levensloopbestendig) | perceel ~580; ~80 GBO/app | Bestemming Wonen via buitenplanse omgevingsplanactiviteit; volledig voor rekening/risico initiatiefnemer; anterieure overeenkomst aangekondigd (geen bedrag); leges separaat (geen bedrag) | hoog |
+| V4 | Herbestemming kantoor → zorg (Overijssel) | **37** zorg-units (Wlz VV5/VV6, 24-uurszorg) | ~2.000 BVO / 1.601 GBO / 1.333 perceel; 35 m²/unit | **Bouwkosten € 1.000.000 ex btw**; WOZ **€ 2.270.000** (peildatum 2023); **huur € 422.700/jr**, 20-jr contract. Geen kostenverhaal (bestemming hoefde niet te wijzigen) | hoog/midden |
+| V5 | Transformatie garage → woning (Groningen) | **1** | n.v.t. (klein) | Geen leges/exploitatie in besluit | hoog |
+| V6 | Transformatie → 42 studentenwooneenheden (Friesland) | **42** (43 nrs − 1 techn. ruimte) | ~30 BVO / ~26 GBO per type | **Bouwsom € 2.700.000 ex btw**; parkeerovereenkomst aanwezig (bedrag in gescand stuk, niet leesbaar); leges separaat gefactureerd | hoog/midden |
+
+**Observaties voor het model:**
+- Leges schalen met bouwsom: V1 ≈ €38k leges op ~€2,1 mln ambtshalve bouwkosten (≈1,8%) — bevestigt de leges-band 1,2–3,3% bouwsom uit COST-ENGINE-seed.
+- Kostenverhaal/anterieure bijdragen worden vrijwel altijd via overeenkomst geregeld; bedragen staan zelden in het publieke vergunningsdoc (→ flag "bron-afhankelijk", niet modelleren als vast bedrag).
+- Zorg-transformatie levert de hardste exploitatiecijfers (V4: huur/jr + WOZ + bouwkosten + 20-jr contract) — sterkste case voor financierbaarheid/DSCR-onderbouwing.
+- AVG: alle 6 outputs region-only geverifieerd; geen NAW/plaatsnaam/adres. Beeld-PDF's en >5MB overgeslagen per targeting-regel.
