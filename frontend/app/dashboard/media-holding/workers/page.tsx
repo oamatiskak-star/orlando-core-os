@@ -68,14 +68,31 @@ export default function WorkersPage() {
   const [workers, setWorkers] = useState<Worker[]>([])
   const [crons, setCrons] = useState<Cron[]>([])
   const [loading, setLoading] = useState(true)
+  const [busyId, setBusyId] = useState<string | null>(null)
   const [, setTick] = useState(0)
 
-  useEffect(() => {
-    fetch('/api/media-holding/workers')
+  function load() {
+    return fetch('/api/media-holding/workers')
       .then((r) => (r.ok ? r.json() : { workers: [], crons: [] }))
       .then((j) => { setWorkers(j.workers ?? []); setCrons(j.crons ?? []); setLoading(false) })
       .catch(() => setLoading(false))
-  }, [])
+  }
+
+  useEffect(() => { load() }, [])
+
+  async function act(id: string, action: 'reset' | 'pause' | 'resume') {
+    setBusyId(id)
+    try {
+      await fetch('/api/media-holding/workers', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id, action }),
+      })
+      await load()
+    } finally {
+      setBusyId(null)
+    }
+  }
 
   // Tick elke seconde voor live countdown
   useEffect(() => {
@@ -151,6 +168,7 @@ export default function WorkersPage() {
                 <th className="px-4 py-2.5 text-left text-[10px] font-medium text-white/50 uppercase tracking-wider">Queue</th>
                 <th className="px-4 py-2.5 text-left text-[10px] font-medium text-white/50 uppercase tracking-wider">Laatste activiteit</th>
                 <th className="px-4 py-2.5 text-left text-[10px] font-medium text-white/50 uppercase tracking-wider">Laatste fout</th>
+                <th className="px-4 py-2.5 text-left text-[10px] font-medium text-white/50 uppercase tracking-wider">Actie</th>
               </tr>
             </thead>
             <tbody>
@@ -177,7 +195,27 @@ export default function WorkersPage() {
                     </td>
                     <td className="px-4 py-3 text-xs text-white/65">{w.queue_depth}</td>
                     <td className="px-4 py-3 text-xs text-white/55">{fmtAge(w.last_seen)}</td>
-                    <td className="px-4 py-3 text-xs text-red-400/80 max-w-[300px] truncate">{w.last_error ?? '—'}</td>
+                    <td className="px-4 py-3 text-xs text-red-400/80 max-w-[300px] truncate" title={w.last_error ?? ''}>{w.last_error ?? '—'}</td>
+                    <td className="px-4 py-3">
+                      {w.status === 'error' ? (
+                        <button onClick={() => act(w.id, 'reset')} disabled={busyId === w.id}
+                          className="text-[11px] px-2 py-1 rounded-md border border-red-500/30 bg-red-500/10 text-red-300 hover:bg-red-500/20 disabled:opacity-50 transition-colors">
+                          {busyId === w.id ? '…' : 'Reset'}
+                        </button>
+                      ) : w.status === 'paused' ? (
+                        <button onClick={() => act(w.id, 'resume')} disabled={busyId === w.id}
+                          className="text-[11px] px-2 py-1 rounded-md border border-emerald-500/30 bg-emerald-500/10 text-emerald-300 hover:bg-emerald-500/20 disabled:opacity-50 transition-colors">
+                          {busyId === w.id ? '…' : 'Hervat'}
+                        </button>
+                      ) : w.status === 'offline' ? (
+                        <span className="text-[11px] text-white/25">—</span>
+                      ) : (
+                        <button onClick={() => act(w.id, 'pause')} disabled={busyId === w.id}
+                          className="text-[11px] px-2 py-1 rounded-md border border-white/15 bg-white/5 text-white/55 hover:bg-white/10 disabled:opacity-50 transition-colors">
+                          {busyId === w.id ? '…' : 'Pauze'}
+                        </button>
+                      )}
+                    </td>
                   </tr>
                 )
               })}
