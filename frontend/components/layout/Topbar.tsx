@@ -1,7 +1,8 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { Bell, Search, Menu, Sun, Moon } from 'lucide-react'
+import { Search, Menu, Sun, Moon } from 'lucide-react'
+import NotificationBell from './NotificationBell'
 
 interface Props {
   title: string
@@ -53,10 +54,7 @@ export default function Topbar({ title, onMenuOpen }: Props) {
         >
           {day ? <Sun size={16} className="text-amber-400" /> : <Moon size={16} />}
         </button>
-        <button className="relative p-1.5 rounded-lg hover:bg-white/5 text-white/65 hover:text-white/70 transition-colors">
-          <Bell size={16} />
-          <span className="absolute top-0.5 right-0.5 w-2 h-2 bg-indigo-500 rounded-full" />
-        </button>
+        <NotificationBell />
         <div className="w-7 h-7 rounded-full bg-indigo-500/20 border border-indigo-500/40 flex items-center justify-center text-indigo-400 text-xs font-bold">
           O
         </div>
