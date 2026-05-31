@@ -108,6 +108,26 @@ export const NAV_MODULES: Record<string, NavModuleDef> = {
   youtube_logs:         { key: 'youtube_logs',         label: 'Logs',                    href: '/dashboard/youtube/logs',          icon: FileText },
   youtube_calendar:     { key: 'youtube_calendar',     label: 'Content Calendar',        href: '/dashboard/youtube/calendar',      icon: Calendar },
   youtube_growth:       { key: 'youtube_growth',       label: 'Growth & Kwaliteit',      href: '/dashboard/youtube/growth',        icon: TrendingUp },
+  youtube_brickpulse:   { key: 'youtube_brickpulse',   label: 'BrickPulse Lab',          href: '/dashboard/youtube/channel/brickpulse',   icon: Video },
+  youtube_loopforge:    { key: 'youtube_loopforge',    label: 'LoopForge AI',            href: '/dashboard/youtube/channel/loopforge',    icon: Video },
+  youtube_slicetheory:  { key: 'youtube_slicetheory',  label: 'SliceTheory',             href: '/dashboard/youtube/channel/slicetheory',  icon: Video },
+
+  // ── MEDIA HOLDING OS — suite-pagina's (consolidatie: geen dubbele YouTube-layer) ──
+  mh_executive:         { key: 'mh_executive',         label: 'Executive Boardroom',     href: '/dashboard/media-holding/executive',          icon: Brain },
+  mh_channels:          { key: 'mh_channels',          label: 'Alle Kanalen',            href: '/dashboard/media-holding/channels',           icon: Tv2 },
+  mh_incubator:         { key: 'mh_incubator',         label: 'Channel Incubator',       href: '/dashboard/media-holding/channel-incubator',  icon: PlusCircle },
+  mh_content_factory:   { key: 'mh_content_factory',   label: 'Content Factory',         href: '/dashboard/media-holding/content-factory',    icon: Package },
+  mh_compete:           { key: 'mh_compete',           label: 'Competitor Scanner',      href: '/dashboard/media-holding/compete',            icon: Radar },
+  mh_trend_scanner:     { key: 'mh_trend_scanner',     label: 'Trend Scanner',           href: '/dashboard/media-holding/trend-scanner',      icon: TrendingUp },
+  mh_viral:             { key: 'mh_viral',             label: 'Viral Intelligence',      href: '/dashboard/media-holding/viral-intelligence', icon: Sparkles },
+  mh_retention:         { key: 'mh_retention',         label: 'Retention Lab',           href: '/dashboard/media-holding/retention-lab',      icon: Activity },
+  mh_hooks:             { key: 'mh_hooks',             label: 'Hook Library',            href: '/dashboard/media-holding/hook-library',       icon: Lightbulb },
+  mh_monetization:      { key: 'mh_monetization',      label: 'Monetization',            href: '/dashboard/media-holding/monetization',       icon: BadgeDollarSign },
+  mh_launches:          { key: 'mh_launches',          label: 'Launches',                href: '/dashboard/media-holding/launches',           icon: Megaphone },
+  mh_workers:           { key: 'mh_workers',           label: 'Media Workers',           href: '/dashboard/media-holding/workers',            icon: Server },
+  mh_analytics:         { key: 'mh_analytics',         label: 'Holding Analytics',       href: '/dashboard/media-holding/analytics',          icon: BarChart3 },
+  mh_autopilot:         { key: 'mh_autopilot',         label: 'Autopilot',               href: '/dashboard/media-holding/autopilot',          icon: Zap },
+  mh_settings:          { key: 'mh_settings',          label: 'MH Settings',             href: '/dashboard/media-holding/settings',           icon: SlidersHorizontal },
 
   // ── OSIL — STRATEGIC INTELLIGENCE LAYER ──────────────────────────────────
   osil_dashboard:    { key: 'osil_dashboard',    label: 'OSIL Command',        href: '/dashboard/osil',                  icon: Brain },
@@ -270,16 +290,27 @@ export const COMPANY_NAV: Record<string, CompanyNav> = {
   'modiwe-media': {
     sections: [
       { modules: ['dashboard'] },
-      { title: 'Media Holding', modules: ['media_holding'] },
+      // ── MEDIA HOLDING OS — één geconsolideerde laag (YouTube zit hieronder, geen dubbele layer) ──
+      { title: 'Media Holding OS', modules: ['media_holding', 'mh_executive', 'mh_analytics', 'mh_autopilot'] },
       {
-        title: 'YouTube', modules: [
-          'youtube',
-          'youtube_vermogen', 'youtube_spaartv', 'youtube_vastgoed',
-          'youtube_crypto', 'youtube_beleggingstv', 'youtube_investor', 'youtube_aquier', 'youtube_aquieres',
+        title: 'Kanalen', modules: [
+          'mh_channels', 'mh_incubator',
+          'youtube_vermogen', 'youtube_spaartv', 'youtube_vastgoed', 'youtube_crypto',
+          'youtube_beleggingstv', 'youtube_investor', 'youtube_aquier', 'youtube_aquieres',
+          'youtube_brickpulse', 'youtube_loopforge', 'youtube_slicetheory',
         ],
       },
-      { title: 'YouTube Tools', modules: ['youtube_workflow', 'youtube_analytics', 'youtube_queue', 'youtube_automation', 'youtube_calendar', 'youtube_scheduled', 'youtube_logs', 'youtube_growth'] },
+      {
+        title: 'YouTube Engine', modules: [
+          'youtube', 'youtube_workflow', 'youtube_queue', 'youtube_scheduled',
+          'youtube_analytics', 'youtube_calendar', 'youtube_automation', 'youtube_growth', 'youtube_logs',
+        ],
+      },
+      { title: 'Content & Productie', modules: ['mh_content_factory', 'mh_hooks', 'mh_retention'] },
+      { title: 'Intelligence & Scraper', modules: ['mh_compete', 'mh_trend_scanner', 'mh_viral'] },
+      { title: 'Groei & Geld', modules: ['mh_monetization', 'mh_launches'] },
       { title: 'Social Media', modules: ['instagram', 'tiktok'] },
+      { title: 'Beheer', modules: ['mh_workers', 'mh_settings'] },
       { title: 'Finance', modules: ['finance_incasso', 'financien'] },
       { title: 'Operationeel', modules: ['build_tracker', 'accounts', 'projecten', 'planning', 'crm', 'documenten', 'agenda', 'taken'] },
       { title: 'Routines Control', modules: ['routines_hub', 'routines_live', 'routines_agents', 'routines_logs'] },
