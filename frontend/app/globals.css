@@ -129,3 +129,23 @@ html[data-theme="day"] .bg-\[\#0f1117\] { background-color: #1b1d2e !important; 
 html[data-theme="day"] .bg-\[\#111\]    { background-color: #1c1c30 !important; }
 html[data-theme="day"] .bg-\[\#121220\] { background-color: #1b1b30 !important; }
 html[data-theme="day"] .bg-\[\#181830\] { background-color: #232342 !important; }
+
+/* ── Mobiel: directe tap-herkenning ────────────────────────────────────────── */
+/* Verwijdert de ~300ms dubbel-tap-zoom vertraging op alle interactieve elementen
+   zodat één tap meteen registreert (niet meer "eerst ergens drukken"). */
+button, a, [role="button"], [onclick], input, select, textarea, label, summary,
+.cursor-pointer {
+  touch-action: manipulation;
+}
+/* Geen grijze flash bij tap; eigen hover/active-stijlen blijven werken. */
+* { -webkit-tap-highlight-color: transparent; }
+
+/* Op touch-apparaten (geen echte hover): toon hover-only knoppen meteen, zodat ze
+   niet pas na een eerste "hover-tap" verschijnen. */
+@media (hover: none) and (pointer: coarse) {
+  .group:hover .group-hover\:opacity-100,
+  .group .group-hover\:opacity-100,
+  .opacity-0.group-hover\:opacity-100 { opacity: 1 !important; }
+  /* Grotere raakvlakken voor kleine icoonknoppen. */
+  button, a[role="button"], [role="button"] { min-height: 32px; }
+}
