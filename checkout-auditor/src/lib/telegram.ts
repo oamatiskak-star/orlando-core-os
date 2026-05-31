@@ -29,14 +29,23 @@ export async function sendTelegram(severity: AlertSeverity, title: string, body:
     return
   }
   const text = `${ICONS[severity]} <b>${escapeHtml(title)}</b>\n\n${escapeHtml(body).slice(0, 3500)}`
+  // Omgeleid naar Hermes: centraal loggen i.p.v. direct naar Orlando's Telegram.
+  const sbUrl = process.env.SUPABASE_URL
+  const sbKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+  if (!sbUrl || !sbKey) return
   try {
     await axios.post(
-      `https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}/sendMessage`,
-      { chat_id: env.TELEGRAM_CHAT_ID, text, parse_mode: 'HTML', disable_web_page_preview: true },
-      { timeout: 10_000 },
+      `${sbUrl}/rest/v1/rpc/log_to_hermes`,
+      {
+        source: 'checkout-auditor',
+        level: severity === 'critical' || severity === 'error' ? 'error' : severity === 'warning' ? 'warn' : 'info',
+        event: 'bot.notify',
+        message: text.slice(0, 3500),
+      },
+      { headers: { apikey: sbKey, Authorization: `Bearer ${sbKey}` }, timeout: 10_000 },
     )
   } catch (err) {
-    console.error('[checkout-auditor/telegram] send failed:', err instanceof Error ? err.message : err)
+    console.error('[checkout-auditor/telegram] hermes-log failed:', err instanceof Error ? err.message : err)
   }
 }
 

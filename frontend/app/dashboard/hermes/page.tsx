@@ -26,6 +26,7 @@ type FunnelRow  = { volgorde: number; laag: string; aantal: number; laatste: str
 type JanitorRow = { shift: string; status: string; started_at: string; dead_jobs_marked: number; stuck_claims_reset: number; stale_queued_flagged: number }
 type AlertRow   = { dedup_key: string; severity: string; alert_type: string; titel: string; detail: string | null; count: number; last_seen_at: string; notified_at: string | null }
 type StatusRow  = { laatste_run: string | null; open_critical: number; open_warning: number }
+type LogRow     = { level: string; event: string; message: string | null; source: string | null; created_at: string }
 
 const FASE_ORDE: Record<string, number> = {
   gepland: 1, in_wachtrij: 2, in_verwerking: 3, live: 4,
@@ -66,6 +67,7 @@ export default async function HermesControlPage() {
     { data: janitorData },
     { data: alertData },
     { data: statusData },
+    { data: logData },
   ] = await Promise.all([
     supabase.from('v_ctl_factory_overview').select('*'),
     supabase.from('v_ctl_upload_summary').select('*'),
@@ -74,6 +76,7 @@ export default async function HermesControlPage() {
     supabase.from('janitor_runs').select('shift, status, started_at, dead_jobs_marked, stuck_claims_reset, stale_queued_flagged').order('started_at', { ascending: false }).limit(6),
     supabase.from('v_ctl_hermes_alerts').select('*'),
     supabase.from('v_ctl_hermes_status').select('*').maybeSingle(),
+    supabase.from('v_ctl_hermes_log').select('*').limit(40),
   ])
 
   const factories = ((factData ?? []) as FactoryRow[]).sort((a, b) => b.projecten_totaal - a.projecten_totaal)
@@ -83,6 +86,7 @@ export default async function HermesControlPage() {
   const janitor   = (janitorData ?? []) as JanitorRow[]
   const alerts    = ((alertData ?? []) as AlertRow[])
   const status    = (statusData ?? null) as StatusRow | null
+  const botlog    = (logData ?? []) as LogRow[]
 
   const laatsteJanitor = janitor[0]
   const oauthProbleem  = oauth.filter(o => o.echte_status !== 'gezond').length
@@ -264,6 +268,28 @@ export default async function HermesControlPage() {
           </section>
         </div>
       </div>
+
+      {/* Centrale bot-log — alle bots loggen hier; samengevoegd met operations-Hermes */}
+      <section className="space-y-2">
+        <div className="flex items-center justify-between">
+          <h2 className="text-xs font-semibold text-white/60 flex items-center gap-2"><Brain size={13} /> Centrale bot-log</h2>
+          <a href="/dashboard/operations/hermes" className="text-[11px] text-fuchsia-300/80 hover:text-fuchsia-200">Operations-Hermes →</a>
+        </div>
+        <div className="bg-white/[0.05] border border-white/10 rounded-xl divide-y divide-white/5 max-h-72 overflow-y-auto">
+          {botlog.length === 0 && <p className="px-4 py-3 text-xs text-white/35">Nog geen log-entries.</p>}
+          {botlog.map((l, i) => {
+            const c = l.level === 'error' ? 'text-red-400' : l.level === 'warn' ? 'text-amber-400' : 'text-white/45'
+            return (
+              <div key={i} className="flex items-center gap-3 px-4 py-2 text-xs">
+                <span className={`shrink-0 w-12 ${c}`}>{l.level}</span>
+                <span className="shrink-0 text-white/35 w-32 truncate">{l.source ?? l.event}</span>
+                <span className="flex-1 text-white/70 truncate">{l.message ?? l.event}</span>
+                <span className="shrink-0 text-white/25 text-[10px]">{kort(l.created_at)}</span>
+              </div>
+            )
+          })}
+        </div>
+      </section>
     </div>
   )
 }
