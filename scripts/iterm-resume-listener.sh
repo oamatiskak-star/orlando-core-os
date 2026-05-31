@@ -24,7 +24,15 @@ POLL="${POLL_INTERVAL:-4}"
 REST="$SUPABASE_URL/rest/v1/osm_terminal_commands"
 AUTH=(-H "apikey: $SUPABASE_SERVICE_ROLE_KEY" -H "Authorization: Bearer $SUPABASE_SERVICE_ROLE_KEY")
 
+heartbeat() {
+  curl -s -m 8 -X POST "$SUPABASE_URL/rest/v1/rpc/host_heartbeat" "${AUTH[@]}" \
+    -H "Content-Type: application/json" \
+    -d "{\"p_machine\":\"$MACHINE_ID\",\"p_workers\":[\"resume-listener\"],\"p_note\":\"$MACHINE_ID online\"}" >/dev/null 2>&1 || true
+}
+
 echo "[$(date '+%H:%M:%S')] resume-listener actief op $MACHINE_ID — pollt elke ${POLL}s"
+heartbeat          # meld direct online bij Hermes
+hb_count=0
 
 # Desktop: gewone iTerm2-window. Met prompt = klembord-paste; lege prompt = verse sessie.
 launch_desktop() {
@@ -105,5 +113,7 @@ while true; do
         "$REST?id=eq.$id" -d "{\"status\":\"$st\",\"result\":{\"machine\":\"$MACHINE_ID\"}}" >/dev/null
     fi
   fi
+  hb_count=$((hb_count + 1))
+  if [ $((hb_count % 15)) -eq 0 ]; then heartbeat; fi   # ~elke 60s online-melding
   sleep "$POLL"
 done
