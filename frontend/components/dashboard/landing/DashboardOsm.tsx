@@ -9,6 +9,7 @@ import { PendingApprovalsWidget } from '@/app/dashboard/mail/_components/Pending
 import HermesControllerRoom from '@/components/dashboard/osm/HermesControllerRoom'
 import HermesPersonalChat from '@/components/dashboard/osm/HermesPersonalChat'
 import HermesExecutiveReport from '@/components/dashboard/osm/HermesExecutiveReport'
+import HermesProactiveAlerts from '@/components/dashboard/osm/HermesProactiveAlerts'
 
 const colorMap: Record<string, string> = {
   indigo:  'bg-indigo-500/10 text-indigo-400 border-indigo-500/20',
@@ -94,6 +95,8 @@ export default async function DashboardOsm() {
       <HermesControllerRoom />
 
       {companies.length > 0 && <HermesExecutiveReport companyId={companies[0].id} />}
+
+      {companies.length > 0 && <HermesProactiveAlerts companyId={companies[0].id} />}
 
       {companies.length > 0 && <HermesPersonalChat companyId={companies[0].id} />}
 
