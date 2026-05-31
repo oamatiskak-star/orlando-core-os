@@ -26,11 +26,21 @@ AUTH=(-H "apikey: $SUPABASE_SERVICE_ROLE_KEY" -H "Authorization: Bearer $SUPABAS
 
 echo "[$(date '+%H:%M:%S')] resume-listener actief op $MACHINE_ID — pollt elke ${POLL}s"
 
-# Desktop: gewone iTerm2-window, klembord-paste van de prompt.
+# Desktop: gewone iTerm2-window. Met prompt = klembord-paste; lege prompt = verse sessie.
 launch_desktop() {
   local worktree="$1" prompt="$2"
-  printf '%s' "$prompt" | pbcopy
   worktree="${worktree/#\~/$HOME}"
+  if [ -z "$prompt" ]; then
+    /usr/bin/osascript <<OSA
+tell application "iTerm2"
+  activate
+  set w to (create window with default profile)
+  tell current session of w to write text "cd '$worktree' && claude"
+end tell
+OSA
+    return
+  fi
+  printf '%s' "$prompt" | pbcopy
   /usr/bin/osascript <<OSA
 tell application "iTerm2"
   activate
@@ -53,10 +63,12 @@ launch_mobile_tmux() {
   worktree="${worktree/#\~/$HOME}"
   tmux has-session -t "$session" 2>/dev/null || tmux new-session -d -s "$session" -c "$worktree"
   tmux send-keys -t "$session" 'claude' Enter
-  sleep "$BOOT_DELAY"
-  printf '%s' "$prompt" | tmux load-buffer -
-  tmux paste-buffer -p -t "$session"          # -p = bracketed paste (Claude leest 't als één invoer)
-  tmux send-keys -t "$session" Enter
+  if [ -n "$prompt" ]; then
+    sleep "$BOOT_DELAY"
+    printf '%s' "$prompt" | tmux load-buffer -
+    tmux paste-buffer -p -t "$session"        # -p = bracketed paste (Claude leest 't als één invoer)
+    tmux send-keys -t "$session" Enter
+  fi
   # Open hetzelfde venster lokaal in iTerm2 (tmux-control mode) zodat de host meekijkt.
   /usr/bin/osascript <<OSA
 tell application "iTerm2"

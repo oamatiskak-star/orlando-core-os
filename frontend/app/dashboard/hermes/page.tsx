@@ -5,6 +5,7 @@ import {
 import { createClient } from '@/lib/supabase/server'
 import RefreshButton from './RefreshButton'
 import ShiftRoster from './ShiftRoster'
+import StartClaudeCode from '@/components/build/StartClaudeCode'
 
 export const dynamic = 'force-dynamic'
 
@@ -110,6 +111,7 @@ export default async function HermesControlPage() {
           </div>
         </div>
         <div className="flex items-center gap-2">
+          <StartClaudeCode />
           <RefreshButton />
           <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-fuchsia-500/20 bg-fuchsia-500/10 text-fuchsia-300 text-xs">
             <Clock size={13} />
