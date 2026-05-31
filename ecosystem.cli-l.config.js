@@ -70,5 +70,23 @@ module.exports = {
       error_file:    '/tmp/pm2-yt-competitor-scraper-err.log',
       time:          true,
     },
+
+    // ── YouTube discovery (1x/dag 06:30) — vindt nieuwe virale video's + kanalen,
+    //    voedt viral_opportunities -> launch-funnel. Aparte app = eigen quota-budget. ──
+    {
+      name:         'yt-discovery',
+      cwd:          `${BASE}/youtube-engine`,
+      script:       'node',
+      args:         'dist/competitor-scanner/discovery-runner.js',
+      interpreter:  'none',
+      watch:         false,
+      autorestart:   true,
+      max_restarts:  999,
+      restart_delay: 60000,
+      env: { NODE_ENV: 'production', DISCOVERY_MAX_SEARCHES: '8' },
+      log_file:      '/tmp/pm2-yt-discovery.log',
+      error_file:    '/tmp/pm2-yt-discovery-err.log',
+      time:          true,
+    },
   ],
 }

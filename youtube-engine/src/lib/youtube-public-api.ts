@@ -73,6 +73,49 @@ export async function resolveChannelHandle(input: string): Promise<string | null
   }
 }
 
+export interface YouTubeSearchHit {
+  kind:         'video' | 'channel'
+  videoId:      string | null
+  channelId:    string | null
+  title:        string
+  channelTitle: string
+  publishedAt:  string | null
+}
+
+// search.list — KOST 100 quota-units per call. Spaarzaam gebruiken (discovery 1x/dag).
+export async function searchYouTube(query: string, opts: {
+  type?:              'video' | 'channel'
+  maxResults?:        number
+  order?:             'date' | 'viewCount' | 'relevance' | 'rating'
+  regionCode?:        string
+  relevanceLanguage?: string
+  publishedAfter?:    string
+} = {}): Promise<YouTubeSearchHit[]> {
+  const yt = getClient()
+  const res = await yt.search.list({
+    part:              ['snippet'],
+    q:                 query,
+    type:              [opts.type ?? 'video'],
+    maxResults:        opts.maxResults ?? 15,
+    order:             opts.order ?? 'viewCount',
+    regionCode:        opts.regionCode,
+    relevanceLanguage: opts.relevanceLanguage,
+    publishedAfter:    opts.publishedAfter,
+  })
+  const hits: YouTubeSearchHit[] = []
+  for (const item of res.data.items ?? []) {
+    hits.push({
+      kind:         item.id?.kind?.includes('channel') ? 'channel' : 'video',
+      videoId:      item.id?.videoId ?? null,
+      channelId:    item.id?.channelId ?? null,
+      title:        item.snippet?.title ?? '',
+      channelTitle: item.snippet?.channelTitle ?? '',
+      publishedAt:  item.snippet?.publishedAt ?? null,
+    })
+  }
+  return hits
+}
+
 export interface PublicPlaylistVideo {
   videoId: string
   publishedAt: string | null
