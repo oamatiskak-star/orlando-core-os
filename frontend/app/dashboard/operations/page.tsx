@@ -1,5 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
-import { Cpu, GitBranch, CheckCircle2, XCircle, Package, Bot, ListChecks, Activity, ArrowRight, Layers, PlugZap } from 'lucide-react'
+import { Cpu, GitBranch, CheckCircle2, XCircle, Package, Bot, ListChecks, Activity, ArrowRight, Layers, PlugZap, AlertTriangle, Shield } from 'lucide-react'
 import Link from 'next/link'
 
 export default async function OperationsDashboard() {
@@ -129,6 +129,8 @@ export default async function OperationsDashboard() {
               { href: '/dashboard/operations/workflows', label: 'Workflow aanmaken', icon: GitBranch, color: 'text-emerald-400' },
               { href: '/dashboard/operations/scheduler', label: 'Taak inplannen', icon: Activity, color: 'text-sky-400' },
               { href: '/dashboard/operations/agents', label: 'Agent configureren', icon: Bot, color: 'text-pink-400' },
+              { href: '/dashboard/operations/hermes', label: 'Hermes monitoren', icon: Shield, color: 'text-cyan-400' },
+              { href: '/dashboard/operations/errors', label: 'Fouten & Recovery', icon: AlertTriangle, color: 'text-red-400' },
               { href: '/dashboard/operations/queue', label: 'Queue monitoren', icon: Package, color: 'text-indigo-400' },
               { href: '/dashboard/operations/templates', label: 'Template gebruiken', icon: Layers, color: 'text-violet-400' },
               { href: '/dashboard/operations/api-connections', label: 'API koppelen', icon: PlugZap, color: 'text-amber-400' },

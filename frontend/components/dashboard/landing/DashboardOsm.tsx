@@ -6,6 +6,7 @@ import Link from 'next/link'
 import { getDashboardStats } from '@/lib/supabase/queries'
 import { createClient } from '@/lib/supabase/server'
 import { PendingApprovalsWidget } from '@/app/dashboard/mail/_components/PendingApprovalsWidget'
+import HermesControllerRoom from '@/components/dashboard/osm/HermesControllerRoom'
 
 const colorMap: Record<string, string> = {
   indigo:  'bg-indigo-500/10 text-indigo-400 border-indigo-500/20',
@@ -87,6 +88,8 @@ export default async function DashboardOsm() {
       </div>
 
       <PendingApprovalsWidget />
+
+      <HermesControllerRoom />
 
       <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3">
         {STAT_CARDS.map((card) => {
