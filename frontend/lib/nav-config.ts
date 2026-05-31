@@ -197,7 +197,7 @@ export const NAV_MODULES: Record<string, NavModuleDef> = {
   // ── AQUIER — GLOBAL EXPANSION COMMAND ────────────────────────────────────
   aquier_hub:          { key: 'aquier_hub',          label: 'Aquier',                  href: '/dashboard/aquier',                  icon: Globe },
   aquier_projecten:    { key: 'aquier_projecten',    label: 'Projecten',               href: '/dashboard/aquier/projecten',        icon: Briefcase },
-  aquier_planning:     { key: 'aquier_planning',     label: 'Planning',                href: '/dashboard/aquier/planning',         icon: GanttChart },
+  aquier_planning:     { key: 'aquier_planning',     label: 'Sprints',                 href: '/dashboard/aquier/planning',         icon: GanttChart },
   aquier_agenda:       { key: 'aquier_agenda',       label: 'Agenda',                  href: '/dashboard/aquier/agenda',           icon: Calendar },
   aquier_ai_lead:      { key: 'aquier_ai_lead',      label: 'AI Project Leider',       href: '/dashboard/aquier/ai-lead',          icon: UserCog },
   aquier_monitor:      { key: 'aquier_monitor',      label: 'Dagelijkse Monitoring',   href: '/dashboard/aquier/monitor',          icon: Gauge },
@@ -328,8 +328,9 @@ export const COMPANY_NAV: Record<string, CompanyNav> = {
   'modiwe-software': {
     sections: [
       { modules: ['dashboard'] },
-      { title: 'Aquier', modules: ['aquier_hub', 'aquier_verzamelaar', 'aquier_projecten', 'aquier_planning', 'aquier_agenda', 'aquier_ai_lead', 'aquier_monitor', 'aquier_approvals', 'aquier_audit', 'aquier_forecast', 'fb_offmarket', 'fb_property'] },
+      { title: 'Aquier', modules: ['aquier_hub', 'aquier_verzamelaar', 'aquier_projecten', 'aquier_planning', 'aquier_agenda', 'aquier_ai_lead', 'aquier_monitor', 'aquier_approvals', 'aquier_audit', 'aquier_forecast'] },
       { title: 'Scrapers & Data', modules: ['acq_offmarket', 'acq_permits', 'acq_municipalities'] },
+      { title: 'Social', modules: ['fb_offmarket', 'fb_property'] },
       { title: 'SaaS', modules: ['projecten'] },
       { title: 'Holding Ecosystem', modules: ['holding_milestones', 'seo_network'] },
       { title: 'Finance', modules: ['finance_incasso', 'financien'] },

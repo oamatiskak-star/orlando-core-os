@@ -67,10 +67,13 @@ export default async function MonitorPage() {
         <div className="w-9 h-9 rounded-xl bg-blue-500/10 border border-blue-500/20 flex items-center justify-center">
           <Gauge size={16} className="text-blue-400" />
         </div>
-        <div>
+        <div className="flex-1">
           <h1 className="text-base font-semibold text-white">Dagelijkse Monitoring & Advies</h1>
           <p className="text-xs text-white/50">KPI-deltas, alerts en aanbevelingen van AI agents</p>
         </div>
+        <Link href="/dashboard/aquier/approvals" className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-300 text-xs hover:bg-amber-500/15">
+          Acteer via Approvals →
+        </Link>
       </div>
 
       {/* Severity summary */}
