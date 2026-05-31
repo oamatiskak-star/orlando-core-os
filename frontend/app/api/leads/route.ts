@@ -32,7 +32,7 @@ export async function POST(req: NextRequest) {
     event: 'lead.nieuw',
     message: `Nieuwe ${lead_type} voor ${company.name}: ${name ?? email ?? phone}`,
     context: { lead_type, slug, email, phone },
-  }).catch(() => {})
+  }).then(() => {}, () => {})
 
   return NextResponse.json({ ok: true })
 }
