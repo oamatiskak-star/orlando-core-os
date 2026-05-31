@@ -39,6 +39,30 @@
     {
       "path": "/api/youtube/cron/run-analyst",
       "schedule": "30 10 * * *"
+    },
+    {
+      "path": "/api/acquisition/cron/bouw-scan",
+      "schedule": "0 4 * * *"
+    },
+    {
+      "path": "/api/acquisition/cron/distress-scan",
+      "schedule": "20 4 * * *"
+    },
+    {
+      "path": "/api/acquisition/cron/permit-scan",
+      "schedule": "40 4 * * *"
+    },
+    {
+      "path": "/api/acquisition/cron/offmarket-scan",
+      "schedule": "0 5 * * *"
+    },
+    {
+      "path": "/api/acquisition/cron/deal-scan",
+      "schedule": "20 5 * * *"
+    },
+    {
+      "path": "/api/acquisition/cron/director-briefing",
+      "schedule": "40 5 * * *"
     }
   ]
 }

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { reportHeartbeat } from '@/lib/watchdog/heartbeat'
+import { radarWindowOpen } from '@/lib/acq/radar-window'
 
 export const revalidate = 0
 export const maxDuration = 120
@@ -13,6 +14,10 @@ export async function GET(req: NextRequest) {
   const authHeader = req.headers.get('authorization')
   if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  }
+
+  if (!(await radarWindowOpen('director-briefing'))) {
+    return NextResponse.json({ ok: true, skipped: true, reason: 'buiten_planner_venster' })
   }
 
   const engineUrl = process.env.ACQUISITION_ENGINE_URL

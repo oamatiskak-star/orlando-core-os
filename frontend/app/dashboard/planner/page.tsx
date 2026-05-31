@@ -59,9 +59,10 @@ export default function PlannerPage() {
     return m
   }, [engines])
 
-  // Overlap-detectie tussen blokken (waarschuwing)
+  // Overlap-detectie: alleen zware blokken (weight ≥ 2) mogen niet overlappen;
+  // lichte blokken (mail-ops e.d.) mogen samenlopen zonder grote batch.
   const overlaps = useMemo(() => {
-    const on = blocks.filter(b => b.enabled)
+    const on = blocks.filter(b => b.enabled && b.weight >= 2)
     const warn: string[] = []
     for (let i = 0; i < on.length; i++) for (let j = i + 1; j < on.length; j++) {
       const a = on[i], b = on[j]

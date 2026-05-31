@@ -5,7 +5,6 @@ import clsx from 'clsx'
 import Link from 'next/link'
 import { getDashboardStats } from '@/lib/supabase/queries'
 import { createClient } from '@/lib/supabase/server'
-import { PendingApprovalsWidget } from '@/app/dashboard/mail/_components/PendingApprovalsWidget'
 import HermesControllerRoom from '@/components/dashboard/osm/HermesControllerRoom'
 import HermesPersonalChat from '@/components/dashboard/osm/HermesPersonalChat'
 import HermesExecutiveReport from '@/components/dashboard/osm/HermesExecutiveReport'
@@ -100,8 +99,6 @@ export default async function DashboardOsm() {
           {companies.length > 0 && <HermesPersonalChat companyId={companies[0].id} />}
         </div>
       </div>
-
-      <PendingApprovalsWidget />
 
       {companies.length > 0 && <HermesExecutiveReport companyId={companies[0].id} />}
 

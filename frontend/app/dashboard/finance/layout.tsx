@@ -17,6 +17,7 @@ const FINANCE_NAV = [
   { label: 'Belasting',    href: '/dashboard/finance/cfo/belasting', group: 'CFO' },
   { label: 'AI Inzichten', href: '/dashboard/finance/cfo/inzichten', group: 'CFO' },
   { label: 'CFO Rapport',  href: '/dashboard/finance/cfo/rapport',   group: 'CFO' },
+  { label: 'Moneybird',    href: '/dashboard/finance/moneybird',     group: 'Beheer' },
   { label: 'Workflows',    href: '/dashboard/finance/workflows',     group: 'Beheer' },
   { label: 'Rapportages',  href: '/dashboard/finance/rapportages',   group: 'Beheer' },
   { label: 'Templates',    href: '/dashboard/finance/templates',     group: 'Beheer' },
