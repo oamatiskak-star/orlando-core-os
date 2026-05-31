@@ -3,6 +3,7 @@ import { getRedis, QUEUE_NAMES, RecoverJobData, enqueueUpload, enqueueNormalize,
 import { getSupabase, updateQueueStatus, addLog } from '../lib/supabase'
 import { buildOAuthClient, setVideoPublic } from '../lib/youtube-api'
 import { notifyUploadFailure } from '../lib/notifications'
+import { emitErrorEvent } from '../lib/error-emission'
 import { workerLogger } from '../lib/logger'
 import path from 'path'
 
@@ -171,6 +172,22 @@ export function startYouTubeRecoveryWorker(): Worker {
     const { queueId, videoId } = job.data
     log.error('Recovery job failed', { queueId, error: err.message })
     await addLog(queueId, videoId, 'error', `Recovery worker error: ${err.message}`)
+
+    // Emit error to Hermes
+    await emitErrorEvent({
+      errorCode: 'recovery_worker_failed',
+      taskId: queueId,
+      taskType: 'youtube_upload',
+      message: err.message,
+      severity: 'error',
+      workerId: 'youtube-recovery-worker',
+      metadata: {
+        videoId,
+        jobId: job.id,
+        attemptsMade: job.attemptsMade,
+      },
+      stackTrace: err.stack,
+    }).catch(() => {})
   })
 
   log.info('YouTube recovery worker started')
