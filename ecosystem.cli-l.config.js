@@ -51,5 +51,42 @@ module.exports = {
       error_file:    '/tmp/pm2-local-watchdog-err.log',
       time:          true,
     },
+
+    // ── Lokale YouTube competitor-scraper (dagploeg-vensters 06:00 & 14:00) ──
+    // Draait apart van de Docker youtube-engine. Vereist youtube-engine/.env met
+    // SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, YOUTUBE_DATA_API_KEY.
+    {
+      name:         'yt-competitor-scraper',
+      cwd:          `${BASE}/youtube-engine`,
+      script:       'node',
+      args:         'dist/competitor-scanner/local-runner.js',
+      interpreter:  'none',
+      watch:         false,
+      autorestart:   true,
+      max_restarts:  999,
+      restart_delay: 30000,
+      env: { NODE_ENV: 'production' },
+      log_file:      '/tmp/pm2-yt-competitor-scraper.log',
+      error_file:    '/tmp/pm2-yt-competitor-scraper-err.log',
+      time:          true,
+    },
+
+    // ── YouTube discovery (1x/dag 06:30) — vindt nieuwe virale video's + kanalen,
+    //    voedt viral_opportunities -> launch-funnel. Aparte app = eigen quota-budget. ──
+    {
+      name:         'yt-discovery',
+      cwd:          `${BASE}/youtube-engine`,
+      script:       'node',
+      args:         'dist/competitor-scanner/discovery-runner.js',
+      interpreter:  'none',
+      watch:         false,
+      autorestart:   true,
+      max_restarts:  999,
+      restart_delay: 60000,
+      env: { NODE_ENV: 'production', DISCOVERY_MAX_SEARCHES: '8' },
+      log_file:      '/tmp/pm2-yt-discovery.log',
+      error_file:    '/tmp/pm2-yt-discovery-err.log',
+      time:          true,
+    },
   ],
 }

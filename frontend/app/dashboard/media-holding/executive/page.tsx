@@ -37,6 +37,7 @@ export default function ExecutiveOverviewPage() {
   const [atlasReport, setAtlasReport] = useState<{ id: string; title: string; summary_md: string; generated_at: string } | null>(null)
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
+  const [generating, setGenerating] = useState(false)
 
   const load = useCallback(async () => {
     setRefreshing(true)
@@ -62,6 +63,16 @@ export default function ExecutiveOverviewPage() {
     setLoading(false)
     setRefreshing(false)
   }, [])
+
+  const generateAtlas = useCallback(async () => {
+    setGenerating(true)
+    try {
+      await fetch('/api/executive-layer/agents/run/atlas', { method: 'POST' })
+      await load()
+    } finally {
+      setGenerating(false)
+    }
+  }, [load])
 
   useEffect(() => {
     load()
@@ -212,9 +223,18 @@ export default function ExecutiveOverviewPage() {
         icon={<Crown size={12} className="text-violet-300" />}
         accent="amplify"
         glow={!!atlasReport}
-        action={atlasReport
-          ? <span className="text-[10px] text-white/40">{new Date(atlasReport.generated_at).toLocaleString('nl-NL')}</span>
-          : null}
+        action={
+          <div className="flex items-center gap-2">
+            {atlasReport && <span className="text-[10px] text-white/40">{new Date(atlasReport.generated_at).toLocaleString('nl-NL')}</span>}
+            <button
+              onClick={generateAtlas}
+              disabled={generating}
+              className="flex items-center gap-1 px-2 py-1 text-[10px] rounded-md bg-violet-500/15 border border-violet-400/30 text-violet-200 hover:bg-violet-500/25 disabled:opacity-50 transition-colors"
+            >
+              <Crown size={10} /> {generating ? 'Genereren…' : 'Genereer nu'}
+            </button>
+          </div>
+        }
       >
         {atlasReport ? (
           <div>
