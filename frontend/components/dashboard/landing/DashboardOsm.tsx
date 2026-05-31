@@ -10,6 +10,7 @@ import HermesControllerRoom from '@/components/dashboard/osm/HermesControllerRoo
 import HermesPersonalChat from '@/components/dashboard/osm/HermesPersonalChat'
 import HermesExecutiveReport from '@/components/dashboard/osm/HermesExecutiveReport'
 import HermesProactiveAlerts from '@/components/dashboard/osm/HermesProactiveAlerts'
+import HermesMemory from '@/components/dashboard/osm/HermesMemory'
 
 const colorMap: Record<string, string> = {
   indigo:  'bg-indigo-500/10 text-indigo-400 border-indigo-500/20',
@@ -98,7 +99,10 @@ export default async function DashboardOsm() {
 
       {companies.length > 0 && <HermesProactiveAlerts companyId={companies[0].id} />}
 
-      {companies.length > 0 && <HermesPersonalChat companyId={companies[0].id} />}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        {companies.length > 0 && <HermesMemory companyId={companies[0].id} />}
+        {companies.length > 0 && <HermesPersonalChat companyId={companies[0].id} />}
+      </div>
 
       <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3">
         {STAT_CARDS.map((card) => {
