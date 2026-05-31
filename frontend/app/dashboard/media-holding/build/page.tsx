@@ -1,5 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
-import { Layers, CheckCircle2, Zap, Circle, AlertTriangle } from 'lucide-react'
+import { Layers, CheckCircle2, Zap, Circle } from 'lucide-react'
 import ModuleStatusGrid from './ModuleStatusGrid'
 
 const FASE_STATUS_STYLE: Record<string, string> = {
@@ -31,6 +31,10 @@ export default async function BuildTrackerPage() {
   const totalBuilding = modList.filter(m => m.status === 'building').length
   const totalPending = modList.filter(m => m.status === 'pending').length
 
+  // Afgeronde fases wegvouwen — dashboard toont alleen lopend werk
+  const lopendeFases   = phList.filter(f => f.status !== 'completed')
+  const voltooideFases = phList.filter(f => f.status === 'completed')
+
   return (
     <div className="space-y-6">
 
@@ -58,44 +62,78 @@ export default async function BuildTrackerPage() {
         </div>
       </div>
 
-      {/* Fase overzicht */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2">
-        {phList.map(fase => {
-          const faseMods = modList.filter(m => m.fase_nr === fase.fase_nr)
-          const live = faseMods.filter(m => m.status === 'live').length
-          return (
-            <div key={fase.id} className="bg-white/[0.04] border border-white/8 rounded-xl p-3 space-y-2">
-              <div className="flex items-center justify-between">
-                <span className="text-[10px] text-white/35 uppercase">Fase {fase.fase_nr}</span>
-                <span className={`text-[9px] font-medium px-1.5 py-0.5 rounded-full border ${FASE_STATUS_STYLE[fase.status]}`}>
-                  {FASE_STATUS_LABEL[fase.status]}
-                </span>
+      {/* Lopende fases — alleen actief werk prominent */}
+      {lopendeFases.length > 0 ? (
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2">
+          {lopendeFases.map(fase => {
+            const faseMods = modList.filter(m => m.fase_nr === fase.fase_nr)
+            const live = faseMods.filter(m => m.status === 'live').length
+            return (
+              <div key={fase.id} className="bg-white/[0.04] border border-white/8 rounded-xl p-3 space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] text-white/35 uppercase">Fase {fase.fase_nr}</span>
+                  <span className={`text-[9px] font-medium px-1.5 py-0.5 rounded-full border ${FASE_STATUS_STYLE[fase.status]}`}>
+                    {FASE_STATUS_LABEL[fase.status]}
+                  </span>
+                </div>
+                <p className="text-xs font-semibold text-white/80 leading-tight">{fase.naam}</p>
+                <div className="w-full h-1 bg-white/8 rounded-full overflow-hidden">
+                  <div
+                    className="h-full rounded-full transition-all duration-700"
+                    style={{
+                      width: `${fase.voortgang}%`,
+                      backgroundColor: fase.status === 'active' ? '#a78bfa' : fase.status === 'building' ? '#fbbf24' : '#ffffff20',
+                    }}
+                  />
+                </div>
+                <p className="text-[10px] text-white/30">{live}/{faseMods.length} modules</p>
               </div>
-              <p className="text-xs font-semibold text-white/80 leading-tight">{fase.naam}</p>
-              <div className="w-full h-1 bg-white/8 rounded-full overflow-hidden">
-                <div
-                  className="h-full rounded-full transition-all duration-700"
-                  style={{
-                    width: `${fase.voortgang}%`,
-                    backgroundColor: fase.status === 'active' ? '#a78bfa' : fase.status === 'building' ? '#fbbf24' : fase.status === 'completed' ? '#34d399' : '#ffffff20',
-                  }}
-                />
-              </div>
-              <p className="text-[10px] text-white/30">{live}/{faseMods.length} modules</p>
-            </div>
-          )
-        })}
-      </div>
+            )
+          })}
+        </div>
+      ) : (
+        <div className="flex items-center gap-2 text-xs text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 rounded-xl px-4 py-3">
+          <CheckCircle2 size={14} /> Alle fases voltooid — geen lopend werk.
+        </div>
+      )}
 
-      {/* Module grid — client component for status updates */}
-      <div className="bg-white/[0.04] border border-white/8 rounded-2xl p-5">
-        <h2 className="text-sm font-semibold text-white mb-5 flex items-center gap-2">
+      {/* Voltooide fases — samengevouwen, niet als open werk */}
+      {voltooideFases.length > 0 && (
+        <details className="group">
+          <summary className="cursor-pointer list-none flex items-center gap-2 text-xs text-white/45 hover:text-white/70 select-none">
+            <CheckCircle2 size={13} className="text-emerald-400" />
+            {voltooideFases.length} voltooide fases — klik om te tonen
+          </summary>
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2 mt-3 opacity-70">
+            {voltooideFases.map(fase => {
+              const faseMods = modList.filter(m => m.fase_nr === fase.fase_nr)
+              const live = faseMods.filter(m => m.status === 'live').length
+              return (
+                <div key={fase.id} className="bg-white/[0.03] border border-white/8 rounded-xl p-3 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] text-white/35 uppercase">Fase {fase.fase_nr}</span>
+                    <span className="text-[9px] font-medium px-1.5 py-0.5 rounded-full border bg-emerald-500/15 border-emerald-500/25 text-emerald-400">Voltooid</span>
+                  </div>
+                  <p className="text-xs font-semibold text-white/70 leading-tight">{fase.naam}</p>
+                  <p className="text-[10px] text-white/30">{live}/{faseMods.length} modules</p>
+                </div>
+              )
+            })}
+          </div>
+        </details>
+      )}
+
+      {/* Module grid — samengevouwen (klik om uit te klappen) */}
+      <details className="bg-white/[0.04] border border-white/8 rounded-2xl p-5">
+        <summary className="text-sm font-semibold text-white flex items-center gap-2 cursor-pointer list-none select-none">
           <Layers size={14} className="text-white/50" />
           Alle modules
-          <span className="text-[11px] text-white/35 font-normal ml-1">— klik op een module om status te updaten</span>
-        </h2>
-        <ModuleStatusGrid initialModules={modList} />
-      </div>
+          <span className="text-[11px] text-white/35 font-normal ml-1">— klik om uit te klappen, daarna een module om de status te updaten</span>
+        </summary>
+        <div className="mt-5">
+          <ModuleStatusGrid initialModules={modList} />
+        </div>
+      </details>
     </div>
   )
 }
