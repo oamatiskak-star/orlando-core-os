@@ -63,10 +63,6 @@
     {
       "path": "/api/acquisition/cron/director-briefing",
       "schedule": "40 5 * * *"
-    },
-    {
-      "path": "/api/mail/cron/auto-approve",
-      "schedule": "*/15 7-22 * * *"
     }
   ]
 }
