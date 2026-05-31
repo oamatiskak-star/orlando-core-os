@@ -7,6 +7,8 @@ import { getDashboardStats } from '@/lib/supabase/queries'
 import { createClient } from '@/lib/supabase/server'
 import { PendingApprovalsWidget } from '@/app/dashboard/mail/_components/PendingApprovalsWidget'
 import HermesControllerRoom from '@/components/dashboard/osm/HermesControllerRoom'
+import HermesPersonalChat from '@/components/dashboard/osm/HermesPersonalChat'
+import HermesExecutiveReport from '@/components/dashboard/osm/HermesExecutiveReport'
 
 const colorMap: Record<string, string> = {
   indigo:  'bg-indigo-500/10 text-indigo-400 border-indigo-500/20',
@@ -90,6 +92,10 @@ export default async function DashboardOsm() {
       <PendingApprovalsWidget />
 
       <HermesControllerRoom />
+
+      {companies.length > 0 && <HermesExecutiveReport companyId={companies[0].id} />}
+
+      {companies.length > 0 && <HermesPersonalChat companyId={companies[0].id} />}
 
       <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3">
         {STAT_CARDS.map((card) => {
