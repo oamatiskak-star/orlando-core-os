@@ -100,7 +100,7 @@ export default async function HermesControlPage() {
   return (
     <div className="space-y-5">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-3">
           <div className="w-9 h-9 rounded-xl bg-fuchsia-500/10 border border-fuchsia-500/20 flex items-center justify-center">
             <Brain size={16} className="text-fuchsia-400" />
@@ -110,7 +110,7 @@ export default async function HermesControlPage() {
             <p className="text-xs text-white/45">De echte stand over alle 7 fabrieken · live berekend, geen opgeslagen vlaggen</p>
           </div>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center [&>*]:w-full sm:[&>*]:w-auto [&>*]:justify-center sm:[&>*]:justify-start">
           <StartClaudeCode />
           <RefreshButton />
           <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-fuchsia-500/20 bg-fuchsia-500/10 text-fuchsia-300 text-xs">
