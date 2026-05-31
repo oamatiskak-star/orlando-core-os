@@ -8,7 +8,7 @@
 
 **Sessie focus (2026-05-31, sessie 15)**: Orlando mist controle/overzicht. Diagnose via live DB `shaunumewswpxhmgbtvv` + start controlelaag.
 
-**🚀 DEPLOY-STATUS:** branch `feature/hermes-control-layer` GEPUSHT (5 commits: controlelaag-dashboard + OAuth-fixes + refresh-knop + lokale YouTube-scraper + Media Holding nav-consolidatie).
+**🚀 DEPLOY-STATUS:** branch `feature/hermes-control-layer` (controlelaag-dashboard + OAuth-fixes + refresh-knop + lokale YouTube-scraper + Media Holding nav-consolidatie + dead-end knoppen + pagina-merges). Gemerged met origin/main (parallel Hermes-systeem).
 **Scraper blok 1 (volglijst, lokaal):** `youtube-engine/src/competitor-scanner/local-runner.ts` + `seed-channels.ts` + PM2-app `yt-competitor-scraper` in `ecosystem.cli-l.config.js` (dagploeg 06/14). Activeren: youtube-engine op CLI-L builden + `.env` met YOUTUBE_DATA_API_KEY, volglijst cureren, `pm2 start ecosystem.cli-l.config.js --only yt-competitor-scraper`. Schrijft naar `scraper_runs` (source=youtube_competitor) → lost Hermes scraper_idle op. Docker competitor-surveillance-yt OFFLINE laten (anders dubbel). Blok 2 = discovery + launch-funnel.
 **Scraper blok 2 (discovery + funnel):** `discovery-runner.ts` + `discovery-keywords.ts` + `searchYouTube()` in youtube-public-api + PM2-app `yt-discovery` (06:30, DISCOVERY_MAX_SEARCHES=8). Zoekt virale video's op niche-keywords → scoort (virality 0-100) → `viral_opportunities` → bestaande trigger `bridge_viral_to_osil()` (>=70 → osil 'radar'/'onderzoek' voorstel; >=100 → 'onderzoek') → osil 'actief' (goedkeuring Orlando/AI) → `media_holding_channels`. Funnel END-TO-END GEVERIFIEERD (test viral 100 → osil 'onderzoek' auto, opgeruimd). Goedkeuringsstap osil→actief bewust handmatig (geen blind auto-aanmaken). CHECK: autopilot_config `osil_actief_to_launch` enabled? Nieuwe kanalen → competitor_channels (volglijst-scraper verrijkt). Activeren = zelfde als blok 1 (API key + pm2 start yt-discovery).
 **Nav-consolidatie:** modiwe-media nav = Media Holding OS paraplu (YouTube Engine als subsectie, geen dubbele layer). 16 MH suite-pagina's ontsloten + 3 lab-kanalen + 'Alle Kanalen' (dynamisch). 53 module-refs geverifieerd. Vercel preview klaar → Orlando promote. CLI-R youtube-engine rebuild = Orlando via SSH. DB-laag (alle migraties) al op prod. **Open Orlando-acties:** (1) Vercel promote/merge, (2) Google OAuth consent screen → Publish (anders 7-daagse tokens), (3) `ssh cli-r` → `cd ~/Github/orlando-core-os && git fetch && git checkout main && git pull && docker compose -f docker-compose.cli-r.yml up -d --build youtube-engine`, (4) 11 kanalen reconnecten via `/api/youtube/oauth/connect?channel_uuid=<id>`, (5) Hermes-dashboard "Ververs & hercheck".
@@ -110,9 +110,15 @@ Via `ssh cli-l` opgezet (CLI-R kon het niet: geen `.env`/LLM). Stappen:
 - Gestart host-onafhankelijk vanuit `local-agent/`: `pm2 start node_modules/.bin/ts-node --name account-setup-runner --interpreter none -- --transpile-only src/account-setup-runner.ts` + `pm2 save`. (NB: ecosystem.config.js `BASE` is hardcoded naar het CLI-R-pad `/Users/bouwproffsnederlandbv/...` → `--only`-start zou op CLI-L verkeerde `cwd` pakken. Portability-bug, nog te fixen.)
 - Geverifieerd: runner `online` (0 restarts), pakte run `6256078b` (terms_analysis) op en **completed in ~16s via Ollama**; audit `terms_analysis.completed` 14:07:45; queue nu **6 completed / 0 queued**.
 
-**Open follow-ups:**
-1. `pm2 startup` op CLI-L voor herstart-na-reboot (vereist sudo; `pm2 save` is al gedaan voor `pm2 resurrect`).
-2. ecosystem.config.js `BASE` dynamisch maken (bv. `process.env.ORLANDO_REPO || __dirname`-afgeleide) zodat `--only account-setup-runner` op elke host werkt.
+**Follow-ups (sessie 13b):**
+1. ✅ **BASE-fix** — `ecosystem.config.js` `BASE` → `process.env.ORLANDO_REPO || __dirname` + `youtube-watchdog out_file` → `os.homedir()` (**PR #56**). Gevalideerd op CLI-L (cwd resolvt naar `/Users/o.s.m.amatiskak/...`). Runner daar **herregistreerd via de config** (`pm2 start ecosystem.config.js --only account-setup-runner` + `pm2 save`) — nu config-gedreven, online.
+2. ⏳ **`pm2 startup` op CLI-L** — vereist sudo-wachtwoord (passwordless sudo NIET aan op CLI-L), dus door Orlando interactief te draaien op `ssh cli-l`:
+   ```
+   sudo env PATH=$PATH:/Users/o.s.m.amatiskak/.nvm/versions/node/v22.22.3/bin \
+     /Users/o.s.m.amatiskak/.nvm/versions/node/v22.22.3/lib/node_modules/pm2/bin/pm2 \
+     startup launchd -u o.s.m.amatiskak --hp /Users/o.s.m.amatiskak
+   ```
+   Daarna draait `pm2 resurrect` (dump al opgeslagen) de runner automatisch na reboot. Tot dan: runner draait, maar overleeft een reboot van CLI-L niet.
 
 ---
 

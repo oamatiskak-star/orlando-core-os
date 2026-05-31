@@ -3,6 +3,7 @@ import { getSupabase, updateQueueStatus, addLog } from '../lib/supabase'
 import { enqueueUpload, enqueueAnalytics } from '../lib/redis-queue'
 import { buildOAuthClient, setVideoPublic } from '../lib/youtube-api'
 import { notifyUploadStarted, notifyQuotaLimit } from '../lib/notifications'
+import { emitErrorEvent } from '../lib/error-emission'
 import { workerLogger } from '../lib/logger'
 
 const log = workerLogger('orchestrator')
@@ -153,11 +154,41 @@ async function pollStuckProcessing(): Promise<void> {
     log.warn('Stuck upload detected', { queueId: item.id, retries: item.retry_count })
 
     if ((item.retry_count ?? 0) >= (item.max_retries ?? 5)) {
+      await emitErrorEvent({
+        errorCode: 'upload_stuck_exhausted',
+        taskId: item.id,
+        taskType: 'youtube_upload',
+        message: 'Stuck upload — automatic retry exhausted',
+        severity: 'error',
+        workerId: 'upload-orchestrator',
+        metadata: {
+          videoId: item.video_id,
+          channelId: item.channel_id,
+          retryCount: item.retry_count,
+          maxRetries: item.max_retries,
+        },
+      }).catch(() => {})
+
       await updateQueueStatus(item.id, 'manual_review_required', {
         last_error: 'Stuck upload — automatic retry exhausted',
       })
       continue
     }
+
+    await emitErrorEvent({
+      errorCode: 'upload_stuck',
+      taskId: item.id,
+      taskType: 'youtube_upload',
+      message: 'Stuck upload detected — retrying',
+      severity: 'warning',
+      workerId: 'upload-orchestrator',
+      metadata: {
+        videoId: item.video_id,
+        channelId: item.channel_id,
+        currentRetry: (item.retry_count ?? 0) + 1,
+        maxRetries: item.max_retries,
+      },
+    }).catch(() => {})
 
     await updateQueueStatus(item.id, 'retrying', {
       retry_count: (item.retry_count ?? 0) + 1,
@@ -289,9 +320,37 @@ async function publishOverdueVideos(): Promise<void> {
       // Quota exhausted — stop immediately, no point hammering remaining items
       if (msg.includes('quota')) {
         log.warn('publishOverdueVideos: quota exhausted, stopping run', { remaining: toPublish.length })
+        await emitErrorEvent({
+          errorCode: 'publish_quota_exhausted',
+          taskId: item.id,
+          taskType: 'youtube_publish',
+          message: 'YouTube API quota exhausted during scheduled publish',
+          severity: 'critical',
+          workerId: 'upload-orchestrator',
+          metadata: {
+            videoId: item.video_id,
+            youtubeVideoId: item.youtube_video_id,
+            channelId: item.channel_id,
+            itemsRemaining: toPublish.length,
+          },
+        }).catch(() => {})
         return
       }
       log.error('publishOverdueVideos failed for item', { queueId: item.id, error: msg })
+      await emitErrorEvent({
+        errorCode: 'publish_failed',
+        taskId: item.id,
+        taskType: 'youtube_publish',
+        message: `Failed to publish video: ${msg}`,
+        severity: 'error',
+        workerId: 'upload-orchestrator',
+        metadata: {
+          videoId: item.video_id,
+          youtubeVideoId: item.youtube_video_id,
+          channelId: item.channel_id,
+        },
+        stackTrace: (err as Error).stack,
+      }).catch(() => {})
     }
   }
 }

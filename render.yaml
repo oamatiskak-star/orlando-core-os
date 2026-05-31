@@ -277,6 +277,37 @@ services:
       - key: AGENT_TIMEZONE
         value: "Europe/Amsterdam"
 
+  - type: web
+    name: orlando-hermes
+    runtime: node
+    rootDir: services/hermes
+    buildCommand: npm install --include=dev && npm run build
+    startCommand: npm start
+    plan: starter
+    autoDeploy: true
+    healthCheckPath: /healthz
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: HERMES_PORT
+        value: "3009"
+      - key: HERMES_LOG_LEVEL
+        value: "info"
+      - key: HERMES_ENV
+        value: production
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+      - key: WHATSAPP_CLOUD_API_TOKEN
+        sync: false
+      - key: WHATSAPP_PHONE_NUMBER_ID
+        sync: false
+      - key: WHATSAPP_VERIFY_TOKEN
+        sync: false
+      - key: WHATSAPP_APP_SECRET
+        sync: false
+
   - type: redis
     name: orlando-redis
     plan: starter

@@ -39,6 +39,26 @@ module.exports = {
       time:        true,
     },
 
+    // ── Dispatch Runner — Hermes CLI-L/CLI-R werkverdeling (P5.1) ──────────────
+    // Host-heartbeat + stale-reaper + surfacing van hermes.dispatch_queue. Draai
+    // op ELKE host (CLI-L én CLI-R); DISPATCH_HOST_ID/WATCHDOG_HOST_ID bepaalt welke.
+    // Voert GEEN Claude-werk autonoom uit — verdeelt/bewaakt alleen.
+    {
+      name:        'dispatch-runner',
+      cwd:         `${BASE}/local-agent`,
+      script:      'npx',
+      args:        'ts-node --transpile-only src/dispatch-runner.ts',
+      interpreter: 'none',
+      watch:       false,
+      autorestart: true,
+      max_restarts: 999,
+      restart_delay: 5000,
+      env: { NODE_ENV: 'production' },
+      log_file:    '/tmp/pm2-dispatch-runner.log',
+      error_file:  '/tmp/pm2-dispatch-runner-err.log',
+      time:        true,
+    },
+
     // ── Browser Registration Runner — headed Chromium co-pilot (alleen CLI-L) ──
     // Stuurt een ECHTE browser aan om affiliate-formulieren in te vullen; pauzeert
     // vóór elke submit tot goedkeuring in het dashboard. Vereist een desktop-sessie

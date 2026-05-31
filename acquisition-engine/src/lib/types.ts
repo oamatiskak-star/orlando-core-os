@@ -42,3 +42,54 @@ export interface AgentRunResult {
   jobsCreated: number
   duration_ms: number
 }
+
+// ── Startup Investor Scout (fundraising voor Modiwe/Aquier) ──────────────────
+
+export type FundInvestorType =
+  | 'vc' | 'angel' | 'family_office' | 'accelerator'
+  | 'grant' | 'corporate_vc' | 'rom' | 'crowdfunding'
+
+export type FundProspectStatus =
+  | 'nieuw' | 'verrijkt' | 'gekwalificeerd' | 'afgewezen'
+  | 'outreach_queued' | 'in_gesprek' | 'term_sheet' | 'gesloten'
+
+export interface FundProspect {
+  id: string
+  name: string
+  investor_type: FundInvestorType
+  thesis: string | null
+  focus_sectors: string[]
+  stage_focus: string[]
+  ticket_min_eur: number | null
+  ticket_max_eur: number | null
+  geo_focus: string[]
+  website: string | null
+  source: string
+  source_url: string | null
+  notable_portfolio: string[]
+  fit_score: number | null
+  fit_reasoning: string | null
+  status: FundProspectStatus
+  priority: 'laag' | 'normaal' | 'hoog'
+  last_action: string | null
+  last_action_at: string | null
+  next_action_at: string | null
+  dedupe_key: string | null
+  created_at: string
+  updated_at: string
+}
+
+export interface FundContact {
+  id: string
+  prospect_id: string
+  name: string
+  role: string | null
+  email: string | null
+  linkedin_url: string | null
+  warm_intro_path: string | null
+  is_primary: boolean
+  crm_contact_id: string | null
+  notes: string | null
+  created_at: string
+  updated_at: string
+}

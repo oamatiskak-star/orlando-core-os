@@ -10,7 +10,20 @@ const ICONS: Record<AlertSeverity, string> = {
   critical: '🚨',
 }
 
+const SEVERITY_RANK: Record<AlertSeverity, number> = { info: 10, warning: 20, error: 30, critical: 40 }
+
+// Anti-spam gate: alleen meldingen >= TELEGRAM_MIN_SEVERITY gaan naar Telegram.
+// Default 'warning' dempt de info-melding "audit ok, geen findings" per run.
+function minSeverityRank(): number {
+  const v = (process.env.TELEGRAM_MIN_SEVERITY ?? 'warning').toLowerCase() as AlertSeverity
+  return SEVERITY_RANK[v] ?? SEVERITY_RANK.warning
+}
+
 export async function sendTelegram(severity: AlertSeverity, title: string, body: string): Promise<void> {
+  if ((SEVERITY_RANK[severity] ?? 40) < minSeverityRank()) {
+    console.log(`[checkout-auditor/telegram] suppressed ${severity} "${title}" (< ${process.env.TELEGRAM_MIN_SEVERITY ?? 'warning'})`)
+    return
+  }
   if (!env.TELEGRAM_BOT_TOKEN || !env.TELEGRAM_CHAT_ID) {
     console.log(`[checkout-auditor/telegram] (no credentials) ${severity.toUpperCase()} ${title}`)
     return
