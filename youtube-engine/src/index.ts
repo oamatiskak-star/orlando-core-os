@@ -14,6 +14,9 @@ import { startSlotFillerWorker } from './workers/slot-filler-worker'
 import { startAutoPlanner } from './workers/auto-planner-worker'
 import { startFileCleanupWorker } from './workers/file-cleanup-worker'
 
+const startTime = Date.now()
+let lastErrorTime: number | null = null
+
 async function main() {
   logger.info('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━')
   logger.info('  Orlando Core OS — YouTube Engine v1.0')
@@ -40,6 +43,33 @@ async function main() {
 
   logger.info(`${workers.length} workers running`)
   logger.info('Engine is live — watching for upload jobs')
+
+  // Hermes health endpoint
+  const http = (await import('http')).default
+  const healthServer = http.createServer((req, res) => {
+    if (req.url === '/hermes/health' && req.method === 'GET') {
+      const uptime = Date.now() - startTime
+      const healthScore = lastErrorTime ? Math.max(50, 100 - (Date.now() - lastErrorTime) / 60000) : 95
+
+      res.writeHead(200, { 'Content-Type': 'application/json' })
+      res.end(JSON.stringify({
+        service: 'youtube-engine',
+        uptime_ms: uptime,
+        workers_active: workers.length,
+        queue_depth: 0, // Would need to query Redis
+        health_score: Math.min(100, Math.max(0, healthScore)),
+        last_error_at: lastErrorTime ? new Date(lastErrorTime).toISOString() : null,
+      }))
+    } else {
+      res.writeHead(404)
+      res.end()
+    }
+  })
+
+  const healthPort = parseInt(process.env.HERMES_HEALTH_PORT || '3001', 10)
+  healthServer.listen(healthPort, () => {
+    logger.info({ port: healthPort }, 'Health endpoint listening')
+  })
 
   await reportHeartbeat('engine.youtube-engine.tick', { workers: workers.length, started: true })
   setInterval(() => {
