@@ -1,4 +1,5 @@
 import { createClient } from './server'
+import { getActiveCompany } from '@/lib/active-company-server'
 
 export type AcqDeal = {
   id: string
@@ -228,12 +229,14 @@ export async function getAcqDealById(id: string): Promise<AcqDeal | null> {
 
 export async function getAcqBuildOpps(): Promise<AcqBuildOpp[]> {
   const supabase = await createClient()
-  // Geprioriteerd i.p.v. ruwe dump: hoogste waarde + dichtstbijzijnde deadline eerst.
+  // Per-fabriek gescoord (Fase 1 blauwdruk) + geprioriteerd op relevance.
+  const company = await getActiveCompany()
   const { data } = await supabase
     .from('acq_build_opps')
-    .select('*')
+    .select('*, companies!inner(slug)')
+    .eq('companies.slug', company.id)
+    .order('relevance_score', { ascending: false, nullsFirst: false })
     .order('estimated_value', { ascending: false, nullsFirst: false })
-    .order('deadline', { ascending: true, nullsFirst: false })
     .limit(100)
   return (data ?? []) as AcqBuildOpp[]
 }

@@ -240,6 +240,7 @@ export const NAV_MODULES: Record<string, NavModuleDef> = {
   acq_outreach:       { key: 'acq_outreach',       label: 'Outreach Automatie',   href: '/dashboard/acquisition/outreach',            icon: Megaphone },
   acq_analytics:      { key: 'acq_analytics',      label: 'Deal Analytics',       href: '/dashboard/acquisition/analytics',           icon: BarChart3 },
   acq_settings:       { key: 'acq_settings',       label: 'Acquisition Settings', href: '/dashboard/acquisition/settings',            icon: SlidersHorizontal },
+  acq_leads:          { key: 'acq_leads',          label: 'Leads (aanvragen)',    href: '/dashboard/acquisition/leads',               icon: Inbox },
   acq_scaling:        { key: 'acq_scaling',        label: 'Scaling Engine',       href: '/dashboard/acquisition/scaling',             icon: Maximize2 },
   acq_agents:         { key: 'acq_agents',         label: 'Acquisition Agents',   href: '/dashboard/acquisition/agents',              icon: Bot },
 }
@@ -330,6 +331,7 @@ export const COMPANY_NAV: Record<string, CompanyNav> = {
       { modules: ['dashboard'] },
       { title: 'Aquier', modules: ['aquier_hub', 'aquier_verzamelaar', 'aquier_projecten', 'aquier_planning', 'aquier_agenda', 'aquier_ai_lead', 'aquier_monitor', 'aquier_approvals', 'aquier_audit', 'aquier_forecast'] },
       { title: 'Scrapers & Data', modules: ['acq_offmarket', 'acq_permits', 'acq_municipalities'] },
+      { title: 'Acquisitie', modules: ['acq_leads'] },
       { title: 'Social', modules: ['fb_offmarket', 'fb_property'] },
       { title: 'SaaS', modules: ['projecten'] },
       { title: 'Holding Ecosystem', modules: ['holding_milestones', 'seo_network'] },
@@ -345,7 +347,7 @@ export const COMPANY_NAV: Record<string, CompanyNav> = {
     sections: [
       { modules: ['dashboard'] },
       { title: 'Vastgoed', modules: ['vastgoed', 'projecten', 'planning'] },
-      { title: 'Acquisitie', modules: ['acq_deal_desk', 'acq_deals', 'acq_build_opps', 'acq_investors', 'acq_crm', 'acq_outreach', 'acq_analytics', 'acq_agents', 'acq_scaling', 'acq_settings'] },
+      { title: 'Acquisitie', modules: ['acq_deal_desk', 'acq_leads', 'acq_deals', 'acq_build_opps', 'acq_investors', 'acq_crm', 'acq_outreach', 'acq_analytics', 'acq_agents', 'acq_scaling', 'acq_settings'] },
       { title: 'Bedrijven', modules: ['bedrijven'] },
       {
         title: 'Personeel', modules: [
@@ -367,6 +369,7 @@ export const COMPANY_NAV: Record<string, CompanyNav> = {
       { modules: ['dashboard'] },
       { title: 'Bouw', modules: ['calculaties', 'bouwplaats', 'projecten', 'planning'] },
       { title: 'Klanten', modules: ['kopers_portaal', 'crm'] },
+      { title: 'Acquisitie', modules: ['acq_leads'] },
       { title: 'Finance', modules: ['finance_incasso', 'belasting', 'abonnementen'] },
       { title: 'Operationeel', modules: ['build_tracker', 'osm', 'accounts', 'documenten', 'agenda', 'taken'] },
       { title: 'Routines Control', modules: ['routines_hub', 'routines_live', 'routines_agents', 'routines_logs'] },
