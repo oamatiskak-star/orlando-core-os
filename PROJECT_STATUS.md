@@ -8,6 +8,8 @@
 
 **Sessie focus (2026-05-31, sessie 15)**: Orlando mist controle/overzicht. Diagnose via live DB `shaunumewswpxhmgbtvv` + start controlelaag.
 
+**🚀 DEPLOY-STATUS:** branch `feature/hermes-control-layer` GEPUSHT (2 commits: controlelaag-dashboard + OAuth-fixes + refresh-knop). Vercel preview klaar → Orlando promote. CLI-R youtube-engine rebuild = Orlando via SSH. DB-laag (alle migraties) al op prod. **Open Orlando-acties:** (1) Vercel promote/merge, (2) Google OAuth consent screen → Publish (anders 7-daagse tokens), (3) `ssh cli-r` → `cd ~/Github/orlando-core-os && git fetch && git checkout main && git pull && docker compose -f docker-compose.cli-r.yml up -d --build youtube-engine`, (4) 11 kanalen reconnecten via `/api/youtube/oauth/connect?channel_uuid=<id>`, (5) Hermes-dashboard "Ververs & hercheck".
+
 **Vastgestelde root causes (feitelijk, via SQL):**
 1. **YouTube staat stil.** Upload-queue: 1356 `queued` (sinds 14 mei, niet leeggewerkt), 486 `manual_review_required` (waarvan **325 `unauthorized_client` OAuth**), 442 `failed` (waarvan **400 `ffmpeg: input file not found`** = bronbestanden weg na schijfopruiming /tmp+T7). Slechts ~3 live/dag vs 50-75 errors/dag.
 2. **OAuth root cause:** refresh_token uitgegeven door andere client_id dan waarmee ververst wordt. 5 lab/aquier-kanalen (BrickPulse, LoopForge, SliceTheory, AquierTv, AquierTvEs) hebben GEEN eigen `oauth_client_id` in `youtube_channels` → fallback naar globale env-client → mismatch → `unauthorized_client`. De 325 blokkades = exact BrickPulse(103)+LoopForge(112)+SliceTheory(110). Code: `youtube-engine/src/lib/youtube-api.ts:8-39`.
