@@ -228,10 +228,13 @@ export async function getAcqDealById(id: string): Promise<AcqDeal | null> {
 
 export async function getAcqBuildOpps(): Promise<AcqBuildOpp[]> {
   const supabase = await createClient()
+  // Geprioriteerd i.p.v. ruwe dump: hoogste waarde + dichtstbijzijnde deadline eerst.
   const { data } = await supabase
     .from('acq_build_opps')
     .select('*')
-    .order('created_at', { ascending: false })
+    .order('estimated_value', { ascending: false, nullsFirst: false })
+    .order('deadline', { ascending: true, nullsFirst: false })
+    .limit(100)
   return (data ?? []) as AcqBuildOpp[]
 }
 
