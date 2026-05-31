@@ -91,9 +91,17 @@ export default async function DashboardOsm() {
         </div>
       </div>
 
-      <PendingApprovalsWidget />
+      {/* Hermes Landing: Controller Room + Personal Chat */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        <div className="lg:col-span-2">
+          <HermesControllerRoom />
+        </div>
+        <div>
+          {companies.length > 0 && <HermesPersonalChat companyId={companies[0].id} />}
+        </div>
+      </div>
 
-      <HermesControllerRoom />
+      <PendingApprovalsWidget />
 
       {companies.length > 0 && <HermesExecutiveReport companyId={companies[0].id} />}
 
@@ -101,7 +109,6 @@ export default async function DashboardOsm() {
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         {companies.length > 0 && <HermesMemory companyId={companies[0].id} />}
-        {companies.length > 0 && <HermesPersonalChat companyId={companies[0].id} />}
       </div>
 
       <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3">
