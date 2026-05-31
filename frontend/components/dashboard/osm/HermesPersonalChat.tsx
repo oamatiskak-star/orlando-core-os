@@ -87,36 +87,40 @@ export default function HermesPersonalChat({ companyId }: { companyId: string })
     e.preventDefault()
     if (!input.trim()) return
 
+    const userMessage = input
     const newMessage: Message = {
       id: Math.random().toString(),
       speaker: 'orlando',
-      message: input,
+      message: userMessage,
       timestamp: new Date().toISOString(),
     }
 
     setMessages([...messages, newMessage])
+    setInput('')
 
     try {
+      // Log user message
       await supabase.from('hermes.conversations').insert({
         company_id: companyId,
         conversation_date: new Date().toISOString().split('T')[0],
         conversation_time: new Date().toTimeString().split(' ')[0],
         sequence: (messages.length + 1) as any,
         speaker: 'orlando',
-        message: input,
-        context_type: input.toLowerCase().includes('onthoud') ? 'memory_request' : 'general',
+        message: userMessage,
+        context_type: userMessage.toLowerCase().includes('onthoud') ? 'memory_request' : 'general',
       })
 
-      if (input.toLowerCase().includes('onthoud')) {
-        await supabase.rpc('remember', {
+      // Handle memory saving
+      if (userMessage.toLowerCase().includes('onthoud')) {
+        await supabase.rpc('hermes.remember', {
           p_company_id: companyId,
-          p_item: input,
+          p_item: userMessage.replace(/onthoud|remember/i, '').trim(),
         })
       }
 
-      setInput('')
+      // Generate strategic response
+      const hermesResponse = await generateHermesResponse(userMessage)
 
-      const hermesResponse = generateHermesResponse(input, messages.length)
       setTimeout(async () => {
         const newHermesMessage: Message = {
           id: Math.random().toString(),
@@ -126,6 +130,7 @@ export default function HermesPersonalChat({ companyId }: { companyId: string })
         }
         setMessages(prev => [...prev, newHermesMessage])
 
+        // Log Hermes response
         await supabase.from('hermes.conversations').insert({
           company_id: companyId,
           conversation_date: new Date().toISOString().split('T')[0],
@@ -141,17 +146,29 @@ export default function HermesPersonalChat({ companyId }: { companyId: string })
     }
   }
 
-  const generateHermesResponse = (input: string, messageCount: number): string => {
-    if (input.toLowerCase().includes('onthoud')) {
-      return `✓ Opgeslagen! Ik herinner je hieraan wanneer relevant. Nog ${3 - (messageCount % 3)} dingen op je lijstje.`
+  const generateHermesResponse = async (input: string): Promise<string> => {
+    try {
+      if (input.toLowerCase().includes('onthoud')) {
+        return `✓ Opgeslagen! Ik herinner je hieraan wanneer relevant.`
+      }
+
+      // Call strategic response generation function
+      const { data, error } = await supabase.rpc('hermes.generate_strategic_response', {
+        p_company_id: companyId,
+        p_message: input,
+        p_conversation_turn: 'orlando_request',
+      })
+
+      if (error) {
+        console.error('Error generating strategic response:', error)
+        return 'Ik denk hierover na. Wat wil je dat ik eraan doe?'
+      }
+
+      return data?.response || 'Begrepen. Wat wil je dat ik eraan doe?'
+    } catch (error) {
+      console.error('Error in generateHermesResponse:', error)
+      return 'Laten we dit stap voor stap aanpakken.'
     }
-    if (input.toLowerCase().includes('status')) {
-      return 'Alle systemen lopen goed. 3 items pending, alles onder controle.'
-    }
-    if (input.toLowerCase().includes('fouten') || input.toLowerCase().includes('alerts')) {
-      return 'Geen kritieke fouten. Heb je 2 waarschuwingen gezien aan de rechterkant?'
-    }
-    return 'Begrepen. Wat wil je dat ik eraan doe?'
   }
 
   if (loading) {
@@ -200,7 +217,10 @@ export default function HermesPersonalChat({ companyId }: { companyId: string })
       {/* Chat Area */}
       <div className="space-y-3 max-h-[300px] overflow-y-auto">
         {messages.length === 0 ? (
-          <p className="text-xs text-white/40 text-center py-4">Start je dag met Hermes...</p>
+          <div className="text-xs text-white/40 text-center py-4 space-y-2">
+            <p>Welkom! Ik ben Hermes, je strategische partner.</p>
+            <p>Vertel me wat er aan de hand is en ik geef advies.</p>
+          </div>
         ) : (
           messages.map(msg => (
             <div key={msg.id} className={`flex gap-2 ${msg.speaker === 'orlando' ? 'justify-end' : 'justify-start'}`}>
@@ -236,9 +256,10 @@ export default function HermesPersonalChat({ companyId }: { companyId: string })
       </form>
 
       {/* Tips */}
-      <p className="text-[11px] text-white/40 text-center">
-        💡 Zeg "Hermes, onthoud dat..." of "status" of "fouten"
-      </p>
+      <div className="text-[11px] text-white/40 space-y-1">
+        <p>🤝 Vertel me hoe het gaat. Ik analyseer context en geef advies.</p>
+        <p>💾 Zeg "onthoud dat..." en ik sla het op voor later.</p>
+      </div>
     </div>
   )
 }
