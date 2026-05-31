@@ -60,6 +60,7 @@ export const NAV_MODULES: Record<string, NavModuleDef> = {
   abonnementen:         { key: 'abonnementen',         label: 'Abonnementen',            href: '/dashboard/abonnementen',          icon: CreditCard },
   hermes_ceo:           { key: 'hermes_ceo',           label: 'Hermes CEO · Controle',   href: '/dashboard/hermes',                icon: Brain },
   engine_planner:       { key: 'engine_planner',       label: 'Engine Planner',          href: '/dashboard/planner',               icon: CalendarClock },
+  projectleider:        { key: 'projectleider',        label: 'Projectleider',           href: '/dashboard/projectleider',         icon: UserCog },
 
   // ── BEDRIJFSSTRUCTUUR ─────────────────────────────────────────────────────
   bedrijven:            { key: 'bedrijven',            label: 'Bedrijven',               href: '/dashboard/companies',             icon: Building2 },
@@ -263,7 +264,7 @@ export const COMPANY_NAV: Record<string, CompanyNav> = {
   // O.S.M. AMATISKAK — eigenaar (volledige governance + persoonlijk)
   osm: {
     sections: [
-      { modules: ['dashboard'] },
+      { modules: ['dashboard', 'projectleider'] },
       { title: 'Hermes CEO', modules: ['hermes_ceo'] },
       { title: 'Juridisch', modules: ['advocaat_dashboard', 'advocaat_dossiers', 'advocaat_curator', 'advocaat_mail_def', 'advocaat_bewijs', 'advocaat_tijdlijn', 'advocaat_strategie', 'advocaat_imports'] },
       { title: 'OSIL', modules: ['osil_dashboard', 'osil_board', 'osil_kansen', 'osil_recovery', 'osil_optimalisatie', 'osil_fiscalist', 'osil_rapport'] },
@@ -284,7 +285,7 @@ export const COMPANY_NAV: Record<string, CompanyNav> = {
   // Modiwerijo Financial Management BV — financiële holding
   modiwerijo: {
     sections: [
-      { modules: ['dashboard'] },
+      { modules: ['dashboard', 'projectleider'] },
       { title: 'OSIL', modules: ['osil_dashboard', 'osil_board', 'osil_kansen', 'osil_recovery', 'osil_optimalisatie', 'osil_fiscalist', 'osil_rapport'] },
       { title: 'Finance', modules: ['finance_incasso', 'moneybird_live', 'belasting', 'abonnementen'] },
       { title: 'Bedrijven', modules: ['bedrijven'] },
@@ -304,7 +305,7 @@ export const COMPANY_NAV: Record<string, CompanyNav> = {
   // Modiwe Media BV — media + content (Media Holding only here)
   'modiwe-media': {
     sections: [
-      { modules: ['dashboard'] },
+      { modules: ['dashboard', 'projectleider'] },
       // ── MEDIA HOLDING OS — 6 schone groepen, geen dubbele upload/analytics-layer ──
       { title: 'Cockpit',       modules: ['media_holding', 'mh_executive', 'mh_analytics'] },
       {
@@ -330,7 +331,7 @@ export const COMPANY_NAV: Record<string, CompanyNav> = {
   // Modiwe Software BV — Aquier + scrapers + SaaS tools
   'modiwe-software': {
     sections: [
-      { modules: ['dashboard'] },
+      { modules: ['dashboard', 'projectleider'] },
       { title: 'Aquier', modules: ['aquier_hub', 'aquier_verzamelaar', 'aquier_projecten', 'aquier_planning', 'aquier_agenda', 'aquier_ai_lead', 'aquier_monitor', 'aquier_approvals', 'aquier_audit', 'aquier_forecast'] },
       { title: 'Scrapers & Data', modules: ['acq_offmarket', 'acq_permits', 'acq_municipalities'] },
       { title: 'Acquisitie', modules: ['acq_leads'] },
@@ -347,7 +348,7 @@ export const COMPANY_NAV: Record<string, CompanyNav> = {
   // STRKBEHEER BV — vastgoed deals + holding
   strkbeheer: {
     sections: [
-      { modules: ['dashboard'] },
+      { modules: ['dashboard', 'projectleider'] },
       { title: 'Vastgoed', modules: ['vastgoed', 'projecten', 'planning'] },
       { title: 'Acquisitie', modules: ['acq_deal_desk', 'acq_leads', 'acq_deals', 'acq_build_opps', 'acq_investors', 'acq_crm', 'acq_outreach', 'acq_analytics', 'acq_agents', 'acq_scaling', 'acq_settings'] },
       { title: 'Bedrijven', modules: ['bedrijven'] },
@@ -368,7 +369,7 @@ export const COMPANY_NAV: Record<string, CompanyNav> = {
   // STRKBOUW BV — bouwbedrijf
   strkbouw: {
     sections: [
-      { modules: ['dashboard'] },
+      { modules: ['dashboard', 'projectleider'] },
       { title: 'Bouw', modules: ['calculaties', 'bouwplaats', 'projecten', 'planning'] },
       { title: 'Klanten', modules: ['kopers_portaal', 'crm'] },
       { title: 'Acquisitie', modules: ['acq_leads'] },
@@ -382,7 +383,7 @@ export const COMPANY_NAV: Record<string, CompanyNav> = {
   // Bouwproffs BV — calculatiebureau
   bouwproffs: {
     sections: [
-      { modules: ['dashboard'] },
+      { modules: ['dashboard', 'projectleider'] },
       { title: 'Calculatie', modules: ['calculaties', 'projecten', 'planning'] },
       { title: 'CRM', modules: ['crm'] },
       { title: 'Finance', modules: ['finance_incasso', 'moneybird_live', 'belasting', 'abonnementen'] },
