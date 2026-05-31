@@ -9,6 +9,7 @@ type Worker = {
   id: string
   name: string
   kind: string
+  shift: string | null
   status: string
   last_seen: string | null
   queue_depth: number
@@ -164,6 +165,7 @@ export default function WorkersPage() {
               <tr className="border-b border-white/5">
                 <th className="px-4 py-2.5 text-left text-[10px] font-medium text-white/50 uppercase tracking-wider">Naam</th>
                 <th className="px-4 py-2.5 text-left text-[10px] font-medium text-white/50 uppercase tracking-wider">Type</th>
+                <th className="px-4 py-2.5 text-left text-[10px] font-medium text-white/50 uppercase tracking-wider">Ploeg</th>
                 <th className="px-4 py-2.5 text-left text-[10px] font-medium text-white/50 uppercase tracking-wider">Status</th>
                 <th className="px-4 py-2.5 text-left text-[10px] font-medium text-white/50 uppercase tracking-wider">Queue</th>
                 <th className="px-4 py-2.5 text-left text-[10px] font-medium text-white/50 uppercase tracking-wider">Laatste activiteit</th>
@@ -179,6 +181,7 @@ export default function WorkersPage() {
                   <tr key={w.id} className="border-b border-white/5 hover:bg-white/[0.02]">
                     <td className="px-4 py-3 text-xs text-white/85">{w.name}</td>
                     <td className="px-4 py-3 text-xs text-white/55">{w.kind}</td>
+                    <td className="px-4 py-3 text-xs text-white/60">{w.shift === 'nacht' ? '🌙 Nacht' : w.shift === 'avond' ? '🌆 Avond' : w.shift === 'dag' ? '☀️ Dag' : '—'}</td>
                     <td className="px-4 py-3">
                       {showCountdown ? (
                         <span
