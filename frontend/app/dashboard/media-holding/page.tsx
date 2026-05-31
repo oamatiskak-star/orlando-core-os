@@ -1,7 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import {
   Tv2, TrendingUp, Video, Zap, Layers, Target,
-  CheckCircle2, Circle, AlertTriangle,
+  CheckCircle2, Circle, AlertTriangle, Upload, CheckCheck, XCircle, RotateCcw,
 } from 'lucide-react'
 import Link from 'next/link'
 
@@ -21,6 +21,20 @@ const FASE_STYLE = {
   completed: { wrap: 'border-emerald-500/25 bg-emerald-500/[0.07]',badge: 'bg-emerald-500/15 text-emerald-400 border-emerald-500/25', bar: '#34d399', label: 'Voltooid' },
 }
 
+async function getUploadKpis() {
+  try {
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
+    const res = await fetch(`${baseUrl}/api/media-holding/dashboard/uploads/today`, {
+      cache: 'no-store',
+    })
+    if (!res.ok) return { planned_uploads: 0, processed_uploads: 0, failed_uploads: 0, solved_uploads: 0 }
+    return res.json()
+  } catch (e) {
+    console.error('Failed to fetch upload KPIs:', e)
+    return { planned_uploads: 0, processed_uploads: 0, failed_uploads: 0, solved_uploads: 0 }
+  }
+}
+
 export default async function MediaHoldingPage() {
   const supabase = await createClient()
 
@@ -33,6 +47,7 @@ export default async function MediaHoldingPage() {
     { data: modules },
     { data: workers },
     { data: metricsToday },
+    uploadKpis,
   ] = await Promise.all([
     supabase.from('youtube_channels').select('id,naam,name,view_count,subscriber_count,oauth_connected,daily_upload_target,content_language,shorts_first'),
     supabase.from('youtube_videos').select('id', { count: 'exact', head: true }).eq('status', 'queued'),
@@ -40,6 +55,7 @@ export default async function MediaHoldingPage() {
     supabase.from('media_holding_modules').select('fase_nr,status'),
     supabase.from('media_holding_workers').select('status'),
     supabase.from('media_holding_metrics').select('views').gte('snapshot_at', todayStart.toISOString()),
+    getUploadKpis(),
   ])
 
   const chList     = allChannels ?? []
@@ -80,6 +96,49 @@ export default async function MediaHoldingPage() {
         <KpiCard label="Kanalen actief"  value={String(connectedCount)}       color="text-emerald-300" />
         <KpiCard label="Upload queue"    value={String(queuedCount ?? 0)}     color="text-violet-300" />
         <KpiCard label="Workers"         value={`${activeWorkers}/${wList.length}`} color="text-sky-300" />
+      </div>
+
+      {/* Upload KPIs — Today */}
+      <div className="bg-white/[0.04] border border-white/8 rounded-2xl p-5">
+        <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
+          <div className="flex items-center gap-2">
+            <Upload size={14} className="text-amber-400" />
+            <span className="text-sm font-semibold text-white">Vandaag — Upload Status</span>
+          </div>
+          <span className="text-[10px] px-2 py-1 rounded-full bg-amber-500/10 border border-amber-500/20 text-amber-300">
+            Live
+          </span>
+        </div>
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          <div className="bg-white/[0.04] rounded-xl p-4 border border-violet-500/20">
+            <div className="flex items-center gap-2 mb-2">
+              <Upload size={12} className="text-violet-400" />
+              <p className="text-[10px] text-white/40 uppercase tracking-wide">Gepland</p>
+            </div>
+            <p className="text-2xl font-bold text-violet-300">{uploadKpis.planned_uploads}</p>
+          </div>
+          <div className="bg-white/[0.04] rounded-xl p-4 border border-emerald-500/20">
+            <div className="flex items-center gap-2 mb-2">
+              <CheckCheck size={12} className="text-emerald-400" />
+              <p className="text-[10px] text-white/40 uppercase tracking-wide">Verwerkt</p>
+            </div>
+            <p className="text-2xl font-bold text-emerald-300">{uploadKpis.processed_uploads}</p>
+          </div>
+          <div className="bg-white/[0.04] rounded-xl p-4 border border-red-500/20">
+            <div className="flex items-center gap-2 mb-2">
+              <XCircle size={12} className="text-red-400" />
+              <p className="text-[10px] text-white/40 uppercase tracking-wide">Failed</p>
+            </div>
+            <p className="text-2xl font-bold text-red-300">{uploadKpis.failed_uploads}</p>
+          </div>
+          <div className="bg-white/[0.04] rounded-xl p-4 border border-sky-500/20">
+            <div className="flex items-center gap-2 mb-2">
+              <RotateCcw size={12} className="text-sky-400" />
+              <p className="text-[10px] text-white/40 uppercase tracking-wide">Opgelost</p>
+            </div>
+            <p className="text-2xl font-bold text-sky-300">{uploadKpis.solved_uploads}</p>
+          </div>
+        </div>
       </div>
 
       {/* Phase 1 progress */}
