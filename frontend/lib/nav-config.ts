@@ -12,6 +12,7 @@ import {
   Gavel, Lock, Eye, Upload, Server, Tv2, Music,
   Radar, MapPin, Target, Megaphone, UserPlus, Maximize2,
   Briefcase, GanttChart, UserCog, Gauge, ThumbsUp, Sparkles,
+  CalendarClock,
 } from 'lucide-react'
 
 export type NavModuleDef = {
@@ -58,6 +59,7 @@ export const NAV_MODULES: Record<string, NavModuleDef> = {
   orchestrator:         { key: 'orchestrator',         label: 'Orchestrator',            href: '/dashboard/orchestrator',          icon: ListChecks },
   abonnementen:         { key: 'abonnementen',         label: 'Abonnementen',            href: '/dashboard/abonnementen',          icon: CreditCard },
   hermes_ceo:           { key: 'hermes_ceo',           label: 'Hermes CEO · Controle',   href: '/dashboard/hermes',                icon: Brain },
+  engine_planner:       { key: 'engine_planner',       label: 'Engine Planner',          href: '/dashboard/planner',               icon: CalendarClock },
   projectleider:        { key: 'projectleider',        label: 'Projectleider',           href: '/dashboard/projectleider',         icon: UserCog },
 
   // ── BEDRIJFSSTRUCTUUR ─────────────────────────────────────────────────────
@@ -270,7 +272,7 @@ export const COMPANY_NAV: Record<string, CompanyNav> = {
       { title: 'Bedrijven', modules: ['bedrijven'] },
       { title: 'Operationeel', modules: ['build_tracker', 'osm', 'accounts', 'agenda', 'taken', 'planning', 'crm'] },
       { title: 'Routines Control', modules: ['routines_hub', 'routines_live', 'routines_agents', 'routines_logs'] },
-      { title: 'Operations',         modules: ['ops_dashboard', 'ops_hermes', 'ops_worker_control', 'ops_dispatch', 'ops_errors', 'ops_logs'] },
+      { title: 'Operations',         modules: ['ops_dashboard', 'ops_hermes', 'engine_planner', 'ops_worker_control', 'ops_dispatch', 'ops_errors', 'ops_logs'] },
       { title: 'Automatisering',     modules: ['ops_workflows', 'ops_automations', 'ops_agents', 'ops_ai_optimizer', 'ops_suggestions', 'ops_manual', 'ops_templates'] },
       { title: 'Operations · Config', modules: ['ops_dil', 'ops_analytics', 'ops_company_settings', 'ops_global_settings', 'infra', 'worktree_manager'] },
       { title: 'Mail Engine', modules: ['mail_dashboard', 'mail_agents', 'mail_workflows', 'mail_rules', 'mail_dossiers', 'mail_inbox'] },
