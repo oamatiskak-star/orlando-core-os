@@ -1,7 +1,7 @@
 'use client'
 
-import { useEffect, useState } from 'react'
-import { Send, Sparkles, Clock, AlertCircle } from 'lucide-react'
+import { useEffect, useRef, useState } from 'react'
+import { Send, Sparkles, AlertCircle, Loader } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 
 type Message = {
@@ -20,11 +20,21 @@ type ProactiveAlert = {
 
 export default function HermesPersonalChat({ companyId }: { companyId: string }) {
   const supabase = createClient()
+  const messagesEndRef = useRef<HTMLDivElement>(null)
   const [messages, setMessages] = useState<Message[]>([])
   const [input, setInput] = useState('')
   const [greeting, setGreeting] = useState<string | null>(null)
   const [alerts, setAlerts] = useState<ProactiveAlert[]>([])
   const [loading, setLoading] = useState(true)
+  const [responding, setResponding] = useState(false)
+
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+  }
+
+  useEffect(() => {
+    scrollToBottom()
+  }, [messages])
 
   useEffect(() => {
     const loadGreeting = async () => {
@@ -85,9 +95,12 @@ export default function HermesPersonalChat({ companyId }: { companyId: string })
 
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!input.trim()) return
+    if (!input.trim() || responding) return
 
     const userMessage = input
+    setInput('')
+    setResponding(true)
+
     const newMessage: Message = {
       id: Math.random().toString(),
       speaker: 'orlando',
@@ -95,11 +108,9 @@ export default function HermesPersonalChat({ companyId }: { companyId: string })
       timestamp: new Date().toISOString(),
     }
 
-    setMessages([...messages, newMessage])
-    setInput('')
+    setMessages(prev => [...prev, newMessage])
 
     try {
-      // Log user message
       await supabase.from('hermes.conversations').insert({
         company_id: companyId,
         conversation_date: new Date().toISOString().split('T')[0],
@@ -110,7 +121,6 @@ export default function HermesPersonalChat({ companyId }: { companyId: string })
         context_type: userMessage.toLowerCase().includes('onthoud') ? 'memory_request' : 'general',
       })
 
-      // Handle memory saving
       if (userMessage.toLowerCase().includes('onthoud')) {
         await supabase.rpc('hermes.remember', {
           p_company_id: companyId,
@@ -118,31 +128,30 @@ export default function HermesPersonalChat({ companyId }: { companyId: string })
         })
       }
 
-      // Generate strategic response
       const hermesResponse = await generateHermesResponse(userMessage)
 
-      setTimeout(async () => {
-        const newHermesMessage: Message = {
-          id: Math.random().toString(),
-          speaker: 'hermes',
-          message: hermesResponse,
-          timestamp: new Date().toISOString(),
-        }
-        setMessages(prev => [...prev, newHermesMessage])
+      const newHermesMessage: Message = {
+        id: Math.random().toString(),
+        speaker: 'hermes',
+        message: hermesResponse,
+        timestamp: new Date().toISOString(),
+      }
 
-        // Log Hermes response
-        await supabase.from('hermes.conversations').insert({
-          company_id: companyId,
-          conversation_date: new Date().toISOString().split('T')[0],
-          conversation_time: new Date().toTimeString().split(' ')[0],
-          sequence: (messages.length + 2) as any,
-          speaker: 'hermes',
-          message: hermesResponse,
-          context_type: 'hermes_response',
-        })
-      }, 800)
+      setMessages(prev => [...prev, newHermesMessage])
+
+      await supabase.from('hermes.conversations').insert({
+        company_id: companyId,
+        conversation_date: new Date().toISOString().split('T')[0],
+        conversation_time: new Date().toTimeString().split(' ')[0],
+        sequence: (messages.length + 2) as any,
+        speaker: 'hermes',
+        message: hermesResponse,
+        context_type: 'hermes_response',
+      })
     } catch (error) {
-      console.error('Error saving message:', error)
+      console.error('Error in conversation:', error)
+    } finally {
+      setResponding(false)
     }
   }
 
@@ -173,92 +182,109 @@ export default function HermesPersonalChat({ companyId }: { companyId: string })
 
   if (loading) {
     return (
-      <div className="bg-white/[0.06] border border-white/5 rounded-xl p-4 animate-pulse">
-        <div className="h-32 bg-white/5 rounded" />
+      <div className="bg-white/[0.06] border border-white/5 rounded-xl flex flex-col h-[600px] animate-pulse">
+        <div className="flex-1 bg-gradient-to-b from-white/5 to-transparent" />
       </div>
     )
   }
 
   return (
-    <div className="bg-gradient-to-br from-white/[0.08] to-white/[0.04] border border-white/10 rounded-xl p-5 space-y-4">
+    <div className="bg-white/[0.06] border border-white/5 rounded-xl overflow-hidden flex flex-col h-[600px]">
       {/* Header */}
-      <div className="flex items-center gap-2">
+      <div className="px-4 py-3 border-b border-white/5 flex items-center gap-2 bg-gradient-to-r from-white/5 to-transparent">
         <Sparkles size={16} className="text-cyan-400" />
         <h3 className="text-sm font-semibold text-white">Hermes Daily Partner</h3>
       </div>
 
-      {/* Greeting */}
-      {greeting && (
-        <div className="bg-cyan-500/10 border border-cyan-500/20 rounded-lg p-3 text-xs text-cyan-300">
-          {greeting}
-        </div>
-      )}
-
-      {/* Proactive Alerts */}
+      {/* Top Alerts Section */}
       {alerts.length > 0 && (
-        <div className="space-y-2">
-          <p className="text-xs font-semibold text-white/60 uppercase tracking-wider">Alerts</p>
-          {alerts.map(alert => (
+        <div className="px-4 py-3 border-b border-white/5 space-y-2">
+          {alerts.slice(0, 2).map(alert => (
             <div
               key={alert.id}
-              className={`flex gap-2 p-2.5 rounded-lg text-xs ${
+              className={`flex gap-2 p-2 rounded text-xs leading-snug ${
                 alert.severity === 'critical'
-                  ? 'bg-red-500/10 border border-red-500/20 text-red-300'
-                  : 'bg-amber-500/10 border border-amber-500/20 text-amber-300'
+                  ? 'bg-red-500/10 text-red-200'
+                  : 'bg-amber-500/10 text-amber-200'
               }`}
             >
-              <AlertCircle size={14} className="flex-shrink-0 mt-0.5" />
+              <AlertCircle size={13} className="flex-shrink-0 mt-0.5" />
               <span>{alert.description}</span>
             </div>
           ))}
         </div>
       )}
 
-      {/* Chat Area */}
-      <div className="space-y-3 max-h-[300px] overflow-y-auto">
+      {/* Messages Container */}
+      <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3">
         {messages.length === 0 ? (
-          <div className="text-xs text-white/40 text-center py-4 space-y-2">
-            <p>Welkom! Ik ben Hermes, je strategische partner.</p>
-            <p>Vertel me wat er aan de hand is en ik geef advies.</p>
+          <div className="h-full flex flex-col items-center justify-center text-center py-8">
+            {greeting && (
+              <div className="bg-cyan-500/10 rounded-lg p-4 mb-4 border border-cyan-500/20 max-w-sm">
+                <p className="text-sm text-cyan-300">{greeting}</p>
+              </div>
+            )}
+            {!greeting && (
+              <div className="space-y-3 text-white/50">
+                <p className="text-sm">Welkom! Ik ben Hermes, je strategische partner.</p>
+                <p className="text-xs">Vertel me wat er aan de hand is en ik geef advies.</p>
+              </div>
+            )}
           </div>
         ) : (
-          messages.map(msg => (
-            <div key={msg.id} className={`flex gap-2 ${msg.speaker === 'orlando' ? 'justify-end' : 'justify-start'}`}>
-              <div
-                className={`max-w-[70%] rounded-lg p-2.5 text-xs leading-relaxed ${
-                  msg.speaker === 'orlando'
-                    ? 'bg-indigo-500/20 border border-indigo-500/20 text-indigo-200'
-                    : 'bg-cyan-500/10 border border-cyan-500/20 text-cyan-300'
-                }`}
-              >
-                {msg.message}
+          <>
+            {greeting && messages.length > 0 && (
+              <div className="flex justify-center py-2 mb-2">
+                <div className="bg-cyan-500/10 rounded-lg px-3 py-2 border border-cyan-500/20 max-w-sm">
+                  <p className="text-xs text-cyan-300">{greeting}</p>
+                </div>
               </div>
-            </div>
-          ))
+            )}
+            {messages.map(msg => (
+              <div key={msg.id} className={`flex ${msg.speaker === 'orlando' ? 'justify-end' : 'justify-start'}`}>
+                <div
+                  className={`max-w-[70%] rounded-lg px-3.5 py-2.5 text-sm leading-relaxed break-words ${
+                    msg.speaker === 'orlando'
+                      ? 'bg-indigo-600 text-white rounded-br-none'
+                      : 'bg-white/10 text-white/90 rounded-bl-none'
+                  }`}
+                >
+                  {msg.message}
+                </div>
+              </div>
+            ))}
+            {responding && (
+              <div className="flex justify-start">
+                <div className="bg-white/10 text-white/50 px-3.5 py-2.5 rounded-lg rounded-bl-none flex items-center gap-2">
+                  <Loader size={14} className="animate-spin" />
+                  <span className="text-sm">Denkt na...</span>
+                </div>
+              </div>
+            )}
+            <div ref={messagesEndRef} />
+          </>
         )}
       </div>
 
-      {/* Input */}
-      <form onSubmit={handleSendMessage} className="flex gap-2">
-        <input
-          type="text"
-          value={input}
-          onChange={e => setInput(e.target.value)}
-          placeholder="Zeg iets tegen Hermes..."
-          className="flex-1 bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-xs text-white placeholder-white/30 focus:outline-none focus:border-cyan-500/40"
-        />
-        <button
-          type="submit"
-          className="p-2 rounded-lg bg-cyan-500/10 border border-cyan-500/20 text-cyan-400 hover:bg-cyan-500/20 transition-colors"
-        >
-          <Send size={14} />
-        </button>
-      </form>
-
-      {/* Tips */}
-      <div className="text-[11px] text-white/40 space-y-1">
-        <p>🤝 Vertel me hoe het gaat. Ik analyseer context en geef advies.</p>
-        <p>💾 Zeg "onthoud dat..." en ik sla het op voor later.</p>
+      {/* Input Area */}
+      <div className="border-t border-white/5 bg-gradient-to-t from-white/5 to-transparent px-4 py-3">
+        <form onSubmit={handleSendMessage} className="flex gap-2">
+          <input
+            type="text"
+            value={input}
+            onChange={e => setInput(e.target.value)}
+            disabled={responding}
+            placeholder="Zeg iets tegen Hermes..."
+            className="flex-1 bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white placeholder-white/40 focus:outline-none focus:border-cyan-500/50 focus:bg-white/8 transition disabled:opacity-50"
+          />
+          <button
+            type="submit"
+            disabled={responding || !input.trim()}
+            className="p-2.5 rounded-lg bg-cyan-600 text-white hover:bg-cyan-500 transition disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <Send size={16} />
+          </button>
+        </form>
       </div>
     </div>
   )
