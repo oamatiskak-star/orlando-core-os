@@ -160,7 +160,7 @@ export function PendingApprovalsWidget() {
           </div>
         </div>
         <Link
-          href="/dashboard/mail/pending"
+          href="/dashboard/mail/approvals"
           className="text-[11px] text-indigo-400 hover:text-indigo-300 flex items-center gap-1 transition-colors"
         >
           View All <ArrowUpRight size={11} />
@@ -260,7 +260,7 @@ export function PendingApprovalsWidget() {
         <div className="mt-4 pt-4 border-t border-white/5 flex items-center justify-between">
           <p className="text-[11px] text-white/50">{drafts.length} pending approvals</p>
           <Link
-            href="/dashboard/mail/pending"
+            href="/dashboard/mail/approvals"
             className="text-[11px] text-indigo-400 hover:text-indigo-300 transition-colors"
           >
             Manage all →

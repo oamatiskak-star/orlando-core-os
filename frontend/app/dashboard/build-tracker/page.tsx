@@ -1,4 +1,4 @@
-import { Hammer, Calendar, User, ChevronLeft } from 'lucide-react'
+import { Hammer, Calendar, User, ChevronLeft, TrendingUp } from 'lucide-react'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
 import { getActiveCompany } from '@/lib/active-company-server'
@@ -69,6 +69,13 @@ export default async function BuildTrackerPage() {
           <h1 className="text-base font-semibold text-white">Build Tracker</h1>
           <p className="text-xs text-white/50">{company.name} — {builds.length} active build{builds.length === 1 ? '' : 's'}</p>
         </div>
+        <Link
+          href="/dashboard/build-tracker/priorities"
+          className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-white/[0.04] hover:bg-white/[0.08] transition-all text-[11px] text-white/70 hover:text-white"
+        >
+          <TrendingUp size={14} />
+          Prioriteiten
+        </Link>
         <NewBuildButton companyColor={company.color} companyName={company.name} />
       </div>
 
