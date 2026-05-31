@@ -6,9 +6,14 @@ import { getSupabase, ChannelRecord } from './supabase'
 import { logger } from './logger'
 
 export function buildOAuthClient(channel: ChannelRecord): OAuth2Client {
-  const clientId = channel.oauth_client_id ?? process.env.YOUTUBE_OAUTH_CLIENT_ID!
-  const clientSecret = channel.oauth_client_secret ?? process.env.YOUTUBE_OAUTH_CLIENT_SECRET!
-  const redirectUri = process.env.YOUTUBE_OAUTH_REDIRECT_URI!
+  // Env-naam-harmonisatie: connect-route + refresh-cron gebruiken YOUTUBE_CLIENT_ID/SECRET,
+  // de worker gebruikte YOUTUBE_OAUTH_CLIENT_ID/SECRET. Verschil → unauthorized_client op
+  // fallback-kanalen. Accepteer beide zodat de worker dezelfde globale client pakt als de connect.
+  const clientId = channel.oauth_client_id
+    ?? process.env.YOUTUBE_OAUTH_CLIENT_ID ?? process.env.YOUTUBE_CLIENT_ID!
+  const clientSecret = channel.oauth_client_secret
+    ?? process.env.YOUTUBE_OAUTH_CLIENT_SECRET ?? process.env.YOUTUBE_CLIENT_SECRET!
+  const redirectUri = process.env.YOUTUBE_OAUTH_REDIRECT_URI ?? process.env.YOUTUBE_REDIRECT_URI!
 
   const oauth2 = new google.auth.OAuth2(clientId, clientSecret, redirectUri)
 

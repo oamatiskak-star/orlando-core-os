@@ -57,6 +57,7 @@ export const NAV_MODULES: Record<string, NavModuleDef> = {
   workflows:            { key: 'workflows',            label: 'Workflow Engine',         href: '/dashboard/workflows',             icon: Workflow },
   orchestrator:         { key: 'orchestrator',         label: 'Orchestrator',            href: '/dashboard/orchestrator',          icon: ListChecks },
   abonnementen:         { key: 'abonnementen',         label: 'Abonnementen',            href: '/dashboard/abonnementen',          icon: CreditCard },
+  hermes_ceo:           { key: 'hermes_ceo',           label: 'Hermes CEO · Controle',   href: '/dashboard/hermes',                icon: Brain },
 
   // ── BEDRIJFSSTRUCTUUR ─────────────────────────────────────────────────────
   bedrijven:            { key: 'bedrijven',            label: 'Bedrijven',               href: '/dashboard/companies',             icon: Building2 },
@@ -233,6 +234,7 @@ export const COMPANY_NAV: Record<string, CompanyNav> = {
   osm: {
     sections: [
       { modules: ['dashboard'] },
+      { title: 'Hermes CEO', modules: ['hermes_ceo'] },
       { title: 'Juridisch', modules: ['advocaat_dashboard', 'advocaat_dossiers', 'advocaat_curator', 'advocaat_mail_def', 'advocaat_bewijs', 'advocaat_tijdlijn', 'advocaat_strategie', 'advocaat_imports', 'ai_advocaat', 'ai_adv_dossiers', 'ai_adv_contracten', 'ai_adv_deadlines'] },
       { title: 'OSIL', modules: ['osil_dashboard', 'osil_board', 'osil_kansen', 'osil_recovery', 'osil_optimalisatie', 'osil_fiscalist', 'osil_rapport'] },
       { title: 'Persoonlijk', modules: ['dyme_os', 'personal_finance', 'dga_loonstrook', 'loonstroken', 'financien'] },
