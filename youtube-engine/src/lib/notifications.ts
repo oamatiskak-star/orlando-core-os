@@ -23,14 +23,19 @@ export async function sendTelegram(message: string, severity: AlertSeverity = 'c
     return
   }
   if (!BOT_TOKEN || !CHAT_ID) return
+  // Omgeleid naar Hermes: centraal loggen i.p.v. direct naar Orlando's Telegram.
+  const sbUrl = process.env.SUPABASE_URL
+  const sbKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+  if (!sbUrl || !sbKey) return
   try {
-    await axios.post(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
-      chat_id: CHAT_ID,
-      text: message,
-      parse_mode: 'HTML',
-    })
+    await axios.post(`${sbUrl}/rest/v1/rpc/log_to_hermes`, {
+      source: 'youtube-engine',
+      level: severity === 'critical' || severity === 'error' ? 'error' : severity === 'warning' ? 'warn' : 'info',
+      event: 'bot.notify',
+      message: message.slice(0, 3500),
+    }, { headers: { apikey: sbKey, Authorization: `Bearer ${sbKey}` } })
   } catch (err) {
-    logger.warn('Telegram notification failed', { error: (err as Error).message })
+    logger.warn('Hermes-log notification failed', { error: (err as Error).message })
   }
 }
 
