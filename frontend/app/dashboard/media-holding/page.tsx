@@ -109,7 +109,7 @@ export default async function MediaHoldingPage() {
             Live
           </span>
         </div>
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
           <div className="bg-white/[0.04] rounded-xl p-4 border border-violet-500/20">
             <div className="flex items-center gap-2 mb-2">
               <Upload size={12} className="text-violet-400" />
@@ -138,6 +138,34 @@ export default async function MediaHoldingPage() {
             </div>
             <p className="text-2xl font-bold text-sky-300">{uploadKpis.solved_uploads}</p>
           </div>
+        </div>
+
+        {/* Track Progress */}
+        <div className="bg-white/[0.02] rounded-xl p-4 border border-sky-500/15">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-xs font-semibold text-sky-300">Voortgang: Paars → Groen</span>
+            <span className="text-xs text-sky-400 font-medium">
+              {uploadKpis.planned_uploads > 0
+                ? Math.round((uploadKpis.processed_uploads / uploadKpis.planned_uploads) * 100)
+                : 0
+              }%
+            </span>
+          </div>
+          <div className="w-full h-2 bg-white/[0.07] rounded-full overflow-hidden">
+            <div
+              className="h-full rounded-full transition-all duration-700"
+              style={{
+                width: `${uploadKpis.planned_uploads > 0
+                  ? Math.round((uploadKpis.processed_uploads / uploadKpis.planned_uploads) * 100)
+                  : 0
+                }%`,
+                backgroundColor: '#0ea5e9',
+              }}
+            />
+          </div>
+          <p className="text-[10px] text-white/30 mt-2 tabular-nums">
+            {uploadKpis.processed_uploads} van {uploadKpis.planned_uploads} uploads verwerkt
+          </p>
         </div>
       </div>
 
