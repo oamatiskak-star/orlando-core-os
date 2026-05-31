@@ -283,7 +283,7 @@ export const COMPANY_NAV: Record<string, CompanyNav> = {
     sections: [
       { modules: ['dashboard'] },
       { title: 'OSIL', modules: ['osil_dashboard', 'osil_board', 'osil_kansen', 'osil_recovery', 'osil_optimalisatie', 'osil_fiscalist', 'osil_rapport'] },
-      { title: 'Finance', modules: ['finance_incasso', 'moneybird_live', 'financien', 'belasting', 'abonnementen'] },
+      { title: 'Finance', modules: ['finance_incasso', 'moneybird_live', 'belasting', 'abonnementen'] },
       { title: 'Bedrijven', modules: ['bedrijven'] },
       {
         title: 'Personeel', modules: [

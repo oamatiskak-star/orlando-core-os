@@ -73,8 +73,8 @@ export default function IncassoPage() {
           <h1 className="text-lg font-semibold text-white">Incasso Dossiers</h1>
           <p className="text-xs text-white/50 mt-0.5">{cases.length} dossiers</p>
         </div>
-        <button className="bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-medium px-4 py-2 rounded-lg transition-colors">
-          + Nieuw Dossier
+        <button disabled title="Binnenkort beschikbaar" className="bg-white/5 text-white/40 text-xs font-medium px-4 py-2 rounded-lg cursor-not-allowed">
+          + Nieuw Dossier (binnenkort)
         </button>
       </div>
 
