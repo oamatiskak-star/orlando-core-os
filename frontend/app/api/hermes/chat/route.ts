@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/client'
+import { createClient } from '@supabase/supabase-js'
 import Anthropic from '@anthropic-ai/sdk'
 
 const anthropic = new Anthropic({
@@ -17,14 +17,17 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const supabase = createClient()
+    const supabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL || '',
+      process.env.SUPABASE_SERVICE_ROLE_KEY || ''
+    )
 
     // Get company context
     const { data: company } = await supabase
-      .from('public.companies')
-      .select('name, description')
+      .from('companies')
+      .select('name')
       .eq('id', company_id)
-      .single()
+      .maybeSingle()
 
     // Get recent system status
     const { data: alerts } = await supabase
@@ -32,52 +35,64 @@ export async function POST(request: NextRequest) {
       .select('alert_type, severity, description')
       .eq('company_id', company_id)
       .is('resolved_at', null)
+      .order('detected_at', { ascending: false })
       .limit(5)
 
     // Get current projects/tasks
     const { data: buildStatus } = await supabase
-      .from('hermes.build_status')
-      .select('project_name, status, progress')
+      .from('build_projects')
+      .select('name, status')
       .eq('company_id', company_id)
+      .order('updated_at', { ascending: false })
       .limit(5)
 
+    const alertsText = alerts && alerts.length > 0
+      ? alerts.map(a => `${a.alert_type} (${a.severity})`).join(', ')
+      : 'geen'
+
+    const projectsText = buildStatus && buildStatus.length > 0
+      ? buildStatus.map(p => `${p.name}`).join(', ')
+      : 'geen'
+
     const systemPrompt = `Je bent Hermes, de AI CEO-assistent van ${company?.name || 'dit bedrijf'}.
-Je doel is om Orlando (de CEO) te helpen met strategische beslissingen, operationele inzichten, en proactieve aanbevelingen.
+Je helpt Orlando met snelle operationele inzichten en strategische advies.
 
-HUIDIGE CONTEXT:
-- Actieve alerts: ${alerts?.length || 0} (${alerts?.map(a => a.alert_type).join(', ') || 'geen'})
-- Actieve projecten: ${buildStatus?.length || 0}
+HUIDIGE SITUATIE:
+- Alerts: ${alertsText}
+- Actieve projecten: ${projectsText}
 
-Je reacties moeten:
-1. Specifiek en actionable zijn (niet generiek)
-2. Gegrond zijn in de huidige bedrijfscontext
-3. Proactief problemen identificeren (niet alleen reactief antwoorden)
-4. Korte, snelle antwoorden geven (geen essays)
-5. Nederlands spreken (zoals Orlando)
+INSTRUCTIES:
+- Antwoord altijd in Nederlands
+- Wees kort en actionable (max 2-3 zinnen)
+- Geef praktisch advies gebaseerd op context
+- Wees proactief - suggereer wat Orlando kan doen
+- Geen lange uitleg, gewoon advies`
 
-Wanneer iemand "onthoud" zegt, bevestig dat je het hebt opgeslagen.
-Wanneer iemand "status" vraagt, geef een samenvatting van de huidige situatie.
-Bij andere vragen: geef praktisch advies gebaseerd op de bedrijfscontext.`
+    const messages = (conversation_history || []).map((msg: any) => ({
+      role: msg.role,
+      content: msg.content,
+    }))
 
-    const messages = [
-      ...conversation_history,
-      { role: 'user' as const, content: message },
-    ]
+    messages.push({ role: 'user' as const, content: message })
 
     const response = await anthropic.messages.create({
       model: 'claude-opus-4-8',
-      max_tokens: 300,
+      max_tokens: 250,
       system: systemPrompt,
-      messages: messages,
+      messages,
     })
 
-    const hermesResponse = response.content[0].type === 'text' ? response.content[0].text : 'Ik kon geen antwoord genereren.'
+    const hermesResponse = response.content[0]?.type === 'text'
+      ? response.content[0].text
+      : 'Ik kon geen antwoord genereren.'
 
     return NextResponse.json({ response: hermesResponse })
   } catch (error) {
     console.error('Error in Hermes chat:', error)
+    const errorMsg = error instanceof Error ? error.message : 'Unknown error'
+    console.error('Details:', errorMsg)
     return NextResponse.json(
-      { error: 'Failed to process message' },
+      { error: 'Failed to process message', details: errorMsg },
       { status: 500 }
     )
   }
