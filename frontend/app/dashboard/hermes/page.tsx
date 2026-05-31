@@ -3,6 +3,7 @@ import {
   CheckCircle2, AlertTriangle, XCircle, Clock,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
+import RefreshButton from './RefreshButton'
 
 export const dynamic = 'force-dynamic'
 
@@ -101,6 +102,7 @@ export default async function HermesControlPage() {
           </div>
         </div>
         <div className="flex items-center gap-2">
+          <RefreshButton />
           <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-fuchsia-500/20 bg-fuchsia-500/10 text-fuchsia-300 text-xs">
             <Clock size={13} />
             <span>Hermes actief · {kort(status?.laatste_run ?? null)}</span>
