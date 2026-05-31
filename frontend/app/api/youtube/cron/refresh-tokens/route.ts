@@ -46,15 +46,16 @@ async function runRefresh() {
 
       if (!res.ok) {
         const err = await res.json().catch(() => ({}))
-        // Mark as needing reconnect only on invalid_grant (refresh token revoked)
-        if (err.error === 'invalid_grant') {
-          await admin.from('youtube_channels')
-            .update({ oauth_status: 'revoked' })
-            .eq('id', ch.id)
-          results.push({ naam: ch.naam, status: 'revoked' })
-        } else {
-          results.push({ naam: ch.naam, status: `error: ${err.error ?? res.status}` })
-        }
+        // Een gefaalde refresh mag NOOIT 'connected' laten staan (dat was de leugen).
+        // unauthorized_client/invalid_client = client mismatch → reconnect; invalid_grant = revoked.
+        const reconnect = ['invalid_grant', 'unauthorized_client', 'invalid_client'].includes(err.error)
+        await admin.from('youtube_channels')
+          .update({
+            oauth_status:    reconnect ? 'reconnect_required' : 'refresh_error',
+            oauth_connected: false,
+          })
+          .eq('id', ch.id)
+        results.push({ naam: ch.naam, status: reconnect ? `reconnect_required: ${err.error}` : `error: ${err.error ?? res.status}` })
         continue
       }
 

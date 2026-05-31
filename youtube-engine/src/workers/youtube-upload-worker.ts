@@ -278,6 +278,27 @@ export function startYouTubeUploadWorker(): Worker {
     const videoTitle = video?.title ?? videoId
     const channelName = channel?.naam ?? channelId
 
+    // Terminale OAuth-fout: niet retryen (kan nooit slagen) + kanaal markeren voor reconnect.
+    // Dit herstelt meteen de waarheid van oauth_connected op het moment dat het écht faalt.
+    const errLower = (err.message ?? '').toLowerCase()
+    const terminalAuth = ['unauthorized_client', 'invalid_grant', 'invalid_client', 'token has been expired or revoked']
+      .some(p => errLower.includes(p))
+
+    if (terminalAuth) {
+      await db.from('youtube_channels')
+        .update({ oauth_status: 'reconnect_required', oauth_connected: false })
+        .eq('id', channelId)
+      await recordFailure(queueId, videoId, 'oauth_unauthorized', err.message)
+      await updateQueueStatus(queueId, 'manual_review_required', {
+        retry_count: retryCount,
+        last_error: err.message,
+      })
+      await addLog(queueId, videoId, 'error', `OAuth terminaal (${err.message}) — kanaal moet opnieuw verbonden worden; geen retry`)
+      await notifyUploadFailure(videoTitle, channelName,
+        `🔑 OAuth GEWEIGERD — kanaal "${channelName}" opnieuw verbinden. Niet automatisch herhaald (zou nooit slagen).`)
+      return
+    }
+
     if (retryCount < maxRetries) {
       await updateQueueStatus(queueId, 'retrying', {
         retry_count: retryCount,
