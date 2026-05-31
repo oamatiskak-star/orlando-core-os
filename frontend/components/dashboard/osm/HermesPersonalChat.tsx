@@ -25,6 +25,7 @@ export default function HermesPersonalChat({ companyId }: { companyId: string })
   const [greeting, setGreeting] = useState<string | null>(null)
   const [alerts, setAlerts] = useState<ProactiveAlert[]>([])
   const [loading, setLoading] = useState(true)
+  const [responding, setResponding] = useState(false)
 
   useEffect(() => {
     const loadGreeting = async () => {
@@ -85,16 +86,19 @@ export default function HermesPersonalChat({ companyId }: { companyId: string })
 
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!input.trim()) return
+    if (!input.trim() || responding) return
 
+    const userMessage = input
     const newMessage: Message = {
       id: Math.random().toString(),
       speaker: 'orlando',
-      message: input,
+      message: userMessage,
       timestamp: new Date().toISOString(),
     }
 
-    setMessages([...messages, newMessage])
+    setMessages(prev => [...prev, newMessage])
+    setInput('')
+    setResponding(true)
 
     try {
       await supabase.from('hermes.conversations').insert({
@@ -103,55 +107,62 @@ export default function HermesPersonalChat({ companyId }: { companyId: string })
         conversation_time: new Date().toTimeString().split(' ')[0],
         sequence: (messages.length + 1) as any,
         speaker: 'orlando',
-        message: input,
-        context_type: input.toLowerCase().includes('onthoud') ? 'memory_request' : 'general',
+        message: userMessage,
+        context_type: userMessage.toLowerCase().includes('onthoud') ? 'memory_request' : 'general',
       })
 
-      if (input.toLowerCase().includes('onthoud')) {
+      if (userMessage.toLowerCase().includes('onthoud')) {
         await supabase.rpc('remember', {
           p_company_id: companyId,
-          p_item: input,
+          p_item: userMessage,
         })
       }
 
-      setInput('')
-
-      const hermesResponse = generateHermesResponse(input, messages.length)
-      setTimeout(async () => {
-        const newHermesMessage: Message = {
-          id: Math.random().toString(),
-          speaker: 'hermes',
-          message: hermesResponse,
-          timestamp: new Date().toISOString(),
-        }
-        setMessages(prev => [...prev, newHermesMessage])
-
-        await supabase.from('hermes.conversations').insert({
+      const response = await fetch('/api/hermes/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
           company_id: companyId,
-          conversation_date: new Date().toISOString().split('T')[0],
-          conversation_time: new Date().toTimeString().split(' ')[0],
-          sequence: (messages.length + 2) as any,
-          speaker: 'hermes',
-          message: hermesResponse,
-          context_type: 'hermes_response',
-        })
-      }, 800)
-    } catch (error) {
-      console.error('Error saving message:', error)
-    }
-  }
+          message: userMessage,
+          conversation_history: messages.map(m => ({
+            role: m.speaker === 'orlando' ? 'user' : 'assistant',
+            content: m.message,
+          })),
+        }),
+      })
 
-  const generateHermesResponse = (input: string, messageCount: number): string => {
-    if (input.toLowerCase().includes('onthoud')) {
-      return `✓ Opgeslagen! Ik herinner je hieraan wanneer relevant. Nog ${3 - (messageCount % 3)} dingen op je lijstje.`
+      if (!response.ok) throw new Error('Failed to get Hermes response')
+      const { response: hermesResponse } = await response.json()
+
+      const newHermesMessage: Message = {
+        id: Math.random().toString(),
+        speaker: 'hermes',
+        message: hermesResponse,
+        timestamp: new Date().toISOString(),
+      }
+      setMessages(prev => [...prev, newHermesMessage])
+
+      await supabase.from('hermes.conversations').insert({
+        company_id: companyId,
+        conversation_date: new Date().toISOString().split('T')[0],
+        conversation_time: new Date().toTimeString().split(' ')[0],
+        sequence: (messages.length + 2) as any,
+        speaker: 'hermes',
+        message: hermesResponse,
+        context_type: 'hermes_response',
+      })
+    } catch (error) {
+      console.error('Error in chat:', error)
+      const errorMessage: Message = {
+        id: Math.random().toString(),
+        speaker: 'hermes',
+        message: 'Excuseer, ik kon je bericht niet verwerken. Probeer het opnieuw.',
+        timestamp: new Date().toISOString(),
+      }
+      setMessages(prev => [...prev, errorMessage])
+    } finally {
+      setResponding(false)
     }
-    if (input.toLowerCase().includes('status')) {
-      return 'Alle systemen lopen goed. 3 items pending, alles onder controle.'
-    }
-    if (input.toLowerCase().includes('fouten') || input.toLowerCase().includes('alerts')) {
-      return 'Geen kritieke fouten. Heb je 2 waarschuwingen gezien aan de rechterkant?'
-    }
-    return 'Begrepen. Wat wil je dat ik eraan doe?'
   }
 
   if (loading) {
@@ -224,12 +235,14 @@ export default function HermesPersonalChat({ companyId }: { companyId: string })
           type="text"
           value={input}
           onChange={e => setInput(e.target.value)}
+          disabled={responding}
           placeholder="Zeg iets tegen Hermes..."
-          className="flex-1 bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-xs text-white placeholder-white/30 focus:outline-none focus:border-cyan-500/40"
+          className="flex-1 bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-xs text-white placeholder-white/30 focus:outline-none focus:border-cyan-500/40 disabled:opacity-50"
         />
         <button
           type="submit"
-          className="p-2 rounded-lg bg-cyan-500/10 border border-cyan-500/20 text-cyan-400 hover:bg-cyan-500/20 transition-colors"
+          disabled={responding || !input.trim()}
+          className="p-2 rounded-lg bg-cyan-500/10 border border-cyan-500/20 text-cyan-400 hover:bg-cyan-500/20 transition-colors disabled:opacity-50"
         >
           <Send size={14} />
         </button>
