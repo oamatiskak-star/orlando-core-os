@@ -9,7 +9,7 @@ import {
   UserCheck, LucideIcon, Globe, Key, Coins, BadgeDollarSign,
   Cpu, GitBranch, ListChecks, Terminal, Webhook, PlugZap, Lightbulb, BarChart2, SlidersHorizontal, AlertCircle, ScanLine,
   Mail, Shield, GitMerge, Filter, Brain, ShieldAlert, Link,
-  Gavel, Lock, Eye, Upload, Server, Tv2,
+  Gavel, Lock, Eye, Upload, Server, Tv2, Music,
   Radar, MapPin, Target, Megaphone, UserPlus, Maximize2,
   Briefcase, GanttChart, UserCog, Gauge, ThumbsUp, Sparkles,
 } from 'lucide-react'
@@ -127,7 +127,14 @@ export const NAV_MODULES: Record<string, NavModuleDef> = {
   mh_workers:           { key: 'mh_workers',           label: 'Media Workers',           href: '/dashboard/media-holding/workers',            icon: Server },
   mh_analytics:         { key: 'mh_analytics',         label: 'Holding Analytics',       href: '/dashboard/media-holding/analytics',          icon: BarChart3 },
   mh_autopilot:         { key: 'mh_autopilot',         label: 'Autopilot',               href: '/dashboard/media-holding/autopilot',          icon: Zap },
-  mh_settings:          { key: 'mh_settings',          label: 'MH Settings',             href: '/dashboard/media-holding/settings',           icon: SlidersHorizontal },
+  mh_settings:          { key: 'mh_settings',          label: 'Settings',                href: '/dashboard/media-holding/settings',           icon: SlidersHorizontal },
+  mh_audio:             { key: 'mh_audio',             label: 'Audio Library',           href: '/dashboard/media-holding/audio-library',      icon: Music },
+  mh_algorithm_gravity: { key: 'mh_algorithm_gravity', label: 'Algorithm Gravity',       href: '/dashboard/media-holding/algorithm-gravity',  icon: Activity },
+  mh_sponsor:           { key: 'mh_sponsor',           label: 'Sponsor Engine',          href: '/dashboard/media-holding/sponsor-engine',     icon: Briefcase },
+  mh_affiliate:         { key: 'mh_affiliate',         label: 'Affiliate Engine',        href: '/dashboard/media-holding/affiliate-engine',   icon: Link },
+  mh_language:          { key: 'mh_language',          label: 'Language Expansion',      href: '/dashboard/media-holding/language-expansion', icon: Globe },
+  mh_crossplatform:     { key: 'mh_crossplatform',     label: 'Cross-Platform',          href: '/dashboard/media-holding/cross-platform',     icon: Layers },
+  mh_archives:          { key: 'mh_archives',          label: 'Archives',                href: '/dashboard/media-holding/archives',           icon: Archive },
 
   // ── OSIL — STRATEGIC INTELLIGENCE LAYER ──────────────────────────────────
   osil_dashboard:    { key: 'osil_dashboard',    label: 'OSIL Command',        href: '/dashboard/osil',                  icon: Brain },
@@ -290,8 +297,8 @@ export const COMPANY_NAV: Record<string, CompanyNav> = {
   'modiwe-media': {
     sections: [
       { modules: ['dashboard'] },
-      // ── MEDIA HOLDING OS — één geconsolideerde laag (YouTube zit hieronder, geen dubbele layer) ──
-      { title: 'Media Holding OS', modules: ['media_holding', 'mh_executive', 'mh_analytics', 'mh_autopilot'] },
+      // ── MEDIA HOLDING OS — 6 schone groepen, geen dubbele upload/analytics-layer ──
+      { title: 'Cockpit',       modules: ['media_holding', 'mh_executive', 'mh_analytics'] },
       {
         title: 'Kanalen', modules: [
           'mh_channels', 'mh_incubator',
@@ -300,19 +307,13 @@ export const COMPANY_NAV: Record<string, CompanyNav> = {
           'youtube_brickpulse', 'youtube_loopforge', 'youtube_slicetheory',
         ],
       },
-      {
-        title: 'YouTube Engine', modules: [
-          'youtube', 'youtube_workflow', 'youtube_queue', 'youtube_scheduled',
-          'youtube_analytics', 'youtube_calendar', 'youtube_automation', 'youtube_growth', 'youtube_logs',
-        ],
-      },
-      { title: 'Content & Productie', modules: ['mh_content_factory', 'mh_hooks', 'mh_retention'] },
-      { title: 'Intelligence & Scraper', modules: ['mh_compete', 'mh_trend_scanner', 'mh_viral'] },
-      { title: 'Groei & Geld', modules: ['mh_monetization', 'mh_launches'] },
-      { title: 'Social Media', modules: ['instagram', 'tiktok'] },
-      { title: 'Beheer', modules: ['mh_workers', 'mh_settings'] },
-      { title: 'Finance', modules: ['finance_incasso', 'financien'] },
-      { title: 'Operationeel', modules: ['build_tracker', 'accounts', 'projecten', 'planning', 'crm', 'documenten', 'agenda', 'taken'] },
+      { title: 'Productie',     modules: ['mh_content_factory', 'mh_hooks', 'mh_audio', 'mh_retention'] },
+      { title: 'Intelligence',  modules: ['mh_viral', 'mh_trend_scanner', 'mh_compete', 'mh_algorithm_gravity'] },
+      { title: 'Groei & Geld',  modules: ['mh_monetization', 'mh_sponsor', 'mh_affiliate', 'mh_launches', 'mh_language', 'mh_crossplatform'] },
+      { title: 'Beheer',        modules: ['mh_workers', 'mh_autopilot', 'mh_settings', 'mh_archives'] },
+      { title: 'Social Media',  modules: ['instagram', 'tiktok'] },
+      { title: 'Finance',       modules: ['finance_incasso', 'financien'] },
+      { title: 'Operationeel',  modules: ['build_tracker', 'accounts', 'projecten', 'planning', 'crm', 'documenten', 'agenda', 'taken'] },
       { title: 'Routines Control', modules: ['routines_hub', 'routines_live', 'routines_agents', 'routines_logs'] },
     ],
     globalBottom: ['meldingen', 'instellingen'],
