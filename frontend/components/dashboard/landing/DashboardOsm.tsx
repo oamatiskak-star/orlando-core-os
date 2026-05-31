@@ -8,6 +8,7 @@ import { createClient } from '@/lib/supabase/server'
 import { PendingApprovalsWidget } from '@/app/dashboard/mail/_components/PendingApprovalsWidget'
 import HermesControllerRoom from '@/components/dashboard/osm/HermesControllerRoom'
 import HermesPersonalChat from '@/components/dashboard/osm/HermesPersonalChat'
+import HermesBusinessPlan from '@/components/dashboard/osm/HermesBusinessPlan'
 import HermesExecutiveReport from '@/components/dashboard/osm/HermesExecutiveReport'
 import HermesProactiveAlerts from '@/components/dashboard/osm/HermesProactiveAlerts'
 import HermesMemory from '@/components/dashboard/osm/HermesMemory'
@@ -91,7 +92,7 @@ export default async function DashboardOsm() {
         </div>
       </div>
 
-      {/* Hermes Landing: Controller Room + Personal Chat */}
+      {/* Hermes Landing: Controller Room + Personal Chat + Business Plan */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         <div className="lg:col-span-2">
           <HermesControllerRoom />
@@ -100,6 +101,18 @@ export default async function DashboardOsm() {
           {companies.length > 0 && <HermesPersonalChat companyId={companies[0].id} />}
         </div>
       </div>
+
+      {/* Business Plan Monitoring */}
+      {companies.length > 0 && (
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+          <div className="lg:col-span-2">
+            <HermesBusinessPlan companyId={companies[0].id} />
+          </div>
+          <div>
+            {/* Placeholder for future business plan details */}
+          </div>
+        </div>
+      )}
 
       <PendingApprovalsWidget />
 
