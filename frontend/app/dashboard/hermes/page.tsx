@@ -4,6 +4,7 @@ import {
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
 import RefreshButton from './RefreshButton'
+import ShiftRoster from './ShiftRoster'
 
 export const dynamic = 'force-dynamic'
 
@@ -68,6 +69,7 @@ export default async function HermesControlPage() {
     { data: alertData },
     { data: statusData },
     { data: logData },
+    { data: shiftData },
   ] = await Promise.all([
     supabase.from('v_ctl_factory_overview').select('*'),
     supabase.from('v_ctl_upload_summary').select('*'),
@@ -77,6 +79,7 @@ export default async function HermesControlPage() {
     supabase.from('v_ctl_hermes_alerts').select('*'),
     supabase.from('v_ctl_hermes_status').select('*').maybeSingle(),
     supabase.from('v_ctl_hermes_log').select('*').limit(40),
+    supabase.from('v_ctl_shift_workers').select('*'),
   ])
 
   const factories = ((factData ?? []) as FactoryRow[]).sort((a, b) => b.projecten_totaal - a.projecten_totaal)
@@ -87,6 +90,7 @@ export default async function HermesControlPage() {
   const alerts    = ((alertData ?? []) as AlertRow[])
   const status    = (statusData ?? null) as StatusRow | null
   const botlog    = (logData ?? []) as LogRow[]
+  const shiftWorkers = (shiftData ?? []) as { shift: string; workers: number; errors: number; actief: number; offline: number }[]
 
   const laatsteJanitor = janitor[0]
   const oauthProbleem  = oauth.filter(o => o.echte_status !== 'gezond').length
@@ -167,6 +171,9 @@ export default async function HermesControlPage() {
           <p className="text-[11px] text-white/40 mt-0.5">Uploads · live</p>
         </div>
       </div>
+
+      {/* 5-Ploegenrooster */}
+      <ShiftRoster shifts={shiftWorkers} />
 
       {/* Fabrieken */}
       <section className="space-y-2">
