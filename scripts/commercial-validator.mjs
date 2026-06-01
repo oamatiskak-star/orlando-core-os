@@ -7,7 +7,15 @@
 // de mond": zoekt redenen om NIET te kopen. Per pagina × persona:
 //   7 kernvragen + persona-specifieke vragen + zou-ik-betalen + waarom-niet +
 //   ontbrekende info/CTA/onbeantwoorde bezwaren + conversie-scores + taalvalidatie.
-// Aggregeert → go-live conversiegate (alle vereiste persona's "zouden kopen").
+// Aggregeert → COPY-QA-DIAGNOSE (welke persona's de copy nog niet overtuigt).
+//
+// KPI-REFRAME: dit is een content-QA-DIAGNOSTIEK, GEEN demand-metric. Would_Buy
+// meet vijandige meningen over de copy, geen koopgedrag, en blijft tegen een
+// azijn-rechter per definitie laag — daarom is het NIET de go/no-go conversiegate.
+// De PRIMAIRE conversie-/scale-gate = echt gedrag via Buyer-Intent
+// (scripts/buyer-intent-gate.mjs → vastgoed_core.v_buyer_intent), zodra er verkeer
+// is. Gebruik deze validator om copy te verbeteren (why_not_buy/missing_info), niet
+// om te beslissen of je opschaalt.
 //
 // No-mock: fetcht ECHTE pagina's + echte LLM-oordelen. Pagina onbereikbaar →
 // vastleggen, niet verzinnen. Geen ANTHROPIC_API_KEY → no-op (exit 0).
@@ -131,7 +139,7 @@ async function callLLM(prompt) {
   const res = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
     headers: { 'x-api-key': ANTHROPIC_KEY, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },
-    body: JSON.stringify({ model: MODEL, max_tokens: 1500, messages: [{ role: 'user', content: prompt }] }),
+    body: JSON.stringify({ model: MODEL, max_tokens: 4000, messages: [{ role: 'user', content: prompt }] }),
   });
   if (!res.ok) throw new Error(`anthropic ${res.status}: ${(await res.text()).slice(0, 160)}`);
   const j = await res.json();
@@ -183,7 +191,8 @@ async function callLLM(prompt) {
     }
   }
 
-  // Gate: koopt élke vereiste persona ergens?
+  // Copy-QA-diagnose: overtuigt de copy élke vereiste persona ergens? (NIET de
+  // go/no-go — dat is de Buyer-Intent-gate op echt gedrag.)
   const required = PERSONAS.map(p => p.slug);
   const passed = required.filter(s => personasBuy[s]);
   const gateOpen = passed.length === required.length && evals > 0;
@@ -195,6 +204,7 @@ async function callLLM(prompt) {
               summary: { personas_buy: personasBuy, pages: PAGES.length, countries },
               finished_at: new Date().toISOString() } });
   }
-  console.log(`[cv] klaar: ${evals} evaluaties, ${wouldBuy} would_buy. Persona's die kopen: ${passed.join(', ') || 'geen'}.`);
-  console.log(`[cv] GO-LIVE CONVERSIEGATE: ${gateOpen ? 'OPEN ✅ (alle persona\'s zouden kopen)' : 'DICHT 🔒 — ' + required.filter(s=>!personasBuy[s]).join(', ') + ' kopen (nog) niet'}`);
+  console.log(`[cv] klaar: ${evals} evaluaties, ${wouldBuy} would_buy. Persona's die de copy overtuigt: ${passed.join(', ') || 'geen'}.`);
+  console.log(`[cv] COPY-QA-DIAGNOSE: ${gateOpen ? 'copy overtuigt alle persona\'s ✅' : 'copy overtuigt nog niet — ' + required.filter(s=>!personasBuy[s]).join(', ') + ' (zie why_not_buy/missing_info)'}`);
+  console.log(`[cv] LET OP: dit is copy-QA-diagnostiek, GEEN go/no-go. Primaire conversie-/scale-gate = echt gedrag: node scripts/buyer-intent-gate.mjs (Buyer-Intent).`);
 })().catch((e) => { console.error('[cv] fout:', e.message); process.exit(1); });

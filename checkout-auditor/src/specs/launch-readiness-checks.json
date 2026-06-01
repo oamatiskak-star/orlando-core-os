@@ -1,0 +1,42 @@
+{
+  "$comment": "Launch-readiness check-spec (additief). Definieert de volledige keten die de launch-gate per product verifieert. Geen wijziging aan bestaande specs.",
+  "version": "1.0.0",
+  "products": [
+    { "key": "scout", "slug": "explorer", "kind": "membership", "expect_subscription": true },
+    { "key": "developer", "slug": "developer", "kind": "membership", "expect_subscription": true },
+    { "key": "black", "slug": "black", "kind": "membership", "expect_subscription": true, "high_touch": true },
+    { "key": "acquisition_report", "slug": "basic-investment-scan", "kind": "report", "expect_subscription": false },
+    { "key": "feasibility_report", "slug": "transformatie-analyse", "kind": "report", "expect_subscription": false },
+    { "key": "bouwcalc", "slug": "complete-development-package", "kind": "calc", "expect_subscription": false }
+  ],
+  "chain": [
+    "checkout_reaches_stripe",
+    "payment_completes",
+    "success_url",
+    "cancel_url",
+    "coupon_flow",
+    "webhook_delivery",
+    "membership_activation",
+    "dashboard_access",
+    "email_flow",
+    "analytics_event"
+  ],
+  "coupon": {
+    "test_100pct_code": "LAUNCH100",
+    "$comment": "100%-coupon flow: verwacht discount_observed=true en analytics-event coupon_used. Coupon zelf wordt in Stripe beheerd (allow_promotion_codes=true).",
+    "expect_discount_observed": true,
+    "expect_coupon_used_event": true
+  },
+  "webhook": {
+    "expected_events": ["checkout.session.completed", "customer.subscription.created", "invoice.paid"],
+    "warn_latency_ms": 10000,
+    "fail_latency_ms": 30000
+  },
+  "analytics": {
+    "expected_min_events": ["checkout_completed"]
+  },
+  "safety": {
+    "$comment": "Nooit live-betalingen forceren: driver weigert cs_live_*. 100%-coupon = €0 echte afschrijving.",
+    "refuse_live_charge": true
+  }
+}

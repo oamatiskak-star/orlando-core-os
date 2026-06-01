@@ -1,0 +1,23 @@
+{
+  "name": "growth-command",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Aquier Growth OS command center — Would Buy Runner + Hermes Launch Command (daily revenue tracker). Read-only against production; no DB writes.",
+  "scripts": {
+    "would-buy": "tsx src/cli.ts would-buy",
+    "launch-tracker": "tsx src/cli.ts launch-tracker",
+    "build": "tsc -p tsconfig.json",
+    "start:tracker": "node dist/cli.js launch-tracker"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.36.3",
+    "@supabase/supabase-js": "^2.45.4",
+    "dotenv": "^16.4.5"
+  },
+  "devDependencies": {
+    "tsx": "^4.19.2",
+    "typescript": "^5.6.3",
+    "@types/node": "^22.9.0"
+  }
+}

@@ -2,7 +2,12 @@
 
 **Niet "werkt het" — maar "wil iemand BETALEN".** Hermes beoordeelt elke pagina als een
 **kritische koper per doelgroep** ("glas azijn in de mond"): zoekt redenen om NIET te kopen.
-Dit is de go-live conversiegate.
+
+> **KPI-REFRAME (belangrijk):** dit is **content-QA-diagnostiek**, geen demand-metric. `would_buy`
+> meet een vijandige *mening* over de copy, geen koopgedrag, en blijft tegen een azijn-rechter per
+> definitie laag — dus het is **NIET** de go/no-go. De **primaire conversie-/scale-gate is echt
+> gedrag**: de Buyer-Intent-engine (`scripts/buyer-intent-gate.mjs` → `vastgoed_core.v_buyer_intent`).
+> Gebruik deze validator om **copy te verbeteren**, niet om op te schalen.
 
 ## Run
 ```bash
@@ -23,10 +28,21 @@ proof/conversion) en taalvalidatie (NL professioneel/jargon-vrij · US gelokalis
 **Persona's:** ontwikkelaar · financier/bankier · makelaar · investeerder · bemiddelaar · family office
 — elk met eigen kritische vragen (zie `commercial-validator.mjs` PERSONAS).
 
-## Go-live conversiegate
-`hermes.v_commercial_gate` — per persona of ze "zouden kopen" (laatste run). **Marketing schaalt
-pas op als élke vereiste persona `buys_somewhere=true`.** `commercial_validation_runs.gate_open`
-vat dit samen.
+## Copy-QA-diagnose (NIET de go/no-go)
+`hermes.v_commercial_gate` — per persona of de **copy** ze overtuigt (laatste run).
+`commercial_validation_runs.gate_open` vat samen of de copy élke vereiste persona overtuigt.
+Dit is een **kwaliteitsdrempel voor de copy**, geen schaalbeslissing.
+
+## Primaire conversie-/scale-gate = Buyer-Intent (echt gedrag)
+```bash
+SUPABASE_URL=… SUPABASE_SERVICE_ROLE_KEY=… node scripts/buyer-intent-gate.mjs
+```
+Leest `vastgoed_core.v_buyer_intent` (eerstpartij intent-events via `aquier /api/track`): tier-verdeling
+(Cold/Warm/Hot/Sales-Ready) + 7d-trend. **Verdict:** `OPEN — SCALE` (genoeg Sales-Ready + Hot+ aandeel +
+niet-dalende trend) · `WAIT — OPTIMIZE` (te weinig gedrag) · `INSUFFICIENT DATA` (< drempel bezoekers →
+blijf optimaliseren + verkeer sturen, gebruik Would_Buy als copy-diagnose). Drempels via env
+`BI_MIN_VISITORS` (50) / `BI_MIN_SALES_READY` (5) / `BI_MIN_HOTPLUS_PCT` (10). AVG: anonieme visitor_id's,
+geen PII. **Marketing schaalt op zodra deze gate `OPEN — SCALE` is**, niet op basis van Would_Buy.
 
 ## Output → actie
 `commercial_validation.why_not_buy` + `missing_info` + `unanswered_objections` + `missing_cta` =
