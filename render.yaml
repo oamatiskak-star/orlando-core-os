@@ -277,6 +277,38 @@ services:
       - key: AGENT_TIMEZONE
         value: "Europe/Amsterdam"
 
+  # Content-worker — NL/USA viral Shorts generatie (un-gate-route voor AQUIER_ATTENTION_DOMINATION_ENGINE).
+  # Docker-runtime want hij heeft ffmpeg nodig (zie content-worker/Dockerfile) — node-buildCommand mist die binary.
+  # autoDeploy: false — service staat klaar in de blueprint maar draait NIET vanzelf. Deploy + keys handmatig
+  # zetten zodra de NL-content-pijler un-gated wordt (ANTHROPIC_API_KEY is forward-looking; huidige code gebruikt
+  # Pexels/ffmpeg, script-generatie via Anthropic komt bij de un-gate-taak).
+  - type: worker
+    name: orlando-content-worker
+    runtime: docker
+    dockerfilePath: content-worker/Dockerfile
+    dockerContext: content-worker
+    plan: starter
+    autoDeploy: false
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+      - key: PEXELS_API_KEY
+        sync: false
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      - key: RENDER_BUCKET
+        sync: false
+      - key: CONTENT_WORKER_CRON
+        value: "*/15 * * * *"
+      - key: VIDEO_OUTPUT_DIR
+        value: "/tmp/orlando-videos"
+      - key: LOG_LEVEL
+        value: "info"
+
   - type: redis
     name: orlando-redis
     plan: starter
