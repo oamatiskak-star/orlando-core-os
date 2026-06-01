@@ -9,7 +9,7 @@ import {
   UserCheck, LucideIcon, Globe, Key, Coins, BadgeDollarSign,
   Cpu, GitBranch, ListChecks, Terminal, Webhook, PlugZap, Lightbulb, BarChart2, SlidersHorizontal, AlertCircle, ScanLine,
   Mail, Shield, GitMerge, Filter, Brain, ShieldAlert, Link,
-  Gavel, Lock, Eye, Upload, Server, Tv2,
+  Gavel, Lock, Eye, Upload, Server, Tv2, Linkedin,
   Radar, MapPin, Target, Megaphone, UserPlus, Maximize2,
   Briefcase, GanttChart, UserCog, Gauge, ThumbsUp, Sparkles,
 } from 'lucide-react'
@@ -99,6 +99,8 @@ export const NAV_MODULES: Record<string, NavModuleDef> = {
   tiktok:               { key: 'tiktok',               label: 'TikTok',                  href: '/dashboard/social/tiktok',         icon: Globe },
   fb_offmarket:         { key: 'fb_offmarket',         label: 'FB Off Market NL',        href: '/dashboard/social/fb-offmarket',   icon: Globe },
   fb_property:          { key: 'fb_property',          label: 'FB Private Property NL',  href: '/dashboard/social/fb-property',    icon: Globe },
+  linkedin:             { key: 'linkedin',             label: 'LinkedIn',                href: '/dashboard/social/linkedin',       icon: Linkedin },
+  social_connect:       { key: 'social_connect',       label: 'Social Koppelingen',      href: '/dashboard/social/connect',        icon: PlugZap },
   youtube_workflow:     { key: 'youtube_workflow',     label: 'Pipeline',                href: '/dashboard/youtube/workflow',      icon: GitBranch },
   youtube_analytics:    { key: 'youtube_analytics',    label: 'Analytics',               href: '/dashboard/youtube/analytics',     icon: BarChart3 },
   youtube_queue:        { key: 'youtube_queue',        label: 'Upload Queue',            href: '/dashboard/youtube/queue',         icon: Package },
@@ -280,7 +282,7 @@ export const COMPANY_NAV: Record<string, CompanyNav> = {
         ],
       },
       { title: 'YouTube Tools', modules: ['youtube_workflow', 'youtube_analytics', 'youtube_queue', 'youtube_automation', 'youtube_calendar', 'youtube_scheduled', 'youtube_logs', 'youtube_growth'] },
-      { title: 'Social Media', modules: ['instagram', 'tiktok'] },
+      { title: 'Social Media', modules: ['linkedin', 'instagram', 'tiktok', 'social_connect'] },
       { title: 'Finance', modules: ['finance_incasso', 'financien'] },
       { title: 'Operationeel', modules: ['build_tracker', 'osm', 'accounts', 'projecten', 'planning', 'crm', 'documenten', 'agenda', 'taken'] },
       { title: 'Routines Control', modules: ['routines_hub', 'routines_live', 'routines_agents', 'routines_logs'] },
@@ -292,7 +294,8 @@ export const COMPANY_NAV: Record<string, CompanyNav> = {
   'modiwe-software': {
     sections: [
       { modules: ['dashboard'] },
-      { title: 'Aquier', modules: ['aquier_hub', 'aquier_verzamelaar', 'aquier_projecten', 'aquier_planning', 'aquier_agenda', 'aquier_ai_lead', 'aquier_monitor', 'aquier_approvals', 'aquier_audit', 'aquier_forecast', 'fb_offmarket', 'fb_property'] },
+      { title: 'Aquier', modules: ['aquier_hub', 'aquier_verzamelaar', 'aquier_projecten', 'aquier_planning', 'aquier_agenda', 'aquier_ai_lead', 'aquier_monitor', 'aquier_approvals', 'aquier_audit', 'aquier_forecast'] },
+      { title: 'Aquier Social', modules: ['social_connect', 'linkedin', 'fb_property', 'fb_offmarket'] },
       { title: 'Scrapers & Data', modules: ['acq_offmarket', 'acq_permits', 'acq_municipalities'] },
       { title: 'SaaS', modules: ['projecten'] },
       { title: 'Holding Ecosystem', modules: ['holding_milestones', 'seo_network'] },
