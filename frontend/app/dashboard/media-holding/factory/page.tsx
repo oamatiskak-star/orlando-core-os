@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import { Clapperboard, Upload, AlertTriangle, CheckCircle2, Clock } from 'lucide-react'
+import JobRetryButton from './JobRetryButton'
 
 const STATUS_STYLE: Record<string, string> = {
   queued:      'bg-sky-500/10 border-sky-500/20 text-sky-400',
@@ -71,7 +72,8 @@ export default async function FactoryPage() {
                   <th className="text-left py-2 pr-3 font-medium">Status</th>
                   <th className="text-right py-2 pr-3 font-medium">Viral score</th>
                   <th className="text-right py-2 pr-3 font-medium">Retries</th>
-                  <th className="text-right py-2 font-medium">Gepland</th>
+                  <th className="text-right py-2 pr-3 font-medium">Gepland</th>
+                  <th className="text-right py-2 font-medium">Actie</th>
                 </tr>
               </thead>
               <tbody>
@@ -85,11 +87,12 @@ export default async function FactoryPage() {
                     </td>
                     <td className="py-2 pr-3 text-right text-white/50">{j.viral_score ?? '—'}</td>
                     <td className="py-2 pr-3 text-right text-white/40">{j.retry_count ?? 0}</td>
-                    <td className="py-2 text-right text-white/35">
+                    <td className="py-2 pr-3 text-right text-white/35">
                       {j.scheduled_publish_at
                         ? new Date(j.scheduled_publish_at).toLocaleDateString('nl-NL', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })
                         : '—'}
                     </td>
+                    <td className="py-2 text-right"><JobRetryButton id={j.id} status={j.status} /></td>
                   </tr>
                 ))}
               </tbody>

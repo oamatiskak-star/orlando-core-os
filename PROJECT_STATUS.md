@@ -4,6 +4,71 @@
 
 ---
 
+## 🔴 HERSTEL HIER NA CRASH (sessie 15 — Controlelaag + Hermes CEO over 7 fabrieken)
+
+**Sessie focus (2026-05-31, sessie 15)**: Orlando mist controle/overzicht. Diagnose via live DB `shaunumewswpxhmgbtvv` + start controlelaag.
+
+**🚀 DEPLOY-STATUS:** branch `feature/hermes-control-layer` (controlelaag-dashboard + OAuth-fixes + refresh-knop + lokale YouTube-scraper + Media Holding nav-consolidatie + dead-end knoppen + pagina-merges). Gemerged met origin/main (parallel Hermes-systeem).
+**Scraper blok 1 (volglijst, lokaal):** `youtube-engine/src/competitor-scanner/local-runner.ts` + `seed-channels.ts` + PM2-app `yt-competitor-scraper` in `ecosystem.cli-l.config.js` (dagploeg 06/14). Activeren: youtube-engine op CLI-L builden + `.env` met YOUTUBE_DATA_API_KEY, volglijst cureren, `pm2 start ecosystem.cli-l.config.js --only yt-competitor-scraper`. Schrijft naar `scraper_runs` (source=youtube_competitor) → lost Hermes scraper_idle op. Docker competitor-surveillance-yt OFFLINE laten (anders dubbel). Blok 2 = discovery + launch-funnel.
+**Scraper blok 2 (discovery + funnel):** `discovery-runner.ts` + `discovery-keywords.ts` + `searchYouTube()` in youtube-public-api + PM2-app `yt-discovery` (06:30, DISCOVERY_MAX_SEARCHES=8). Zoekt virale video's op niche-keywords → scoort (virality 0-100) → `viral_opportunities` → bestaande trigger `bridge_viral_to_osil()` (>=70 → osil 'radar'/'onderzoek' voorstel; >=100 → 'onderzoek') → osil 'actief' (goedkeuring Orlando/AI) → `media_holding_channels`. Funnel END-TO-END GEVERIFIEERD (test viral 100 → osil 'onderzoek' auto, opgeruimd). Goedkeuringsstap osil→actief bewust handmatig (geen blind auto-aanmaken). CHECK: autopilot_config `osil_actief_to_launch` enabled? Nieuwe kanalen → competitor_channels (volglijst-scraper verrijkt). Activeren = zelfde als blok 1 (API key + pm2 start yt-discovery).
+**Nav-consolidatie:** modiwe-media nav = Media Holding OS paraplu (YouTube Engine als subsectie, geen dubbele layer). 16 MH suite-pagina's ontsloten + 3 lab-kanalen + 'Alle Kanalen' (dynamisch). 53 module-refs geverifieerd. Vercel preview klaar → Orlando promote. CLI-R youtube-engine rebuild = Orlando via SSH. DB-laag (alle migraties) al op prod. **Open Orlando-acties:** (1) Vercel promote/merge, (2) Google OAuth consent screen → Publish (anders 7-daagse tokens), (3) `ssh cli-r` → `cd ~/Github/orlando-core-os && git fetch && git checkout main && git pull && docker compose -f docker-compose.cli-r.yml up -d --build youtube-engine`, (4) 11 kanalen reconnecten via `/api/youtube/oauth/connect?channel_uuid=<id>`, (5) Hermes-dashboard "Ververs & hercheck".
+
+**Vastgestelde root causes (feitelijk, via SQL):**
+1. **YouTube staat stil.** Upload-queue: 1356 `queued` (sinds 14 mei, niet leeggewerkt), 486 `manual_review_required` (waarvan **325 `unauthorized_client` OAuth**), 442 `failed` (waarvan **400 `ffmpeg: input file not found`** = bronbestanden weg na schijfopruiming /tmp+T7). Slechts ~3 live/dag vs 50-75 errors/dag.
+2. **OAuth root cause:** refresh_token uitgegeven door andere client_id dan waarmee ververst wordt. 5 lab/aquier-kanalen (BrickPulse, LoopForge, SliceTheory, AquierTv, AquierTvEs) hebben GEEN eigen `oauth_client_id` in `youtube_channels` → fallback naar globale env-client → mismatch → `unauthorized_client`. De 325 blokkades = exact BrickPulse(103)+LoopForge(112)+SliceTheory(110). Code: `youtube-engine/src/lib/youtube-api.ts:8-39`.
+3. **Status-leugen:** `oauth/callback/route.ts:78`, `token-refresh/route.ts:42`, `cron/refresh-tokens` schrijven `oauth_connected=true` optimistisch na HTTP-200 ZONDER echte YouTube-API-test. Alle 11 kanalen tonen 'connected' maar ALLE tokens zijn verlopen.
+4. **3 verschillende live/planned-getallen:** 4 dashboardpagina's (`youtube/page.tsx`, `queue/page.tsx`, `scheduled/page.tsx`, `mission-control/page.tsx`) lezen dezelfde tabel met elk een eigen status-definitie. Geen single source of truth.
+5. **Scraper:** `competitor_channels` leeg (0). Scraper draait alleen vastgoed. YouTube-kanaal-scraping bestaat niet meer. Channel-funnel staat stil (1 launch_plan hangt op 'launching' sinds 19 mei).
+
+**✅ GEBOUWD deze sessie — Controlelaag (migratie `control_layer_observability_views` APPLIED):**
+5 alleen-lezen views in `public` die de ECHTE stand berekenen:
+- `v_ctl_oauth_health` — echte OAuth-status per kanaal (ontmaskert de leugen)
+- `v_ctl_upload_pipeline` — canonieke fase + foutclassificatie per queue-rij
+- `v_ctl_upload_summary` — 1 getal per fase (vervangt de 4 botsende tellingen)
+- `v_ctl_channel_funnel` — gescraped→launch_plan→media_holding→echt kanaal
+- `v_ctl_factory_overview` — projectstand per fabriek (7 entiteiten)
+
+**✅ GEBOUWD — Blok 1: Janitor-ronde (migraties `janitor_core_block1` + `add_unrecoverable_status` APPLIED):**
+- Tabellen `janitor_runs` (samenvatting/ronde) + `janitor_actions` (detail, from/to status → terugdraaibaar).
+- Functie `run_janitor(shift)`: dode jobs (bronbestand weg) `failed`→`unrecoverable` (gelogd), stuck claims >2u→`queued`, stale queued >3d FLAG (niet wissen). Nieuwe terminale status `unrecoverable` toegevoegd aan status-CHECK + view-fase `afgeschreven`.
+- pg_cron rooster ACTIEF: `janitor_s2_morning` (04:00 UTC=06:00 NL), `janitor_s4_afternoon` (15:00 UTC=17:00 NL), `janitor_midnight` (21:50 UTC=23:50 NL).
+- 1e run gedraaid: **400 dode jobs afgeschreven**, 1356 stale geflagd (status `alarm`). `mislukt`-fase 442→42.
+- TERUGDRAAIEN indien nodig: `update youtube_upload_queue q set status=a.from_status from janitor_actions a where a.action='mark_unrecoverable' and a.queue_id=q.id;`
+
+**✅ GEBOUWD — Blok 2: Hermes Controlelaag-dashboard:**
+- Nieuwe pagina `frontend/app/dashboard/hermes/page.tsx` (server component, `force-dynamic`) leest de 5 v_ctl-views + janitor_runs. Toont: topsignalen, 7 fabriek-cards (voortgang/live/bouw/gepland), upload-pipeline (één waarheid, 8 fasen + foutclassificatie), OAuth-gezondheid per kanaal (echte stand), janitor-rondes, kanaal-funnel.
+- Nav: module `hermes_ceo` (icon Brain) toegevoegd aan OSM-nav bovenaan (sectie "Hermes CEO"). Route `/dashboard/hermes` (bestond nog niet).
+- Views op `security definer` + grant select aan anon/authenticated (robuust, geen secrets). Geverifieerd: lucide-iconen OK (Youtube→Video gefixt, bestaat niet in lucide 1.14), eslint schoon, tsc geen fouten op nieuwe bestanden.
+- NOG TE DOEN door Orlando: lokaal `npm run dev` in frontend → `/dashboard/hermes` (OSM-fabriek), OF committen + Vercel-deploy. Niet auto-gedeployed.
+
+**✅ GEBOUWD — OAuth code-fix (3 fixes, typecheck schoon, NOG TE DEPLOYEN):**
+- `youtube-engine/src/workers/youtube-upload-worker.ts`: terminale auth-fout (`unauthorized_client`/`invalid_grant`/`invalid_client`/expired) → GEEN 5× retry meer + markeert kanaal `oauth_status='reconnect_required'`, `oauth_connected=false` (waarheidsherstel op moment van échte faal).
+- `frontend/app/api/youtube/cron/refresh-tokens/route.ts`: gefaalde refresh schrijft NOOIT meer `connected` (de leugen weg) — `unauthorized_client`/`invalid_client`→`reconnect_required`, overig→`refresh_error`, altijd `oauth_connected=false`.
+- `youtube-engine/src/lib/youtube-api.ts`: env-naam-harmonisatie — worker accepteert nu `YOUTUBE_OAUTH_CLIENT_ID` ÉN `YOUTUBE_CLIENT_ID` (connect-route + cron gebruikten de 2e naam → mismatch = waarschijnlijke rootcause fallback-kanalen).
+- **KRITISCH (Orlando):** alle 11 tokens verliepen tegelijk → OAuth consent screen staat vermoedelijk in **Testing** (refresh tokens 7-daags). Google Cloud → OAuth consent screen → **Publish/In production** zetten, anders komt dit elke 7 dagen terug.
+- **RECONNECT (Orlando, na deploy):** per kanaal `/api/youtube/oauth/connect?channel_uuid=<id>` (of verbind-knop in `ChannelHealth.tsx`). 5 fallback-kanalen (AquierTv/AquierTvEs/BrickPulse/LoopForge/SliceTheory): eigen GCP client_id/secret in `youtube_channels` zetten óf met globale client verbinden (worker pakt die nu ook).
+- **DEPLOY NODIG:** frontend→Vercel, youtube-engine→CLI-R docker rebuild. Effect pas na deploy.
+
+**✅ GEBOUWD — Blok 3: Hermes ploegbaas (migraties `hermes_supervisor_block3` + `hermes_status_view`):**
+- Tabellen `hermes_alerts` (current-state, dedup_key uniek, count/heropen/auto-resolve) + `hermes_config` (key/value, BEVAT SECRETS → niet aan anon).
+- Functies `hermes_raise`/`hermes_resolve`/`hermes_supervisor` (security definer). 5 ploegbaas-checks: OAuth-blokkade, queue-aandacht, janitor-stale (controleert de schoonmaker), scraper-idle, queue-stuck. + heartbeat.
+- **Push klaar via pg_net** → Telegram (`net.http_post`), gated op `hermes_config.telegram_bot_token`+`telegram_chat_id`. Degradeert netjes naar alleen-dashboard als config leeg.
+- pg_cron `hermes_supervisor` elke 20 min ACTIEF. 1e run: 4 alerts (2 critical OAuth+queue, 2 warning scraper+stuck).
+- Views `v_ctl_hermes_alerts` + `v_ctl_hermes_status` (heartbeat, geen secrets) + grant anon.
+- Dashboard `/dashboard/hermes` uitgebreid met alarmenpaneel + Hermes-hartslag. Geverifieerd: GET 200 in browser, eslint schoon.
+- **OPEN micro-stap (Orlando):** push activeren = `insert into hermes_config(key,value) values ('telegram_bot_token','...'),('telegram_chat_id','...') on conflict (key) do update set value=excluded.value;` (token is secret → zelf invoeren in Supabase SQL-editor).
+
+**VASTE REGELS opgeslagen (memory):** `feedback_factory_worker_isolation` (elke fabriek eigen Workers/Renders; gedeelde resource → verkeersregelaar) + `feedback_shift_model_organisation` (5-ploegen rooster 3 werk+2 janitor onder 24/7 Hermes; scrapen vaste vensters; batch met breekpunten).
+
+**Open / volgende stappen (taken #1-#5 in tasklist):**
+1. **OAuth herstellen** — vereist Orlando: per lab-kanaal eigen GCP client_id/secret in `youtube_channels` zetten + verse refresh tokens via browser-consent (zie memory `project_phase1_gcp_credentials`). Daarna code-fix: echte healthcheck + `unauthorized_client` als terminale fout.
+2. **Queue opschonen** — 400 `bronbestand_weg`-jobs definitief markeren (akkoord Orlando nodig).
+3. **Dashboard-pagina** op de 5 views.
+4. **Hermes CEO** permanent + self-healing deployen (nu WIP-draft, migraties 105-107 niet gedeployed).
+5. **Aparte lokale YouTube-scraper** + channel-funnel repareren.
+
+---
+
 ## 🔴 HERSTEL HIER NA CRASH (sessie 14 — Live browser co-pilot affiliate-registratie)
 
 **Sessie focus (2026-05-27, sessie 14)**: Account Setup Agent die een ECHTE browser aanstuurt om affiliate-formulieren in te vullen; Orlando keurt alleen goed (PR **#57**, branch `feature/account-setup-live-browser`).
@@ -45,9 +110,15 @@ Via `ssh cli-l` opgezet (CLI-R kon het niet: geen `.env`/LLM). Stappen:
 - Gestart host-onafhankelijk vanuit `local-agent/`: `pm2 start node_modules/.bin/ts-node --name account-setup-runner --interpreter none -- --transpile-only src/account-setup-runner.ts` + `pm2 save`. (NB: ecosystem.config.js `BASE` is hardcoded naar het CLI-R-pad `/Users/bouwproffsnederlandbv/...` → `--only`-start zou op CLI-L verkeerde `cwd` pakken. Portability-bug, nog te fixen.)
 - Geverifieerd: runner `online` (0 restarts), pakte run `6256078b` (terms_analysis) op en **completed in ~16s via Ollama**; audit `terms_analysis.completed` 14:07:45; queue nu **6 completed / 0 queued**.
 
-**Open follow-ups:**
-1. `pm2 startup` op CLI-L voor herstart-na-reboot (vereist sudo; `pm2 save` is al gedaan voor `pm2 resurrect`).
-2. ecosystem.config.js `BASE` dynamisch maken (bv. `process.env.ORLANDO_REPO || __dirname`-afgeleide) zodat `--only account-setup-runner` op elke host werkt.
+**Follow-ups (sessie 13b):**
+1. ✅ **BASE-fix** — `ecosystem.config.js` `BASE` → `process.env.ORLANDO_REPO || __dirname` + `youtube-watchdog out_file` → `os.homedir()` (**PR #56**). Gevalideerd op CLI-L (cwd resolvt naar `/Users/o.s.m.amatiskak/...`). Runner daar **herregistreerd via de config** (`pm2 start ecosystem.config.js --only account-setup-runner` + `pm2 save`) — nu config-gedreven, online.
+2. ⏳ **`pm2 startup` op CLI-L** — vereist sudo-wachtwoord (passwordless sudo NIET aan op CLI-L), dus door Orlando interactief te draaien op `ssh cli-l`:
+   ```
+   sudo env PATH=$PATH:/Users/o.s.m.amatiskak/.nvm/versions/node/v22.22.3/bin \
+     /Users/o.s.m.amatiskak/.nvm/versions/node/v22.22.3/lib/node_modules/pm2/bin/pm2 \
+     startup launchd -u o.s.m.amatiskak --hp /Users/o.s.m.amatiskak
+   ```
+   Daarna draait `pm2 resurrect` (dump al opgeslagen) de runner automatisch na reboot. Tot dan: runner draait, maar overleeft een reboot van CLI-L niet.
 
 ---
 

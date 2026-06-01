@@ -9,9 +9,10 @@ import {
   UserCheck, LucideIcon, Globe, Key, Coins, BadgeDollarSign,
   Cpu, GitBranch, ListChecks, Terminal, Webhook, PlugZap, Lightbulb, BarChart2, SlidersHorizontal, AlertCircle, ScanLine,
   Mail, Shield, GitMerge, Filter, Brain, ShieldAlert, Link,
-  Gavel, Lock, Eye, Upload, Server, Tv2,
+  Gavel, Lock, Eye, Upload, Server, Tv2, Music,
   Radar, MapPin, Target, Megaphone, UserPlus, Maximize2,
   Briefcase, GanttChart, UserCog, Gauge, ThumbsUp, Sparkles,
+  CalendarClock,
 } from 'lucide-react'
 
 export type NavModuleDef = {
@@ -57,6 +58,9 @@ export const NAV_MODULES: Record<string, NavModuleDef> = {
   workflows:            { key: 'workflows',            label: 'Workflow Engine',         href: '/dashboard/workflows',             icon: Workflow },
   orchestrator:         { key: 'orchestrator',         label: 'Orchestrator',            href: '/dashboard/orchestrator',          icon: ListChecks },
   abonnementen:         { key: 'abonnementen',         label: 'Abonnementen',            href: '/dashboard/abonnementen',          icon: CreditCard },
+  hermes_ceo:           { key: 'hermes_ceo',           label: 'Hermes CEO · Controle',   href: '/dashboard/hermes',                icon: Brain },
+  engine_planner:       { key: 'engine_planner',       label: 'Engine Planner',          href: '/dashboard/planner',               icon: CalendarClock },
+  projectleider:        { key: 'projectleider',        label: 'Projectleider',           href: '/dashboard/projectleider',         icon: UserCog },
 
   // ── BEDRIJFSSTRUCTUUR ─────────────────────────────────────────────────────
   bedrijven:            { key: 'bedrijven',            label: 'Bedrijven',               href: '/dashboard/companies',             icon: Building2 },
@@ -107,6 +111,33 @@ export const NAV_MODULES: Record<string, NavModuleDef> = {
   youtube_logs:         { key: 'youtube_logs',         label: 'Logs',                    href: '/dashboard/youtube/logs',          icon: FileText },
   youtube_calendar:     { key: 'youtube_calendar',     label: 'Content Calendar',        href: '/dashboard/youtube/calendar',      icon: Calendar },
   youtube_growth:       { key: 'youtube_growth',       label: 'Growth & Kwaliteit',      href: '/dashboard/youtube/growth',        icon: TrendingUp },
+  youtube_brickpulse:   { key: 'youtube_brickpulse',   label: 'BrickPulse Lab',          href: '/dashboard/youtube/channel/brickpulse',   icon: Video },
+  youtube_loopforge:    { key: 'youtube_loopforge',    label: 'LoopForge AI',            href: '/dashboard/youtube/channel/loopforge',    icon: Video },
+  youtube_slicetheory:  { key: 'youtube_slicetheory',  label: 'SliceTheory',             href: '/dashboard/youtube/channel/slicetheory',  icon: Video },
+
+  // ── MEDIA HOLDING OS — suite-pagina's (consolidatie: geen dubbele YouTube-layer) ──
+  mh_executive:         { key: 'mh_executive',         label: 'Executive Boardroom',     href: '/dashboard/media-holding/executive',          icon: Brain },
+  mh_channels:          { key: 'mh_channels',          label: 'Alle Kanalen',            href: '/dashboard/media-holding/channels',           icon: Tv2 },
+  mh_incubator:         { key: 'mh_incubator',         label: 'Channel Incubator',       href: '/dashboard/media-holding/channel-incubator',  icon: PlusCircle },
+  mh_content_factory:   { key: 'mh_content_factory',   label: 'Content Factory',         href: '/dashboard/media-holding/content-factory',    icon: Package },
+  mh_compete:           { key: 'mh_compete',           label: 'Competitor Scanner',      href: '/dashboard/media-holding/compete',            icon: Radar },
+  mh_trend_scanner:     { key: 'mh_trend_scanner',     label: 'Trend Scanner',           href: '/dashboard/media-holding/trend-scanner',      icon: TrendingUp },
+  mh_viral:             { key: 'mh_viral',             label: 'Viral Intelligence',      href: '/dashboard/media-holding/viral-intelligence', icon: Sparkles },
+  mh_retention:         { key: 'mh_retention',         label: 'Retention Lab',           href: '/dashboard/media-holding/retention-lab',      icon: Activity },
+  mh_hooks:             { key: 'mh_hooks',             label: 'Hook Library',            href: '/dashboard/media-holding/hook-library',       icon: Lightbulb },
+  mh_monetization:      { key: 'mh_monetization',      label: 'Revenue & Affiliate',     href: '/dashboard/media-holding/monetization',       icon: BadgeDollarSign },
+  mh_launches:          { key: 'mh_launches',          label: 'Launches',                href: '/dashboard/media-holding/launches',           icon: Megaphone },
+  mh_workers:           { key: 'mh_workers',           label: 'Media Workers',           href: '/dashboard/media-holding/workers',            icon: Server },
+  mh_analytics:         { key: 'mh_analytics',         label: 'Holding Analytics',       href: '/dashboard/media-holding/analytics',          icon: BarChart3 },
+  mh_autopilot:         { key: 'mh_autopilot',         label: 'Autopilot',               href: '/dashboard/media-holding/autopilot',          icon: Zap },
+  mh_settings:          { key: 'mh_settings',          label: 'Instellingen & Platforms', href: '/dashboard/media-holding/settings',          icon: SlidersHorizontal },
+  mh_audio:             { key: 'mh_audio',             label: 'Audio Library',           href: '/dashboard/media-holding/audio-library',      icon: Music },
+  mh_algorithm_gravity: { key: 'mh_algorithm_gravity', label: 'Algorithm Gravity',       href: '/dashboard/media-holding/algorithm-gravity',  icon: Activity },
+  mh_sponsor:           { key: 'mh_sponsor',           label: 'Sponsor Engine',          href: '/dashboard/media-holding/sponsor-engine',     icon: Briefcase },
+  mh_affiliate:         { key: 'mh_affiliate',         label: 'Affiliate Engine',        href: '/dashboard/media-holding/affiliate-engine',   icon: Link },
+  mh_language:          { key: 'mh_language',          label: 'Language Expansion',      href: '/dashboard/media-holding/language-expansion', icon: Globe },
+  mh_crossplatform:     { key: 'mh_crossplatform',     label: 'Cross-Platform',          href: '/dashboard/media-holding/cross-platform',     icon: Layers },
+  mh_archives:          { key: 'mh_archives',          label: 'Archives',                href: '/dashboard/media-holding/archives',           icon: Archive },
 
   // ── OSIL — STRATEGIC INTELLIGENCE LAYER ──────────────────────────────────
   osil_dashboard:    { key: 'osil_dashboard',    label: 'OSIL Command',        href: '/dashboard/osil',                  icon: Brain },
@@ -147,6 +178,8 @@ export const NAV_MODULES: Record<string, NavModuleDef> = {
   ops_agents:           { key: 'ops_agents',           label: 'AI Agents',           href: '/dashboard/operations/agents',                icon: Bot },
   ops_worker_control:   { key: 'ops_worker_control',   label: 'Worker Control',      href: '/dashboard/operations/worker-control',        icon: Server },
   ops_ai_optimizer:     { key: 'ops_ai_optimizer',     label: 'AI Optimizer',        href: '/dashboard/operations/ai-optimizer',          icon: Sparkles },
+  ops_dispatch:         { key: 'ops_dispatch',         label: 'Dispatch (CLI-L/R)',  href: '/dashboard/operations/dispatch',              icon: ArrowRightLeft },
+  ops_hermes:           { key: 'ops_hermes',           label: 'Hermes Cockpit',      href: '/dashboard/operations/hermes',                icon: Gauge },
   ops_scheduler:        { key: 'ops_scheduler',        label: 'Scheduler',           href: '/dashboard/operations/scheduler',             icon: Clock },
   ops_queue:            { key: 'ops_queue',            label: 'Queue Monitor',       href: '/dashboard/operations/queue',                 icon: Package },
   ops_logs:             { key: 'ops_logs',             label: 'Logs',                href: '/dashboard/operations/logs',                  icon: Terminal },
@@ -167,7 +200,7 @@ export const NAV_MODULES: Record<string, NavModuleDef> = {
   // ── AQUIER — GLOBAL EXPANSION COMMAND ────────────────────────────────────
   aquier_hub:          { key: 'aquier_hub',          label: 'Aquier',                  href: '/dashboard/aquier',                  icon: Globe },
   aquier_projecten:    { key: 'aquier_projecten',    label: 'Projecten',               href: '/dashboard/aquier/projecten',        icon: Briefcase },
-  aquier_planning:     { key: 'aquier_planning',     label: 'Planning',                href: '/dashboard/aquier/planning',         icon: GanttChart },
+  aquier_planning:     { key: 'aquier_planning',     label: 'Sprints',                 href: '/dashboard/aquier/planning',         icon: GanttChart },
   aquier_agenda:       { key: 'aquier_agenda',       label: 'Agenda',                  href: '/dashboard/aquier/agenda',           icon: Calendar },
   aquier_ai_lead:      { key: 'aquier_ai_lead',      label: 'AI Project Leider',       href: '/dashboard/aquier/ai-lead',          icon: UserCog },
   aquier_monitor:      { key: 'aquier_monitor',      label: 'Dagelijkse Monitoring',   href: '/dashboard/aquier/monitor',          icon: Gauge },
@@ -178,6 +211,7 @@ export const NAV_MODULES: Record<string, NavModuleDef> = {
 
   // ── BUILD TRACKER (per-entity) ────────────────────────────────────────────
   build_tracker:       { key: 'build_tracker',       label: 'Build Tracker',           href: '/dashboard/build-tracker',           icon: Hammer },
+  osm:                 { key: 'osm',                 label: 'OSM',                     href: '/dashboard/osm',                     icon: Cpu },
   accounts:            { key: 'accounts',            label: 'Accounts & Affiliates',   href: '/dashboard/accounts',                icon: Key },
 
   // ── AFFILIATE & REVENUE INFRASTRUCTURE (programma-registry, migratie 100) ──
@@ -209,6 +243,7 @@ export const NAV_MODULES: Record<string, NavModuleDef> = {
   acq_outreach:       { key: 'acq_outreach',       label: 'Outreach Automatie',   href: '/dashboard/acquisition/outreach',            icon: Megaphone },
   acq_analytics:      { key: 'acq_analytics',      label: 'Deal Analytics',       href: '/dashboard/acquisition/analytics',           icon: BarChart3 },
   acq_settings:       { key: 'acq_settings',       label: 'Acquisition Settings', href: '/dashboard/acquisition/settings',            icon: SlidersHorizontal },
+  acq_leads:          { key: 'acq_leads',          label: 'Leads (aanvragen)',    href: '/dashboard/acquisition/leads',               icon: Inbox },
   acq_scaling:        { key: 'acq_scaling',        label: 'Scaling Engine',       href: '/dashboard/acquisition/scaling',             icon: Maximize2 },
   acq_agents:         { key: 'acq_agents',         label: 'Acquisition Agents',   href: '/dashboard/acquisition/agents',              icon: Bot },
 }
@@ -229,14 +264,17 @@ export const COMPANY_NAV: Record<string, CompanyNav> = {
   // O.S.M. AMATISKAK — eigenaar (volledige governance + persoonlijk)
   osm: {
     sections: [
-      { modules: ['dashboard'] },
-      { title: 'Juridisch', modules: ['advocaat_dashboard', 'advocaat_dossiers', 'advocaat_curator', 'advocaat_mail_def', 'advocaat_bewijs', 'advocaat_tijdlijn', 'advocaat_strategie', 'advocaat_imports', 'ai_advocaat', 'ai_adv_dossiers', 'ai_adv_contracten', 'ai_adv_deadlines'] },
+      { modules: ['dashboard', 'projectleider'] },
+      { title: 'Hermes CEO', modules: ['hermes_ceo'] },
+      { title: 'Juridisch', modules: ['advocaat_dashboard', 'advocaat_dossiers', 'advocaat_curator', 'advocaat_mail_def', 'advocaat_bewijs', 'advocaat_tijdlijn', 'advocaat_strategie', 'advocaat_imports'] },
       { title: 'OSIL', modules: ['osil_dashboard', 'osil_board', 'osil_kansen', 'osil_recovery', 'osil_optimalisatie', 'osil_fiscalist', 'osil_rapport'] },
-      { title: 'Persoonlijk', modules: ['dyme_os', 'personal_finance', 'dga_loonstrook', 'loonstroken', 'financien'] },
+      { title: 'Persoonlijk', modules: ['dyme_os', 'personal_finance', 'dga_loonstrook', 'loonstroken'] },
       { title: 'Bedrijven', modules: ['bedrijven'] },
-      { title: 'Operationeel', modules: ['build_tracker', 'accounts', 'agenda', 'taken', 'planning', 'crm'] },
+      { title: 'Operationeel', modules: ['build_tracker', 'osm', 'accounts', 'agenda', 'taken', 'planning', 'crm'] },
       { title: 'Routines Control', modules: ['routines_hub', 'routines_live', 'routines_agents', 'routines_logs'] },
-      { title: 'Operations Center', modules: ['ops_dashboard', 'ops_workflows', 'ops_routines', 'ops_agents', 'ops_worker_control', 'ops_ai_optimizer', 'ops_scheduler', 'ops_queue', 'ops_logs', 'ops_errors', 'ops_automations', 'ops_api', 'ops_dil', 'ops_suggestions', 'ops_manual', 'ops_templates', 'ops_webhooks', 'ops_analytics', 'ops_company_settings', 'ops_global_settings', 'infra', 'worktree_manager'] },
+      { title: 'Operations',         modules: ['ops_dashboard', 'ops_hermes', 'engine_planner', 'ops_worker_control', 'ops_dispatch', 'ops_errors', 'ops_logs'] },
+      { title: 'Automatisering',     modules: ['ops_workflows', 'ops_automations', 'ops_agents', 'ops_ai_optimizer', 'ops_suggestions', 'ops_manual', 'ops_templates'] },
+      { title: 'Operations · Config', modules: ['ops_dil', 'ops_analytics', 'ops_company_settings', 'ops_global_settings', 'infra', 'worktree_manager'] },
       { title: 'Mail Engine', modules: ['mail_dashboard', 'mail_agents', 'mail_workflows', 'mail_rules', 'mail_dossiers', 'mail_inbox'] },
       { title: 'AI & Workflow', modules: ['agents', 'workflows', 'orchestrator'] },
       { title: 'Systeem', modules: ['administratie', 'belasting', 'abonnementen', 'documenten', 'gebruikers'] },
@@ -247,9 +285,9 @@ export const COMPANY_NAV: Record<string, CompanyNav> = {
   // Modiwerijo Financial Management BV — financiële holding
   modiwerijo: {
     sections: [
-      { modules: ['dashboard'] },
+      { modules: ['dashboard', 'projectleider'] },
       { title: 'OSIL', modules: ['osil_dashboard', 'osil_board', 'osil_kansen', 'osil_recovery', 'osil_optimalisatie', 'osil_fiscalist', 'osil_rapport'] },
-      { title: 'Finance', modules: ['finance_incasso', 'moneybird_live', 'financien', 'belasting', 'abonnementen'] },
+      { title: 'Finance', modules: ['finance_incasso', 'abonnementen'] },
       { title: 'Bedrijven', modules: ['bedrijven'] },
       {
         title: 'Personeel', modules: [
@@ -257,7 +295,7 @@ export const COMPANY_NAV: Record<string, CompanyNav> = {
           'personeel_loon', 'personeel_admini', 'personeel_ubo',
         ],
       },
-      { title: 'Operationeel', modules: ['build_tracker', 'accounts', 'projecten', 'planning', 'crm', 'documenten', 'agenda', 'taken'] },
+      { title: 'Operationeel', modules: ['build_tracker', 'osm', 'accounts', 'projecten', 'planning', 'crm', 'documenten', 'agenda', 'taken'] },
       { title: 'Affiliate & Revenue', modules: ['account_setup_hub', 'account_setup_accounts', 'account_setup_action'] },
       { title: 'Routines Control', modules: ['routines_hub', 'routines_live', 'routines_agents', 'routines_logs'] },
     ],
@@ -267,19 +305,24 @@ export const COMPANY_NAV: Record<string, CompanyNav> = {
   // Modiwe Media BV — media + content (Media Holding only here)
   'modiwe-media': {
     sections: [
-      { modules: ['dashboard'] },
-      { title: 'Media Holding', modules: ['media_holding'] },
+      { modules: ['dashboard', 'projectleider'] },
+      // ── MEDIA HOLDING OS — 6 schone groepen, geen dubbele upload/analytics-layer ──
+      { title: 'Cockpit',       modules: ['media_holding', 'mh_executive', 'mh_analytics'] },
       {
-        title: 'YouTube', modules: [
-          'youtube',
-          'youtube_vermogen', 'youtube_spaartv', 'youtube_vastgoed',
-          'youtube_crypto', 'youtube_beleggingstv', 'youtube_investor', 'youtube_aquier', 'youtube_aquieres',
+        title: 'Kanalen', modules: [
+          'mh_channels', 'mh_incubator',
+          'youtube_vermogen', 'youtube_spaartv', 'youtube_vastgoed', 'youtube_crypto',
+          'youtube_beleggingstv', 'youtube_investor', 'youtube_aquier', 'youtube_aquieres',
+          'youtube_brickpulse', 'youtube_loopforge', 'youtube_slicetheory',
         ],
       },
-      { title: 'YouTube Tools', modules: ['youtube_workflow', 'youtube_analytics', 'youtube_queue', 'youtube_automation', 'youtube_calendar', 'youtube_scheduled', 'youtube_logs', 'youtube_growth'] },
-      { title: 'Social Media', modules: ['instagram', 'tiktok'] },
-      { title: 'Finance', modules: ['finance_incasso', 'financien'] },
-      { title: 'Operationeel', modules: ['build_tracker', 'accounts', 'projecten', 'planning', 'crm', 'documenten', 'agenda', 'taken'] },
+      { title: 'Productie',     modules: ['mh_content_factory', 'mh_hooks', 'mh_audio', 'mh_retention'] },
+      { title: 'Intelligence',  modules: ['mh_viral', 'mh_trend_scanner', 'mh_compete', 'mh_algorithm_gravity'] },
+      { title: 'Groei & Geld',  modules: ['mh_monetization', 'mh_sponsor', 'mh_launches', 'mh_language'] },
+      { title: 'Beheer',        modules: ['mh_workers', 'mh_autopilot', 'mh_settings', 'mh_archives'] },
+      { title: 'Social Media',  modules: ['instagram', 'tiktok'] },
+      { title: 'Finance',       modules: ['finance_incasso'] },
+      { title: 'Operationeel',  modules: ['build_tracker', 'osm', 'accounts', 'projecten', 'planning', 'crm', 'documenten', 'agenda', 'taken'] },
       { title: 'Routines Control', modules: ['routines_hub', 'routines_live', 'routines_agents', 'routines_logs'] },
     ],
     globalBottom: ['meldingen', 'instellingen'],
@@ -288,13 +331,15 @@ export const COMPANY_NAV: Record<string, CompanyNav> = {
   // Modiwe Software BV — Aquier + scrapers + SaaS tools
   'modiwe-software': {
     sections: [
-      { modules: ['dashboard'] },
-      { title: 'Aquier', modules: ['aquier_hub', 'aquier_verzamelaar', 'aquier_projecten', 'aquier_planning', 'aquier_agenda', 'aquier_ai_lead', 'aquier_monitor', 'aquier_approvals', 'aquier_audit', 'aquier_forecast', 'fb_offmarket', 'fb_property'] },
+      { modules: ['dashboard', 'projectleider'] },
+      { title: 'Aquier', modules: ['aquier_hub', 'aquier_verzamelaar', 'aquier_projecten', 'aquier_planning', 'aquier_agenda', 'aquier_ai_lead', 'aquier_monitor', 'aquier_approvals', 'aquier_audit', 'aquier_forecast'] },
       { title: 'Scrapers & Data', modules: ['acq_offmarket', 'acq_permits', 'acq_municipalities'] },
+      { title: 'Acquisitie', modules: ['acq_leads'] },
+      { title: 'Social', modules: ['fb_offmarket', 'fb_property'] },
       { title: 'SaaS', modules: ['projecten'] },
       { title: 'Holding Ecosystem', modules: ['holding_milestones', 'seo_network'] },
-      { title: 'Finance', modules: ['finance_incasso', 'financien'] },
-      { title: 'Operationeel', modules: ['build_tracker', 'accounts', 'planning', 'crm', 'documenten', 'agenda', 'taken'] },
+      { title: 'Finance', modules: ['finance_incasso'] },
+      { title: 'Operationeel', modules: ['build_tracker', 'osm', 'accounts', 'planning', 'crm', 'documenten', 'agenda', 'taken'] },
       { title: 'Routines Control', modules: ['routines_hub', 'routines_live', 'routines_agents', 'routines_logs'] },
     ],
     globalBottom: ['meldingen', 'instellingen'],
@@ -303,9 +348,9 @@ export const COMPANY_NAV: Record<string, CompanyNav> = {
   // STRKBEHEER BV — vastgoed deals + holding
   strkbeheer: {
     sections: [
-      { modules: ['dashboard'] },
+      { modules: ['dashboard', 'projectleider'] },
       { title: 'Vastgoed', modules: ['vastgoed', 'projecten', 'planning'] },
-      { title: 'Acquisitie', modules: ['acq_deal_desk', 'acq_deals', 'acq_build_opps', 'acq_investors', 'acq_crm', 'acq_outreach', 'acq_analytics', 'acq_agents', 'acq_scaling', 'acq_settings'] },
+      { title: 'Acquisitie', modules: ['acq_deal_desk', 'acq_leads', 'acq_deals', 'acq_build_opps', 'acq_investors', 'acq_crm', 'acq_outreach', 'acq_analytics', 'acq_agents', 'acq_scaling', 'acq_settings'] },
       { title: 'Bedrijven', modules: ['bedrijven'] },
       {
         title: 'Personeel', modules: [
@@ -314,8 +359,8 @@ export const COMPANY_NAV: Record<string, CompanyNav> = {
         ],
       },
       { title: 'CRM', modules: ['crm'] },
-      { title: 'Finance', modules: ['finance_incasso', 'financien', 'belasting', 'abonnementen'] },
-      { title: 'Operationeel', modules: ['build_tracker', 'accounts', 'documenten', 'agenda', 'taken'] },
+      { title: 'Finance', modules: ['finance_incasso', 'abonnementen'] },
+      { title: 'Operationeel', modules: ['build_tracker', 'osm', 'accounts', 'documenten', 'agenda', 'taken'] },
       { title: 'Routines Control', modules: ['routines_hub', 'routines_live', 'routines_agents', 'routines_logs'] },
     ],
     globalBottom: ['meldingen', 'instellingen'],
@@ -324,12 +369,12 @@ export const COMPANY_NAV: Record<string, CompanyNav> = {
   // STRKBOUW BV — bouwbedrijf
   strkbouw: {
     sections: [
-      { modules: ['dashboard'] },
+      { modules: ['dashboard', 'projectleider'] },
       { title: 'Bouw', modules: ['calculaties', 'bouwplaats', 'projecten', 'planning'] },
-      { title: 'Kopers Portaal', modules: ['kopers_portaal'] },
-      { title: 'CRM', modules: ['crm'] },
-      { title: 'Finance', modules: ['finance_incasso', 'financien', 'belasting', 'abonnementen'] },
-      { title: 'Operationeel', modules: ['build_tracker', 'accounts', 'documenten', 'agenda', 'taken'] },
+      { title: 'Klanten', modules: ['kopers_portaal', 'crm'] },
+      { title: 'Acquisitie', modules: ['acq_leads'] },
+      { title: 'Finance', modules: ['finance_incasso', 'abonnementen'] },
+      { title: 'Operationeel', modules: ['build_tracker', 'osm', 'accounts', 'documenten', 'agenda', 'taken'] },
       { title: 'Routines Control', modules: ['routines_hub', 'routines_live', 'routines_agents', 'routines_logs'] },
     ],
     globalBottom: ['meldingen', 'instellingen'],
@@ -338,11 +383,11 @@ export const COMPANY_NAV: Record<string, CompanyNav> = {
   // Bouwproffs BV — calculatiebureau
   bouwproffs: {
     sections: [
-      { modules: ['dashboard'] },
+      { modules: ['dashboard', 'projectleider'] },
       { title: 'Calculatie', modules: ['calculaties', 'projecten', 'planning'] },
       { title: 'CRM', modules: ['crm'] },
-      { title: 'Finance', modules: ['finance_incasso', 'moneybird_live', 'financien', 'belasting', 'abonnementen'] },
-      { title: 'Operationeel', modules: ['build_tracker', 'accounts', 'documenten', 'agenda', 'taken'] },
+      { title: 'Finance', modules: ['finance_incasso', 'abonnementen'] },
+      { title: 'Operationeel', modules: ['build_tracker', 'osm', 'accounts', 'documenten', 'agenda', 'taken'] },
       { title: 'Routines Control', modules: ['routines_hub', 'routines_live', 'routines_agents', 'routines_logs'] },
     ],
     globalBottom: ['meldingen', 'instellingen'],

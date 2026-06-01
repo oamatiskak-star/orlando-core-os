@@ -86,46 +86,77 @@ html[data-showcase="on"] body {
   filter: contrast(var(--showcase-contrast));
 }
 
-/* ── Daglicht-modus ──────────────────────────────────────────────────
-   Hoog-contrast variant voor buitengebruik / fel zonlicht.
-   Geactiveerd via [data-theme="day"] op <html> (toggle in de Topbar).
-   Donkere achtergronden blijven donker (wit-op-donker = max contrast),
-   maar vage grijze tekst wordt bijna wit en randen/oppervlakken feller.
-   Werkt globaal over alle pagina's zonder per-pagina herschrijving.    */
+/* ── Lichte modus (echte light theme) ─────────────────────────────────
+   Geactiveerd via [data-theme="day"] op <html> (maantje-toggle in de Topbar).
+   Donkere oppervlakken + witte tekst worden omgezet naar een licht palet;
+   de accentkleuren (fuchsia/emerald/amber/indigo/violet/sky/red) blijven en
+   lezen prima op licht. Werkt globaal over alle pagina's zonder per-pagina
+   herschrijving (override op de gebruikte donkere utility-klassen).        */
 
-/* Iets minder diep-zwart → minder glans/reflectie in de zon */
-html[data-theme="day"] { background: #14141f; }
-html[data-theme="day"] body { background: #16162a; }
+html[data-theme="day"] { background: #eef0f6; }
+html[data-theme="day"] body { background: #f4f5fa; color: #15172b; }
 
-/* Vage tekst feller maken (de grootste leesbaarheidsbottleneck) */
-html[data-theme="day"] .text-white\/20 { color: rgb(255 255 255 / 0.46) !important; }
-html[data-theme="day"] .text-white\/25 { color: rgb(255 255 255 / 0.52) !important; }
-html[data-theme="day"] .text-white\/30 { color: rgb(255 255 255 / 0.60) !important; }
-html[data-theme="day"] .text-white\/38 { color: rgb(255 255 255 / 0.70) !important; }
-html[data-theme="day"] .text-white\/40 { color: rgb(255 255 255 / 0.72) !important; }
-html[data-theme="day"] .text-white\/45 { color: rgb(255 255 255 / 0.78) !important; }
-html[data-theme="day"] .text-white\/50 { color: rgb(255 255 255 / 0.82) !important; }
-html[data-theme="day"] .text-white\/60 { color: rgb(255 255 255 / 0.90) !important; }
-html[data-theme="day"] .text-white\/65 { color: rgb(255 255 255 / 0.92) !important; }
-html[data-theme="day"] .text-white\/70 { color: rgb(255 255 255 / 0.95) !important; }
-html[data-theme="day"] .text-white\/80 { color: rgb(255 255 255 / 0.97) !important; }
+/* Tekst: wit → donker, hiërarchie behouden via opaciteit */
+html[data-theme="day"] .text-white     { color: #15172b !important; }
+html[data-theme="day"] .text-white\/80 { color: rgb(21 23 43 / 0.92) !important; }
+html[data-theme="day"] .text-white\/75 { color: rgb(21 23 43 / 0.88) !important; }
+html[data-theme="day"] .text-white\/70 { color: rgb(21 23 43 / 0.85) !important; }
+html[data-theme="day"] .text-white\/65 { color: rgb(21 23 43 / 0.80) !important; }
+html[data-theme="day"] .text-white\/60 { color: rgb(21 23 43 / 0.74) !important; }
+html[data-theme="day"] .text-white\/55 { color: rgb(21 23 43 / 0.70) !important; }
+html[data-theme="day"] .text-white\/50 { color: rgb(21 23 43 / 0.64) !important; }
+html[data-theme="day"] .text-white\/45 { color: rgb(21 23 43 / 0.58) !important; }
+html[data-theme="day"] .text-white\/40 { color: rgb(21 23 43 / 0.54) !important; }
+html[data-theme="day"] .text-white\/38 { color: rgb(21 23 43 / 0.52) !important; }
+html[data-theme="day"] .text-white\/35 { color: rgb(21 23 43 / 0.50) !important; }
+html[data-theme="day"] .text-white\/30 { color: rgb(21 23 43 / 0.46) !important; }
+html[data-theme="day"] .text-white\/25 { color: rgb(21 23 43 / 0.40) !important; }
+html[data-theme="day"] .text-white\/20 { color: rgb(21 23 43 / 0.34) !important; }
+html[data-theme="day"] .placeholder-white\/25::placeholder { color: rgb(21 23 43 / 0.38) !important; }
 
-/* Randen beter zichtbaar zodat structuur niet wegvalt */
-html[data-theme="day"] .border-white\/5  { border-color: rgb(255 255 255 / 0.14) !important; }
-html[data-theme="day"] .border-white\/8  { border-color: rgb(255 255 255 / 0.16) !important; }
-html[data-theme="day"] .border-white\/10 { border-color: rgb(255 255 255 / 0.20) !important; }
+/* Oppervlakken: donkere panelen → lichte kaarten */
+html[data-theme="day"] .bg-\[\#181830\] { background-color: #ffffff !important; }
+html[data-theme="day"] .bg-\[\#121220\] { background-color: #f4f5fa !important; }
+html[data-theme="day"] .bg-\[\#07070f\],
+html[data-theme="day"] .bg-\[\#0a0a0f\],
+html[data-theme="day"] .bg-\[\#0d0d1a\],
+html[data-theme="day"] .bg-\[\#0f0f14\],
+html[data-theme="day"] .bg-\[\#0f0f13\],
+html[data-theme="day"] .bg-\[\#0f1117\],
+html[data-theme="day"] .bg-\[\#111\]    { background-color: #eef0f6 !important; }
 
-/* Oppervlakken (cards/panelen) iets meer definitie geven */
-html[data-theme="day"] .bg-white\/\[0\.06\] { background-color: rgb(255 255 255 / 0.10) !important; }
-html[data-theme="day"] .bg-white\/5         { background-color: rgb(255 255 255 / 0.09) !important; }
+/* Witte translucente oppervlakken → subtiele donkere tint op licht */
+html[data-theme="day"] .bg-white\/\[0\.03\] { background-color: rgb(15 17 43 / 0.03) !important; }
+html[data-theme="day"] .bg-white\/5,
+html[data-theme="day"] .bg-white\/\[0\.05\] { background-color: rgb(15 17 43 / 0.045) !important; }
+html[data-theme="day"] .bg-white\/\[0\.06\] { background-color: rgb(15 17 43 / 0.055) !important; }
+html[data-theme="day"] .bg-white\/10        { background-color: rgb(15 17 43 / 0.08) !important; }
 
-/* Diepste achtergrond-tokens iets oplichten (minder glans) */
-html[data-theme="day"] .bg-\[\#07070f\] { background-color: #16162a !important; }
-html[data-theme="day"] .bg-\[\#0a0a0f\] { background-color: #17172b !important; }
-html[data-theme="day"] .bg-\[\#0d0d1a\] { background-color: #1a1a2e !important; }
-html[data-theme="day"] .bg-\[\#0f0f14\] { background-color: #1a1a2c !important; }
-html[data-theme="day"] .bg-\[\#0f0f13\] { background-color: #1a1a2c !important; }
-html[data-theme="day"] .bg-\[\#0f1117\] { background-color: #1b1d2e !important; }
-html[data-theme="day"] .bg-\[\#111\]    { background-color: #1c1c30 !important; }
-html[data-theme="day"] .bg-\[\#121220\] { background-color: #1b1b30 !important; }
-html[data-theme="day"] .bg-\[\#181830\] { background-color: #232342 !important; }
+/* Randen + scheidingslijnen → donker subtiel */
+html[data-theme="day"] .border-white\/5  { border-color: rgb(15 17 43 / 0.10) !important; }
+html[data-theme="day"] .border-white\/8  { border-color: rgb(15 17 43 / 0.12) !important; }
+html[data-theme="day"] .border-white\/10 { border-color: rgb(15 17 43 / 0.14) !important; }
+html[data-theme="day"] .divide-white\/5 > :not([hidden]) ~ :not([hidden]) { border-color: rgb(15 17 43 / 0.10) !important; }
+
+/* Donkere scrollbar op licht */
+html[data-theme="day"] * { scrollbar-color: rgba(15,17,43,0.25) transparent; }
+
+/* ── Mobiel: directe tap-herkenning ────────────────────────────────────────── */
+/* Verwijdert de ~300ms dubbel-tap-zoom vertraging op alle interactieve elementen
+   zodat één tap meteen registreert (niet meer "eerst ergens drukken"). */
+button, a, [role="button"], [onclick], input, select, textarea, label, summary,
+.cursor-pointer {
+  touch-action: manipulation;
+}
+/* Geen grijze flash bij tap; eigen hover/active-stijlen blijven werken. */
+* { -webkit-tap-highlight-color: transparent; }
+
+/* Op touch-apparaten (geen echte hover): toon hover-only knoppen meteen, zodat ze
+   niet pas na een eerste "hover-tap" verschijnen. */
+@media (hover: none) and (pointer: coarse) {
+  .group:hover .group-hover\:opacity-100,
+  .group .group-hover\:opacity-100,
+  .opacity-0.group-hover\:opacity-100 { opacity: 1 !important; }
+  /* Grotere raakvlakken voor kleine icoonknoppen. */
+  button, a[role="button"], [role="button"] { min-height: 32px; }
+}

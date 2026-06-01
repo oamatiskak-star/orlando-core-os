@@ -1,9 +1,10 @@
-import { Hammer, Calendar, User, ChevronLeft } from 'lucide-react'
+import { Hammer, Calendar, User, ChevronLeft, CheckCircle2, TrendingUp } from 'lucide-react'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
 import { getActiveCompany } from '@/lib/active-company-server'
 import NewBuildButton from './NewBuildButton'
 import BuildCardActions from './BuildCardActions'
+import ResumeSessionCard from './ResumeSessionCard'
 
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
@@ -51,6 +52,71 @@ export default async function BuildTrackerPage() {
     .order('progress_pct', { ascending: false })
 
   const builds: Build[] = (data ?? []) as unknown as Build[]
+  const lopend   = builds.filter((b) => b.status !== 'live')
+  const voltooid = builds.filter((b) => b.status === 'live')
+
+  const renderBuild = (b: Build) => {
+    const badge = STATUS_BADGE[b.status] ?? STATUS_BADGE.planned
+    return (
+      <div key={b.id} className="bg-white/[0.04] border border-white/[0.06] rounded-xl p-4">
+        <div className="flex items-center gap-2 mb-2">
+          <span className={`text-[9px] font-semibold px-1.5 py-0.5 rounded ${badge.color}`}>{badge.label}</span>
+          {b.current_milestone && (
+            <span className="text-[10px] text-white/40 truncate">{b.current_milestone}</span>
+          )}
+        </div>
+        <Link href={`/dashboard/build-tracker/${b.id}`} className="block group">
+          <p className="text-[13px] text-white/90 font-medium leading-tight group-hover:text-white transition-colors">{b.name}</p>
+        </Link>
+        {b.description && (
+          <p className="text-[10.5px] text-white/50 mt-1 leading-snug line-clamp-2">{b.description}</p>
+        )}
+
+        <div className="mt-3 space-y-2">
+          <div className="flex items-center gap-2">
+            <div className="flex-1 h-1.5 rounded-full bg-white/[0.06] overflow-hidden">
+              <div
+                className="h-full"
+                style={{
+                  width: `${b.progress_pct}%`,
+                  background: `linear-gradient(90deg, ${company.color}, ${company.color}cc)`,
+                }}
+              />
+            </div>
+            <span className="text-[10px] text-white/55 w-9 text-right font-medium">{b.progress_pct}%</span>
+          </div>
+          <div className="flex items-center gap-3 text-[10px] text-white/45">
+            {b.owner && (
+              <span className="flex items-center gap-1">
+                <User size={9} />
+                {b.owner}
+              </span>
+            )}
+            {b.target_at && (
+              <span className="flex items-center gap-1">
+                <Calendar size={9} />
+                deadline {fmtDate(b.target_at)}
+              </span>
+            )}
+          </div>
+        </div>
+
+        <BuildCardActions
+          id={b.id}
+          name={b.name}
+          status={b.status}
+          statusLabel={badge.label}
+          description={b.description}
+          currentMilestone={b.current_milestone}
+          progress={b.progress_pct}
+          companyColor={company.color}
+          companyName={company.name}
+          requiresAccountSetup={b.requires_account_setup}
+          accountStatus={b.account_status}
+        />
+      </div>
+    )
+  }
 
   return (
     <div className="space-y-5">
@@ -66,10 +132,19 @@ export default async function BuildTrackerPage() {
         </div>
         <div className="flex-1">
           <h1 className="text-base font-semibold text-white">Build Tracker</h1>
-          <p className="text-xs text-white/50">{company.name} — {builds.length} active build{builds.length === 1 ? '' : 's'}</p>
+          <p className="text-xs text-white/50">{company.name} — {lopend.length} lopend · {voltooid.length} voltooid</p>
         </div>
+        <Link
+          href="/dashboard/build-tracker/priorities"
+          className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-white/[0.04] hover:bg-white/[0.08] transition-all text-[11px] text-white/70 hover:text-white"
+        >
+          <TrendingUp size={14} />
+          Prioriteiten
+        </Link>
         <NewBuildButton companyColor={company.color} companyName={company.name} />
       </div>
+
+      <ResumeSessionCard />
 
       {builds.length === 0 ? (
         <div className="py-16 text-center bg-white/[0.02] border border-dashed border-white/10 rounded-xl">
@@ -78,69 +153,28 @@ export default async function BuildTrackerPage() {
           <p className="text-[10px] text-white/25 mt-1">Voeg een build toe via Supabase of een agent</p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-          {builds.map((b) => {
-            const badge = STATUS_BADGE[b.status] ?? STATUS_BADGE.planned
-            return (
-              <div key={b.id} className="bg-white/[0.04] border border-white/[0.06] rounded-xl p-4">
-                <div className="flex items-center gap-2 mb-2">
-                  <span className={`text-[9px] font-semibold px-1.5 py-0.5 rounded ${badge.color}`}>{badge.label}</span>
-                  {b.current_milestone && (
-                    <span className="text-[10px] text-white/40 truncate">{b.current_milestone}</span>
-                  )}
-                </div>
-                <Link href={`/dashboard/build-tracker/${b.id}`} className="block group">
-                  <p className="text-[13px] text-white/90 font-medium leading-tight group-hover:text-white transition-colors">{b.name}</p>
-                </Link>
-                {b.description && (
-                  <p className="text-[10.5px] text-white/50 mt-1 leading-snug line-clamp-2">{b.description}</p>
-                )}
+        <div className="space-y-4">
+          {lopend.length > 0 ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              {lopend.map(renderBuild)}
+            </div>
+          ) : (
+            <div className="flex items-center gap-2 text-xs text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 rounded-xl px-4 py-3">
+              <CheckCircle2 size={14} /> Geen lopende builds — alles live.
+            </div>
+          )}
 
-                <div className="mt-3 space-y-2">
-                  <div className="flex items-center gap-2">
-                    <div className="flex-1 h-1.5 rounded-full bg-white/[0.06] overflow-hidden">
-                      <div
-                        className="h-full"
-                        style={{
-                          width: `${b.progress_pct}%`,
-                          background: `linear-gradient(90deg, ${company.color}, ${company.color}cc)`,
-                        }}
-                      />
-                    </div>
-                    <span className="text-[10px] text-white/55 w-9 text-right font-medium">{b.progress_pct}%</span>
-                  </div>
-                  <div className="flex items-center gap-3 text-[10px] text-white/45">
-                    {b.owner && (
-                      <span className="flex items-center gap-1">
-                        <User size={9} />
-                        {b.owner}
-                      </span>
-                    )}
-                    {b.target_at && (
-                      <span className="flex items-center gap-1">
-                        <Calendar size={9} />
-                        deadline {fmtDate(b.target_at)}
-                      </span>
-                    )}
-                  </div>
-                </div>
-
-                <BuildCardActions
-                  id={b.id}
-                  name={b.name}
-                  status={b.status}
-                  statusLabel={badge.label}
-                  description={b.description}
-                  currentMilestone={b.current_milestone}
-                  progress={b.progress_pct}
-                  companyColor={company.color}
-                  companyName={company.name}
-                  requiresAccountSetup={b.requires_account_setup}
-                  accountStatus={b.account_status}
-                />
+          {voltooid.length > 0 && (
+            <details className="group">
+              <summary className="cursor-pointer list-none flex items-center gap-2 text-xs text-white/45 hover:text-white/70 select-none">
+                <CheckCircle2 size={13} className="text-emerald-400" />
+                {voltooid.length} voltooide build{voltooid.length === 1 ? '' : 's'} — klik om te tonen
+              </summary>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-3 opacity-70">
+                {voltooid.map(renderBuild)}
               </div>
-            )
-          })}
+            </details>
+          )}
         </div>
       )}
     </div>

@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import { AlertCircle, GitBranch, Package, Bot } from 'lucide-react'
+import ErrorJobRetry from './ErrorJobRetry'
 
 type FailedRun = {
   id: string
@@ -149,6 +150,7 @@ export default async function ErrorsPage() {
                       <span className="ml-auto text-[10px] text-white/30">
                         {new Date(job.created_at).toLocaleString('nl-NL', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}
                       </span>
+                      <ErrorJobRetry id={job.id} />
                     </div>
                     {job.error_message && (
                       <p className="text-[11px] text-red-400/80 mt-1 font-mono">{job.error_message}</p>

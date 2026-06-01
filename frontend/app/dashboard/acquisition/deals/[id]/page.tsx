@@ -2,6 +2,7 @@ import { notFound } from 'next/navigation'
 import { Radar, MapPin, TrendingUp, Target, ArrowLeft, ExternalLink, Calculator } from 'lucide-react'
 import { getAcqDealById } from '@/lib/supabase/acquisition'
 import { createClient } from '@/lib/supabase/server'
+import DealStageActions from './DealStageActions'
 
 function fmt(n: number | null) {
   if (!n) return '—'
@@ -74,6 +75,7 @@ export default async function DealDetailPage({ params }: { params: Promise<{ id:
               className="flex items-center gap-1 px-2 py-1 bg-indigo-600/20 hover:bg-indigo-600/30 border border-indigo-500/20 rounded-lg text-xs text-indigo-400 transition-colors">
               <Calculator size={11} /> SterkCalc
             </a>
+            <DealStageActions id={deal.id} stage={deal.pipeline_stage} />
           </div>
         </div>
       </div>

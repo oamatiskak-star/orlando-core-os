@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  Orlando autostart LaunchAgent.
+  Installeren (per host, in je EIGEN login-sessie zodat PM2/iTerm2 de GUI mogen bedienen):
+    cp scripts/com.orlando.autostart.plist ~/Library/LaunchAgents/
+    launchctl load -w ~/Library/LaunchAgents/com.orlando.autostart.plist
+  Vereist ~/.orlando-env met MACHINE_ID + SUPABASE_SERVICE_ROLE_KEY (zie boot-autostart.sh).
+-->
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>com.orlando.autostart</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>/bin/bash</string>
+    <string>-lc</string>
+    <string>"$HOME/Code/orlando-core-os/scripts/boot-autostart.sh"</string>
+  </array>
+  <key>RunAtLoad</key>
+  <true/>
+  <key>KeepAlive</key>
+  <false/>
+  <key>StandardOutPath</key>
+  <string>/tmp/orlando-autostart.log</string>
+  <key>StandardErrorPath</key>
+  <string>/tmp/orlando-autostart.err</string>
+</dict>
+</plist>
