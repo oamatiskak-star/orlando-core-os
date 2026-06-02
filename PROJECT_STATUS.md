@@ -57,7 +57,12 @@ alert-pad was stil — `sendTelegram` → `log_to_hermes` schreef alleen naar `h
 - **Autopilot-hook GEBOUWD** (`scripts/hermes-autopilot.sh`): PreToolUse-hook geeft native `permissionDecision` allow/ask terug (geen keystroke-injectie). Harde default-deny: allow alleen read-only tools (Read/Glob/Grep/LS/NotebookRead/TodoWrite) + read-only bash (ls/cat/git status/... zónder metakarakters); al het andere → ask (Orlando beslist). Dry-run default; `HERMES_AUTOPILOT_LIVE=1` maakt het echt. Smoke-tests 6/6 OK. Installer wiret PreToolUse→autopilot, overige events→telemetrie-hook.
 - **OPEN (Orlando):** `bash scripts/install-hermes-hook.sh` draaien (1×) → dan dry-run live. Voor echte overname: `HERMES_AUTOPILOT_LIVE=1` in `~/OSM_STATE/hermes-hook.env` + nieuwe Claude-sessie.
 - **⚠️ RLS:** claude_prompts + claude_session_state hebben RLS uit (zoals overige hermes-tabellen). Service-role (hook) + dashboard werken; maar anon-key kan lezen/schrijven. Optioneel hardenen met RLS + authenticated-SELECT-policy (niet auto-toegepast).
-- **NA F0 (go per fase):** F1 watchdog-subagent (services/hermes deployen), F4 live auto-antwoord (alleen ná dry-run-bewijs, harde default-deny op deploy/merge/migratie/Stripe/prijzen/delete).
+- **RESTEREND:** F4 live auto-antwoord (alleen ná dry-run-bewijs, harde default-deny op deploy/merge/migratie/Stripe/prijzen/delete).
+
+**✅ F1 GEBOUWD — Claude Watchdog (draait 24/7, GEEN deploy):** i.p.v. `services/hermes` te deployen hergebruikt F1 pg_cron + het bestaande alarm-pad `public.hermes_notify_now` (migr. 125) — local-first.
+- migratie `127_hermes_claude_watchdog.sql` TOEGEPAST: `hermes.watch_claude_sessions()` doet fase-overgangen (waiting_input>15m→stalled, working>60m→idle) + escaleert: `rate_limited`→ERROR→directe Telegram-push, `stalled`→warning (stil, geen spam). Dedup + 6u-venster zit in hermes_notify_now.
+- pg_cron-job `hermes-detect-claude-stalls` draait nu `watch_claude_sessions()` elke minuut (geverifieerd). Functie foutloos getest (0 alerts, 0 sessies).
+- Zodra de hook events binnenkrijgt + Claude tegen een limiet loopt → Orlando krijgt direct een Telegram-alert.
 
 **✅ F2 in main (#113):** Perplexity-vangnet in AI Router (Sonar neemt over bij 429/timeout/5xx). Activatie: PERPLEXITY_API_KEY in ai-router env + rebuild op CLI-R.
 
