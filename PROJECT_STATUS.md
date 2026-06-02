@@ -4,6 +4,22 @@
 
 ---
 
+## 🔴 HERSTEL HIER NA CRASH (sessie 16 — Hermes-chat commando-engine)
+
+**Focus (2026-06-02, sessie 16):** Hermes in het Dashboard kon geen uploads opvragen of problemen oplossen — hij was een kale LLM-wrapper zonder tools, en alle hermes-schema reads gebruikten de stil-falende dot-notatie (`.from('hermes.x')`).
+
+**✅ GEBOUWD (branch `feat/hermes-command-tools`):**
+- `frontend/app/api/hermes/chat/route.ts` herschreven naar een **tool-use agent loop** (max 6 ronden) met commando-set:
+  - Lezen: `get_uploads`, `get_upload_problems`, `get_open_problems`, `get_projects`, `get_system_overview`
+  - Acties: `retry_upload` (alleen failed/manual_review_required → queued), `resolve_alert`, `remember`
+  - Default-deny op productie-onveilige acties (deploy/merge/migratie/Stripe/prijzen/delete) — conform Watchdog-masterplan.
+- `HermesPersonalChat.tsx`: 5 kapotte hermes-reads gefixt naar `.schema('hermes').from(...)` / `.schema('hermes').rpc(...)` (greeting, alerts, conversations-read + 2 inserts, remember).
+- Typecheck: 0 TS-fouten in hele frontend.
+
+**Volgende stap:** Orlando test in Dashboard ("toon mijn uploads", "los de problemen op") → daarna mergen/promoten. Let op: uploads zijn netwerkbreed (geen company_id-filter); alerts/projecten/overview zijn company-scoped.
+
+---
+
 ## 🔴 HERSTEL HIER NA CRASH (sessie 15 — Controlelaag + Hermes CEO over 7 fabrieken)
 
 **Sessie focus (2026-05-31, sessie 15)**: Orlando mist controle/overzicht. Diagnose via live DB `shaunumewswpxhmgbtvv` + start controlelaag.

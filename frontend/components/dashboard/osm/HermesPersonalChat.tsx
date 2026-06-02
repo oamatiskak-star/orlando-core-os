@@ -30,7 +30,7 @@ export default function HermesPersonalChat({ companyId }: { companyId: string })
   useEffect(() => {
     const loadGreeting = async () => {
       try {
-        const { data } = await supabase.rpc('generate_daily_greeting', {
+        const { data } = await supabase.schema('hermes').rpc('generate_daily_greeting', {
           p_company_id: companyId,
         })
         setGreeting(data)
@@ -42,7 +42,8 @@ export default function HermesPersonalChat({ companyId }: { companyId: string })
     const loadAlerts = async () => {
       try {
         const { data } = await supabase
-          .from('hermes.proactive_alerts')
+          .schema('hermes')
+          .from('proactive_alerts')
           .select('id, alert_type, description, severity')
           .eq('company_id', companyId)
           .is('presented_to_orlando', null)
@@ -57,7 +58,8 @@ export default function HermesPersonalChat({ companyId }: { companyId: string })
     const loadConversations = async () => {
       try {
         const { data } = await supabase
-          .from('hermes.conversations')
+          .schema('hermes')
+          .from('conversations')
           .select('id, speaker, message, created_at')
           .eq('company_id', companyId)
           .eq('conversation_date', new Date().toISOString().split('T')[0])
@@ -101,7 +103,7 @@ export default function HermesPersonalChat({ companyId }: { companyId: string })
     setResponding(true)
 
     try {
-      await supabase.from('hermes.conversations').insert({
+      await supabase.schema('hermes').from('conversations').insert({
         company_id: companyId,
         conversation_date: new Date().toISOString().split('T')[0],
         conversation_time: new Date().toTimeString().split(' ')[0],
@@ -112,7 +114,7 @@ export default function HermesPersonalChat({ companyId }: { companyId: string })
       })
 
       if (userMessage.toLowerCase().includes('onthoud')) {
-        await supabase.rpc('remember', {
+        await supabase.schema('hermes').rpc('remember', {
           p_company_id: companyId,
           p_item: userMessage,
         })
@@ -142,7 +144,7 @@ export default function HermesPersonalChat({ companyId }: { companyId: string })
       }
       setMessages(prev => [...prev, newHermesMessage])
 
-      await supabase.from('hermes.conversations').insert({
+      await supabase.schema('hermes').from('conversations').insert({
         company_id: companyId,
         conversation_date: new Date().toISOString().split('T')[0],
         conversation_time: new Date().toTimeString().split(' ')[0],
