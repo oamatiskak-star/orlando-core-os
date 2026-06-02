@@ -68,7 +68,7 @@ async function main() {
 
   const healthPort = parseInt(process.env.HERMES_HEALTH_PORT || '3001', 10)
   healthServer.listen(healthPort, () => {
-    logger.info({ port: healthPort }, 'Health endpoint listening')
+    logger.info('Health endpoint listening', { port: healthPort })
   })
 
   await reportHeartbeat('engine.youtube-engine.tick', { workers: workers.length, started: true })
