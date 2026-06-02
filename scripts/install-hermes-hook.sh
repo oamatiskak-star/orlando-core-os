@@ -14,10 +14,11 @@ set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 HOOK="$REPO_ROOT/scripts/hermes-hook.sh"
+AUTOPILOT="$REPO_ROOT/scripts/hermes-autopilot.sh"
 SETTINGS="$HOME/.claude/settings.json"
 ENV_FILE="$HOME/OSM_STATE/hermes-hook.env"
 
-chmod +x "$HOOK" 2>/dev/null || true
+chmod +x "$HOOK" "$AUTOPILOT" 2>/dev/null || true
 
 # 1) env-bestand
 if [[ ! -f "$ENV_FILE" ]]; then
@@ -25,7 +26,7 @@ if [[ ! -f "$ENV_FILE" ]]; then
   URL="$(grep -E '^(NEXT_PUBLIC_SUPABASE_URL|SUPABASE_URL)=' "$REPO_ROOT/.env.prod" 2>/dev/null | head -1 | cut -d= -f2-)"
   KEY="$(grep -E '^SUPABASE_SERVICE_ROLE_KEY=' "$REPO_ROOT/.env.prod" 2>/dev/null | head -1 | cut -d= -f2-)"
   if [[ -n "$URL" && -n "$KEY" ]]; then
-    printf 'export SUPABASE_URL=%s\nexport SUPABASE_SERVICE_ROLE_KEY=%s\nexport OSM_HOST=%s\n' \
+    printf 'export SUPABASE_URL=%s\nexport SUPABASE_SERVICE_ROLE_KEY=%s\nexport OSM_HOST=%s\n# Zet op 1 om de autopilot veilige tools ECHT te laten goedkeuren (anders dry-run):\nexport HERMES_AUTOPILOT_LIVE=0\n' \
       "$URL" "$KEY" "$(hostname -s)" > "$ENV_FILE"
     chmod 600 "$ENV_FILE"
     echo "✓ env geschreven: $ENV_FILE"
@@ -42,29 +43,29 @@ fi
 mkdir -p "$(dirname "$SETTINGS")"
 [[ -f "$SETTINGS" ]] || echo '{}' > "$SETTINGS"
 
-HOOK="$HOOK" SETTINGS="$SETTINGS" node <<'NODE'
+HOOK="$HOOK" AUTOPILOT="$AUTOPILOT" SETTINGS="$SETTINGS" node <<'NODE'
 const fs = require('fs')
 const path = process.env.SETTINGS
 const hook = process.env.HOOK
+const autopilot = process.env.AUTOPILOT
 const s = JSON.parse(fs.readFileSync(path, 'utf8') || '{}')
 s.hooks = s.hooks || {}
-
-// per event: command dat hermes-hook.sh aanroept met de eventnaam
-const events = ['Notification', 'Stop', 'PreToolUse', 'UserPromptSubmit', 'SessionStart']
-const marker = 'hermes-hook.sh'
 let added = 0
 
-for (const ev of events) {
+// Telemetrie-hook (read-only logging) op de niet-tool events.
+for (const ev of ['Notification', 'Stop', 'UserPromptSubmit', 'SessionStart']) {
   s.hooks[ev] = s.hooks[ev] || []
-  const already = JSON.stringify(s.hooks[ev]).includes(marker)
-  if (already) continue
-  s.hooks[ev].push({
-    hooks: [
-      {
-        type: 'command',
-        command: `bash "${hook}" ${ev} 2>/dev/null || true`,
-      },
-    ],
+  if (JSON.stringify(s.hooks[ev]).includes('hermes-hook.sh')) continue
+  s.hooks[ev].push({ hooks: [{ type: 'command', command: `bash "${hook}" ${ev} 2>/dev/null || true` }] })
+  added++
+}
+
+// Autopilot op PreToolUse (matcher * = alle tools). Beslist allow/ask.
+s.hooks.PreToolUse = s.hooks.PreToolUse || []
+if (!JSON.stringify(s.hooks.PreToolUse).includes('hermes-autopilot.sh')) {
+  s.hooks.PreToolUse.push({
+    matcher: '*',
+    hooks: [{ type: 'command', command: `bash "${autopilot}"`, timeout: 5 }],
   })
   added++
 }
@@ -74,6 +75,15 @@ console.log(`✓ settings.json bedraad — ${added} nieuwe hook-entries (bestaan
 NODE
 
 echo ""
-echo "Klaar. Test: start een Claude Code sessie en check in de DB:"
-echo "  select host, session_id, phase, last_event, last_event_at"
-echo "  from hermes.claude_session_state order by updated_at desc limit 5;"
+echo "Klaar. Telemetrie loopt direct (dry-run autopilot)."
+echo ""
+echo "Autopilot demo (Hermes neemt veilige 1/2/3-prompts over):"
+echo "  1. Open ~/OSM_STATE/hermes-hook.env en zet HERMES_AUTOPILOT_LIVE=1"
+echo "  2. Start een NIEUWE Claude Code sessie (hooks laden bij start)"
+echo "  3. Vraag iets read-only (bv. 'lees package.json' of 'git status')"
+echo "     → Claude vraagt GEEN 1/2/3 meer; Hermes keurt veilig automatisch goed."
+echo "     Risicovol (rm, deploy, git push, edit) → jij krijgt nog steeds de prompt."
+echo ""
+echo "Volg live in de DB:"
+echo "  select created_at, tool_name, left(prompt_text,50) txt, raw->>'decision' beslissing"
+echo "  from hermes.claude_prompts where event_type='pre_tool_use' order by created_at desc limit 10;"
