@@ -53,34 +53,25 @@ emit() {  # $1=decision  $2=reason
   printf '{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"%s","permissionDecisionReason":"%s"}}\n' "$1" "$2"
 }
 
-# ── HARDE default-deny: is dit aantoonbaar veilig? ─────────────────────────
-SAFE=0
-REASON="niet op de veilige allowlist → jij beslist"
+# ── DENY-LIST model: standaard TOESTAAN; alleen écht risicovol → jij beslist ──
+# (masterplan: default-deny enkel op deploy/merge/migratie/Stripe/prijzen/data-
+#  verwijdering). Normaal werk — Edit/Write/lezen/veilige bash — gaat automatisch.
+SAFE=1
+REASON="toegestaan (geen risicopatroon)"
 
 case "$TOOL" in
-  Read|Glob|Grep|LS|NotebookRead|TodoWrite)
-    SAFE=1; REASON="read-only tool ($TOOL)"
+  # Risicovolle MCP-acties (mutaties/deploys/DB/Stripe) → jij beslist
+  *apply_migration*|*execute_sql*|*deploy_edge_function*|*deploy_to_vercel*|*create_project*|*pause_project*|*restore*|*merge_branch*|*reset_branch*|*delete_branch*|*delete_*|*cancel_subscription*|*update_subscription*|*create_refund*|*create_payment*|*create_price*|*create_product*|*update_product*|*archive_product*|*set_branding*|*create_coupon*|*update_dispute*)
+    SAFE=0; REASON="risicovolle MCP-actie ($TOOL) → jij beslist"
     ;;
   Bash)
-    # eerste woord moet in de read-only allowlist staan...
-    first="$(printf '%s' "$CMD" | awk '{print $1}')"
-    sub="$(printf '%s' "$CMD" | awk '{print $1" "$2}')"
-    allow_re='^(ls|pwd|cat|head|tail|wc|echo|date|whoami|hostname|printenv|env|which|type|file|stat|tree|uname|sleep|true|du|df|ps|jq|sed|awk|cut|sort|uniq|grep|rg|fd)$'
-    git_re='^git (status|log|diff|show|branch|remote|rev-parse|describe|config --get|ls-files|stash list)$'
-    node_re='^(node --check|npx tsc|tsc)$'
-    # ...EN geen shell-metakarakters die chaining/redirect/substitutie mogelijk maken
-    if printf '%s' "$CMD" | grep -qE '[;&|<>`$(){}]|\b(rm|mv|cp|sudo|kill|chmod|chown|dd|mkfs|tee|truncate)\b|>>'; then
-      SAFE=0; REASON="bash bevat onveilige tokens/metakarakters → jij beslist"
-    elif printf '%s' "$first" | grep -qE "$allow_re" \
-      || printf '%s' "$sub" | grep -qE "$git_re" \
-      || printf '%s' "$sub" | grep -qE "$node_re"; then
-      SAFE=1; REASON="read-only bash: ${first}"
-    else
-      SAFE=0; REASON="bash niet herkend als read-only → jij beslist"
+    # Gevaarlijke shell-patronen → jij beslist; al het andere mag.
+    if printf '%s' "$CMD" | grep -qiE '(\brm\b\s+-?[a-z]*[rf]|\brm\b\s+-|\b(sudo|dd|mkfs|shutdown|reboot|halt|kill|killall|pkill|chown)\b|chmod\s+(-R\s+)?[0-7]*7[0-7]*7|git\s+(push|merge|rebase|reset\s+--hard|clean\s+-[a-z]*f|stash\s+drop|branch\s+-D)|gh\s+(pr\s+merge|release)|>\s*\.env|\.env\b.*>|vercel\b|\brender\b|\bdeploy\b|pm2\s+(delete|stop|kill|save)|launchctl|npm\s+publish|(curl|wget)[^|]*\|\s*(ba|z)?sh|drop\s+(table|database|schema)|truncate\b|delete\s+from|supabase\s+db\s+(reset|push)|psql.*-c|:\(\)\s*\{)'; then
+      SAFE=0; REASON="risicovol shell-patroon → jij beslist"
     fi
     ;;
-  *)
-    SAFE=0; REASON="tool '$TOOL' niet op allowlist → jij beslist"
+  Read|Glob|Grep|LS|NotebookRead|NotebookEdit|TodoWrite|Edit|MultiEdit|Write|Task)
+    SAFE=1; REASON="normaal werk-tool ($TOOL)"
     ;;
 esac
 
