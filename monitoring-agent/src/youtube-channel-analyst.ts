@@ -60,16 +60,17 @@ interface ChannelAnalysis {
   }
 }
 
+// Via Hermes (centraal brein) i.p.v. direct Telegram. Routine analyse = stil loggen.
 async function sendTelegram(message: string): Promise<void> {
-  if (!TELEGRAM_BOT_TOKEN || !TELEGRAM_CHAT_ID) return
+  const url = process.env.SUPABASE_URL
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY
+  if (!url || !key) return
   try {
-    await axios.post(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`, {
-      chat_id: TELEGRAM_CHAT_ID,
-      text: message,
-      parse_mode: 'HTML',
-    })
+    await axios.post(`${url}/rest/v1/rpc/log_to_hermes`, {
+      source: 'monitoring-agent', level: 'info', event: 'youtube.analysis', message: message.slice(0, 3500),
+    }, { headers: { apikey: key, Authorization: `Bearer ${key}` } })
   } catch (err) {
-    console.error('[youtube-analyst] Telegram error:', (err as Error).message)
+    console.error('[youtube-analyst] Hermes log error:', (err as Error).message)
   }
 }
 
