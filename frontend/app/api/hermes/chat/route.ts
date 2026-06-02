@@ -636,18 +636,16 @@ async function handleWebResearch(cmd: ParsedCommand): Promise<HermesReply> {
   }
 
   try {
-    const res = await fetch('https://api.perplexity.ai/chat/completions', {
+    // Officiële Perplexity Agent API (/v1/agent). Preset 'pro-search' = web search + reasoning.
+    const res = await fetch('https://api.perplexity.ai/v1/agent', {
       method: 'POST',
       headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        model: 'sonar',
-        messages: [
-          {
-            role: 'system',
-            content: 'Je bent een onderzoeksassistent voor Orlando. Antwoord beknopt in het Nederlands met feiten en, waar relevant, bronnen.',
-          },
-          { role: 'user', content: query },
-        ],
+        preset: process.env.PERPLEXITY_PRESET || 'pro-search',
+        language_preference: 'nl',
+        instructions:
+          'Je bent een onderzoeksassistent voor Orlando (vastgoed/bouw/SaaS/media, NL). Antwoord beknopt en feitelijk in het Nederlands, met bronnen.',
+        input: query,
       }),
     })
 
@@ -664,13 +662,41 @@ async function handleWebResearch(cmd: ParsedCommand): Promise<HermesReply> {
     }
 
     const data = await res.json()
-    const answer: string = data?.choices?.[0]?.message?.content ?? 'Geen antwoord ontvangen.'
-    const cites: string[] = Array.isArray(data?.citations)
-      ? data.citations
-      : Array.isArray(data?.search_results)
-        ? data.search_results.map((s: { url?: string }) => s.url).filter(Boolean)
-        : []
-    const sources = cites.slice(0, 5).map((u, i) => `[${i + 1}] ${u}`)
+    if (data?.status === 'failed' || data?.error) {
+      return {
+        reply: `Perplexity kon dit niet afronden: ${data?.error?.message ?? 'onbekende fout'}`,
+        response: '',
+        intent: 'web_research',
+        understood: true,
+        actions: [],
+        suggestions: SUGGESTIONS,
+      }
+    }
+
+    // Response = array van output-items; pak tekst uit 'message'-items + citations.
+    const output: unknown[] = Array.isArray(data?.output) ? data.output : []
+    const texts: string[] = []
+    const cites: string[] = []
+    for (const raw of output) {
+      const item = raw as {
+        type?: string
+        content?: { text?: string; annotations?: { url?: string }[] }[]
+        results?: { url?: string }[]
+      }
+      if (item?.type === 'message' && Array.isArray(item.content)) {
+        for (const part of item.content) {
+          if (typeof part?.text === 'string') texts.push(part.text)
+          for (const a of part?.annotations ?? []) if (a?.url) cites.push(a.url)
+        }
+      }
+      if (item?.type === 'search_results' && Array.isArray(item.results)) {
+        for (const r of item.results) if (r?.url) cites.push(r.url)
+      }
+    }
+
+    const answer = texts.join('\n').trim() || 'Geen antwoord ontvangen.'
+    const uniqueCites = [...new Set(cites)].slice(0, 5)
+    const sources = uniqueCites.map((u, i) => `[${i + 1}] ${u}`)
 
     return {
       reply: `${answer}${sources.length ? `\n\nBronnen:\n${sources.join('\n')}` : ''}`,
@@ -679,7 +705,7 @@ async function handleWebResearch(cmd: ParsedCommand): Promise<HermesReply> {
       understood: true,
       actions: [],
       suggestions: ['Wat blokkeert omzet vandaag?', 'Hoe staan de uploads?'],
-      data: { citations: cites },
+      data: { citations: uniqueCites },
     }
   } catch (e) {
     return {

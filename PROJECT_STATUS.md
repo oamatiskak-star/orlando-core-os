@@ -16,7 +16,7 @@
 - Tests: `command-router.test.ts` +4 (21/21 pass). Typecheck 0 fouten. Voorbeelden: "Hoe staan de uploads?", "Wat is er mis met de uploads?", "Retry upload <id>".
 
 **✅ Perplexity geïntegreerd (web-research):** keuze Orlando = beide systemen, alleen Perplexity (Midjourney geparkeerd: geen officiële API).
-- Hermes-commando: `web_research` intent in command-router (triggers: "research:", "zoek online", "perplexity", "recent nieuws", "wat is het laatste over") + `query`-veld; handler `handleWebResearch` in route.ts → POST `api.perplexity.ai/chat/completions` model `sonar`, NL-systeemprompt, geeft antwoord + bronnen. Vereist env `PERPLEXITY_API_KEY` (mist → nette config-melding). Tests 24/24, typecheck 0.
+- Hermes-commando: `web_research` intent in command-router (triggers: "research:", "zoek online", "perplexity", "recent nieuws", "wat is het laatste over") + `query`-veld; handler `handleWebResearch` in route.ts → POST **officiële Agent API `api.perplexity.ai/v1/agent`** (preset `pro-search`, `language_preference: nl`, `instructions`), parseert `output[]` message-items + citations (annotations + search_results). Env: `PERPLEXITY_API_KEY` (verplicht; mist → nette config-melding) + optioneel `PERPLEXITY_PRESET` (default pro-search; fast-search/deep-research mogelijk). Tests 24/24, typecheck 0.
 - **OPEN (Orlando):** (1) `PERPLEXITY_API_KEY` in `.env.prod` + `frontend/.env.local` (+ Vercel env) zetten. (2) MCP voor Claude Code installeren: `claude mcp add perplexity --env PERPLEXITY_API_KEY=<key> -- npx -y @perplexity-ai/mcp-server` (key blijft lokaal, niet via assistent).
 - Midjourney: NIET gedaan (geen officiële API; later beslissen tussen FAL/Flux-alternatief, 3rd-party MJ-bridge of Discord-automation).
 
