@@ -63,6 +63,14 @@
     {
       "path": "/api/acquisition/cron/director-briefing",
       "schedule": "40 5 * * *"
+    },
+    {
+      "path": "/api/acquisition/cron/permit-source",
+      "schedule": "10 4 * * *"
+    },
+    {
+      "path": "/api/acquisition/cron/seed-deals",
+      "schedule": "10 5 * * *"
     }
   ]
 }
