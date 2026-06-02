@@ -117,7 +117,9 @@ async function handleFailure(
   opts: CheckOptions
 ): Promise<void> {
   const state = recoveryByDeploy.get(deploy.id) ?? { attempts: 0, lastAttemptAt: 0, escalated: false }
-  const detectKey = `watchdog:deploy:${svc.id}:${deploy.id}`
+  // Dedup-key PER SERVICE (niet per deploy-id): elke gefaalde deploy krijgt anders
+  // een eigen key -> alarm-flood/debris. Per service = één alarm tot het opgelost is.
+  const detectKey = `watchdog:deploy:${svc.id}`
 
   // ALLE deploy-failures: dezelfde commit opnieuw deployen is zinloos én elke
   // redeploy krijgt een NIEUWE deploy-id -> attempts resetten -> runaway redeploy-loop
@@ -294,7 +296,7 @@ async function escalate(
     ]
       .filter(Boolean)
       .join('\n'),
-    `watchdog:escalate:${svc.id}:${deploy.id}`
+    `watchdog:escalate:${svc.id}`
   )
 }
 
