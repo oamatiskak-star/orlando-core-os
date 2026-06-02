@@ -61,26 +61,28 @@ SAFE=1
 REASON="toegestaan (geen risicopatroon)"
 
 case "$TOOL" in
-  # DB-query: lezen (SELECT/WITH/EXPLAIN/notify-reload) → auto; mutatie/DDL → jij beslist.
-  *execute_sql*)
-    if printf '%s' "$QUERY" | grep -qiE '\b(drop|delete|truncate|update|insert|alter|grant|revoke|create\s+(table|or\s+replace|function|trigger|policy|role|database|schema|extension|index|view)|comment\s+on)\b'; then
-      SAFE=0; REASON="execute_sql met mutatie/DDL → jij beslist"
-    else
-      SAFE=1; REASON="execute_sql (alleen lezen)"
+  # DB-query/migratie: alles auto; alleen ONOMKEERBARE data-/schema-vernietiging
+  # (drop database/schema/table, truncate) → jij beslist. DELETE/UPDATE/INSERT/ALTER
+  # zijn herstelbaar (rij-niveau / additief) en gaan automatisch.
+  *execute_sql*|*apply_migration*)
+    if printf '%s' "$QUERY" | grep -qiE '\b(drop\s+(database|schema|table)|truncate)\b'; then
+      SAFE=0; REASON="onomkeerbare DB-actie (drop/truncate) → jij beslist"
     fi
     ;;
-  # Risicovolle MCP-acties (migraties/deploys/Stripe-mutaties/delete) → jij beslist
-  *apply_migration*|*deploy_edge_function*|*deploy_to_vercel*|*create_project*|*pause_project*|*restore*|*merge_branch*|*reset_branch*|*delete_branch*|*delete_*|*cancel_subscription*|*update_subscription*|*create_refund*|*create_payment*|*create_price*|*create_product*|*update_product*|*archive_product*|*set_branding*|*create_coupon*|*update_dispute*)
-    SAFE=0; REASON="risicovolle MCP-actie ($TOOL) → jij beslist"
+  # Prod-deploys + geld (Stripe-live) + onomkeerbare project/branch-ops → jij beslist.
+  *deploy_edge_function*|*deploy_to_vercel*|*create_project*|*pause_project*|*restore*|*delete_branch*|*reset_branch*|*cancel_subscription*|*update_subscription*|*create_refund*|*create_payment*|*create_price*|*create_product*|*update_dispute*|*create_coupon*|*set_branding*)
+    SAFE=0; REASON="prod-deploy / geld / onomkeerbaar ($TOOL) → jij beslist"
     ;;
   Bash)
-    # Gevaarlijke shell-patronen → jij beslist; al het andere mag.
-    if printf '%s' "$CMD" | grep -qiE '(\brm\b\s+-?[a-z]*[rf]|\brm\b\s+-|\b(sudo|dd|mkfs|shutdown|reboot|halt|kill|killall|pkill|chown)\b|chmod\s+(-R\s+)?[0-7]*7[0-7]*7|git\s+(push|merge|rebase|reset\s+--hard|clean\s+-[a-z]*f|stash\s+drop|branch\s+-D)|gh\s+(pr\s+merge|release)|>\s*\.env|\.env\b.*>|vercel\b|\brender\b|\bdeploy\b|pm2\s+(delete|stop|kill|save)|launchctl|npm\s+publish|(curl|wget)[^|]*\|\s*(ba|z)?sh|drop\s+(table|database|schema)|truncate\b|delete\s+from|supabase\s+db\s+(reset|push)|psql.*-c|:\(\)\s*\{)'; then
-      SAFE=0; REASON="risicovol shell-patroon → jij beslist"
+    # Bijna-vol: alles mag, alleen écht onomkeerbaar/destructief → jij beslist:
+    # recursief verwijderen, system-vernietiging, git push, prod-deploy, secrets, db-wipe.
+    if printf '%s' "$CMD" | grep -qiE '(\brm\s+-[a-z]*[rf]|\b(sudo|dd|mkfs|shutdown|reboot|halt)\b|git\s+push\b|gh\s+(pr\s+merge|release\s+create)|vercel\s+(deploy|--prod|promote)|\brender\s+(deploy|services)|--prod\b|npm\s+publish|>\s*\.env|\bdrop\s+(database|schema|table)\b|\btruncate\b|supabase\s+db\s+(reset|push)|:\(\)\s*\{)'; then
+      SAFE=0; REASON="onomkeerbaar shell-patroon (rm -rf / push / deploy / secrets) → jij beslist"
     fi
     ;;
-  Read|Glob|Grep|LS|NotebookRead|NotebookEdit|TodoWrite|Edit|MultiEdit|Write|Task)
-    SAFE=1; REASON="normaal werk-tool ($TOOL)"
+  *)
+    # Alle overige tools (Read/Edit/Write/Grep/Task/overige MCP) → automatisch.
+    SAFE=1; REASON="auto (geen onomkeerbaar risico)"
     ;;
 esac
 
