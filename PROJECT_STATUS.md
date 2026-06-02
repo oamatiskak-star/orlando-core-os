@@ -4,19 +4,11 @@
 
 ---
 
-## 🔴 HERSTEL HIER NA CRASH (sessie 16 — Hermes-chat commando-engine)
+## 🔴 HERSTEL HIER NA CRASH (sessie 16 — Hermes terminal-agent)
 
-**Focus (2026-06-02, sessie 16):** Hermes in het Dashboard kon geen uploads opvragen of problemen oplossen — hij was een kale LLM-wrapper zonder tools, en alle hermes-schema reads gebruikten de stil-falende dot-notatie (`.from('hermes.x')`).
+**Focus (2026-06-02, sessie 16):** Hermes bereikbaar maken in de terminal zoals Claude Code (kent ALLE commando's, leest begrijpend — geen vast menu).
 
-**✅ GEBOUWD (branch `feat/hermes-command-tools`):**
-- `frontend/app/api/hermes/chat/route.ts` herschreven naar een **tool-use agent loop** (max 6 ronden) met commando-set:
-  - Lezen: `get_uploads`, `get_upload_problems`, `get_open_problems`, `get_projects`, `get_system_overview`
-  - Acties: `retry_upload` (alleen failed/manual_review_required → queued), `resolve_alert`, `remember`
-  - Default-deny op productie-onveilige acties (deploy/merge/migratie/Stripe/prijzen/delete) — conform Watchdog-masterplan.
-- `HermesPersonalChat.tsx`: 5 kapotte hermes-reads gefixt naar `.schema('hermes').from(...)` / `.schema('hermes').rpc(...)` (greeting, alerts, conversations-read + 2 inserts, remember).
-- Typecheck: 0 TS-fouten in hele frontend.
-
-**Volgende stap:** Orlando test in Dashboard ("toon mijn uploads", "los de problemen op") → daarna mergen/promoten. Let op: uploads zijn netwerkbreed (geen company_id-filter); alerts/projecten/overview zijn company-scoped.
+**⚠️ Dashboard-route conflict opgelost:** mijn aanvankelijke `route.ts` tool-use rewrite (get_uploads/retry_upload/etc.) is bij het mergen TERUGGEDRAAID t.g.v. main's nieuwere **Hermes Command Center** (`command-router` lib, commit 788b2670c). Keuze Orlando: main's Command Center blijft de dashboard-route; mijn `HermesPersonalChat.tsx` schema-fix is daardoor ook vervallen (main verving het component). De upload/problemen/retry-commando's zijn dus NIET in de dashboard-route — eventueel later als extra intents in de command-router porteren.
 
 **✅ Hermes TERMINAL-agent (net als Claude Code):** `frontend/scripts/hermes-cli.mjs` + launcher `~/.local/bin/hermes` (op PATH). GEEN vast menu — Hermes heeft echte tools: `bash` (kent zo ALLE commando's: git/gh/psql/supabase/curl/vercel...), `read_file`, `write_file`. Agent-loop max 30 stappen, model claude-opus-4-8, env auto uit `.env.prod`+`frontend/.env.local`. Risicovolle acties (rm -rf/drop/delete/git push/force/vercel deploy/stripe/sudo...) → DANGER-regex → bevestiging in interactieve modus, auto-geweigerd in one-shot. Gebruik: `hermes` (REPL) of `hermes "vraag"`. Launcher staat buiten de repo (machine-lokaal). Syntax+pad geverifieerd; live agent-run kon ik niet zelf draaien (harness blokkeert autonome shell-agent door mij — Orlando draait het zelf).
 

@@ -207,6 +207,7 @@ export default async function AquierHubPage() {
       <div className="grid grid-cols-2 lg:grid-cols-7 gap-2">
         {[
           { href: '/dashboard/aquier/usa-domination', icon: Crosshair, label: 'USA Domination', color: 'text-red-400' },
+          { href: '/dashboard/aquier/attention-domination', icon: TrendingUp, label: 'Attention Engine', color: 'text-violet-400' },
           { href: '/dashboard/aquier/projecten', icon: Briefcase, label: 'Projecten', color: 'text-cyan-400' },
           { href: '/dashboard/aquier/planning', icon: GanttChart, label: 'Planning', color: 'text-violet-400' },
           { href: '/dashboard/aquier/agenda', icon: Calendar, label: 'Agenda', color: 'text-indigo-400' },

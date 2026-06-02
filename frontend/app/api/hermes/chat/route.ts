@@ -1,392 +1,570 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient, SupabaseClient } from '@supabase/supabase-js'
-import Anthropic from '@anthropic-ai/sdk'
+import { generateText } from 'ai'
+import { createAdminClient } from '@/lib/supabase/admin'
+import { createClient } from '@/lib/supabase/server'
+import { claude } from '@/lib/ai/client'
+import {
+  parseCommand,
+  COMMAND_HELP,
+  type CommandKind,
+  type HostId,
+  type ParsedCommand,
+} from '@/lib/hermes/command-router'
 
-const anthropic = new Anthropic({
-  apiKey: process.env.ANTHROPIC_API_KEY,
-})
+export const runtime = 'nodejs'
+export const maxDuration = 60
 
-const MODEL = 'claude-opus-4-8'
-const MAX_TOOL_ROUNDS = 6
+type AdminClient = ReturnType<typeof createAdminClient>
 
-/**
- * Hermes commando-set.
- *
- * Lees-commando's geven Hermes zicht op de echte systeemtoestand (uploads,
- * problemen, projecten). Actie-commando's laten hem operationele problemen
- * oplossen. Alles wat productie-onveilig is (deploys, merges, migraties,
- * Stripe, prijzen, data verwijderen) zit hier BEWUST niet in — dat blijft
- * mens-bevestigd (default-deny, conform Hermes Watchdog masterplan).
- */
-const TOOLS: Anthropic.Tool[] = [
-  {
-    name: 'get_uploads',
-    description:
-      'Haal de actuele upload-status op uit de media-fabriek (YouTube upload-queue + media-holding uploads). Gebruik dit zodra Orlando naar uploads, video\'s, publicaties of de upload-pipeline vraagt.',
-    input_schema: {
-      type: 'object',
-      properties: {
-        status: {
-          type: 'string',
-          description:
-            'Optioneel filter op status (bv. queued, uploading, processing, verified_live, failed, manual_review_required). Leeg = alle recente.',
-        },
-        limit: { type: 'integer', description: 'Max aantal rijen (default 15).' },
-      },
-    },
-  },
-  {
-    name: 'get_upload_problems',
-    description:
-      'Haal de uploads op die VASTLOPEN of GEFAALD zijn (queue-status failed/manual_review_required + youtube_upload_failures + gefaalde media-holding uploads). Gebruik dit als Orlando vraagt wat er mis is met uploads.',
-    input_schema: { type: 'object', properties: {} },
-  },
-  {
-    name: 'get_open_problems',
-    description:
-      'Haal alle open problemen op: niet-opgeloste proactive alerts + recente error/fatal log-events. Gebruik dit als Orlando vraagt "wat zijn de problemen" of "los de problemen op".',
-    input_schema: { type: 'object', properties: {} },
-  },
-  {
-    name: 'get_projects',
-    description: 'Haal de actieve build-projecten en hun status op.',
-    input_schema: { type: 'object', properties: {} },
-  },
-  {
-    name: 'get_system_overview',
-    description:
-      'Geef een snelle telling van de hele operatie: uploads in wachtrij, gefaalde uploads, open alerts en actieve projecten. Gebruik dit voor "hoe staat het ervoor".',
-    input_schema: { type: 'object', properties: {} },
-  },
-  {
-    name: 'retry_upload',
-    description:
-      'Zet een gefaalde of vastgelopen upload opnieuw in de wachtrij zodat de pipeline het opnieuw probeert. Alleen toegestaan voor uploads met status failed of manual_review_required.',
-    input_schema: {
-      type: 'object',
-      properties: {
-        queue_id: { type: 'string', description: 'De id van de youtube_upload_queue-rij.' },
-      },
-      required: ['queue_id'],
-    },
-  },
-  {
-    name: 'resolve_alert',
-    description:
-      'Markeer een proactive alert als opgelost met een korte notitie over de genomen actie.',
-    input_schema: {
-      type: 'object',
-      properties: {
-        alert_id: { type: 'string', description: 'De id van de alert.' },
-        note: { type: 'string', description: 'Korte notitie: wat is er gedaan.' },
-      },
-      required: ['alert_id', 'note'],
-    },
-  },
-  {
-    name: 'remember',
-    description:
-      'Sla iets op in het lange-termijngeheugen van Hermes zodat het bij volgende gesprekken meegenomen wordt.',
-    input_schema: {
-      type: 'object',
-      properties: {
-        item: { type: 'string', description: 'Wat onthouden moet worden.' },
-      },
-      required: ['item'],
-    },
-  },
-]
+interface HermesAction {
+  label: string
+  detail?: string
+}
 
-type ToolResult = { ok: boolean; data?: unknown; error?: string }
+interface HermesReply {
+  reply: string
+  /** Backward-compat alias — oude callers lazen { response }. */
+  response: string
+  intent: CommandKind
+  understood: boolean
+  actions: HermesAction[]
+  suggestions: string[]
+  data?: unknown
+}
 
-async function runTool(
-  db: SupabaseClient,
-  companyId: string,
-  name: string,
-  input: Record<string, unknown>
-): Promise<ToolResult> {
+const SUGGESTIONS = COMMAND_HELP.map((c) => c.example)
+
+function reply(partial: Omit<HermesReply, 'response'>): NextResponse {
+  return NextResponse.json({ ...partial, response: partial.reply })
+}
+
+// ── helpers ──────────────────────────────────────────────────────────────────
+
+async function logAction(db: AdminClient, event: string, message: string, context: Record<string, unknown>) {
   try {
-    switch (name) {
-      case 'get_uploads': {
-        const limit = typeof input.limit === 'number' ? Math.min(input.limit, 50) : 15
-        let q = db
-          .from('youtube_upload_queue')
-          .select(
-            'id, status, title, retry_count, max_retries, last_error, youtube_url, scheduled_publish_at, upload_finished_at, updated_at, youtube_channels(name)'
-          )
-          .order('updated_at', { ascending: false })
-          .limit(limit)
-        if (typeof input.status === 'string' && input.status.trim()) {
-          q = q.eq('status', input.status.trim())
-        }
-        const { data: queue, error: qErr } = await q
-        if (qErr) return { ok: false, error: qErr.message }
-
-        const { data: holding } = await db
-          .from('media_holding_uploads')
-          .select('id, platform, status, platform_video_id, error, uploaded_at, updated_at')
-          .order('updated_at', { ascending: false })
-          .limit(limit)
-
-        return { ok: true, data: { youtube_queue: queue ?? [], media_holding: holding ?? [] } }
-      }
-
-      case 'get_upload_problems': {
-        const { data: stuck } = await db
-          .from('youtube_upload_queue')
-          .select('id, status, title, retry_count, max_retries, last_error, updated_at, youtube_channels(name)')
-          .in('status', ['failed', 'manual_review_required', 'retrying'])
-          .order('updated_at', { ascending: false })
-          .limit(25)
-
-        const { data: failures } = await db
-          .from('youtube_upload_failures')
-          .select('id, queue_id, failure_type, failure_detail, recovery_attempted, recovery_success, created_at')
-          .order('created_at', { ascending: false })
-          .limit(25)
-
-        const { data: holdingFailed } = await db
-          .from('media_holding_uploads')
-          .select('id, platform, status, error, updated_at')
-          .eq('status', 'failed')
-          .order('updated_at', { ascending: false })
-          .limit(25)
-
-        return {
-          ok: true,
-          data: {
-            stuck_or_failed_queue: stuck ?? [],
-            failure_log: failures ?? [],
-            failed_media_holding: holdingFailed ?? [],
-          },
-        }
-      }
-
-      case 'get_open_problems': {
-        const { data: alerts } = await db
-          .schema('hermes')
-          .from('proactive_alerts')
-          .select('id, alert_type, severity, description, affected_entity, detected_at')
-          .eq('company_id', companyId)
-          .is('resolved_at', null)
-          .order('detected_at', { ascending: false })
-          .limit(20)
-
-        const { data: errors } = await db
-          .schema('hermes')
-          .from('logs')
-          .select('level, event, message, created_at')
-          .in('level', ['error', 'fatal'])
-          .order('created_at', { ascending: false })
-          .limit(15)
-
-        return { ok: true, data: { open_alerts: alerts ?? [], recent_errors: errors ?? [] } }
-      }
-
-      case 'get_projects': {
-        const { data, error } = await db
-          .from('build_projects')
-          .select('id, name, status, updated_at')
-          .eq('company_id', companyId)
-          .order('updated_at', { ascending: false })
-          .limit(25)
-        if (error) return { ok: false, error: error.message }
-        return { ok: true, data: data ?? [] }
-      }
-
-      case 'get_system_overview': {
-        const queued = await db
-          .from('youtube_upload_queue')
-          .select('id', { count: 'exact', head: true })
-          .in('status', ['queued', 'preparing', 'normalizing', 'uploading', 'processing', 'verifying'])
-        const failedUploads = await db
-          .from('youtube_upload_queue')
-          .select('id', { count: 'exact', head: true })
-          .in('status', ['failed', 'manual_review_required'])
-        const openAlerts = await db
-          .schema('hermes')
-          .from('proactive_alerts')
-          .select('id', { count: 'exact', head: true })
-          .eq('company_id', companyId)
-          .is('resolved_at', null)
-        const activeProjects = await db
-          .from('build_projects')
-          .select('id', { count: 'exact', head: true })
-          .eq('company_id', companyId)
-
-        return {
-          ok: true,
-          data: {
-            uploads_in_progress: queued.count ?? 0,
-            uploads_failed: failedUploads.count ?? 0,
-            open_alerts: openAlerts.count ?? 0,
-            active_projects: activeProjects.count ?? 0,
-          },
-        }
-      }
-
-      case 'retry_upload': {
-        const queueId = String(input.queue_id || '')
-        if (!queueId) return { ok: false, error: 'queue_id ontbreekt' }
-
-        const { data: row, error: rErr } = await db
-          .from('youtube_upload_queue')
-          .select('id, status, retry_count, max_retries')
-          .eq('id', queueId)
-          .maybeSingle()
-        if (rErr) return { ok: false, error: rErr.message }
-        if (!row) return { ok: false, error: 'upload niet gevonden' }
-        if (!['failed', 'manual_review_required'].includes(row.status)) {
-          return { ok: false, error: `upload heeft status "${row.status}" — alleen failed/manual_review_required mag opnieuw` }
-        }
-
-        const { error: uErr } = await db
-          .from('youtube_upload_queue')
-          .update({ status: 'queued', last_error: null, updated_at: new Date().toISOString() })
-          .eq('id', queueId)
-        if (uErr) return { ok: false, error: uErr.message }
-
-        await db
-          .from('youtube_upload_failures')
-          .update({ recovery_attempted: true })
-          .eq('queue_id', queueId)
-          .eq('recovery_attempted', false)
-
-        return { ok: true, data: { queue_id: queueId, new_status: 'queued' } }
-      }
-
-      case 'resolve_alert': {
-        const alertId = String(input.alert_id || '')
-        const note = String(input.note || 'opgelost via Hermes-chat')
-        if (!alertId) return { ok: false, error: 'alert_id ontbreekt' }
-
-        const { error } = await db
-          .schema('hermes')
-          .from('proactive_alerts')
-          .update({ resolved_at: new Date().toISOString(), action_taken: note })
-          .eq('id', alertId)
-          .eq('company_id', companyId)
-        if (error) return { ok: false, error: error.message }
-        return { ok: true, data: { alert_id: alertId, resolved: true } }
-      }
-
-      case 'remember': {
-        const item = String(input.item || '')
-        if (!item) return { ok: false, error: 'item ontbreekt' }
-        const { error } = await db
-          .schema('hermes')
-          .rpc('remember', { p_company_id: companyId, p_item: item })
-        if (error) return { ok: false, error: error.message }
-        return { ok: true, data: { remembered: item } }
-      }
-
-      default:
-        return { ok: false, error: `onbekend commando: ${name}` }
-    }
-  } catch (e) {
-    return { ok: false, error: e instanceof Error ? e.message : 'onbekende fout' }
+    await db.schema('hermes').from('logs').insert({
+      level: 'info',
+      event,
+      message,
+      context: { ...context, source: 'command-center' },
+    })
+  } catch {
+    /* logboek is best-effort — nooit de respons laten falen */
   }
 }
 
+function ago(ts: string | null | undefined): string {
+  if (!ts) return 'nooit gezien'
+  const s = Math.floor((Date.now() - new Date(ts).getTime()) / 1000)
+  if (s < 60) return `${s}s geleden`
+  if (s < 3600) return `${Math.floor(s / 60)}m geleden`
+  if (s < 86400) return `${Math.floor(s / 3600)}u geleden`
+  return `${Math.floor(s / 86400)}d geleden`
+}
+
+function hostLabel(h: HostId): string {
+  return h === 'cli-l' ? 'CLI-L' : 'CLI-R'
+}
+
+// ── command handlers ───────────────────────────────────────────────────────────
+
+async function handleResume(db: AdminClient, cmd: ParsedCommand, companyId: string): Promise<HermesReply> {
+  const hosts = (cmd.hosts.length ? cmd.hosts : ['cli-l', 'cli-r']) as HostId[]
+  const rows = hosts.map((h) => ({
+    title: `Hervat: ga verder met de huidige taak (${hostLabel(h)})`,
+    workstream: 'resume',
+    target_host: h,
+    priority: 3,
+    payload: { instruction: 'ga verder', requested_by: 'orlando', via: 'command-center', company_id: companyId },
+  }))
+
+  const { data, error } = await db.schema('hermes').from('dispatch_queue').insert(rows).select('id, title, target_host')
+  if (error) {
+    return {
+      reply: `Kon de hervat-taken niet aanmaken. Geen data weggeschreven.\n\nReden: ${error.message}`,
+      response: '',
+      intent: 'resume',
+      understood: true,
+      actions: [],
+      suggestions: SUGGESTIONS,
+    }
+  }
+
+  await logAction(db, 'resume_dispatch', `Hervat-taken aangemaakt voor ${hosts.join(', ')}`, { ids: (data ?? []).map((r) => r.id) })
+
+  const lines = hosts.map((h) => `• ${hostLabel(h)}: ga verder met de huidige build-/audittaak`)
+  return {
+    reply: `Begrepen. Ik heb ${hosts.length} hervat-taak${hosts.length > 1 ? 'en' : ''} in de dispatch-wachtrij gezet:\n${lines.join('\n')}\n\nDe Claude-sessie op elke host pakt dit op via het dispatch-bord. Gelogd in het Hermes-logboek.`,
+    response: '',
+    intent: 'resume',
+    understood: true,
+    actions: (data ?? []).map((r) => ({ label: `${r.target_host} → queued`, detail: r.title })),
+    suggestions: ['Wat is de status van CLI L?', 'Welke taken staan open?'],
+  }
+}
+
+async function handleHostStatus(db: AdminClient, cmd: ParsedCommand): Promise<HermesReply> {
+  const targets = (cmd.hosts.length ? cmd.hosts : ['cli-l', 'cli-r']) as HostId[]
+  const { data: hostsRows, error } = await db
+    .schema('hermes')
+    .from('hosts')
+    .select('host_id, label, active, last_seen_at')
+    .in('host_id', targets)
+
+  if (error) {
+    return {
+      reply: `Geen data gevonden: het hermes-schema is niet bereikbaar (${error.message}). Controleer of migraties 109/110 zijn toegepast op deze database.`,
+      response: '',
+      intent: 'host_status',
+      understood: true,
+      actions: [],
+      suggestions: SUGGESTIONS,
+    }
+  }
+  if (!hostsRows || hostsRows.length === 0) {
+    return {
+      reply: 'Geen data gevonden: er zijn geen hosts geregistreerd in hermes.hosts.',
+      response: '',
+      intent: 'host_status',
+      understood: true,
+      actions: [],
+      suggestions: SUGGESTIONS,
+    }
+  }
+
+  const lines: string[] = []
+  for (const h of hostsRows) {
+    const counts: Record<string, number> = {}
+    for (const st of ['queued', 'claimed', 'running'] as const) {
+      const { count } = await db
+        .schema('hermes')
+        .from('dispatch_queue')
+        .select('id', { count: 'exact', head: true })
+        .in('target_host', [h.host_id, 'any'])
+        .eq('status', st)
+      counts[st] = count ?? 0
+    }
+    lines.push(
+      `• ${h.host_id} (${h.active ? 'actief' : 'inactief'}, ${ago(h.last_seen_at)}): ` +
+        `${counts.queued} queued · ${counts.claimed} claimed · ${counts.running} running`,
+    )
+  }
+
+  return {
+    reply: `Host-status:\n${lines.join('\n')}`,
+    response: '',
+    intent: 'host_status',
+    understood: true,
+    actions: [],
+    suggestions: ['Ga verder op CLI L en CLI R', 'Welke taken staan open?'],
+    data: hostsRows,
+  }
+}
+
+async function handleCreateTask(db: AdminClient, cmd: ParsedCommand, companyId: string): Promise<HermesReply> {
+  if (!cmd.title) {
+    return {
+      reply:
+        'Ik begreep dat je een taak wilt aanmaken' +
+        (cmd.hosts.length ? ` voor ${cmd.hosts.map(hostLabel).join(' + ')}` : '') +
+        ', maar de taakomschrijving ontbreekt. Geef de taak na een dubbele punt, bv.:\n' +
+        '"Maak een taak aan voor CLI L: checkout end-to-end testen".',
+      response: '',
+      intent: 'create_task',
+      understood: true,
+      actions: [],
+      suggestions: ['Maak een taak aan voor CLI L: checkout end-to-end testen'],
+    }
+  }
+  const target: HostId | 'any' = cmd.hosts.length === 1 ? cmd.hosts[0] : 'any'
+  const { data, error } = await db
+    .schema('hermes')
+    .from('dispatch_queue')
+    .insert({
+      title: cmd.title,
+      workstream: 'manual',
+      target_host: target,
+      priority: 5,
+      payload: { requested_by: 'orlando', via: 'command-center', company_id: companyId },
+    })
+    .select('id, title, target_host')
+    .maybeSingle()
+
+  if (error) {
+    return {
+      reply: `Kon de taak niet aanmaken. Reden: ${error.message}`,
+      response: '',
+      intent: 'create_task',
+      understood: true,
+      actions: [],
+      suggestions: SUGGESTIONS,
+    }
+  }
+  await logAction(db, 'create_task', `Taak aangemaakt: ${cmd.title}`, { id: data?.id, target_host: target })
+  return {
+    reply: `Taak aangemaakt in de dispatch-wachtrij (host: ${target}):\n• ${cmd.title}\n\nVerschijnt op het dispatch-bord en wordt opgepakt door de eerstvolgende sessie op die host.`,
+    response: '',
+    intent: 'create_task',
+    understood: true,
+    actions: [{ label: `${target} → queued`, detail: cmd.title }],
+    suggestions: ['Welke taken staan open?'],
+  }
+}
+
+async function handleStartPhase(db: AdminClient, cmd: ParsedCommand, companyId: string): Promise<HermesReply> {
+  const title = cmd.title!
+  const target: HostId | 'any' = cmd.hosts.length === 1 ? cmd.hosts[0] : 'any'
+  const { data, error } = await db
+    .schema('hermes')
+    .from('dispatch_queue')
+    .insert({
+      title: `Start fase/gate: ${title}`,
+      workstream: 'phase-gate',
+      target_host: target,
+      priority: 2,
+      payload: { phase: title, instruction: 'start', requested_by: 'orlando', via: 'command-center', company_id: companyId },
+    })
+    .select('id')
+    .maybeSingle()
+
+  if (error) {
+    return {
+      reply: `Kon fase/gate "${title}" niet starten. Reden: ${error.message}`,
+      response: '',
+      intent: 'start_phase',
+      understood: true,
+      actions: [],
+      suggestions: SUGGESTIONS,
+    }
+  }
+  await logAction(db, 'start_phase', `Fase/gate gestart: ${title}`, { id: data?.id, target_host: target })
+  return {
+    reply: `Fase/gate "${title}" is als taak in de wachtrij gezet (host: ${target}, hoge prioriteit). De uitvoerende sessie pakt dit op.`,
+    response: '',
+    intent: 'start_phase',
+    understood: true,
+    actions: [{ label: `${target} → queued`, detail: `Start: ${title}` }],
+    suggestions: ['Welke taken staan open?', 'Controleer Build Tracker'],
+  }
+}
+
+async function handleAuditMode(db: AdminClient, cmd: ParsedCommand, companyId: string): Promise<HermesReply> {
+  const hosts = (cmd.hosts.length ? cmd.hosts : ['cli-r']) as HostId[]
+  const rows = hosts.map((h) => ({
+    title: `Auditmodus: ${hostLabel(h)} draait controles i.p.v. nieuwe builds`,
+    workstream: 'audit',
+    target_host: h,
+    priority: 2,
+    payload: { mode: 'audit', requested_by: 'orlando', via: 'command-center', company_id: companyId },
+  }))
+  const { data, error } = await db.schema('hermes').from('dispatch_queue').insert(rows).select('id, target_host')
+  if (error) {
+    return {
+      reply: `Kon auditmodus niet inschakelen. Reden: ${error.message}`,
+      response: '',
+      intent: 'audit_mode',
+      understood: true,
+      actions: [],
+      suggestions: SUGGESTIONS,
+    }
+  }
+  await logAction(db, 'audit_mode', `Auditmodus aangevraagd voor ${hosts.join(', ')}`, { ids: (data ?? []).map((r) => r.id) })
+  return {
+    reply: `Auditmodus aangevraagd voor ${hosts.map(hostLabel).join(' + ')}. Taak staat in de wachtrij; de sessie op die host schakelt over naar controle/handoff.`,
+    response: '',
+    intent: 'audit_mode',
+    understood: true,
+    actions: (data ?? []).map((r) => ({ label: `${r.target_host} → audit`, detail: 'auditmodus' })),
+    suggestions: ['Wat is de status van CLI R?'],
+  }
+}
+
+async function handleRemember(db: AdminClient, cmd: ParsedCommand, companyId: string): Promise<HermesReply> {
+  const text = cmd.memory!
+  const { error } = await db
+    .schema('hermes')
+    .from('memory')
+    .insert({
+      scope: `company:${companyId}`,
+      key: `note:${new Date().toISOString()}`,
+      value: { text, source: 'command-center', requested_by: 'orlando' },
+      importance: 6,
+    })
+  if (error) {
+    return {
+      reply: `Kon dit niet onthouden. Reden: ${error.message}`,
+      response: '',
+      intent: 'remember',
+      understood: true,
+      actions: [],
+      suggestions: SUGGESTIONS,
+    }
+  }
+  await logAction(db, 'remember', 'Notitie opgeslagen in hermes.memory', { scope: `company:${companyId}` })
+  return {
+    reply: `Onthouden. Opgeslagen in het Hermes-geheugen:\n• ${text}`,
+    response: '',
+    intent: 'remember',
+    understood: true,
+    actions: [],
+    suggestions: [],
+  }
+}
+
+async function handleBuildTracker(db: AdminClient, companyId: string, openOnly: boolean): Promise<HermesReply> {
+  const { data, error } = await db
+    .from('build_tracker')
+    .select('name, status, progress_pct, owner, current_milestone')
+    .eq('company_id', companyId)
+    .order('progress_pct', { ascending: false })
+
+  if (error) {
+    return {
+      reply: `Geen data gevonden: build_tracker is niet bereikbaar (${error.message}).`,
+      response: '',
+      intent: openOnly ? 'open_tasks' : 'build_tracker',
+      understood: true,
+      actions: [],
+      suggestions: SUGGESTIONS,
+    }
+  }
+  const rows = data ?? []
+  if (rows.length === 0) {
+    return {
+      reply: 'Geen data gevonden: er staan geen build-tracker items voor de actieve company. Wissel evt. van company rechtsboven.',
+      response: '',
+      intent: openOnly ? 'open_tasks' : 'build_tracker',
+      understood: true,
+      actions: [],
+      suggestions: ['Wat blokkeert omzet vandaag?'],
+    }
+  }
+
+  const byStatus = rows.reduce<Record<string, number>>((acc, r) => {
+    acc[r.status] = (acc[r.status] ?? 0) + 1
+    return acc
+  }, {})
+  const summary = Object.entries(byStatus)
+    .map(([s, n]) => `${n}× ${s}`)
+    .join(' · ')
+
+  const openStatuses = ['planned', 'building', 'aandacht_nodig', 'blocked', 'in_progress']
+  const focus = (openOnly ? rows.filter((r) => openStatuses.includes(r.status)) : rows).slice(0, 8)
+  const lines = focus.map(
+    (r) => `• ${r.name} — ${r.status} ${r.progress_pct}%${r.owner ? ` · ${r.owner}` : ''}`,
+  )
+
+  return {
+    reply:
+      `Build Tracker (${rows.length} items): ${summary}\n\n` +
+      `${openOnly ? 'Open/lopend' : 'Top items'}:\n${lines.join('\n')}`,
+    response: '',
+    intent: openOnly ? 'open_tasks' : 'build_tracker',
+    understood: true,
+    actions: [],
+    suggestions: ['Wat blokkeert omzet vandaag?', 'Ga verder op CLI L en CLI R'],
+    data: focus,
+  }
+}
+
+async function handleRevenueBlockers(db: AdminClient): Promise<HermesReply> {
+  // Ecosysteem-breed: omzet-dragende builds die nog niet live zijn.
+  const { data: builds, error } = await db
+    .from('build_tracker')
+    .select('name, status, progress_pct, owner, current_milestone, expected_revenue_amount')
+    .in('status', ['building', 'aandacht_nodig', 'blocked', 'in_progress'])
+    .order('progress_pct', { ascending: false })
+    .limit(10)
+
+  const parts: string[] = []
+  if (error) {
+    parts.push(`Build Tracker niet bereikbaar (${error.message}).`)
+  } else if (!builds || builds.length === 0) {
+    parts.push('Geen lopende omzet-dragende builds gevonden in de Build Tracker.')
+  } else {
+    parts.push('Lopende builds op het kritieke pad naar omzet:')
+    for (const b of builds.slice(0, 6)) {
+      const ms = b.current_milestone ? ` — ${b.current_milestone.slice(0, 140)}` : ''
+      parts.push(`• ${b.name} (${b.status} ${b.progress_pct}%${b.owner ? `, ${b.owner}` : ''})${ms}`)
+    }
+  }
+
+  // Open escalaties (best-effort)
+  try {
+    const { count } = await db
+      .schema('hermes')
+      .from('escalations')
+      .select('id', { count: 'exact', head: true })
+      .in('status', ['pending', 'sending', 'sent'])
+    if (typeof count === 'number') parts.push(`\nOpen escalaties: ${count}`)
+  } catch {
+    /* schema kan ontbreken */
+  }
+
+  // Kritieke/high validation-findings (best-effort)
+  try {
+    const { count } = await db
+      .schema('hermes')
+      .from('validation_errors')
+      .select('id', { count: 'exact', head: true })
+      .eq('status', 'open')
+      .in('severity', ['critical', 'high'])
+    if (typeof count === 'number') parts.push(`Open kritieke/high findings: ${count}`)
+  } catch {
+    /* schema kan ontbreken */
+  }
+
+  parts.push('\nAdvies: prioriteer het item met de hoogste voortgang dat live-geld oplevert; dispatch de resterende blockers naar CLI-L/CLI-R.')
+
+  return {
+    reply: parts.join('\n'),
+    response: '',
+    intent: 'revenue_blockers',
+    understood: true,
+    actions: [],
+    suggestions: ['Ga verder op CLI L en CLI R', 'Controleer Build Tracker'],
+  }
+}
+
+function handleHelp(): HermesReply {
+  const lines = COMMAND_HELP.map((c) => `• ${c.label}: "${c.example}"`)
+  return {
+    reply: `Ik ben Hermes — de command router van Orlando Core OS. Ik begrijp o.a.:\n${lines.join('\n')}`,
+    response: '',
+    intent: 'help',
+    understood: true,
+    actions: [],
+    suggestions: SUGGESTIONS.slice(0, 4),
+  }
+}
+
+/** Vrije-tekst: probeer een nuttig antwoord via de (gateway-aware) AI-client, met echte context. */
+async function handleUnknown(db: AdminClient, cmd: ParsedCommand, companyId: string): Promise<HermesReply> {
+  // Korte, echte context opbouwen
+  let context = ''
+  try {
+    const { data: builds } = await db
+      .from('build_tracker')
+      .select('name, status, progress_pct')
+      .eq('company_id', companyId)
+      .order('progress_pct', { ascending: false })
+      .limit(6)
+    if (builds?.length) context += `Build Tracker: ${builds.map((b) => `${b.name} (${b.status} ${b.progress_pct}%)`).join('; ')}. `
+  } catch {
+    /* negeer */
+  }
+
+  const fallback: HermesReply = {
+    reply:
+      `Ik heb je bericht ontvangen maar kon het niet aan een commando koppelen.\n` +
+      `• Wat ik begreep: "${cmd.raw}" (geen herkende opdracht)\n` +
+      `• Wat ik niet begreep: welke actie je wilt\n` +
+      `• Beschikbare acties: ${COMMAND_HELP.map((c) => c.label).join(', ')}\n` +
+      `• Suggestie: probeer bv. "${COMMAND_HELP[0].example}" of typ "help".`,
+    response: '',
+    intent: 'unknown',
+    understood: false,
+    actions: [],
+    suggestions: SUGGESTIONS,
+  }
+
+  try {
+    const system =
+      `Je bent Hermes, de command router van Orlando Core OS (vastgoed/bouw/SaaS-ecosysteem, CLI-L en CLI-R hosts). ` +
+      `Antwoord in het Nederlands, kort en actionable (max 4 zinnen). ` +
+      `Als de vraag niet om data of een actie vraagt die je kent, zeg dan eerlijk wat je begreep en stel een geldig commando voor uit deze lijst: ` +
+      COMMAND_HELP.map((c) => c.example).join(' | ') +
+      `. Verzin geen statussen; gebruik alleen de meegegeven context.`
+    const { text } = await generateText({
+      model: claude.sonnet,
+      system,
+      prompt: `Context: ${context || 'geen extra context beschikbaar'}\n\nVraag van Orlando: ${cmd.raw}`,
+      maxOutputTokens: 400,
+    })
+    if (text?.trim()) {
+      return { ...fallback, reply: text.trim(), understood: true }
+    }
+    return fallback
+  } catch {
+    // AI niet beschikbaar (geen key/gateway) → gestructureerde fallback (nooit een vaste standaardzin)
+    return fallback
+  }
+}
+
+// ── route ──────────────────────────────────────────────────────────────────────
+
 export async function POST(request: NextRequest) {
   try {
-    const { company_id, message, conversation_history } = await request.json()
+    // Auth: alleen ingelogde gebruikers
+    const auth = await createClient()
+    const {
+      data: { user },
+    } = await auth.auth.getUser()
+    if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-    if (!company_id || !message) {
+    const body = await request.json().catch(() => ({}))
+    const { company_id, message } = body as { company_id?: string; message?: string }
+
+    if (!company_id || !message?.trim()) {
       return NextResponse.json({ error: 'Missing company_id or message' }, { status: 400 })
     }
 
-    const supabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL || '',
-      process.env.SUPABASE_SERVICE_ROLE_KEY || ''
-    )
+    const db = createAdminClient()
+    const cmd = parseCommand(message)
 
-    const { data: company } = await supabase
-      .from('companies')
-      .select('name')
-      .eq('id', company_id)
-      .maybeSingle()
-
-    const systemPrompt = `Je bent Hermes, de AI CEO-assistent van ${company?.name || 'dit bedrijf'}.
-Je helpt Orlando met operationele inzichten, strategisch advies én concrete acties.
-
-JE HEBT COMMANDO'S (tools). Gebruik ze ALTIJD wanneer relevant — verzin nooit zelf cijfers of status:
-- get_uploads / get_upload_problems → vragen over uploads, video's, publicaties
-- get_open_problems → "wat zijn de problemen", "los problemen op"
-- get_projects / get_system_overview → hoe staat het ervoor
-- retry_upload → een gefaalde upload opnieuw starten
-- resolve_alert → een alert sluiten na actie
-- remember → iets onthouden voor later
-
-WERKWIJZE:
-- Vraagt Orlando naar uploads of problemen? Roep eerst het juiste lees-commando aan, geef dan een kort antwoord met de ECHTE data.
-- Vraagt Orlando om iets op te lossen? Haal eerst de problemen op, voer dan de veilige actie uit (retry_upload / resolve_alert) en rapporteer wat je deed.
-- Productie-onveilige acties (deploys, merges, migraties, prijzen, Stripe, data verwijderen) doe je NIET zelf — meld dat die mens-bevestiging vereisen.
-
-STIJL:
-- Antwoord altijd in het Nederlands.
-- Kort en actionable. Noem concrete aantallen, titels en statussen uit de data.
-- Geen lange uitleg.`
-
-    const messages: Anthropic.MessageParam[] = (conversation_history || []).map((msg: any) => ({
-      role: msg.role,
-      content: msg.content,
-    }))
-    messages.push({ role: 'user', content: message })
-
-    const commandsUsed: string[] = []
-    let finalText = ''
-
-    for (let round = 0; round < MAX_TOOL_ROUNDS; round++) {
-      const response = await anthropic.messages.create({
-        model: MODEL,
-        max_tokens: 1024,
-        system: systemPrompt,
-        tools: TOOLS,
-        messages,
-      })
-
-      const toolUses = response.content.filter(
-        (b): b is Anthropic.ToolUseBlock => b.type === 'tool_use'
-      )
-      const textBlocks = response.content.filter(
-        (b): b is Anthropic.TextBlock => b.type === 'text'
-      )
-      if (textBlocks.length) finalText = textBlocks.map(b => b.text).join('\n').trim()
-
-      if (response.stop_reason !== 'tool_use' || toolUses.length === 0) break
-
-      messages.push({ role: 'assistant', content: response.content })
-
-      const toolResults: Anthropic.ToolResultBlockParam[] = []
-      for (const tu of toolUses) {
-        commandsUsed.push(tu.name)
-        const result = await runTool(
-          supabase,
-          company_id,
-          tu.name,
-          (tu.input as Record<string, unknown>) || {}
-        )
-        toolResults.push({
-          type: 'tool_result',
-          tool_use_id: tu.id,
-          content: JSON.stringify(result),
-          is_error: !result.ok,
-        })
-      }
-      messages.push({ role: 'user', content: toolResults })
+    let result: HermesReply
+    switch (cmd.kind) {
+      case 'resume':
+        result = await handleResume(db, cmd, company_id)
+        break
+      case 'host_status':
+        result = await handleHostStatus(db, cmd)
+        break
+      case 'create_task':
+        result = await handleCreateTask(db, cmd, company_id)
+        break
+      case 'start_phase':
+        result = await handleStartPhase(db, cmd, company_id)
+        break
+      case 'audit_mode':
+        result = await handleAuditMode(db, cmd, company_id)
+        break
+      case 'remember':
+        result = await handleRemember(db, cmd, company_id)
+        break
+      case 'build_tracker':
+        result = await handleBuildTracker(db, company_id, false)
+        break
+      case 'open_tasks':
+        result = await handleBuildTracker(db, company_id, true)
+        break
+      case 'revenue_blockers':
+        result = await handleRevenueBlockers(db)
+        break
+      case 'help':
+        result = handleHelp()
+        break
+      default:
+        result = await handleUnknown(db, cmd, company_id)
+        break
     }
 
-    if (!finalText) finalText = 'Ik kon geen antwoord genereren.'
-
-    return NextResponse.json({ response: finalText, commands_used: commandsUsed })
+    return reply(result)
   } catch (error) {
-    console.error('Error in Hermes chat:', error)
-    const errorMsg = error instanceof Error ? error.message : 'Unknown error'
-    console.error('Details:', errorMsg)
+    const detail = error instanceof Error ? error.message : 'Onbekende fout'
+    console.error('Hermes command router fout:', detail)
     return NextResponse.json(
-      { error: 'Failed to process message', details: errorMsg },
-      { status: 500 }
+      {
+        reply: `Interne fout bij het verwerken van je opdracht: ${detail}`,
+        response: `Interne fout bij het verwerken van je opdracht: ${detail}`,
+        intent: 'unknown',
+        understood: false,
+        actions: [],
+        suggestions: SUGGESTIONS,
+        error: 'internal_error',
+        details: detail,
+      },
+      { status: 500 },
     )
   }
 }

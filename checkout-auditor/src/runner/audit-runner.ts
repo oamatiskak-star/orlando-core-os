@@ -10,6 +10,7 @@ import { runAuditor } from '../ai/auditor'
 import { renderAuditReport } from '../reports/report-renderer'
 import { renderPriorityQueue, rankFindings } from '../reports/priority-queue-renderer'
 import { bridgeFindingsToApprovals } from '../approvals/approval-bridge'
+import { evaluateLaunchGate, renderLaunchGate, mapObservationsToGate } from '../launch/launch-gate'
 import { uploadArtifact } from '../lib/storage'
 import { loadTiers, loadCountries } from '../specs'
 import type { ScopeFilter, AuditorOutput, Finding } from '../types'
@@ -160,9 +161,27 @@ export async function runAudit(scope: Partial<ScopeFilter> = {}, triggeredBy: st
     })
     const pq = renderPriorityQueue(auditorOutput.findings, runId, 50)
 
+    // Launch Gate (additief) — per-product PASS/WARNING/FAIL over de volledige keten:
+    // checkout → coupon → success/cancel → webhook → membership → dashboard → e-mail → analytics.
+    // Volledig defensief: faalt dit, dan blijft de bestaande audit-flow intact.
+    let launchGateMd = ''
+    try {
+      const gateInputs = scenarioOutcomes
+        .map(o => mapObservationsToGate(o.scenario, o.observations))
+        .filter((x): x is NonNullable<typeof x> => x !== null)
+      if (gateInputs.length > 0) {
+        const gateResults = gateInputs.map(gi => evaluateLaunchGate(gi))
+        launchGateMd = '\n\n---\n\n' + renderLaunchGate(gateResults)
+        const blocked = gateResults.filter(r => r.verdict === 'FAIL').length
+        logger.info({ products: gateResults.length, blocked }, 'launch gate evaluated')
+      }
+    } catch (e) {
+      logger.warn({ err: String(e) }, 'launch gate skipped (non-fatal)')
+    }
+
     const reportStoragePath = `${new Date().toISOString().slice(0, 10)}/${runId}/CHECKOUT_AUDIT_REPORT.md`
     const pqStoragePath = `${new Date().toISOString().slice(0, 10)}/${runId}/PRIORITY_FIX_QUEUE.md`
-    await uploadArtifact(reportStoragePath, reportMd, 'text/markdown')
+    await uploadArtifact(reportStoragePath, reportMd + launchGateMd, 'text/markdown')
     await uploadArtifact(pqStoragePath, pq.markdown, 'text/markdown')
     reportPath = reportStoragePath
     priorityQueuePath = pqStoragePath
