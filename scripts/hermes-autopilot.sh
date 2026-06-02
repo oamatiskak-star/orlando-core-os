@@ -84,23 +84,26 @@ case "$TOOL" in
     ;;
 esac
 
-# LIVE-modus: DB-vlag `autopilot_live` is leidend (Telegram-toggle "auto aan/uit"),
-# met 60s lokale cache om latency per tool-aanroep te vermijden. Env forceert aan.
+# LIVE-modus: gescoopte vlag sessie(tab) → host(machine) → globaal, met default
+# "aan op vertrouwde hosts" (RPC hermes_autopilot_effective). 30s cache per sessie
+# om latency per tool-aanroep te vermijden. Env HERMES_AUTOPILOT_LIVE=1 forceert aan.
 LIVE=0
-FLAG=""
-CACHE="$HOME/OSM_STATE/.autopilot_live"
+FLAG=0
+CACHE="$HOME/OSM_STATE/.autopilot_${SESSION:-default}"
 if [[ -f "$CACHE" ]]; then
   CAGE=$(( $(date +%s) - $(stat -f %m "$CACHE" 2>/dev/null || stat -c %Y "$CACHE" 2>/dev/null || echo 0) ))
 else
   CAGE=99999
 fi
-if [[ $CAGE -lt 60 ]]; then
+if [[ $CAGE -lt 30 ]]; then
   FLAG="$(cat "$CACHE" 2>/dev/null)"
 elif [[ -n "$SUPABASE_URL" && -n "$SUPABASE_SERVICE_ROLE_KEY" ]]; then
-  FLAG="$(curl -s -m 2 "$SUPABASE_URL/rest/v1/hermes_config?key=eq.autopilot_live&select=value" \
+  EFF="$(curl -s -m 2 -X POST "$SUPABASE_URL/rest/v1/rpc/hermes_autopilot_effective" \
       -H "apikey: $SUPABASE_SERVICE_ROLE_KEY" -H "Authorization: Bearer $SUPABASE_SERVICE_ROLE_KEY" \
-      | python3 -c 'import sys,json;d=json.load(sys.stdin);print(d[0]["value"] if d else "")' 2>/dev/null)"
-  [[ -n "$FLAG" ]] && { mkdir -p "$(dirname "$CACHE")"; printf '%s' "$FLAG" > "$CACHE"; }
+      -H "Content-Type: application/json" \
+      -d "{\"p_host\":\"$HOST\",\"p_session\":\"$SESSION\"}" 2>/dev/null)"
+  [[ "$EFF" == "true" ]] && FLAG=1 || FLAG=0
+  mkdir -p "$(dirname "$CACHE")"; printf '%s' "$FLAG" > "$CACHE"
 fi
 [[ "$FLAG" == "1" ]] && LIVE=1
 [[ "${HERMES_AUTOPILOT_LIVE:-}" == "1" ]] && LIVE=1
