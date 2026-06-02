@@ -1,0 +1,26 @@
+{
+  "roots": ["~/Downloads", "~/Desktop", "~/Documents"],
+  "exclude": [
+    "node_modules", ".git", ".Trash", "Library/Caches", "Library/Application Support",
+    ".janitor-quarantine", ".Spotlight-V100", ".fseventsd", "Photos Library.photoslibrary",
+    ".DocumentRevisions-V100", "DerivedData", ".cache", "venv", ".venv",
+    "GitHub", "orlando-core-os", "vastgoedscalper-saas", "sterkbouw-saas-front",
+    "sterkbouw-saas-back", "sterkbouw-saas-executor", "strkbeheer.nl", "strkbouw.nl",
+    ".next", "dist", "build", ".vercel"
+  ],
+  "comment_includeExtensions": "Detectoren werken ALLEEN op documenttypes; nooit op code/systeembestanden (voorkomt het hernoemen van page.tsx, .DS_Store enz.).",
+  "includeExtensions": [
+    "pdf", "doc", "docx", "xls", "xlsx", "csv", "ppt", "pptx",
+    "pages", "numbers", "key", "rtf", "odt", "ods", "txt",
+    "jpg", "jpeg", "png", "heic", "tiff", "tif", "gif", "webp",
+    "eml", "msg", "zip"
+  ],
+  "hydrate": { "maxFilesPerRun": 400, "evictAfter": true, "settleSeconds": 10 },
+  "minBytes": 1024,
+  "partialHashBytes": 65536,
+  "skipDataless": true,
+  "invoiceNumberRegex": "(?:factuur(?:nummer|nr|no)?|invoice|inv|nota|kenmerk)\\s*[:#.\\-]?\\s*([A-Za-z]{0,4}[0-9][0-9A-Za-z\\-/]{2,})",
+  "quarantineDir": "~/.janitor-quarantine",
+  "quarantineTTLDays": 14,
+  "renameSuffixTemplate": "__c{hash8}"
+}
