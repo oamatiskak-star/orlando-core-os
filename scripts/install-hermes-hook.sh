@@ -21,19 +21,32 @@ ENV_FILE="$HOME/OSM_STATE/hermes-hook.env"
 chmod +x "$HOOK" "$AUTOPILOT" 2>/dev/null || true
 
 # 1) env-bestand
+# Hermes/claude-tabellen leven CANONIEK in dit project; hardcode de URL zodat een
+# afwijkende/verkeerde SUPABASE_URL in .env.prod (de 'verkeerd project'-bug) niet
+# meer bijt. De service-role key wordt gekozen op JWT-ref-match met dit project.
+HERMES_PROJECT_REF="shaunumewswpxhmgbtvv"
+HERMES_URL="https://${HERMES_PROJECT_REF}.supabase.co"
+OSM_HOST_VAL="${OSM_HOST:-$(hostname -s)}"
 if [[ ! -f "$ENV_FILE" ]]; then
   mkdir -p "$(dirname "$ENV_FILE")"
-  URL="$(grep -E '^(NEXT_PUBLIC_SUPABASE_URL|SUPABASE_URL)=' "$REPO_ROOT/.env.prod" 2>/dev/null | head -1 | cut -d= -f2-)"
-  KEY="$(grep -E '^SUPABASE_SERVICE_ROLE_KEY=' "$REPO_ROOT/.env.prod" 2>/dev/null | head -1 | cut -d= -f2-)"
-  if [[ -n "$URL" && -n "$KEY" ]]; then
+  # Kies de service-role key wiens JWT-ref matcht met het Hermes-project.
+  KEY=""
+  while IFS= read -r k; do
+    [[ -z "$k" ]] && continue
+    payload="$(printf '%s' "$k" | cut -d. -f2)"
+    pad=$(( (4 - ${#payload} % 4) % 4 )); [[ $pad -gt 0 ]] && payload="${payload}$(printf '=%.0s' $(seq 1 $pad))"
+    if printf '%s' "$payload" | base64 -d 2>/dev/null | grep -q "\"ref\":\"$HERMES_PROJECT_REF\""; then KEY="$k"; break; fi
+  done < <(grep -E '^SUPABASE_SERVICE_ROLE_KEY=' "$REPO_ROOT/.env.prod" 2>/dev/null | cut -d= -f2-)
+  if [[ -n "$KEY" ]]; then
     printf 'export SUPABASE_URL=%s\nexport SUPABASE_SERVICE_ROLE_KEY=%s\nexport OSM_HOST=%s\n# Zet op 1 om de autopilot veilige tools ECHT te laten goedkeuren (anders dry-run):\nexport HERMES_AUTOPILOT_LIVE=0\n' \
-      "$URL" "$KEY" "$(hostname -s)" > "$ENV_FILE"
+      "$HERMES_URL" "$KEY" "$OSM_HOST_VAL" > "$ENV_FILE"
     chmod 600 "$ENV_FILE"
-    echo "✓ env geschreven: $ENV_FILE"
+    echo "✓ env geschreven: $ENV_FILE (project $HERMES_PROJECT_REF, host $OSM_HOST_VAL)"
   else
-    echo "⚠ kon SUPABASE_URL/SERVICE_ROLE_KEY niet uit .env.prod halen — vul $ENV_FILE handmatig:"
-    echo "   export SUPABASE_URL=https://<ref>.supabase.co"
-    echo "   export SUPABASE_SERVICE_ROLE_KEY=<service-role-key>"
+    echo "⚠ geen service-role key voor project $HERMES_PROJECT_REF in .env.prod — vul $ENV_FILE handmatig:"
+    echo "   export SUPABASE_URL=$HERMES_URL"
+    echo "   export SUPABASE_SERVICE_ROLE_KEY=<service-role key van $HERMES_PROJECT_REF>"
+    echo "   export OSM_HOST=$OSM_HOST_VAL   # of cli-l / cli-r"
   fi
 else
   echo "✓ env bestaat al: $ENV_FILE (ongemoeid)"
