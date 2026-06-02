@@ -8,6 +8,7 @@ export type SessionRow = {
   host: string
   session_id: string
   project: string
+  title: string | null
   cwd: string
   status: string
   last_event: string
@@ -137,8 +138,8 @@ export default function SessionsClient({
               return (
                 <tr key={r.session_id} className="hover:bg-white/[0.015]">
                   <td className="px-4 py-3">
-                    <div className="text-white/90 font-medium">{r.project}</div>
-                    <div className="text-[11px] text-white/40">{r.host} · {r.last_prompt || r.last_event}</div>
+                    <div className="text-white/90 font-medium truncate max-w-[300px]">{r.title || r.project}</div>
+                    <div className="text-[11px] text-white/40 truncate max-w-[300px]">{r.host} · {r.project}{r.last_prompt ? ` · ${r.last_prompt}` : ''}</div>
                   </td>
                   <td className={`px-3 py-3 text-xs font-medium ${statusColor(r.status)}`}>
                     {r.status}
