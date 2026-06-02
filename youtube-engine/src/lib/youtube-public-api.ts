@@ -12,8 +12,8 @@ let _client: youtube_v3.Youtube | null = null
 
 function getClient(): youtube_v3.Youtube {
   if (!_client) {
-    const apiKey = process.env.YOUTUBE_DATA_API_KEY
-    if (!apiKey) throw new Error('YOUTUBE_DATA_API_KEY is required for public YouTube Data API')
+    const apiKey = process.env.YOUTUBE_DATA_API_KEY ?? process.env.YOUTUBE_API_KEY
+    if (!apiKey) throw new Error('YOUTUBE_DATA_API_KEY (of YOUTUBE_API_KEY) is required for public YouTube Data API')
     _client = google.youtube({ version: 'v3', auth: apiKey })
   }
   return _client
