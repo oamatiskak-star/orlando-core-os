@@ -16,6 +16,7 @@ import { OpenAIProvider } from './providers/openai.js'
 import { OpenRouterProvider } from './providers/openrouter.js'
 import { OllamaProvider } from './providers/ollama.js'
 import { LMStudioProvider } from './providers/lmstudio.js'
+import { PerplexityProvider } from './providers/perplexity.js'
 import { ProviderError, type ProviderAdapter } from './providers/base.js'
 
 export class AIRouter {
@@ -28,6 +29,7 @@ export class AIRouter {
       openrouter: new OpenRouterProvider(),
       ollama: new OllamaProvider(),
       lmstudio: new LMStudioProvider(),
+      perplexity: new PerplexityProvider(),
       custom: new OpenAIProvider(), // placeholder for custom OpenAI-compatible endpoints
     }
   }
@@ -66,6 +68,7 @@ export class AIRouter {
     const timeoutMs = req.timeoutMs ?? config.routing.defaultTimeoutMs
     const tried: string[] = []
     let lastError: unknown = null
+    let sawCapacityIssue = false
 
     for (const candidate of candidates.slice(0, maxAttempts)) {
       const provider = this.providers[candidate.provider]
@@ -113,6 +116,7 @@ export class AIRouter {
       } catch (e: unknown) {
         lastError = e
         const reason = e instanceof ProviderError ? e.reason : 'transport'
+        if (reason === 'rate_limit' || reason === 'timeout' || reason === 'server') sawCapacityIssue = true
         tried.push(`${candidate.provider}:${candidate.model_id}:${reason}`)
         await markHealth(
           candidate.id,
@@ -140,6 +144,56 @@ export class AIRouter {
         })
         // hard failures stop the chain on auth — no point retrying same key
         if (e instanceof ProviderError && !e.retryable && e.reason === 'auth') continue
+      }
+    }
+
+    // ── VANGNET: Perplexity neemt over als de keten vastloopt (vooral bij rate-limits) ──
+    const ppx = this.providers.perplexity
+    if (
+      config.routing.perplexityFallback &&
+      !req.localOnly &&
+      ppx?.isConfigured() &&
+      (sawCapacityIssue || tried.length > 0)
+    ) {
+      const ppxModel = config.providers.perplexity.fallbackModel
+      const attemptStart = Date.now()
+      try {
+        const r = await ppx.complete(req, { modelId: ppxModel, timeoutMs })
+        const latency = Date.now() - attemptStart
+        const resp: CompletionResponse = {
+          text: r.text,
+          model: ppxModel,
+          provider: 'perplexity',
+          inputTokens: r.inputTokens,
+          outputTokens: r.outputTokens,
+          latencyMs: latency,
+          cacheHit: false,
+          cost: 0,
+          fallbacksTried: tried,
+          finishReason: r.finishReason,
+        }
+        await cachePut(cacheKey, req.tier, ppxModel, resp)
+        await recordUsage({
+          provider: 'perplexity',
+          modelName: ppxModel,
+          tier: req.tier,
+          caller: req.caller,
+          inputTokens: r.inputTokens,
+          outputTokens: r.outputTokens,
+          latencyMs: latency,
+          costUsd: 0,
+          cacheHit: false,
+          status: 'ok',
+        })
+        await logRouter('warn', 'perplexity_fallback_used', {
+          reason: sawCapacityIssue ? 'capacity/rate_limit' : 'chain_exhausted',
+          tried,
+          model: ppxModel,
+        })
+        return resp
+      } catch (e: unknown) {
+        tried.push(`perplexity:${ppxModel}:${e instanceof ProviderError ? e.reason : 'transport'}`)
+        lastError = e
       }
     }
 
