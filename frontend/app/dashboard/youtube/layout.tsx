@@ -3,11 +3,12 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import clsx from 'clsx'
-import { LayoutGrid, Upload, Clock, BarChart2, Zap, ScrollText, Radar, Target } from 'lucide-react'
+import { LayoutGrid, Upload, Clock, BarChart2, Zap, ScrollText, Radar, Target, Lightbulb } from 'lucide-react'
 
 const TABS = [
   { label: 'Overzicht',        href: '/dashboard/youtube',                    icon: LayoutGrid },
   { label: 'Mission Control',  href: '/dashboard/youtube/mission-control',    icon: Radar },
+  { label: 'Content-radar',    href: '/dashboard/youtube/radar',              icon: Lightbulb },
   { label: 'Strategie',        href: '/dashboard/youtube/strategy',           icon: Target },
   { label: 'Queue',            href: '/dashboard/youtube/queue',              icon: Upload },
   { label: 'Scheduled',        href: '/dashboard/youtube/scheduled',          icon: Clock },
