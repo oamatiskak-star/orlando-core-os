@@ -646,6 +646,14 @@ async function handleWebResearch(cmd: ParsedCommand): Promise<HermesReply> {
         instructions:
           'Je bent een onderzoeksassistent voor Orlando (vastgoed/bouw/SaaS/media, NL). Antwoord beknopt en feitelijk in het Nederlands, met bronnen.',
         input: query,
+        // Alle read-only research-tools die binnen de organisatie nut hebben.
+        // (sandbox/function bewust weg: code-exec + eigen functies vereisen aparte governance.)
+        tools: [
+          { type: 'web_search' },
+          { type: 'fetch_url', max_urls: 10 },
+          { type: 'finance_search' },
+          { type: 'people_search' },
+        ],
       }),
     })
 
