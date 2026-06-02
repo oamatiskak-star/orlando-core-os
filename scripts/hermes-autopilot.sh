@@ -44,6 +44,7 @@ except Exception:
 
 TOOL="$(getf '.tool_name' \"['tool_name']\")"
 CMD="$(getf '.tool_input.command' \"['tool_input']['command']\")"
+QUERY="$(getf '.tool_input.query' \"['tool_input']['query']\")"
 SESSION="$(getf '.session_id' \"['session_id']\")"
 CWD="$(getf '.cwd' \"['cwd']\")"
 HOST="${OSM_HOST:-$(hostname -s 2>/dev/null || echo unknown)}"
@@ -60,8 +61,16 @@ SAFE=1
 REASON="toegestaan (geen risicopatroon)"
 
 case "$TOOL" in
-  # Risicovolle MCP-acties (mutaties/deploys/DB/Stripe) → jij beslist
-  *apply_migration*|*execute_sql*|*deploy_edge_function*|*deploy_to_vercel*|*create_project*|*pause_project*|*restore*|*merge_branch*|*reset_branch*|*delete_branch*|*delete_*|*cancel_subscription*|*update_subscription*|*create_refund*|*create_payment*|*create_price*|*create_product*|*update_product*|*archive_product*|*set_branding*|*create_coupon*|*update_dispute*)
+  # DB-query: lezen (SELECT/WITH/EXPLAIN/notify-reload) → auto; mutatie/DDL → jij beslist.
+  *execute_sql*)
+    if printf '%s' "$QUERY" | grep -qiE '\b(drop|delete|truncate|update|insert|alter|grant|revoke|create\s+(table|or\s+replace|function|trigger|policy|role|database|schema|extension|index|view)|comment\s+on)\b'; then
+      SAFE=0; REASON="execute_sql met mutatie/DDL → jij beslist"
+    else
+      SAFE=1; REASON="execute_sql (alleen lezen)"
+    fi
+    ;;
+  # Risicovolle MCP-acties (migraties/deploys/Stripe-mutaties/delete) → jij beslist
+  *apply_migration*|*deploy_edge_function*|*deploy_to_vercel*|*create_project*|*pause_project*|*restore*|*merge_branch*|*reset_branch*|*delete_branch*|*delete_*|*cancel_subscription*|*update_subscription*|*create_refund*|*create_payment*|*create_price*|*create_product*|*update_product*|*archive_product*|*set_branding*|*create_coupon*|*update_dispute*)
     SAFE=0; REASON="risicovolle MCP-actie ($TOOL) → jij beslist"
     ;;
   Bash)
