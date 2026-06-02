@@ -8,7 +8,12 @@
 
 **Focus (2026-06-02, sessie 16):** Hermes bereikbaar maken in de terminal zoals Claude Code (kent ALLE commando's, leest begrijpend — geen vast menu).
 
-**⚠️ Dashboard-route conflict opgelost:** mijn aanvankelijke `route.ts` tool-use rewrite (get_uploads/retry_upload/etc.) is bij het mergen TERUGGEDRAAID t.g.v. main's nieuwere **Hermes Command Center** (`command-router` lib, commit 788b2670c). Keuze Orlando: main's Command Center blijft de dashboard-route; mijn `HermesPersonalChat.tsx` schema-fix is daardoor ook vervallen (main verving het component). De upload/problemen/retry-commando's zijn dus NIET in de dashboard-route — eventueel later als extra intents in de command-router porteren.
+**⚠️ Dashboard-route conflict opgelost:** mijn aanvankelijke `route.ts` tool-use rewrite is bij het mergen teruggedraaid t.g.v. main's nieuwere **Hermes Command Center** (`command-router` lib, commit 788b2670c). Keuze Orlando: main's Command Center blijft de dashboard-route.
+
+**✅ Los eindje OPGEPAKT — upload-intents in de command-router:** uploads/problemen/retry geporteerd ALS intents in main's architectuur i.p.v. een aparte route.
+- `lib/hermes/command-router.ts`: 3 nieuwe `CommandKind`s (`uploads`, `upload_problems`, `retry_upload`) + `uploadId?`-veld + parse-blok (vóór host-status/blockers; gegate op token `upload`; uuid-extractie) + COMMAND_HELP-items.
+- `app/api/hermes/chat/route.ts`: handlers `handleUploads` (status-breakdown + laatste 8), `handleUploadProblems` (failed/manual_review_required + youtube_upload_failures + gefaalde media_holding_uploads), `handleRetryUpload` (alleen failed/manual_review_required → queued, markeert failure recovery_attempted, logt) + switch-cases.
+- Tests: `command-router.test.ts` +4 (21/21 pass). Typecheck 0 fouten. Voorbeelden: "Hoe staan de uploads?", "Wat is er mis met de uploads?", "Retry upload <id>".
 
 **✅ Hermes TERMINAL-agent (net als Claude Code):** `frontend/scripts/hermes-cli.mjs` + launcher `~/.local/bin/hermes` (op PATH). GEEN vast menu — Hermes heeft echte tools: `bash` (kent zo ALLE commando's: git/gh/psql/supabase/curl/vercel...), `read_file`, `write_file`. Agent-loop max 30 stappen, model claude-opus-4-8, env auto uit `.env.prod`+`frontend/.env.local`. Risicovolle acties (rm -rf/drop/delete/git push/force/vercel deploy/stripe/sudo...) → DANGER-regex → bevestiging in interactieve modus, auto-geweigerd in one-shot. Gebruik: `hermes` (REPL) of `hermes "vraag"`. Launcher staat buiten de repo (machine-lokaal). Syntax+pad geverifieerd; live agent-run kon ik niet zelf draaien (harness blokkeert autonome shell-agent door mij — Orlando draait het zelf).
 

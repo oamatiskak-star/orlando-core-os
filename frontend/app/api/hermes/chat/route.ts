@@ -426,6 +426,199 @@ async function handleRevenueBlockers(db: AdminClient): Promise<HermesReply> {
   }
 }
 
+async function handleUploads(db: AdminClient): Promise<HermesReply> {
+  const statuses = [
+    'queued',
+    'uploading',
+    'processing',
+    'verifying',
+    'verified_live',
+    'failed',
+    'manual_review_required',
+  ] as const
+  const counts: Record<string, number> = {}
+  for (const st of statuses) {
+    const { count } = await db
+      .from('youtube_upload_queue')
+      .select('id', { count: 'exact', head: true })
+      .eq('status', st)
+    counts[st] = count ?? 0
+  }
+
+  const { data: recent, error } = await db
+    .from('youtube_upload_queue')
+    .select('id, status, title, retry_count, updated_at')
+    .order('updated_at', { ascending: false })
+    .limit(8)
+
+  if (error) {
+    return {
+      reply: `Geen data: youtube_upload_queue niet bereikbaar (${error.message}).`,
+      response: '',
+      intent: 'uploads',
+      understood: true,
+      actions: [],
+      suggestions: SUGGESTIONS,
+    }
+  }
+
+  const summary =
+    statuses.filter((s) => counts[s] > 0).map((s) => `${counts[s]}× ${s}`).join(' · ') || 'geen uploads'
+  const lines = (recent ?? []).map(
+    (r) => `• ${String(r.title ?? r.id).slice(0, 48)} — ${r.status}${r.retry_count ? ` (retry ${r.retry_count})` : ''}`,
+  )
+
+  return {
+    reply: `Upload-queue: ${summary}.${lines.length ? `\n\nLaatste:\n${lines.join('\n')}` : ''}`,
+    response: '',
+    intent: 'uploads',
+    understood: true,
+    actions: [],
+    suggestions: ['Wat is er mis met de uploads?', 'Welke taken staan open?'],
+    data: { counts, recent: recent ?? [] },
+  }
+}
+
+async function handleUploadProblems(db: AdminClient): Promise<HermesReply> {
+  const { data: stuck } = await db
+    .from('youtube_upload_queue')
+    .select('id, status, title, retry_count, last_error, updated_at')
+    .in('status', ['failed', 'manual_review_required'])
+    .order('updated_at', { ascending: false })
+    .limit(12)
+
+  const { data: holdingFailed } = await db
+    .from('media_holding_uploads')
+    .select('id, platform, error, updated_at')
+    .eq('status', 'failed')
+    .order('updated_at', { ascending: false })
+    .limit(8)
+
+  const rows = stuck ?? []
+  const hold = holdingFailed ?? []
+
+  if (rows.length === 0 && hold.length === 0) {
+    return {
+      reply: 'Geen vastgelopen of gefaalde uploads gevonden. De pipeline is schoon.',
+      response: '',
+      intent: 'upload_problems',
+      understood: true,
+      actions: [],
+      suggestions: ['Hoe staan de uploads?'],
+    }
+  }
+
+  const lines = rows.map(
+    (r) =>
+      `• ${String(r.title ?? '(zonder titel)').slice(0, 42)} [${r.status}] — ${String(r.last_error ?? 'geen detail').slice(0, 80)}\n  id: ${r.id}`,
+  )
+  const holdLines = hold.map((h) => `• media-holding ${h.platform} — ${String(h.error ?? 'geen detail').slice(0, 70)}`)
+
+  const parts = [`${rows.length} vastgelopen/gefaalde YouTube-uploads:`, ...lines]
+  if (holdLines.length) parts.push('', `Gefaalde media-holding uploads (${holdLines.length}):`, ...holdLines)
+  parts.push('', 'Opnieuw proberen kan met: "Retry upload <id>".')
+
+  return {
+    reply: parts.join('\n'),
+    response: '',
+    intent: 'upload_problems',
+    understood: true,
+    actions: rows.slice(0, 5).map((r) => ({ label: `retry ${r.id.slice(0, 8)}`, detail: r.title ?? r.status })),
+    suggestions: rows.length ? [`Retry upload ${rows[0].id}`, 'Hoe staan de uploads?'] : ['Hoe staan de uploads?'],
+    data: { stuck: rows, holdingFailed: hold },
+  }
+}
+
+async function handleRetryUpload(db: AdminClient, cmd: ParsedCommand): Promise<HermesReply> {
+  if (!cmd.uploadId) {
+    const { data } = await db
+      .from('youtube_upload_queue')
+      .select('id, title, status')
+      .in('status', ['failed', 'manual_review_required'])
+      .order('updated_at', { ascending: false })
+      .limit(8)
+    const list = data ?? []
+    const lines = list.map((r) => `• ${r.id} — ${r.title ?? r.status}`)
+    return {
+      reply: lines.length
+        ? `Welke upload wil je opnieuw proberen? Geef het id, bv. "Retry upload ${list[0].id}".\n\nGefaald/vastgelopen:\n${lines.join('\n')}`
+        : 'Geen gefaalde uploads om opnieuw te proberen.',
+      response: '',
+      intent: 'retry_upload',
+      understood: true,
+      actions: [],
+      suggestions: ['Wat is er mis met de uploads?'],
+    }
+  }
+
+  const { data: row, error } = await db
+    .from('youtube_upload_queue')
+    .select('id, status')
+    .eq('id', cmd.uploadId)
+    .maybeSingle()
+
+  if (error) {
+    return {
+      reply: `Kon upload niet ophalen: ${error.message}`,
+      response: '',
+      intent: 'retry_upload',
+      understood: true,
+      actions: [],
+      suggestions: SUGGESTIONS,
+    }
+  }
+  if (!row) {
+    return {
+      reply: `Geen upload gevonden met id ${cmd.uploadId}.`,
+      response: '',
+      intent: 'retry_upload',
+      understood: true,
+      actions: [],
+      suggestions: ['Wat is er mis met de uploads?'],
+    }
+  }
+  if (!['failed', 'manual_review_required'].includes(row.status)) {
+    return {
+      reply: `Upload ${cmd.uploadId.slice(0, 8)}… heeft status "${row.status}" — alleen failed/manual_review_required mag opnieuw.`,
+      response: '',
+      intent: 'retry_upload',
+      understood: true,
+      actions: [],
+      suggestions: ['Hoe staan de uploads?'],
+    }
+  }
+
+  const { error: uErr } = await db
+    .from('youtube_upload_queue')
+    .update({ status: 'queued', last_error: null, updated_at: new Date().toISOString() })
+    .eq('id', cmd.uploadId)
+  if (uErr) {
+    return {
+      reply: `Kon upload niet opnieuw in de wachtrij zetten: ${uErr.message}`,
+      response: '',
+      intent: 'retry_upload',
+      understood: true,
+      actions: [],
+      suggestions: SUGGESTIONS,
+    }
+  }
+  await db
+    .from('youtube_upload_failures')
+    .update({ recovery_attempted: true })
+    .eq('queue_id', cmd.uploadId)
+    .eq('recovery_attempted', false)
+  await logAction(db, 'retry_upload', `Upload ${cmd.uploadId} terug naar queued`, { queue_id: cmd.uploadId })
+
+  return {
+    reply: `Upload ${cmd.uploadId.slice(0, 8)}… staat weer op "queued". De pipeline pakt 'm opnieuw op.`,
+    response: '',
+    intent: 'retry_upload',
+    understood: true,
+    actions: [{ label: '→ queued', detail: cmd.uploadId }],
+    suggestions: ['Hoe staan de uploads?'],
+  }
+}
+
 function handleHelp(): HermesReply {
   const lines = COMMAND_HELP.map((c) => `• ${c.label}: "${c.example}"`)
   return {
@@ -540,6 +733,15 @@ export async function POST(request: NextRequest) {
         break
       case 'revenue_blockers':
         result = await handleRevenueBlockers(db)
+        break
+      case 'uploads':
+        result = await handleUploads(db)
+        break
+      case 'upload_problems':
+        result = await handleUploadProblems(db)
+        break
+      case 'retry_upload':
+        result = await handleRetryUpload(db, cmd)
         break
       case 'help':
         result = handleHelp()

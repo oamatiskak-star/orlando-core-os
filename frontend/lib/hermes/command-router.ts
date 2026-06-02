@@ -15,6 +15,9 @@ export type CommandKind =
   | 'start_phase' // "start Fase A" / "start COPY_UX_FINAL_GATE"
   | 'audit_mode' // "zet CLI R in auditmodus"
   | 'remember' // "onthoud dat ..."
+  | 'uploads' // "hoe staan de uploads?"
+  | 'upload_problems' // "wat is er mis met de uploads?"
+  | 'retry_upload' // "retry upload <id>"
   | 'help' // "help" / "welke commando's"
   | 'unknown'
 
@@ -28,6 +31,8 @@ export interface ParsedCommand {
   title?: string
   /** Te onthouden tekst voor remember. */
   memory?: string
+  /** Upload-queue id voor retry_upload. */
+  uploadId?: string
   /** De ruwe input, getrimd. */
   raw: string
   /** NL-omschrijving van wat Hermes begreep (voor echo + fallback). */
@@ -50,6 +55,9 @@ export const COMMAND_HELP: CommandHelpItem[] = [
   { label: 'Fase/gate starten', example: 'Start COPY_UX_FINAL_GATE' },
   { label: 'Auditmodus', example: 'Zet CLI R in auditmodus' },
   { label: 'Onthouden', example: 'Onthoud dat de NL-launch op 3 juni is' },
+  { label: 'Uploads', example: 'Hoe staan de uploads?' },
+  { label: 'Upload-problemen', example: 'Wat is er mis met de uploads?' },
+  { label: 'Upload opnieuw', example: 'Retry upload <id>' },
 ]
 
 const BOTH: HostId[] = ['cli-l', 'cli-r']
@@ -134,6 +142,24 @@ export function parseCommand(raw: string): ParsedCommand {
   if (/\b(ga\s+verder|verder\s*gaan|verdergaan|hervat(ten)?|resume|continue|doorgaan|pak\s+.*\bop\b)\b/.test(t)) {
     const h = hosts.length ? hosts : [...BOTH]
     return { kind: 'resume', hosts: h, raw: text, understood: `Hervatten op ${h.join(' + ')}` }
+  }
+
+  // 5b. Uploads (status / problemen / opnieuw proberen) — vóór host-status & blockers
+  if (/\bupload/.test(t)) {
+    const uuid = (text.match(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i) || [])[0]
+    if (/\b(retry|opnieuw|herstart|nogmaals|herstel)\b/.test(t)) {
+      return {
+        kind: 'retry_upload',
+        hosts: [],
+        uploadId: uuid,
+        raw: text,
+        understood: uuid ? `Upload ${uuid.slice(0, 8)}… opnieuw in de wachtrij` : 'Upload opnieuw proberen (id ontbreekt)',
+      }
+    }
+    if (/\b(mis|fout\w*|gefaald\w*|faal\w*|vast\w*|stuck|probleem|problemen|error\w*|hangt|hangen|blokk\w*)\b/.test(t)) {
+      return { kind: 'upload_problems', hosts: [], raw: text, understood: 'Upload-problemen (gefaald/vastgelopen)' }
+    }
+    return { kind: 'uploads', hosts: [], raw: text, understood: 'Upload-status' }
   }
 
   // 6. Host-status
