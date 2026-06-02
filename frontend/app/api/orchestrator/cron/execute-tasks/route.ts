@@ -12,7 +12,7 @@ const supabase = createClient(
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY ?? '' })
 
-const EXECUTOR_SET = ['anthropic', 'ai', 'claude-code']
+const EXECUTOR_SET = ['anthropic', 'ai', 'claude-code', 'director']
 const BATCH_SIZE = 3
 
 type OrchestratorTask = {
