@@ -18,6 +18,8 @@
 
 **Volgende stap:** Orlando test in Dashboard ("toon mijn uploads", "los de problemen op") → daarna mergen/promoten. Let op: uploads zijn netwerkbreed (geen company_id-filter); alerts/projecten/overview zijn company-scoped.
 
+**✅ Hermes TERMINAL-agent (net als Claude Code):** `frontend/scripts/hermes-cli.mjs` + launcher `~/.local/bin/hermes` (op PATH). GEEN vast menu — Hermes heeft echte tools: `bash` (kent zo ALLE commando's: git/gh/psql/supabase/curl/vercel...), `read_file`, `write_file`. Agent-loop max 30 stappen, model claude-opus-4-8, env auto uit `.env.prod`+`frontend/.env.local`. Risicovolle acties (rm -rf/drop/delete/git push/force/vercel deploy/stripe/sudo...) → DANGER-regex → bevestiging in interactieve modus, auto-geweigerd in one-shot. Gebruik: `hermes` (REPL) of `hermes "vraag"`. Launcher staat buiten de repo (machine-lokaal). Syntax+pad geverifieerd; live agent-run kon ik niet zelf draaien (harness blokkeert autonome shell-agent door mij — Orlando draait het zelf).
+
 ---
 
 ## 🔴 HERSTEL HIER NA CRASH (sessie 15 — Controlelaag + Hermes CEO over 7 fabrieken)
