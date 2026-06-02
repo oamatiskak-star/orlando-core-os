@@ -57,7 +57,15 @@ alert-pad was stil — `sendTelegram` → `log_to_hermes` schreef alleen naar `h
 - **Autopilot-hook GEBOUWD** (`scripts/hermes-autopilot.sh`): PreToolUse-hook geeft native `permissionDecision` allow/ask terug (geen keystroke-injectie). Harde default-deny: allow alleen read-only tools (Read/Glob/Grep/LS/NotebookRead/TodoWrite) + read-only bash (ls/cat/git status/... zónder metakarakters); al het andere → ask (Orlando beslist). Dry-run default; `HERMES_AUTOPILOT_LIVE=1` maakt het echt. Smoke-tests 6/6 OK. Installer wiret PreToolUse→autopilot, overige events→telemetrie-hook.
 - **OPEN (Orlando):** `bash scripts/install-hermes-hook.sh` draaien (1×) → dan dry-run live. Voor echte overname: `HERMES_AUTOPILOT_LIVE=1` in `~/OSM_STATE/hermes-hook.env` + nieuwe Claude-sessie.
 - **⚠️ RLS:** claude_prompts + claude_session_state hebben RLS uit (zoals overige hermes-tabellen). Service-role (hook) + dashboard werken; maar anon-key kan lezen/schrijven. Optioneel hardenen met RLS + authenticated-SELECT-policy (niet auto-toegepast).
-- **NA F0 (go per fase):** F1 watchdog-subagent (services/hermes deployen), F2 rate-limit→recovery_queue + Perplexity-vangnet in AI Router, F3 classifier+governance DRY-RUN, F4 live auto-antwoord (alleen ná dry-run-bewijs, harde default-deny op deploy/merge/migratie/Stripe/prijzen/delete).
+- **NA F0 (go per fase):** F1 watchdog-subagent (services/hermes deployen), F4 live auto-antwoord (alleen ná dry-run-bewijs, harde default-deny op deploy/merge/migratie/Stripe/prijzen/delete).
+
+**✅ F2 in main (#113):** Perplexity-vangnet in AI Router (Sonar neemt over bij 429/timeout/5xx). Activatie: PERPLEXITY_API_KEY in ai-router env + rebuild op CLI-R.
+
+**✅ F3 GEBOUWD — governance + beslissings-audit (dry-run zichtbaar):**
+- migratie `126_hermes_autopilot_governance.sql` TOEGEPAST: `hermes.governance_rules` (bewerkbare policy, geseed met read-only allowlist) + `hermes.autopilot_decisions` (auditlog) + RPC `log_autopilot_decision` + view `v_autopilot_recent`.
+- `scripts/hermes-autopilot.sh`: classificeert prompt-soort (tool_permission/bash) + logt ELKE beslissing (decision/would_allow/live/reason) naar het auditlog. Smoke-test OK.
+- Dashboard `/dashboard/operations/autopilot`: live overzicht van beslissingen (zou-goedkeuren vs ask) + governance-regels. Typecheck 0.
+- **Zo zie je het bewijs:** met dry-run (HERMES_AUTOPILOT_LIVE=0) draait Claude normaal door, maar elke prompt verschijnt op de autopilot-pagina met "zou goedkeuren"/ask → valideer vóór je F4 live zet.
 
 **✅ Hermes TERMINAL-agent (net als Claude Code):** `frontend/scripts/hermes-cli.mjs` + launcher `~/.local/bin/hermes` (op PATH). GEEN vast menu — Hermes heeft echte tools: `bash` (kent zo ALLE commando's: git/gh/psql/supabase/curl/vercel...), `read_file`, `write_file`. Agent-loop max 30 stappen, model claude-opus-4-8, env auto uit `.env.prod`+`frontend/.env.local`. Risicovolle acties (rm -rf/drop/delete/git push/force/vercel deploy/stripe/sudo...) → DANGER-regex → bevestiging in interactieve modus, auto-geweigerd in one-shot. Gebruik: `hermes` (REPL) of `hermes "vraag"`. Launcher staat buiten de repo (machine-lokaal). Syntax+pad geverifieerd; live agent-run kon ik niet zelf draaien (harness blokkeert autonome shell-agent door mij — Orlando draait het zelf).
 
