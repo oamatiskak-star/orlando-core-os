@@ -41,7 +41,7 @@ async function sweep(): Promise<SweepStats> {
 
   const { data: competitors, error } = await db
     .from('competitor_channels')
-    .select('id, platform, external_id, name, niche, language, subscriber_count, video_count, total_view_count, last_scanned_at')
+    .select('id, platform, external_id, name, niche, language, watch_reason, subscriber_count, video_count, total_view_count, last_scanned_at')
     .eq('platform', PLATFORM_FILTER)
     .eq('active', true)
     .order('last_scanned_at', { ascending: true, nullsFirst: true })

@@ -14,6 +14,7 @@ export interface CompetitorRow {
   name: string
   niche: string | null
   language: string | null
+  watch_reason: string        // 'competitor' | 'viral_radar' | 'inactive'
   subscriber_count: number
   video_count: number
   total_view_count: number
