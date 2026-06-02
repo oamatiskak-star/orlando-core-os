@@ -119,11 +119,12 @@ async function handleFailure(
   const state = recoveryByDeploy.get(deploy.id) ?? { attempts: 0, lastAttemptAt: 0, escalated: false }
   const detectKey = `watchdog:deploy:${svc.id}:${deploy.id}`
 
-  // Kapotte commit (`update_failed`/`canceled`): dezelfde commit opnieuw deployen
-  // is zinloos -> géén retries, direct escaleren naar mens/Claude. Alleen
-  // build/pre-deploy-fouten (mogelijk transient infra) krijgen redeploy-pogingen.
-  const isNonRetryable = deploy.status === 'update_failed' || deploy.status === 'canceled'
-  const effectiveMax = isNonRetryable ? 0 : opts.maxAttempts
+  // ALLE deploy-failures: dezelfde commit opnieuw deployen is zinloos én elke
+  // redeploy krijgt een NIEUWE deploy-id -> attempts resetten -> runaway redeploy-loop
+  // (build-minuten verbranden). Daarom NOOIT auto-redeployen: direct escaleren naar
+  // mens/Claude. Een echte fix = nieuwe commit naar main.
+  const isNonRetryable = true
+  const effectiveMax = 0
 
   // First-time detection: registreren + DIRECTE kritieke alert.
   if (state.attempts === 0) {
