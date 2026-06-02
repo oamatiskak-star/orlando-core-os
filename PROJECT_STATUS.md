@@ -4,7 +4,36 @@
 
 ---
 
-## 🔴 HERSTEL HIER NA CRASH (sessie 16 — Hermes terminal-agent)
+## 🔴 HERSTEL HIER NA CRASH (sessie 17 — Watchdog strakker + Hermes direct-alert)
+
+**Trigger (2026-06-02):** 3 Render-services down terwijl watchdog draaide. Oorzaak gevonden: het
+alert-pad was stil — `sendTelegram` → `log_to_hermes` schreef alleen naar `hermes.logs`; alleen
+`hermes_supervisor` (5-min cron, alléén `critical`) pushte. Failed services bereikten Orlando dus niet.
+
+**✅ GEBOUWD deze sessie:**
+- **Migratie `125_hermes_notify_now.sql` — TOEGEPAST op `shaunumewswpxhmgbtvv`.** Nieuwe functie
+  `hermes_notify_now()`: raise + ONMIDDELLIJKE Telegram-push voor error/critical (6u dedup-venster).
+  Live getest (`watchdog:selftest`, `is_pushed=true`, daarna resolved).
+- **`watchdog-engine/src/telegram.ts`** herschreven: error/critical → `hermes_notify_now` (direct),
+  info/warning → stil `log_to_hermes`. Optionele `dedupKey`-param.
+- **`watchdog-engine/src/recovery.ts`** strakker: first-detection alert = **critical** (was error) +
+  dedup-key; `update_failed`/`canceled` = kapotte commit → **0 retries, direct escaleren** (geen
+  build-minuten verspillen); escalatie heeft eigen dedup-key zodat die altijd doorkomt. `tsc --noEmit` = 0.
+- **`.claude/skills/render-ops/SKILL.md`** — render-fleet runbook (er bestaat géén publieke Render-skill;
+  `npx skills find render` geeft alleen ongerelateerd `vercel-labs/json-render`).
+
+**🔴 OPEN — volgende stap:**
+1. **Watchdog-codewijziging DEPLOYEN.** DB-functie is live, maar de draaiende `orlando-watchdog`
+   roept nog `log_to_hermes` (oude code). Branch + commit `feat(watchdog): direct Hermes-alert +
+   strakkere recovery` → push → Render auto-deploy. (Wacht op Orlando-OK; niet auto-mergen.)
+2. **3 echte down-services fixen** (kapotte builds, redeploy zinloos):
+   - `orlando-hermes` web — `update_failed` PR #106 (`dep-d8eodusp3tds73ebg4eg`) + oudere PR #90.
+   - `orlando-competitor-scanner` worker — `update_failed` PR #107 (`dep-d8f0odd89d5s73b81dpg`).
+   Logs ophalen via `infra_watchdog_incidents.logs_tail`, bron fixen, incident sluiten (zie render-ops skill).
+
+---
+
+## HERSTEL — sessie 16 (Hermes terminal-agent)
 
 **Focus (2026-06-02, sessie 16):** Hermes bereikbaar maken in de terminal zoals Claude Code (kent ALLE commando's, leest begrijpend — geen vast menu).
 
