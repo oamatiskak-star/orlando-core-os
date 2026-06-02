@@ -13,6 +13,7 @@ export type SessionRow = {
   last_event: string
   last_prompt: string
   last_event_at: string | null
+  resume_at: string | null
   autopilot_on: boolean
   autopilot_source: string
   session_override: boolean | null
@@ -33,7 +34,14 @@ function Pill({ on }: { on: boolean }) {
 function statusColor(s: string) {
   if (s === 'actief') return 'text-emerald-400'
   if (s === 'wacht op input') return 'text-amber-400'
+  if (s === 'rate-limit' || s === 'vastgelopen') return 'text-red-400'
+  if (s === 'hervatten') return 'text-sky-400'
   return 'text-white/38'
+}
+
+function klok(iso: string | null) {
+  if (!iso) return ''
+  return new Date(iso).toLocaleTimeString('nl-NL', { hour: '2-digit', minute: '2-digit' })
 }
 
 function timeAgo(iso: string | null) {
@@ -132,7 +140,10 @@ export default function SessionsClient({
                     <div className="text-white/90 font-medium">{r.project}</div>
                     <div className="text-[11px] text-white/40">{r.host} · {r.last_prompt || r.last_event}</div>
                   </td>
-                  <td className={`px-3 py-3 text-xs font-medium ${statusColor(r.status)}`}>{r.status}</td>
+                  <td className={`px-3 py-3 text-xs font-medium ${statusColor(r.status)}`}>
+                    {r.status}
+                    {r.resume_at && <div className="text-[10px] text-white/35 font-normal">↻ auto-hervat ~{klok(r.resume_at)}</div>}
+                  </td>
                   <td className="px-3 py-3 text-xs text-white/50">{timeAgo(r.last_event_at)}</td>
                   <td className="px-3 py-3">
                     <div className="flex items-center gap-2">
