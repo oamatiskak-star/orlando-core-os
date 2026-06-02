@@ -3,9 +3,11 @@ import {
   CheckCircle2, AlertTriangle, XCircle, Clock,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
+import { getActiveCompanyId } from '@/lib/active-company-server'
 import RefreshButton from './RefreshButton'
 import ShiftRoster from './ShiftRoster'
 import StartClaudeCode from '@/components/build/StartClaudeCode'
+import HermesPersonalChat from '@/components/dashboard/osm/HermesPersonalChat'
 
 export const dynamic = 'force-dynamic'
 
@@ -60,6 +62,14 @@ function janitorBadge(s: string) {
 
 export default async function HermesControlPage() {
   const supabase = await createClient()
+
+  // Actieve company → UUID (lib/companies gebruikt slugs die matchen met companies.slug)
+  const activeSlug = await getActiveCompanyId()
+  const { data: activeCompany } = await supabase.from('companies').select('id').eq('slug', activeSlug).maybeSingle()
+  const { data: firstCompany } = activeCompany
+    ? { data: null }
+    : await supabase.from('companies').select('id').limit(1).maybeSingle()
+  const commandCompanyId = activeCompany?.id ?? firstCompany?.id ?? null
 
   const [
     { data: factData },
@@ -125,6 +135,9 @@ export default async function HermesControlPage() {
           )}
         </div>
       </div>
+
+      {/* Command Center — echte command router (geen mock) */}
+      {commandCompanyId && <HermesPersonalChat companyId={commandCompanyId} />}
 
       {/* Hermes alarmen — de ploegbaas slaat alarm */}
       {alerts.length > 0 && (
