@@ -93,8 +93,8 @@ html[data-showcase="on"] body {
    lezen prima op licht. Werkt globaal over alle pagina's zonder per-pagina
    herschrijving (override op de gebruikte donkere utility-klassen).        */
 
-html[data-theme="day"] { background: #eef0f6; }
-html[data-theme="day"] body { background: #f4f5fa; color: #15172b; }
+html[data-theme="day"] { background: #e3e6ef; }
+html[data-theme="day"] body { background: #eaecf4; color: #15172b; }
 
 /* Tekst: wit → donker, hiërarchie behouden via opaciteit */
 html[data-theme="day"] .text-white     { color: #15172b !important; }
@@ -114,28 +114,28 @@ html[data-theme="day"] .text-white\/25 { color: rgb(21 23 43 / 0.40) !important;
 html[data-theme="day"] .text-white\/20 { color: rgb(21 23 43 / 0.34) !important; }
 html[data-theme="day"] .placeholder-white\/25::placeholder { color: rgb(21 23 43 / 0.38) !important; }
 
-/* Oppervlakken: donkere panelen → lichte kaarten */
+/* Oppervlakken: donkere panelen → witte kaarten op grijs canvas */
 html[data-theme="day"] .bg-\[\#181830\] { background-color: #ffffff !important; }
-html[data-theme="day"] .bg-\[\#121220\] { background-color: #f4f5fa !important; }
+html[data-theme="day"] .bg-\[\#121220\] { background-color: #eaecf4 !important; }
 html[data-theme="day"] .bg-\[\#07070f\],
 html[data-theme="day"] .bg-\[\#0a0a0f\],
 html[data-theme="day"] .bg-\[\#0d0d1a\],
 html[data-theme="day"] .bg-\[\#0f0f14\],
 html[data-theme="day"] .bg-\[\#0f0f13\],
 html[data-theme="day"] .bg-\[\#0f1117\],
-html[data-theme="day"] .bg-\[\#111\]    { background-color: #eef0f6 !important; }
+html[data-theme="day"] .bg-\[\#111\]    { background-color: #e3e6ef !important; }
 
-/* Witte translucente oppervlakken → subtiele donkere tint op licht */
-html[data-theme="day"] .bg-white\/\[0\.03\] { background-color: rgb(15 17 43 / 0.03) !important; }
+/* Witte translucente oppervlakken → schoon WIT (kaarten poppen op het grijze canvas) */
+html[data-theme="day"] .bg-white\/\[0\.03\] { background-color: #ffffff !important; }
 html[data-theme="day"] .bg-white\/5,
-html[data-theme="day"] .bg-white\/\[0\.05\] { background-color: rgb(15 17 43 / 0.045) !important; }
-html[data-theme="day"] .bg-white\/\[0\.06\] { background-color: rgb(15 17 43 / 0.055) !important; }
-html[data-theme="day"] .bg-white\/10        { background-color: rgb(15 17 43 / 0.08) !important; }
+html[data-theme="day"] .bg-white\/\[0\.05\] { background-color: #ffffff !important; }
+html[data-theme="day"] .bg-white\/\[0\.06\] { background-color: #ffffff !important; }
+html[data-theme="day"] .bg-white\/10        { background-color: #eef1f7 !important; }
 
 /* Randen + scheidingslijnen → donker subtiel */
-html[data-theme="day"] .border-white\/5  { border-color: rgb(15 17 43 / 0.10) !important; }
-html[data-theme="day"] .border-white\/8  { border-color: rgb(15 17 43 / 0.12) !important; }
-html[data-theme="day"] .border-white\/10 { border-color: rgb(15 17 43 / 0.14) !important; }
+html[data-theme="day"] .border-white\/5  { border-color: rgb(15 17 43 / 0.11) !important; }
+html[data-theme="day"] .border-white\/8  { border-color: rgb(15 17 43 / 0.13) !important; }
+html[data-theme="day"] .border-white\/10 { border-color: rgb(15 17 43 / 0.16) !important; }
 html[data-theme="day"] .divide-white\/5 > :not([hidden]) ~ :not([hidden]) { border-color: rgb(15 17 43 / 0.10) !important; }
 
 /* Donkere scrollbar op licht */
@@ -148,15 +148,22 @@ html[data-theme="day"] .text-white\/95 { color: rgb(21 23 43 / 0.97) !important;
 html[data-theme="day"] .text-white\/90 { color: rgb(21 23 43 / 0.96) !important; }
 html[data-theme="day"] .text-white\/85 { color: rgb(21 23 43 / 0.94) !important; }
 
-/* Kaart-oppervlakken die wit-op-wit verdwenen → subtiele lichte panelen */
-html[data-theme="day"] .bg-white\/\[0\.015\] { background-color: rgb(15 17 43 / 0.022) !important; }
-html[data-theme="day"] .bg-white\/\[0\.02\]  { background-color: rgb(15 17 43 / 0.028) !important; }
-html[data-theme="day"] .bg-white\/\[0\.04\]  { background-color: rgb(15 17 43 / 0.042) !important; }
-html[data-theme="day"] .bg-white\/\[0\.08\]  { background-color: rgb(15 17 43 / 0.060) !important; }
-html[data-theme="day"] .hover\:bg-white\/\[0\.04\]:hover { background-color: rgb(15 17 43 / 0.055) !important; }
+/* Kaart-oppervlakken → schoon WIT */
+html[data-theme="day"] .bg-white\/\[0\.015\] { background-color: #ffffff !important; }
+html[data-theme="day"] .bg-white\/\[0\.02\]  { background-color: #ffffff !important; }
+html[data-theme="day"] .bg-white\/\[0\.04\]  { background-color: #ffffff !important; }
+html[data-theme="day"] .bg-white\/\[0\.08\]  { background-color: #f4f6fb !important; }
+html[data-theme="day"] .hover\:bg-white\/\[0\.04\]:hover { background-color: #eef1f7 !important; }
 
-/* Witte gradiënt-kaarten → vlak subtiel paneel (robuust in Tailwind v4) */
-html[data-theme="day"] .from-white\/\[0\.08\] { background-image: none !important; background-color: rgb(15 17 43 / 0.045) !important; }
+/* Witte gradiënt-kaarten → schoon wit (geen muddy verloop) */
+html[data-theme="day"] .from-white\/\[0\.08\] { background-image: none !important; background-color: #ffffff !important; }
+
+/* Zachte kaart-elevatie: witte kaarten met een rand krijgen subtiele schaduw (moderne SaaS-look) */
+html[data-theme="day"] .rounded-lg.border,
+html[data-theme="day"] .rounded-xl.border,
+html[data-theme="day"] .rounded-2xl.border {
+  box-shadow: 0 1px 2px rgb(15 17 43 / 0.04), 0 4px 10px -2px rgb(15 17 43 / 0.06) !important;
+}
 
 /* Felle accent-tekst (-400/-300) → één tint dieper zodat het op wit leesbaar/verkoopbaar is */
 html[data-theme="day"] .text-red-400,    html[data-theme="day"] .text-red-300     { color: #dc2626 !important; }
