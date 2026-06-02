@@ -55,11 +55,13 @@ export async function sendTelegram(
   }
   const headers = { apikey: sbKey, Authorization: `Bearer ${sbKey}` }
   const text = `${ICONS[severity]} ${title}\n\n${body}`.slice(0, 3500)
-  const immediate = severity === 'error' || severity === 'critical'
+  // Regel: alleen KRITIEK (manuele input) pusht direct. error/warning/info loggen
+  // stil in hermes.logs en verschijnen hooguit in de 6×/dag digest.
+  const immediate = severity === 'critical'
 
   try {
     if (immediate) {
-      // Failed service: raise + directe Telegram-push via Hermes.
+      // Failed service (kritiek): raise + directe Telegram-push via Hermes.
       await axios.post(
         `${sbUrl}/rest/v1/rpc/hermes_notify_now`,
         {
@@ -73,12 +75,12 @@ export async function sendTelegram(
         { headers, timeout: 12_000 }
       )
     } else {
-      // info/warning: alleen loggen, geen push.
+      // error/warning/info: alleen loggen in hermes.logs, geen push.
       await axios.post(
         `${sbUrl}/rest/v1/rpc/log_to_hermes`,
         {
           source: 'watchdog-engine',
-          level: severity === 'warning' ? 'warn' : 'info',
+          level: severity === 'error' ? 'error' : severity === 'warning' ? 'warn' : 'info',
           event: 'bot.notify',
           message: text
         },
