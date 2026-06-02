@@ -45,6 +45,14 @@ TOOL="$(getf tool_name)"
 MSG="$(getf message)"; [[ -z "$MSG" ]] && MSG="$(getf prompt)"
 PROJECT="$(basename "${CWD:-$PWD}" 2>/dev/null)"
 
+# Tab-titel: de naam die Claude/de terminal aan de tab geeft (tmux pane/window-titel),
+# zodat in het dashboard herkenbaar is welke tab welke sessie is.
+TITLE=""
+if [[ -n "$TMUX" ]] && command -v tmux >/dev/null 2>&1; then
+  TITLE="$(tmux display-message -p '#{pane_title}' 2>/dev/null)"
+  [[ -z "$TITLE" ]] && TITLE="$(tmux display-message -p '#W' 2>/dev/null)"
+fi
+
 case "$EVENT" in
   Notification|notification)      ET=notification ;;
   Stop|stop|SubagentStop)         ET=stop ;;
@@ -56,9 +64,9 @@ esac
 
 # Body bouwen met veilige JSON-escaping
 if command -v python3 >/dev/null 2>&1; then
-  BODY="$(python3 - "$HOST" "$SESSION" "$ET" "$CWD" "$PROJECT" "$TOOL" "$MSG" <<'PY' 2>/dev/null
+  BODY="$(python3 - "$HOST" "$SESSION" "$ET" "$CWD" "$PROJECT" "$TOOL" "$MSG" "$TITLE" <<'PY' 2>/dev/null
 import json, sys
-h, s, e, c, p, t, m = (sys.argv[1:8] + [""] * 7)[:7]
+h, s, e, c, p, t, m, ti = (sys.argv[1:9] + [""] * 8)[:8]
 print(json.dumps({
     "p_host": h or "unknown",
     "p_session_id": s or None,
@@ -67,7 +75,7 @@ print(json.dumps({
     "p_project": p or None,
     "p_tool_name": t or None,
     "p_prompt_text": m or None,
-    "p_raw": {},
+    "p_raw": {"title": ti} if ti else {},
 }))
 PY
 )"

@@ -17,6 +17,7 @@ type StateRow = {
   last_prompt_text: string | null
   last_event_at: string | null
   resume_at: string | null
+  title: string | null
 }
 
 type ApRow = { scope: string; scope_id: string; live: boolean }
@@ -26,7 +27,7 @@ export default async function SessionsPage() {
 
   const [{ data: stateData }, { data: apData }, { data: cfg }] = await Promise.all([
     supabase.schema('hermes').from('claude_session_state')
-      .select('host, session_id, phase, cwd, project, last_event, last_prompt_text, last_event_at, resume_at')
+      .select('host, session_id, phase, cwd, project, last_event, last_prompt_text, last_event_at, resume_at, title')
       .order('last_event_at', { ascending: false, nullsFirst: false })
       .limit(100),
     supabase.schema('hermes').from('autopilot_state').select('scope, scope_id, live'),
@@ -65,6 +66,7 @@ export default async function SessionsPage() {
       host: s.host ?? 'onbekend',
       session_id: s.session_id,
       project: s.project ?? (s.cwd ? s.cwd.split('/').pop() ?? '—' : '—'),
+      title: (s.title && s.title.trim()) ? s.title.trim() : null,
       cwd: s.cwd ?? '',
       status,
       last_event: s.last_event ?? '—',
