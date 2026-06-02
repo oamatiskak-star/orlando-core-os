@@ -16,6 +16,7 @@ type StateRow = {
   last_event: string | null
   last_prompt_text: string | null
   last_event_at: string | null
+  resume_at: string | null
 }
 
 type ApRow = { scope: string; scope_id: string; live: boolean }
@@ -25,7 +26,7 @@ export default async function SessionsPage() {
 
   const [{ data: stateData }, { data: apData }, { data: cfg }] = await Promise.all([
     supabase.schema('hermes').from('claude_session_state')
-      .select('host, session_id, phase, cwd, project, last_event, last_prompt_text, last_event_at')
+      .select('host, session_id, phase, cwd, project, last_event, last_prompt_text, last_event_at, resume_at')
       .order('last_event_at', { ascending: false, nullsFirst: false })
       .limit(100),
     supabase.schema('hermes').from('autopilot_state').select('scope, scope_id, live'),
@@ -54,9 +55,12 @@ export default async function SessionsPage() {
     const ageMs = s.last_event_at ? now - new Date(s.last_event_at).getTime() : Infinity
     const eff = effective(s.host, s.session_id)
     const status =
-      s.phase === 'waiting' || s.last_event === 'Notification' ? 'wacht op input'
-        : ageMs < ACTIVE_MS ? 'actief'
-          : 'idle'
+      s.phase === 'rate_limited' ? 'rate-limit'
+        : s.phase === 'resuming' ? 'hervatten'
+          : s.phase === 'stalled' ? 'vastgelopen'
+            : s.phase === 'waiting_input' || s.last_event === 'Notification' ? 'wacht op input'
+              : s.phase === 'working' && ageMs < ACTIVE_MS ? 'actief'
+                : 'idle'
     return {
       host: s.host ?? 'onbekend',
       session_id: s.session_id,
@@ -66,6 +70,7 @@ export default async function SessionsPage() {
       last_event: s.last_event ?? '—',
       last_prompt: (s.last_prompt_text ?? '').slice(0, 80),
       last_event_at: s.last_event_at,
+      resume_at: s.phase === 'rate_limited' ? s.resume_at : null,
       autopilot_on: eff.on,
       autopilot_source: eff.source,
       session_override: sessionFlag.has(s.session_id) ? !!sessionFlag.get(s.session_id) : null,
