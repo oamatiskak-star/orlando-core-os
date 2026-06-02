@@ -130,3 +130,19 @@ test('"probeer de upload opnieuw" zonder id → retry_upload, geen id', () => {
   assert.equal(c.kind, 'retry_upload')
   assert.equal(c.uploadId, undefined)
 })
+
+test('"Research: ..." → web_research met query', () => {
+  const c = parseCommand('Research: laatste NL-hypotheekrente juni 2026')
+  assert.equal(c.kind, 'web_research')
+  assert.equal(c.query, 'laatste NL-hypotheekrente juni 2026')
+})
+
+test('"zoek online naar X" → web_research', () => {
+  const c = parseCommand('zoek online naar nieuwe Wet betaalbare huur')
+  assert.equal(c.kind, 'web_research')
+  assert.equal(c.query, 'nieuwe Wet betaalbare huur')
+})
+
+test('"perplexity ..." → web_research', () => {
+  assert.equal(parseCommand('perplexity wat is de actuele AEX-stand').kind, 'web_research')
+})

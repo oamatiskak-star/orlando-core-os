@@ -619,6 +619,80 @@ async function handleRetryUpload(db: AdminClient, cmd: ParsedCommand): Promise<H
   }
 }
 
+async function handleWebResearch(cmd: ParsedCommand): Promise<HermesReply> {
+  const key = process.env.PERPLEXITY_API_KEY
+  const query = (cmd.query || cmd.raw).trim()
+
+  if (!key) {
+    return {
+      reply:
+        'Web-research is nog niet geconfigureerd: zet PERPLEXITY_API_KEY in de env (.env.prod of frontend/.env.local) en redeploy. Daarna beantwoord ik dit live via Perplexity.',
+      response: '',
+      intent: 'web_research',
+      understood: true,
+      actions: [],
+      suggestions: SUGGESTIONS,
+    }
+  }
+
+  try {
+    const res = await fetch('https://api.perplexity.ai/chat/completions', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'sonar',
+        messages: [
+          {
+            role: 'system',
+            content: 'Je bent een onderzoeksassistent voor Orlando. Antwoord beknopt in het Nederlands met feiten en, waar relevant, bronnen.',
+          },
+          { role: 'user', content: query },
+        ],
+      }),
+    })
+
+    if (!res.ok) {
+      const detail = await res.text().catch(() => '')
+      return {
+        reply: `Perplexity-fout (HTTP ${res.status}). ${detail.slice(0, 160)}`,
+        response: '',
+        intent: 'web_research',
+        understood: true,
+        actions: [],
+        suggestions: SUGGESTIONS,
+      }
+    }
+
+    const data = await res.json()
+    const answer: string = data?.choices?.[0]?.message?.content ?? 'Geen antwoord ontvangen.'
+    const cites: string[] = Array.isArray(data?.citations)
+      ? data.citations
+      : Array.isArray(data?.search_results)
+        ? data.search_results.map((s: { url?: string }) => s.url).filter(Boolean)
+        : []
+    const sources = cites.slice(0, 5).map((u, i) => `[${i + 1}] ${u}`)
+
+    return {
+      reply: `${answer}${sources.length ? `\n\nBronnen:\n${sources.join('\n')}` : ''}`,
+      response: '',
+      intent: 'web_research',
+      understood: true,
+      actions: [],
+      suggestions: ['Wat blokkeert omzet vandaag?', 'Hoe staan de uploads?'],
+      data: { citations: cites },
+    }
+  } catch (e) {
+    return {
+      reply: `Kon Perplexity niet bereiken: ${e instanceof Error ? e.message : 'netwerkfout'}`,
+      response: '',
+      intent: 'web_research',
+      understood: true,
+      actions: [],
+      suggestions: SUGGESTIONS,
+    }
+  }
+}
+
 function handleHelp(): HermesReply {
   const lines = COMMAND_HELP.map((c) => `• ${c.label}: "${c.example}"`)
   return {
@@ -742,6 +816,9 @@ export async function POST(request: NextRequest) {
         break
       case 'retry_upload':
         result = await handleRetryUpload(db, cmd)
+        break
+      case 'web_research':
+        result = await handleWebResearch(cmd)
         break
       case 'help':
         result = handleHelp()

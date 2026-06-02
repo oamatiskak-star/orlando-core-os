@@ -15,6 +15,11 @@
 - `app/api/hermes/chat/route.ts`: handlers `handleUploads` (status-breakdown + laatste 8), `handleUploadProblems` (failed/manual_review_required + youtube_upload_failures + gefaalde media_holding_uploads), `handleRetryUpload` (alleen failed/manual_review_required → queued, markeert failure recovery_attempted, logt) + switch-cases.
 - Tests: `command-router.test.ts` +4 (21/21 pass). Typecheck 0 fouten. Voorbeelden: "Hoe staan de uploads?", "Wat is er mis met de uploads?", "Retry upload <id>".
 
+**✅ Perplexity geïntegreerd (web-research):** keuze Orlando = beide systemen, alleen Perplexity (Midjourney geparkeerd: geen officiële API).
+- Hermes-commando: `web_research` intent in command-router (triggers: "research:", "zoek online", "perplexity", "recent nieuws", "wat is het laatste over") + `query`-veld; handler `handleWebResearch` in route.ts → POST `api.perplexity.ai/chat/completions` model `sonar`, NL-systeemprompt, geeft antwoord + bronnen. Vereist env `PERPLEXITY_API_KEY` (mist → nette config-melding). Tests 24/24, typecheck 0.
+- **OPEN (Orlando):** (1) `PERPLEXITY_API_KEY` in `.env.prod` + `frontend/.env.local` (+ Vercel env) zetten. (2) MCP voor Claude Code installeren: `claude mcp add perplexity --env PERPLEXITY_API_KEY=<key> -- npx -y @perplexity-ai/mcp-server` (key blijft lokaal, niet via assistent).
+- Midjourney: NIET gedaan (geen officiële API; later beslissen tussen FAL/Flux-alternatief, 3rd-party MJ-bridge of Discord-automation).
+
 **✅ Hermes TERMINAL-agent (net als Claude Code):** `frontend/scripts/hermes-cli.mjs` + launcher `~/.local/bin/hermes` (op PATH). GEEN vast menu — Hermes heeft echte tools: `bash` (kent zo ALLE commando's: git/gh/psql/supabase/curl/vercel...), `read_file`, `write_file`. Agent-loop max 30 stappen, model claude-opus-4-8, env auto uit `.env.prod`+`frontend/.env.local`. Risicovolle acties (rm -rf/drop/delete/git push/force/vercel deploy/stripe/sudo...) → DANGER-regex → bevestiging in interactieve modus, auto-geweigerd in one-shot. Gebruik: `hermes` (REPL) of `hermes "vraag"`. Launcher staat buiten de repo (machine-lokaal). Syntax+pad geverifieerd; live agent-run kon ik niet zelf draaien (harness blokkeert autonome shell-agent door mij — Orlando draait het zelf).
 
 ---
