@@ -185,6 +185,9 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
+  // Heartbeat-on-fire: bewijs dat de cron draaide, óók als hij hierna correct skipt.
+  await reportHeartbeat('cron.vercel.acquisition.distress-scan').catch(() => {})
+
   if (!(await radarWindowOpen('distress-scan'))) {
     return NextResponse.json({ ok: true, skipped: true, reason: 'buiten_planner_venster' })
   }
