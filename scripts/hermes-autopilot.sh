@@ -96,6 +96,34 @@ else
   DECISION="ask"
 fi
 
+# prompt-soort classificeren (F3)
+case "$TOOL" in
+  Bash) KIND=bash ;;
+  *)    KIND=tool_permission ;;
+esac
+WOULD_ALLOW=false; [[ $SAFE -eq 1 ]] && WOULD_ALLOW=true
+LIVE_B=false;     [[ $LIVE -eq 1 ]] && LIVE_B=true
+
+# ── Beslissings-audit (F3, gedetacheerd) ────────────────────────────────────
+if [[ -n "$SUPABASE_URL" && -n "$SUPABASE_SERVICE_ROLE_KEY" ]] && command -v python3 >/dev/null 2>&1; then
+  DBODY="$(python3 - "$HOST" "$SESSION" "$CWD" "$PROJECT" "$TOOL" "$KIND" "$CMD" "$DECISION" "$WOULD_ALLOW" "$LIVE_B" "$REASON" <<'PY' 2>/dev/null
+import json, sys
+h, s, c, p, t, k, cmd, dec, wa, live, reason = (sys.argv[1:12] + [""] * 11)[:11]
+print(json.dumps({
+    "p_host": h or "unknown", "p_session_id": s or None, "p_cwd": c or None, "p_project": p or None,
+    "p_tool_name": t or None, "p_kind": k or None, "p_prompt_text": (cmd or t or "")[:500],
+    "p_decision": dec, "p_would_allow": wa == "true", "p_live": live == "true", "p_reason": reason or None,
+}))
+PY
+)"
+  if [[ -n "$DBODY" ]]; then
+    ( curl -s -m 3 -X POST "$SUPABASE_URL/rest/v1/rpc/log_autopilot_decision" \
+        -H "apikey: $SUPABASE_SERVICE_ROLE_KEY" \
+        -H "Authorization: Bearer $SUPABASE_SERVICE_ROLE_KEY" \
+        -H "Content-Type: application/json" -d "$DBODY" >/dev/null 2>&1 & )
+  fi
+fi
+
 # ── Telemetrie (gedetacheerd, blokkeert de beslissing nooit) ────────────────
 if [[ -n "$SUPABASE_URL" && -n "$SUPABASE_SERVICE_ROLE_KEY" ]] && command -v python3 >/dev/null 2>&1; then
   BODY="$(python3 - "$HOST" "$SESSION" "$CWD" "$PROJECT" "$TOOL" "$CMD" "$DECISION" "$REASON" "$SAFE" "$LIVE" <<'PY' 2>/dev/null
