@@ -2,14 +2,16 @@ import { PROJECTS, type ProjectName, type RoutingContext, localJson, tokenize } 
 
 // Keyword hints per project for the deterministic fallback (local, no LLM).
 const PROJECT_HINTS: Record<ProjectName, string[]> = {
-  Aquier: ['aquier', 'vastgoed', 'kansenradar', 'taxatie', 'listing', 'makelaar', 'checkout', 'breskens'],
-  SterkCalc: ['sterkcalc', 'stabu', 'calculatie', 'begroting', 'offerte', 'bouwkosten'],
-  'Vastgoed Core OS': ['core os', 'dashboard', 'hermes', 'dispatch', 'orchestrator', 'engine'],
-  'YouTube Engine': ['youtube', 'kanaal', 'video', 'short', 'upload', 'thumbnail', 'vermogentv', 'spaartv'],
-  'Trading Engine': ['trading', 'crypto', 'belegg', 'portfolio', 'koers', 'markt'],
-  Administratie: ['factuur', 'btw', 'boekhoud', 'moneybird', 'administratie', 'mail'],
+  Aquier: ['aquier', 'kansenradar', 'taxatie', 'listing', 'makelaar', 'breskens', 'vastgoeddeal'],
+  SterkCalc: ['sterkcalc', 'stabu', 'calculatie', 'begroting', 'offerte', 'bouwkosten', 'calculator', 'm2 prijs', 'verbouwkosten'],
+  'Vastgoed Core OS': ['core os', 'dashboard', 'hermes', 'dispatch', 'orchestrator', 'engine', 'route', 'deploy'],
+  STRKBOUW: ['strkbouw', 'bouwproject', 'aanneming', 'bouwplaats', 'onderaannemer', 'leverancier', 'planning bouw', 'bouwteam'],
+  STRKBEHEER: ['strkbeheer', 'beheer', 'huurder', 'verhuur', 'onderhoud', 'vastgoedbeheer', 'pand', 'asset', 'cashflow pand'],
+  'YouTube Engine': ['youtube', 'kanaal', 'video', 'short', 'upload', 'thumbnail', 'oauth', 'vermogentv', 'spaartv', 'vastgoedtv'],
+  'Affiliate Engine': ['affiliate', 'payout', 'uitbetaling', 'programma', 'tracking', 'commissie', 'partnerlink'],
+  'Trading Engine': ['trading', 'crypto', 'belegg', 'portfolio', 'koers', 'markt', 'datafeed', 'signaal', 'backtest'],
+  Administratie: ['factuur', 'btw', 'boekhoud', 'moneybird', 'administratie', 'belasting', 'kosten'],
   Marketing: ['marketing', 'campagne', 'ads', 'social', 'seo', 'content', 'distributie'],
-  Bouwcalculator: ['bouwcalculator', 'calculator', 'm2 prijs', 'verbouwkosten', 'renovatie'],
 }
 
 export interface ProjectResult {

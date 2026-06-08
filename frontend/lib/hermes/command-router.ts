@@ -222,14 +222,17 @@ export function parseCommand(raw: string): ParsedCommand {
  * frontend-module niet importeren.
  */
 export const INCIDENT_PATTERNS: RegExp[] = [
-  /betaling.*(werkt niet|mislukt|kan niet|faalt)/i,
+  /betaling(en)?.*(werkt? niet|werken niet|mislukt|mislukken|kan niet|faalt|falen)/i,
   /(kan|kunnen).*niet.*betal/i,
   /login.*(werkt niet|mislukt|kan niet)/i,
   /(kan|kunnen).*niet.*inlogg/i,
-  /website.*(offline|plat|down|onbereikbaar)/i,
+  /checkout.*(werkt niet|mislukt|hangt|kan niet)/i,
+  /(website|site|pagina|homepage).*(offline|plat|down|onbereikbaar|laadt? niet|laden niet|werkt niet|werken niet)/i,
   /deployment.*(fout|mislukt|faalt|gefaald)/i,
+  /deploy.*(mislukt|faalt|gefaald)/i,
   /data.*(kwijt|weg|verloren|gewist)/i,
-  /pdf.*(fout|mislukt|niet gegenereerd|kapot)/i,
+  /pdf.*(fout|mislukt|niet gegenereerd|kapot|werkt niet|lukt niet)/i,
+  /\b(laadt|laden|werkt|werken|reageert)\s+niet\b/i,
 ]
 
 export function detectIncident(message: string): boolean {
