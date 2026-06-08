@@ -103,15 +103,17 @@ export async function runOrganizationChecks(supabaseUrl: string, supabaseKey: st
     }
 
     if (state.consecutiveFailures === 1) {
+      // Eerste fout = alleen loggen (nooit pushen). Pas escalatie kan pushen.
       await sendTelegram(
-        raw.severity,
+        'warning',
         `${severityIcon(raw.severity)} ${raw.display_name}`,
         [
           `Check: ${raw.slug}`,
           `Type: ${raw.check_type} (${raw.layer}/${raw.category ?? '-'})`,
           `Result: ${result.message ?? 'failed'}`,
           `Will escalate after ${raw.consecutive_failures_to_escalate} consecutive failures.`
-        ].join('\n')
+        ].join('\n'),
+        `check:${raw.slug}:first`
       )
     }
 
@@ -123,9 +125,11 @@ export async function runOrganizationChecks(supabaseUrl: string, supabaseKey: st
       state.escalated = true
       state.lastIncidentKey = incidentKey
       stateByCheckId.set(raw.id, state)
+      // Escalatie pusht op de CHECK-severity (warning = alleen loggen, critical = push)
+      // met stabiele dedup-key (incidentKey) → geen herhaling bij watchdog-redeploy.
       await sendTelegram(
-        'critical',
-        `🚨 ${raw.display_name} failed ${state.consecutiveFailures}× — escalated`,
+        raw.severity,
+        `${severityIcon(raw.severity)} ${raw.display_name} — escalated`,
         [
           `Check: ${raw.slug}`,
           `Type: ${raw.check_type}`,
@@ -133,7 +137,8 @@ export async function runOrganizationChecks(supabaseUrl: string, supabaseKey: st
           raw.notes ? `Notes: ${raw.notes}` : '',
           '',
           `Incident opened: infra_watchdog_incidents.deploy_id='${incidentKey}'`
-        ].filter(Boolean).join('\n')
+        ].filter(Boolean).join('\n'),
+        incidentKey
       )
     }
   }

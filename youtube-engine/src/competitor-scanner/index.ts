@@ -7,6 +7,10 @@ import { scanCompetitor, CompetitorRow, ScanResult } from './scanner'
 
 const log = workerLogger('competitor-scanner')
 
+// 2026-06-02: redeploy-trigger na fix van (1) build (winston logger string-first, PR #123)
+// en (2) runtime — `public.competitor_channels` ontbrak in PostgREST's schema-cache
+// (elke sweep faalde op PGRST205); opgelost met een schema-reload.
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Entry point voor de competitor-surveillance scanner.
 // Draait als losstaand Node-proces (Docker service of node dist/competitor-scanner.js).
@@ -37,7 +41,7 @@ async function sweep(): Promise<SweepStats> {
 
   const { data: competitors, error } = await db
     .from('competitor_channels')
-    .select('id, platform, external_id, name, niche, language, subscriber_count, video_count, total_view_count, last_scanned_at')
+    .select('id, platform, external_id, name, niche, language, watch_reason, subscriber_count, video_count, total_view_count, last_scanned_at')
     .eq('platform', PLATFORM_FILTER)
     .eq('active', true)
     .order('last_scanned_at', { ascending: true, nullsFirst: true })

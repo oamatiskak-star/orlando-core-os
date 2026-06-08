@@ -26,6 +26,6 @@ export async function emitErrorEvent(context: ErrorEmissionContext): Promise<voi
       stack_trace: context.stackTrace || null,
     })
   } catch (err) {
-    logger.warn({ err }, 'Failed to emit error event to Hermes')
+    logger.warn('Failed to emit error event to Hermes', { err })
   }
 }

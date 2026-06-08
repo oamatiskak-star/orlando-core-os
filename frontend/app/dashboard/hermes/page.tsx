@@ -5,6 +5,7 @@ import {
 import { createClient } from '@/lib/supabase/server'
 import { getActiveCompanyId } from '@/lib/active-company-server'
 import RefreshButton from './RefreshButton'
+import BotLogRefresh from './BotLogRefresh'
 import ShiftRoster from './ShiftRoster'
 import StartClaudeCode from '@/components/build/StartClaudeCode'
 import HermesPersonalChat from '@/components/dashboard/osm/HermesPersonalChat'
@@ -295,7 +296,10 @@ export default async function HermesControlPage() {
       <section className="space-y-2">
         <div className="flex items-center justify-between">
           <h2 className="text-xs font-semibold text-white/60 flex items-center gap-2"><Brain size={13} /> Centrale bot-log</h2>
-          <a href="/dashboard/operations/hermes" className="text-[11px] text-fuchsia-300/80 hover:text-fuchsia-200">Operations-Hermes →</a>
+          <div className="flex items-center gap-3">
+            <BotLogRefresh />
+            <a href="/dashboard/operations/hermes" className="text-[11px] text-fuchsia-300/80 hover:text-fuchsia-200">Operations-Hermes →</a>
+          </div>
         </div>
         <div className="bg-white/[0.05] border border-white/10 rounded-xl divide-y divide-white/5 max-h-72 overflow-y-auto">
           {botlog.length === 0 && <p className="px-4 py-3 text-xs text-white/35">Nog geen log-entries.</p>}

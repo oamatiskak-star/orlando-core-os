@@ -91,23 +91,34 @@ function buildTelegramMessage(p: IncidentPayload): string {
   return lines.join('\n')
 }
 
-async function sendTelegram(text: string): Promise<{ ok: boolean; status: number; body?: string }> {
-  const token  = process.env.TELEGRAM_BOT_TOKEN
-  const chatId = process.env.TELEGRAM_CHAT_ID
-  if (!token || !chatId) return { ok: false, status: 0, body: 'TELEGRAM_BOT_TOKEN of TELEGRAM_CHAT_ID env mist' }
-
-  const res = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      chat_id:    chatId,
-      text,
-      parse_mode: 'MarkdownV2',
-      disable_web_page_preview: true,
-    }),
-  })
-  const body = await res.text()
-  return { ok: res.ok, status: res.status, body }
+// Incidenten lopen via Hermes (centraal brein) i.p.v. direct Telegram.
+// Kritiek (manuele input nodig) -> directe push; rest -> stil loggen in hermes.logs.
+async function sendTelegram(text: string, severity?: string): Promise<{ ok: boolean; status: number; body?: string }> {
+  try {
+    const db = createAdminClient()
+    if (severity === 'critical') {
+      const { error } = await db.rpc('hermes_notify_now', {
+        p_key:   `incident:${text.slice(0, 60)}`,
+        p_sev:   'critical',
+        p_type:  'incident',
+        p_titel: 'Incident',
+        p_detail: text.slice(0, 3000),
+        p_fabriek: null,
+      })
+      if (error) return { ok: false, status: 0, body: error.message }
+    } else {
+      const { error } = await db.rpc('log_to_hermes', {
+        source:  'incident-relay',
+        level:   'warn',
+        event:   'incident',
+        message: text.slice(0, 3500),
+      })
+      if (error) return { ok: false, status: 0, body: error.message }
+    }
+    return { ok: true, status: 200 }
+  } catch (err) {
+    return { ok: false, status: 0, body: (err as Error).message }
+  }
 }
 
 export async function POST(req: NextRequest) {
@@ -122,7 +133,7 @@ export async function POST(req: NextRequest) {
   }
 
   const text = buildTelegramMessage(payload)
-  const telegram = await sendTelegram(text)
+  const telegram = await sendTelegram(text, payload.alert.severity)
 
   const db = createAdminClient()
   await db.from('routine_audit_log').insert({

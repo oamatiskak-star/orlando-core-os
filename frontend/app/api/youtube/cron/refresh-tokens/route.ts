@@ -91,6 +91,9 @@ export async function GET(request: NextRequest) {
   if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
+  // Heartbeat-on-fire: bewijs dat de cron draaide. GET miste dit (alleen POST had het),
+  // waardoor de watchdog refresh-tokens vals als 'stil' markeerde.
+  await reportHeartbeat('cron.vercel.refresh-tokens').catch(() => {})
   return NextResponse.json(await runRefresh())
 }
 

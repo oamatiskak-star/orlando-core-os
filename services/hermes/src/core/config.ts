@@ -29,7 +29,13 @@ let cached: HermesConfig | null = null;
 
 export function loadConfig(): HermesConfig {
   if (cached) return cached;
-  const parsed = envSchema.safeParse(process.env);
+  // Render injecteert de te gebruiken poort via PORT en health-checkt DAAROP.
+  // PORT wint dus ALTIJD als die gezet is — ook boven een (stale) HERMES_PORT —
+  // anders bindt Hermes op een andere poort en faalt de deploy ("No open ports"
+  // → update_failed). Lokaal (geen PORT) blijft HERMES_PORT (default 8787).
+  const env: NodeJS.ProcessEnv = { ...process.env };
+  if (env.PORT) env.HERMES_PORT = env.PORT;
+  const parsed = envSchema.safeParse(env);
   if (!parsed.success) {
     const issues = parsed.error.issues
       .map((i) => `  - ${i.path.join('.')}: ${i.message}`)

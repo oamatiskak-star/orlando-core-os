@@ -117,10 +117,20 @@ async function handleFailure(
   opts: CheckOptions
 ): Promise<void> {
   const state = recoveryByDeploy.get(deploy.id) ?? { attempts: 0, lastAttemptAt: 0, escalated: false }
+  // Dedup-key PER SERVICE (niet per deploy-id): elke gefaalde deploy krijgt anders
+  // een eigen key -> alarm-flood/debris. Per service = één alarm tot het opgelost is.
+  const detectKey = `watchdog:deploy:${svc.id}`
 
-  // First-time detection: alert + first recovery action
+  // ALLE deploy-failures: dezelfde commit opnieuw deployen is zinloos én elke
+  // redeploy krijgt een NIEUWE deploy-id -> attempts resetten -> runaway redeploy-loop
+  // (build-minuten verbranden). Daarom NOOIT auto-redeployen: direct escaleren naar
+  // mens/Claude. Een echte fix = nieuwe commit naar main.
+  const isNonRetryable = true
+  const effectiveMax = 0
+
+  // First-time detection: registreren + DIRECTE kritieke alert.
   if (state.attempts === 0) {
-    console.log(`[watchdog] FAIL ${svc.name} deploy=${deploy.id} status=${deploy.status}`)
+    console.log(`[watchdog] FAIL ${svc.name} deploy=${deploy.id} status=${deploy.status} (max ${effectiveMax} retries)`)
     await recordEvent({
       service_id: svc.id,
       service_name: svc.name,
@@ -130,22 +140,28 @@ async function handleFailure(
       deploy_status: deploy.status,
       message: deploy.commit?.message ?? null
     })
-    await sendTelegram(
-      'error',
-      `🔴 ${svc.name} deploy ${deploy.status}`,
-      [
-        `Service: ${svc.name} (${svc.type})`,
-        `Deploy: ${deploy.id}`,
-        deploy.commit ? `Commit: ${deploy.commit.id.slice(0, 7)} ${deploy.commit.message}` : '',
-        `Watchdog: kicking off recovery (attempt 1/${opts.maxAttempts})`
-      ]
-        .filter(Boolean)
-        .join('\n')
-    )
+    // Bij retryable failures: meld direct dat een redeploy onderweg is. Bij
+    // niet-retryable laten we escalate() de volledige alert (mét logs) sturen,
+    // zodat er geen dubbele melding ontstaat.
+    if (!isNonRetryable) {
+      await sendTelegram(
+        'critical',
+        `${svc.name} deploy ${deploy.status}`,
+        [
+          `Service: ${svc.name} (${svc.type})`,
+          `Deploy: ${deploy.id} (${deploy.status})`,
+          deploy.commit ? `Commit: ${deploy.commit.id.slice(0, 7)} ${deploy.commit.message}` : '',
+          `Watchdog: redeploy onderweg (poging 1/${effectiveMax}).`
+        ]
+          .filter(Boolean)
+          .join('\n'),
+        detectKey
+      )
+    }
   }
 
   if (state.escalated) return
-  if (state.attempts >= opts.maxAttempts) {
+  if (state.attempts >= effectiveMax) {
     await escalate(client, svc, deploy, state, opts)
     return
   }
@@ -266,9 +282,9 @@ async function escalate(
   })
   await sendTelegram(
     'critical',
-    `🚨 ${svc.name} needs human/Claude Code fix`,
+    `${svc.name} needs human/Claude Code fix`,
     [
-      `Service ${svc.name} (${svc.type}) failed ${state.attempts} recovery attempts.`,
+      `Service ${svc.name} (${svc.type}) — ${state.attempts === 0 ? 'kapotte commit, geen retry zinvol' : `${state.attempts} recovery-pogingen mislukt`}.`,
       `Deploy: ${deploy.id} (${deploy.status})`,
       deploy.commit ? `Commit: ${deploy.commit.id.slice(0, 7)} ${deploy.commit.message}` : '',
       '',
@@ -279,7 +295,8 @@ async function escalate(
       `Dashboard: https://dashboard.render.com/web/${svc.id}`
     ]
       .filter(Boolean)
-      .join('\n')
+      .join('\n'),
+    `watchdog:escalate:${svc.id}`
   )
 }
 

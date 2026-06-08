@@ -4,21 +4,21 @@
 
 ---
 
-## 🔴 HERSTEL HIER NA CRASH (sessie 17 — Hermes Core OS v2 self-routing brein)
+## 🔴 HERSTEL HIER NA CRASH (sessie 18 — Hermes Core OS v2 self-routing brein)
 
 **Focus (2026-06-08, sessie 17):** Hermes ombouwen van command-router naar self-routing AI OS. 6-lagen pipeline (Project→Memory→Skill→Agent→Board) + GPT/Claude preflight (advisory) + model-router + incident-mode + auto-dispatch. Lokaal-eerst (80-90% via Ollama), DB-bemiddeld tussen Vercel-dashboard en lokale orchestrator op CLI-L. Plan: `~/.claude/plans/concurrent-mapping-finch.md`.
 
 **Architectuur:** dashboard schrijft `hermes.routing_requests` → lokale `ai-router` (PM2, naast Ollama) claimt via `routing_claim` RPC → draait pipeline → schrijft `hermes.routing_plans` → dashboard pollt. Geen tunnel. Reversibel werk → `hermes.dispatch_queue`; onomkeerbaar (stripe/prod-migratie/git push/vercel deploy) → `hermes.approvals` (HARDE GATE, Vercel registreert alleen, voert niet uit).
 
 **✅ GEBOUWD (typecheck schoon: router `npm run build` ok, frontend `tsc --noEmit` 0 errors; mistral L1 live geverifieerd → Aquier 0.95 in 18 tokens, lokaal):**
-- **Migratie `supabase/migrations/124_hermes_routing_brain.sql`** (NIET toegepast — hard gate): tabellen `routing_requests`/`routing_plans`/`boards`/`approvals` + `routing_claim()` RPC (kopie dispatch_claim, incidenten eerst) + RLS (service_role full, auth_read op plans/boards/approvals) + `hermes.skills.metadata`-kolom + seed 10 skills + 7 boards + engine_schedule-rij `ai:router-orchestrator`.
+- **Migratie `supabase/migrations/139_hermes_routing_brain.sql`** (NIET toegepast — hard gate; hernummerd 124→139 i.v.m. collision met main's 124/125-138): tabellen `routing_requests`/`routing_plans`/`boards`/`approvals` + `routing_claim()` RPC (kopie dispatch_claim, incidenten eerst) + RLS (service_role full, auth_read op plans/boards/approvals) + `hermes.skills.metadata`-kolom + seed 10 skills + 7 boards + engine_schedule-rij `ai:router-orchestrator`.
 - **Orchestrator** `ai-os/router/src/orchestrator/`: shared.ts, project-engine.ts (L1), memory-engine.ts (L2, defensief tegen embed-dim mismatch), skill-match.ts (L3), agent-match.ts (L4, leest .claude/agents frontmatter gecached), board-engine.ts (L5), preflight.ts (GPT+Claude advisory, Claude alleen bij code/arch/audit, degradeert zonder keys), incident.ts, dispatch.ts (reversibel→queue, onomkeerbaar→approvals), orchestrator.ts (runPlan), poller.ts (5s claim-loop).
 - **server.ts**: poller gestart in startupTasks + `registerDiscoveredModels()` bij boot (anders geen ai_models → geen kandidaten) + debug-endpoint `POST /v1/routing/run`.
 - **Frontend**: `lib/hermes/routing-client.ts` (submit/poll/format) + `command-router.ts` `INCIDENT_PATTERNS`/`detectIncident` + chat-route `unknown`-branch → `handleBrainOrFallback` (30s poll, valt terug op Claude `handleUnknown` als orchestrator offline) + `app/api/hermes/approvals/route.ts` (approve/reject, alleen registreren) + `components/dashboard/hermes/RoutingPlanPanel.tsx` + `ApprovalButtons.tsx` (gemount op `/dashboard/operations/hermes`).
 - **PM2**: `ai-router`-app in `ecosystem.cli-l.config.js` (port 8787, OLLAMA localhost, AI_EMBED_DIM=768).
 
 **⚠️ OPEN ACTIES ORLANDO (hard gates / niet door mij uitgevoerd):**
-1. **Migratie 124 toepassen** op DB `shaunumewswpxhmgbtvv` (prod-DB migratie = hard gate). Verifieer: `select count(*) from hermes.skills` ≥10, `hermes.boards`=7, RPC `hermes.routing_claim` bestaat.
+1. **Migratie 139 toepassen** op DB `shaunumewswpxhmgbtvv` (prod-DB migratie = hard gate). Verifieer: `select count(*) from hermes.skills` ≥10, `hermes.boards`=7, RPC `hermes.routing_claim` bestaat.
 2. **EMBED-DIM check vóór live memory:** `ai_memory.embedding` kolom-dim moet 768 zijn (nomic) — memory-engine is defensief (skipt bij mismatch) dus pipeline breekt niet, maar L2 levert dan niks tot dim klopt.
 3. **ai-router starten op CLI-L:** `cd ai-os/router && npm install && npm run build` → `pm2 start ecosystem.cli-l.config.js --only ai-router` (env: SUPABASE_URL/SERVICE_ROLE_KEY + optioneel ANTHROPIC/OPENAI keys uit host-env). Test: `curl -XPOST localhost:8787/v1/routing/run -H 'x-api-key: <AI_ROUTER_API_KEY>' -d '{"company_id":"<uuid>","raw_message":"conversie Aquier checkout te laag"}'`.
 4. **Niet gepusht/gemerged** — alles op werkboom (deze o.s.m.amatiskak-kopie levert via GitHub). Branch + PR nodig.
@@ -27,11 +27,73 @@
 
 ---
 
-## 🔴 HERSTEL HIER NA CRASH (sessie 16 — Hermes terminal-agent)
+## 🔴 HERSTEL HIER NA CRASH (sessie 17 — Watchdog strakker + Hermes direct-alert)
+
+**Trigger (2026-06-02):** 3 Render-services down terwijl watchdog draaide. Oorzaak gevonden: het
+alert-pad was stil — `sendTelegram` → `log_to_hermes` schreef alleen naar `hermes.logs`; alleen
+`hermes_supervisor` (5-min cron, alléén `critical`) pushte. Failed services bereikten Orlando dus niet.
+
+**✅ GEBOUWD deze sessie:**
+- **Migratie `125_hermes_notify_now.sql` — TOEGEPAST op `shaunumewswpxhmgbtvv`.** Nieuwe functie
+  `hermes_notify_now()`: raise + ONMIDDELLIJKE Telegram-push voor error/critical (6u dedup-venster).
+  Live getest (`watchdog:selftest`, `is_pushed=true`, daarna resolved).
+- **`watchdog-engine/src/telegram.ts`** herschreven: error/critical → `hermes_notify_now` (direct),
+  info/warning → stil `log_to_hermes`. Optionele `dedupKey`-param.
+- **`watchdog-engine/src/recovery.ts`** strakker: first-detection alert = **critical** (was error) +
+  dedup-key; `update_failed`/`canceled` = kapotte commit → **0 retries, direct escaleren** (geen
+  build-minuten verspillen); escalatie heeft eigen dedup-key zodat die altijd doorkomt. `tsc --noEmit` = 0.
+- **`.claude/skills/render-ops/SKILL.md`** — render-fleet runbook (er bestaat géén publieke Render-skill;
+  `npx skills find render` geeft alleen ongerelateerd `vercel-labs/json-render`).
+
+**🔴 OPEN — volgende stap:**
+1. **Watchdog-codewijziging DEPLOYEN.** DB-functie is live, maar de draaiende `orlando-watchdog`
+   roept nog `log_to_hermes` (oude code). Branch + commit `feat(watchdog): direct Hermes-alert +
+   strakkere recovery` → push → Render auto-deploy. (Wacht op Orlando-OK; niet auto-mergen.)
+2. **3 echte down-services fixen** (kapotte builds, redeploy zinloos):
+   - `orlando-hermes` web — `update_failed` PR #106 (`dep-d8eodusp3tds73ebg4eg`) + oudere PR #90.
+   - `orlando-competitor-scanner` worker — `update_failed` PR #107 (`dep-d8f0odd89d5s73b81dpg`).
+   Logs ophalen via `infra_watchdog_incidents.logs_tail`, bron fixen, incident sluiten (zie render-ops skill).
+
+---
+
+## HERSTEL — sessie 16 (Hermes terminal-agent)
 
 **Focus (2026-06-02, sessie 16):** Hermes bereikbaar maken in de terminal zoals Claude Code (kent ALLE commando's, leest begrijpend — geen vast menu).
 
-**⚠️ Dashboard-route conflict opgelost:** mijn aanvankelijke `route.ts` tool-use rewrite (get_uploads/retry_upload/etc.) is bij het mergen TERUGGEDRAAID t.g.v. main's nieuwere **Hermes Command Center** (`command-router` lib, commit 788b2670c). Keuze Orlando: main's Command Center blijft de dashboard-route; mijn `HermesPersonalChat.tsx` schema-fix is daardoor ook vervallen (main verving het component). De upload/problemen/retry-commando's zijn dus NIET in de dashboard-route — eventueel later als extra intents in de command-router porteren.
+**⚠️ Dashboard-route conflict opgelost:** mijn aanvankelijke `route.ts` tool-use rewrite is bij het mergen teruggedraaid t.g.v. main's nieuwere **Hermes Command Center** (`command-router` lib, commit 788b2670c). Keuze Orlando: main's Command Center blijft de dashboard-route.
+
+**✅ Los eindje OPGEPAKT — upload-intents in de command-router:** uploads/problemen/retry geporteerd ALS intents in main's architectuur i.p.v. een aparte route.
+- `lib/hermes/command-router.ts`: 3 nieuwe `CommandKind`s (`uploads`, `upload_problems`, `retry_upload`) + `uploadId?`-veld + parse-blok (vóór host-status/blockers; gegate op token `upload`; uuid-extractie) + COMMAND_HELP-items.
+- `app/api/hermes/chat/route.ts`: handlers `handleUploads` (status-breakdown + laatste 8), `handleUploadProblems` (failed/manual_review_required + youtube_upload_failures + gefaalde media_holding_uploads), `handleRetryUpload` (alleen failed/manual_review_required → queued, markeert failure recovery_attempted, logt) + switch-cases.
+- Tests: `command-router.test.ts` +4 (21/21 pass). Typecheck 0 fouten. Voorbeelden: "Hoe staan de uploads?", "Wat is er mis met de uploads?", "Retry upload <id>".
+
+**✅ Perplexity geïntegreerd (web-research):** keuze Orlando = beide systemen, alleen Perplexity (Midjourney geparkeerd: geen officiële API).
+- Hermes-commando: `web_research` intent in command-router (triggers: "research:", "zoek online", "perplexity", "recent nieuws", "wat is het laatste over") + `query`-veld; handler `handleWebResearch` in route.ts → POST **officiële Agent API `api.perplexity.ai/v1/agent`** (preset `pro-search`, `language_preference: nl`, `instructions`), parseert `output[]` message-items + citations (annotations + search_results). Env: `PERPLEXITY_API_KEY` (verplicht; mist → nette config-melding) + optioneel `PERPLEXITY_PRESET` (default pro-search; fast-search/deep-research mogelijk). Tests 24/24, typecheck 0.
+- **OPEN (Orlando):** (1) `PERPLEXITY_API_KEY` in `.env.prod` + `frontend/.env.local` (+ Vercel env) zetten. (2) MCP voor Claude Code installeren: `claude mcp add perplexity --env PERPLEXITY_API_KEY=<key> -- npx -y @perplexity-ai/mcp-server` (key blijft lokaal, niet via assistent).
+- Midjourney: NIET gedaan (geen officiële API; later beslissen tussen FAL/Flux-alternatief, 3rd-party MJ-bridge of Discord-automation).
+- Perplexity Agent toolset uitgebreid: `web_search` + `fetch_url` + `finance_search` + `people_search` (sandbox/function bewust weg).
+
+**✅ Autopilot AUDIT + F0 gebouwd (keuze Orlando: F0 telemetrie+watchdog, harde default-deny):**
+- AUDIT (2 Explore-agents): autopilot = ALLEEN ONTWORPEN. Werkt wél: Perplexity-research, AI Router 429-failover (`ai-os/router`, docker), dispatch-queue+runner (PM2), resume-listener (alleen "ga verder"). Dode code (niet gedeployed): `services/hermes`, `services/hermes-recovery`. Ontbrak: watchdog, classifier, governance + tabellen claude_prompts/claude_session_state/governance_rules/recovery_queue/deny_rules; hooks loggen naar Telegram i.p.v. Hermes.
+- F0 GEBOUWD (read-only, geen auto-antwoorden): migratie `124_hermes_claude_autopilot_telemetry.sql` (`hermes.claude_prompts` + `hermes.claude_session_state` + RPC `record_claude_event` + watchdog `detect_claude_stalls` via pg_cron 1/min); `scripts/hermes-hook.sh` (non-blocking Claude Code hook → RPC); `scripts/install-hermes-hook.sh` (idempotent: env + settings.json additief). Bash syntax OK.
+- **migratie 124 TOEGEPAST** op `shaunumewswpxhmgbtvv` (via MCP) — claude_prompts + claude_session_state + RPC + watchdog live (0 rijen).
+- **Autopilot-hook GEBOUWD** (`scripts/hermes-autopilot.sh`): PreToolUse-hook geeft native `permissionDecision` allow/ask terug (geen keystroke-injectie). Harde default-deny: allow alleen read-only tools (Read/Glob/Grep/LS/NotebookRead/TodoWrite) + read-only bash (ls/cat/git status/... zónder metakarakters); al het andere → ask (Orlando beslist). Dry-run default; `HERMES_AUTOPILOT_LIVE=1` maakt het echt. Smoke-tests 6/6 OK. Installer wiret PreToolUse→autopilot, overige events→telemetrie-hook.
+- **OPEN (Orlando):** `bash scripts/install-hermes-hook.sh` draaien (1×) → dan dry-run live. Voor echte overname: `HERMES_AUTOPILOT_LIVE=1` in `~/OSM_STATE/hermes-hook.env` + nieuwe Claude-sessie.
+- **⚠️ RLS:** claude_prompts + claude_session_state hebben RLS uit (zoals overige hermes-tabellen). Service-role (hook) + dashboard werken; maar anon-key kan lezen/schrijven. Optioneel hardenen met RLS + authenticated-SELECT-policy (niet auto-toegepast).
+- **RESTEREND:** F4 live auto-antwoord (alleen ná dry-run-bewijs, harde default-deny op deploy/merge/migratie/Stripe/prijzen/delete).
+
+**✅ F1 GEBOUWD — Claude Watchdog (draait 24/7, GEEN deploy):** i.p.v. `services/hermes` te deployen hergebruikt F1 pg_cron + het bestaande alarm-pad `public.hermes_notify_now` (migr. 125) — local-first.
+- migratie `127_hermes_claude_watchdog.sql` TOEGEPAST: `hermes.watch_claude_sessions()` doet fase-overgangen (waiting_input>15m→stalled, working>60m→idle) + escaleert: `rate_limited`→ERROR→directe Telegram-push, `stalled`→warning (stil, geen spam). Dedup + 6u-venster zit in hermes_notify_now.
+- pg_cron-job `hermes-detect-claude-stalls` draait nu `watch_claude_sessions()` elke minuut (geverifieerd). Functie foutloos getest (0 alerts, 0 sessies).
+- Zodra de hook events binnenkrijgt + Claude tegen een limiet loopt → Orlando krijgt direct een Telegram-alert.
+
+**✅ F2 in main (#113):** Perplexity-vangnet in AI Router (Sonar neemt over bij 429/timeout/5xx). Activatie: PERPLEXITY_API_KEY in ai-router env + rebuild op CLI-R.
+
+**✅ F3 GEBOUWD — governance + beslissings-audit (dry-run zichtbaar):**
+- migratie `126_hermes_autopilot_governance.sql` TOEGEPAST: `hermes.governance_rules` (bewerkbare policy, geseed met read-only allowlist) + `hermes.autopilot_decisions` (auditlog) + RPC `log_autopilot_decision` + view `v_autopilot_recent`.
+- `scripts/hermes-autopilot.sh`: classificeert prompt-soort (tool_permission/bash) + logt ELKE beslissing (decision/would_allow/live/reason) naar het auditlog. Smoke-test OK.
+- Dashboard `/dashboard/operations/autopilot`: live overzicht van beslissingen (zou-goedkeuren vs ask) + governance-regels. Typecheck 0.
+- **Zo zie je het bewijs:** met dry-run (HERMES_AUTOPILOT_LIVE=0) draait Claude normaal door, maar elke prompt verschijnt op de autopilot-pagina met "zou goedkeuren"/ask → valideer vóór je F4 live zet.
 
 **✅ Hermes TERMINAL-agent (net als Claude Code):** `frontend/scripts/hermes-cli.mjs` + launcher `~/.local/bin/hermes` (op PATH). GEEN vast menu — Hermes heeft echte tools: `bash` (kent zo ALLE commando's: git/gh/psql/supabase/curl/vercel...), `read_file`, `write_file`. Agent-loop max 30 stappen, model claude-opus-4-8, env auto uit `.env.prod`+`frontend/.env.local`. Risicovolle acties (rm -rf/drop/delete/git push/force/vercel deploy/stripe/sudo...) → DANGER-regex → bevestiging in interactieve modus, auto-geweigerd in one-shot. Gebruik: `hermes` (REPL) of `hermes "vraag"`. Launcher staat buiten de repo (machine-lokaal). Syntax+pad geverifieerd; live agent-run kon ik niet zelf draaien (harness blokkeert autonome shell-agent door mij — Orlando draait het zelf).
 

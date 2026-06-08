@@ -289,8 +289,8 @@ services:
     envVars:
       - key: NODE_ENV
         value: production
-      - key: HERMES_PORT
-        value: "3009"
+      # GEEN HERMES_PORT: Render injecteert PORT en health-checkt daarop.
+      # Een vaste HERMES_PORT brak de deploy (Hermes bond op 3009 i.p.v. Render's PORT → update_failed).
       - key: HERMES_LOG_LEVEL
         value: "info"
       - key: HERMES_ENV

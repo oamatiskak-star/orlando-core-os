@@ -59,6 +59,7 @@ export const NAV_MODULES: Record<string, NavModuleDef> = {
   orchestrator:         { key: 'orchestrator',         label: 'Orchestrator',            href: '/dashboard/orchestrator',          icon: ListChecks },
   abonnementen:         { key: 'abonnementen',         label: 'Abonnementen',            href: '/dashboard/abonnementen',          icon: CreditCard },
   hermes_ceo:           { key: 'hermes_ceo',           label: 'Hermes CEO · Controle',   href: '/dashboard/hermes',                icon: Brain },
+  sessies:              { key: 'sessies',              label: 'Sessies',                 href: '/dashboard/sessions',              icon: Terminal },
   engine_planner:       { key: 'engine_planner',       label: 'Engine Planner',          href: '/dashboard/planner',               icon: CalendarClock },
   projectleider:        { key: 'projectleider',        label: 'Projectleider',           href: '/dashboard/projectleider',         icon: UserCog },
 
@@ -265,7 +266,7 @@ export const COMPANY_NAV: Record<string, CompanyNav> = {
   osm: {
     sections: [
       { modules: ['dashboard', 'projectleider'] },
-      { title: 'Hermes CEO', modules: ['hermes_ceo'] },
+      { title: 'Hermes CEO', modules: ['hermes_ceo', 'sessies'] },
       { title: 'Juridisch', modules: ['advocaat_dashboard', 'advocaat_dossiers', 'advocaat_curator', 'advocaat_mail_def', 'advocaat_bewijs', 'advocaat_tijdlijn', 'advocaat_strategie', 'advocaat_imports'] },
       { title: 'OSIL', modules: ['osil_dashboard', 'osil_board', 'osil_kansen', 'osil_recovery', 'osil_optimalisatie', 'osil_fiscalist', 'osil_rapport'] },
       { title: 'Persoonlijk', modules: ['dyme_os', 'personal_finance', 'dga_loonstrook', 'loonstroken'] },

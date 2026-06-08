@@ -15,6 +15,10 @@ export type CommandKind =
   | 'start_phase' // "start Fase A" / "start COPY_UX_FINAL_GATE"
   | 'audit_mode' // "zet CLI R in auditmodus"
   | 'remember' // "onthoud dat ..."
+  | 'uploads' // "hoe staan de uploads?"
+  | 'upload_problems' // "wat is er mis met de uploads?"
+  | 'retry_upload' // "retry upload <id>"
+  | 'web_research' // "research: ..." / "zoek online naar ..." (Perplexity)
   | 'help' // "help" / "welke commando's"
   | 'unknown'
 
@@ -28,6 +32,10 @@ export interface ParsedCommand {
   title?: string
   /** Te onthouden tekst voor remember. */
   memory?: string
+  /** Upload-queue id voor retry_upload. */
+  uploadId?: string
+  /** Zoekvraag voor web_research (Perplexity). */
+  query?: string
   /** De ruwe input, getrimd. */
   raw: string
   /** NL-omschrijving van wat Hermes begreep (voor echo + fallback). */
@@ -50,6 +58,10 @@ export const COMMAND_HELP: CommandHelpItem[] = [
   { label: 'Fase/gate starten', example: 'Start COPY_UX_FINAL_GATE' },
   { label: 'Auditmodus', example: 'Zet CLI R in auditmodus' },
   { label: 'Onthouden', example: 'Onthoud dat de NL-launch op 3 juni is' },
+  { label: 'Uploads', example: 'Hoe staan de uploads?' },
+  { label: 'Upload-problemen', example: 'Wat is er mis met de uploads?' },
+  { label: 'Upload opnieuw', example: 'Retry upload <id>' },
+  { label: 'Web-research', example: 'Research: laatste NL-hypotheekrente juni 2026' },
 ]
 
 const BOTH: HostId[] = ['cli-l', 'cli-r']
@@ -136,6 +148,24 @@ export function parseCommand(raw: string): ParsedCommand {
     return { kind: 'resume', hosts: h, raw: text, understood: `Hervatten op ${h.join(' + ')}` }
   }
 
+  // 5b. Uploads (status / problemen / opnieuw proberen) — vóór host-status & blockers
+  if (/\bupload/.test(t)) {
+    const uuid = (text.match(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i) || [])[0]
+    if (/\b(retry|opnieuw|herstart|nogmaals|herstel)\b/.test(t)) {
+      return {
+        kind: 'retry_upload',
+        hosts: [],
+        uploadId: uuid,
+        raw: text,
+        understood: uuid ? `Upload ${uuid.slice(0, 8)}… opnieuw in de wachtrij` : 'Upload opnieuw proberen (id ontbreekt)',
+      }
+    }
+    if (/\b(mis|fout\w*|gefaald\w*|faal\w*|vast\w*|stuck|probleem|problemen|error\w*|hangt|hangen|blokk\w*)\b/.test(t)) {
+      return { kind: 'upload_problems', hosts: [], raw: text, understood: 'Upload-problemen (gefaald/vastgelopen)' }
+    }
+    return { kind: 'uploads', hosts: [], raw: text, understood: 'Upload-status' }
+  }
+
   // 6. Host-status
   const bareStatus = /^(status|stand)\??$/.test(t)
   if (
@@ -161,6 +191,20 @@ export function parseCommand(raw: string): ParsedCommand {
   // 9. Build Tracker
   if (/\b(build[\s\-]?tracker|controleer\s+build|build\s+status|voortgang|fabrieken|projecten?\s*(status|overzicht)?)\b/.test(t)) {
     return { kind: 'build_tracker', hosts: [], raw: text, understood: 'Build Tracker-status' }
+  }
+
+  // 9b. Web-research (Perplexity) — expliciete onderzoeks-/zoekfrasering
+  if (
+    /\b(perplexity|research|zoek\s+(?:online|op\s+internet|op\s+het\s+web|even\s+op|uit)|online\s+(?:zoeken|opzoeken)|web\s*search|recent\s+nieuws|wat\s+is\s+het\s+laatste(?:\s+nieuws)?\s+over)\b/.test(t)
+  ) {
+    let q = text
+      .replace(
+        /^\s*(?:hermes[,:]?\s*)?(?:perplexity|research|zoek(?:\s+(?:online|op\s+internet|op\s+het\s+web|even\s+op|even|uit))?|online\s+(?:zoeken|opzoeken)|web\s*search)\b[:,\s]*(?:naar\s+|over\s+)?/i,
+        '',
+      )
+      .trim()
+    if (!q) q = text
+    return { kind: 'web_research', hosts: [], query: q, raw: text, understood: `Web-research: "${truncate(q)}"` }
   }
 
   // 10. Help

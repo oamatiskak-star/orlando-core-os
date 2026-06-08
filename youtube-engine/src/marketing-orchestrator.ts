@@ -40,17 +40,18 @@ async function sendSlack(webhook: string | undefined, message: string, emoji: st
   }
 }
 
+// Via Hermes (centraal brein) i.p.v. direct Telegram. Marketing-status = stil loggen.
 async function sendTelegram(message: string): Promise<void> {
-  if (!TELEGRAM_BOT_TOKEN || !TELEGRAM_CHAT_ID) return
+  const url = process.env.SUPABASE_URL
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY
+  if (!url || !key) return
 
   try {
-    await axios.post(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`, {
-      chat_id: TELEGRAM_CHAT_ID,
-      text: message,
-      parse_mode: 'HTML'
-    })
+    await axios.post(`${url}/rest/v1/rpc/log_to_hermes`, {
+      source: 'youtube-marketing', level: 'info', event: 'marketing', message: message.slice(0, 3500),
+    }, { headers: { apikey: key, Authorization: `Bearer ${key}` } })
   } catch (err) {
-    console.error('[orchestrator] Telegram error:', err)
+    console.error('[orchestrator] Hermes log error:', err)
   }
 }
 

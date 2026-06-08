@@ -66,6 +66,13 @@ export const config = {
       baseUrl: env('LMSTUDIO_BASE_URL', 'http://localhost:1234/v1'),
       enabled: envBool('AI_PROVIDER_LMSTUDIO', false),
     },
+    perplexity: {
+      apiKey: envOpt('PERPLEXITY_API_KEY'),
+      baseUrl: env('PERPLEXITY_BASE_URL', 'https://api.perplexity.ai'),
+      // Vangnet: laatste redmiddel als de hele keten op capaciteit/limiet vastloopt.
+      enabled: envBool('AI_PROVIDER_PERPLEXITY', true),
+      fallbackModel: env('PERPLEXITY_FALLBACK_MODEL', 'sonar'),
+    },
   },
 
   cache: {
@@ -78,6 +85,8 @@ export const config = {
     defaultMaxTokens: envInt('AI_DEFAULT_MAX_TOKENS', 1024),
     defaultTimeoutMs: envInt('AI_DEFAULT_TIMEOUT_MS', 60_000),
     defaultMaxAttempts: envInt('AI_DEFAULT_MAX_ATTEMPTS', 4),
+    // Perplexity-vangnet aan als de hele keten faalt (vooral bij rate-limits).
+    perplexityFallback: envBool('AI_PERPLEXITY_FALLBACK', true),
   },
 
   embeddings: {

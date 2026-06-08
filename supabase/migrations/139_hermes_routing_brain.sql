@@ -1,5 +1,5 @@
 -- ============================================================================
--- Migration 124: Hermes Routing Brain — self-routing AI OS (v2)
+-- Migration 139: Hermes Routing Brain — self-routing AI OS (v2)
 -- ============================================================================
 -- Project: Hermes Core OS v2 (orlando-core-os)
 -- Datum:   2026-06-08

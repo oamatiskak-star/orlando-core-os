@@ -34,34 +34,30 @@ echo "[$(date '+%H:%M:%S')] resume-listener actief op $MACHINE_ID — pollt elke
 heartbeat          # meld direct online bij Hermes
 hb_count=0
 
-# Desktop: gewone iTerm2-window. Met prompt = klembord-paste; lege prompt = verse sessie.
+# Desktop: draai claude in een tmux-sessie (betrouwbaar, geen Accessibility-permissie
+# nodig) en open die best-effort in iTerm2. Prompt via tmux bracketed-paste i.p.v.
+# System Events keystrokes (dat gaf zowel een osascript-syntaxfout als een
+# 'geen toestemming voor toetsaanslagen'-fout).
 launch_desktop() {
   local worktree="$1" prompt="$2"
   worktree="${worktree/#\~/$HOME}"
-  if [ -z "$prompt" ]; then
-    /usr/bin/osascript <<OSA
-tell application "iTerm2"
-  activate
-  set w to (create window with default profile)
-  tell current session of w to write text "cd '$worktree' && claude"
-end tell
-OSA
-    return
+  local sess="resume-$$-$(date +%s)"
+  tmux has-session -t "$sess" 2>/dev/null || tmux new-session -d -s "$sess" -c "$worktree" || return 1
+  tmux send-keys -t "$sess" 'claude' Enter
+  if [ -n "$prompt" ]; then
+    sleep "$BOOT_DELAY"
+    printf '%s' "$prompt" | tmux load-buffer -
+    tmux paste-buffer -p -t "$sess"        # bracketed paste → Claude leest 't als één invoer
+    tmux send-keys -t "$sess" Enter
   fi
-  printf '%s' "$prompt" | pbcopy
-  /usr/bin/osascript <<OSA
+  # Best-effort: toon het tmux-venster in iTerm2 (faalt stil zonder GUI/permissie).
+  /usr/bin/osascript >/dev/null 2>&1 <<OSA || true
 tell application "iTerm2"
   activate
-  set w to (create window with default profile)
-  tell current session of w to write text "cd '$worktree' && claude"
-end tell
-delay $BOOT_DELAY
-tell application "System Events"
-  keystroke "v" using command down
-  delay 0.4
-  key code 36
+  create window with default profile command "tmux attach -t '$sess'"
 end tell
 OSA
+  return 0
 }
 
 # Mobiel: draai claude in een NAMED tmux-sessie zodat iTerm2 (host) én Terminus

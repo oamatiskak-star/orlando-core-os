@@ -25,6 +25,11 @@ export async function runDataFreshness(check: CheckRow, supabaseUrl: string, sup
   const { data, error } = await query
   if (error) return { ok: false, message: `supabase: ${error.message}` }
   if (!data || data.length === 0) {
+    // allow_empty: een pijplijn-tabel die (nog) geen kwalificerende rijen heeft is
+    // geen storing — niet alarmeren op leeg. Alleen op STALE (non-empty + te oud).
+    if (check.config.allow_empty === true) {
+      return { ok: true, message: `table '${table}' empty (allow_empty)`, metadata: { table, empty: true } }
+    }
     return { ok: false, message: `table '${table}' empty or unreadable` }
   }
   const row = data[0] as unknown as Record<string, string>

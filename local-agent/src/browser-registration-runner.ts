@@ -25,7 +25,7 @@ import 'dotenv/config'
 import { randomBytes } from 'crypto'
 import { createClient, SupabaseClient } from '@supabase/supabase-js'
 import { chromium, Browser, Page } from 'playwright'
-import { loadFieldMap, firstAvailable, FieldDescriptor } from './browser/field-map'
+import { loadFieldMap, firstAvailable, FieldDescriptor, ExtractDescriptor } from './browser/field-map'
 import { buildScreenshotPath, uploadScreenshot } from './browser/storage'
 
 const SUPABASE_URL              = process.env.SUPABASE_URL!
@@ -61,7 +61,7 @@ type BusinessProfile = {
 
 type StepKind =
   | 'navigate' | 'fill_field' | 'capture_screenshot' | 'await_approval'
-  | 'submit_form' | 'detect_result'
+  | 'submit_form' | 'detect_result' | 'extract'
 type StepStatus = 'started' | 'progress' | 'completed' | 'failed' | 'skipped'
 
 let stepOrder = 0
@@ -217,6 +217,44 @@ async function fillField(page: Page, runId: string, programId: string, fd: Field
   }
 }
 
+/**
+ * Oogst-fase: lees een waarde (bv. GA4 Measurement-ID, Meta Pixel-ID) van de pagina
+ * en schrijf die terug naar affiliate_programs.<target_column>. Niet gevonden →
+ * expliciete human-action (geen verzonnen waarde). Draait NA de submit-gate, dus de
+ * mens heeft de wizard al afgerond en het ID staat op het scherm.
+ */
+async function extractValue(page: Page, runId: string, programId: string, ex: ExtractDescriptor): Promise<void> {
+  try {
+    let haystack = ''
+    if (ex.selectors?.length) {
+      const sel = await firstAvailable(page, ex.selectors)
+      if (sel) haystack = await page.locator(sel).first().innerText().catch(() => '')
+    }
+    if (!haystack) {
+      if (ex.from === 'url')            haystack = page.url()
+      else if (ex.from === 'page_html') haystack = await page.content()
+      else                              haystack = await page.locator('body').first().innerText().catch(() => '')
+    }
+    const m = haystack.match(new RegExp(ex.pattern))
+    const value = m ? (m[1] ?? m[0]) : null
+    if (value) {
+      await db.from('affiliate_programs').update({ [ex.target_column]: value }).eq('id', programId)
+      await recordStep(runId, 'extract', 'completed', { field: ex.field, target_column: ex.target_column, value })
+      await audit(programId, runId, 'browser.extracted', { field: ex.field, target_column: ex.target_column, value })
+    } else {
+      await recordStep(runId, 'extract', 'skipped', { field: ex.field, reason: 'patroon niet gevonden op pagina' })
+      await db.from('account_setup_human_actions').insert({
+        program_id: programId, run_id: runId, action_kind: 'manual_review',
+        title: `ID niet automatisch geoogst: ${ex.field}`,
+        description: `Plak de waarde voor ${ex.field} handmatig in affiliate_programs.${ex.target_column} (of in notes).`,
+        status: 'open', metadata: { field: ex.field, target_column: ex.target_column },
+      })
+    }
+  } catch (e) {
+    await recordStep(runId, 'extract', 'failed', { field: ex.field }, { message: (e as Error).message })
+  }
+}
+
 /** Sla credentials op in de credentialstore (notes) — nooit in audit/step/logs. */
 async function storeCredentials(program: ProgramRow, password: string): Promise<void> {
   const block = `\n[browser_registration ${new Date().toISOString().slice(0, 10)}] login=${REGISTRATION_EMAIL} pw=${password}`
@@ -310,6 +348,14 @@ async function executeRun(run: RunRow): Promise<void> {
         description: `Geen succespatroon herkend op ${url}. Controleer handmatig en zet de status zo nodig op 'applied'.`,
         status: 'open', metadata: { final_url: url },
       })
+    }
+
+    // 6) oogst-fase: ID's van de pagina lezen en terugschrijven (GA4/Pixel)
+    if (fieldMap.extract?.length) {
+      for (const ex of fieldMap.extract) {
+        await extractValue(page, run.id, program.id, ex)
+        await captureAndUpload(page, run.id, program.id, `na oogst ${ex.field}`)
+      }
     }
 
     await db.from('account_setup_runs').update({ status: 'completed', ended_at: new Date().toISOString(), error: null }).eq('id', run.id)

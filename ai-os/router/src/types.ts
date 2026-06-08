@@ -4,6 +4,7 @@ export type ProviderId =
   | 'openrouter'
   | 'ollama'
   | 'lmstudio'
+  | 'perplexity'
   | 'custom'
 
 export type Tier =

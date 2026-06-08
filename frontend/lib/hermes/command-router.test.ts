@@ -106,3 +106,43 @@ test('lege input → unknown', () => {
   assert.equal(parseCommand('').kind, 'unknown')
   assert.equal(parseCommand('   ').kind, 'unknown')
 })
+
+test('"Hoe staan de uploads?" → uploads', () => {
+  assert.equal(parseCommand('Hoe staan de uploads?').kind, 'uploads')
+  assert.equal(parseCommand('uploadstatus').kind, 'uploads')
+})
+
+test('"Wat is er mis met de uploads?" → upload_problems', () => {
+  assert.equal(parseCommand('Wat is er mis met de uploads?').kind, 'upload_problems')
+  assert.equal(parseCommand('welke uploads zijn gefaald').kind, 'upload_problems')
+  assert.equal(parseCommand('vastgelopen uploads').kind, 'upload_problems')
+})
+
+test('"Retry upload <id>" → retry_upload met id', () => {
+  const id = '11111111-2222-3333-4444-555555555555'
+  const c = parseCommand(`Retry upload ${id}`)
+  assert.equal(c.kind, 'retry_upload')
+  assert.equal(c.uploadId, id)
+})
+
+test('"probeer de upload opnieuw" zonder id → retry_upload, geen id', () => {
+  const c = parseCommand('probeer de upload opnieuw')
+  assert.equal(c.kind, 'retry_upload')
+  assert.equal(c.uploadId, undefined)
+})
+
+test('"Research: ..." → web_research met query', () => {
+  const c = parseCommand('Research: laatste NL-hypotheekrente juni 2026')
+  assert.equal(c.kind, 'web_research')
+  assert.equal(c.query, 'laatste NL-hypotheekrente juni 2026')
+})
+
+test('"zoek online naar X" → web_research', () => {
+  const c = parseCommand('zoek online naar nieuwe Wet betaalbare huur')
+  assert.equal(c.kind, 'web_research')
+  assert.equal(c.query, 'nieuwe Wet betaalbare huur')
+})
+
+test('"perplexity ..." → web_research', () => {
+  assert.equal(parseCommand('perplexity wat is de actuele AEX-stand').kind, 'web_research')
+})
