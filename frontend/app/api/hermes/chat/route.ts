@@ -6,10 +6,12 @@ import { claude } from '@/lib/ai/client'
 import {
   parseCommand,
   COMMAND_HELP,
+  detectIncident,
   type CommandKind,
   type HostId,
   type ParsedCommand,
 } from '@/lib/hermes/command-router'
+import { submitRoutingRequest, pollRoutingPlan, formatPlanReply } from '@/lib/hermes/routing-client'
 
 export const runtime = 'nodejs'
 export const maxDuration = 60
@@ -438,6 +440,41 @@ function handleHelp(): HermesReply {
   }
 }
 
+/**
+ * Vrije tekst → routing-brein. Schrijft een routing-request en wacht op het plan
+ * dat de lokale orchestrator (CLI-L, naast Ollama) produceert. Valt terug op de
+ * Claude-route (handleUnknown) als de orchestrator offline is of de migratie nog
+ * niet is toegepast — zo breekt de chat nooit.
+ */
+async function handleBrainOrFallback(db: AdminClient, cmd: ParsedCommand, companyId: string): Promise<HermesReply> {
+  try {
+    const isIncident = detectIncident(cmd.raw)
+    const requestId = await submitRoutingRequest(db, {
+      company_id: companyId,
+      raw_message: cmd.raw,
+      is_incident: isIncident,
+    })
+    if (requestId) {
+      const plan = await pollRoutingPlan(db, requestId, 30_000)
+      if (plan) {
+        const { reply: text, actions, suggestions } = formatPlanReply(plan)
+        return {
+          reply: text,
+          response: '',
+          intent: 'unknown',
+          understood: true,
+          actions,
+          suggestions: suggestions.length ? suggestions : SUGGESTIONS,
+          data: { routing_plan_id: plan.id, project: plan.active_project, priority: plan.priority },
+        }
+      }
+    }
+  } catch {
+    /* orchestrator/migratie niet beschikbaar → Claude-fallback hieronder */
+  }
+  return handleUnknown(db, cmd, companyId)
+}
+
 /** Vrije-tekst: probeer een nuttig antwoord via de (gateway-aware) AI-client, met echte context. */
 async function handleUnknown(db: AdminClient, cmd: ParsedCommand, companyId: string): Promise<HermesReply> {
   // Korte, echte context opbouwen
@@ -545,7 +582,7 @@ export async function POST(request: NextRequest) {
         result = handleHelp()
         break
       default:
-        result = await handleUnknown(db, cmd, company_id)
+        result = await handleBrainOrFallback(db, cmd, company_id)
         break
     }
 

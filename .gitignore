@@ -33,3 +33,7 @@ planning-engine/dist/
 local-agent/node_modules/
 local-agent/dist/
 local-agent/.env
+ai-os/router/node_modules/
+ai-os/router/dist/
+ai-os/worker-node/node_modules/
+ai-os/worker-node/dist/

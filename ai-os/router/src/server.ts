@@ -16,6 +16,9 @@ import {
 } from './queue.js'
 import { invalidateRegistry, loadModels, upsertModel } from './registry.js'
 import { db, logRouter } from './db.js'
+import { startOrchestratorPoller } from './orchestrator/poller.js'
+import { runPlan } from './orchestrator/orchestrator.js'
+import { hermesDb, type RoutingRequestRow } from './orchestrator/shared.js'
 
 const fastify = Fastify({
   logger: { level: config.logLevel },
@@ -55,6 +58,7 @@ fastify.get('/', async () => ({
     'POST /v1/tasks/:id/fail',
     'POST /v1/tasks/reap',
     'POST /v1/workflows/run',
+    'POST /v1/routing/run',
     'POST /v1/memory',
     'POST /v1/memory/search',
     'GET  /v1/usage/summary',
@@ -122,24 +126,7 @@ fastify.get('/v1/models', async () => {
 
 fastify.post('/v1/models/refresh', async () => {
   invalidateRegistry()
-  const discovered = await router.discoverLocalModels()
-  // Register all discovered Ollama models that aren't already known.
-  for (const [node, modelNames] of Object.entries(discovered.ollama)) {
-    for (const name of modelNames) {
-      const tier = guessTier(name)
-      await upsertModel({
-        provider: 'ollama',
-        modelId: name,
-        displayName: `${name} (ollama)`,
-        tier,
-        isLocal: true,
-        endpointUrl: node,
-        nodeId: node,
-        priority: 60,
-        capabilities: ['local', tier],
-      })
-    }
-  }
+  const discovered = await registerDiscoveredModels()
   const models = await loadModels(true)
   return { discovered, models }
 })
@@ -218,6 +205,39 @@ fastify.post('/v1/workflows/run', async (req, reply) => {
     const result = await workflowEngine.run(parsed.data)
     return result
   } catch (e: unknown) {
+    return reply.code(500).send({ error: (e as Error).message })
+  }
+})
+
+// ── Routing brain (Hermes orchestrator) ──────────────────────────────────
+fastify.post('/v1/routing/run', async (req, reply) => {
+  const schema = z.object({
+    company_id: z.string().min(1),
+    raw_message: z.string().min(1),
+    source: z.string().optional(),
+    requested_by: z.string().optional(),
+    is_incident: z.boolean().optional(),
+  })
+  const parsed = schema.safeParse(req.body)
+  if (!parsed.success) return reply.code(400).send({ error: parsed.error.flatten() })
+  try {
+    const { data, error } = await hermesDb()
+      .from('routing_requests')
+      .insert({
+        company_id: parsed.data.company_id,
+        raw_message: parsed.data.raw_message,
+        source: parsed.data.source ?? 'router-debug',
+        requested_by: parsed.data.requested_by ?? 'orlando',
+        is_incident: parsed.data.is_incident ?? false,
+        status: 'claimed',
+      })
+      .select('id, company_id, raw_message, source, requested_by, is_incident, status')
+      .single()
+    if (error || !data) return reply.code(500).send({ error: error?.message ?? 'insert failed' })
+    const summary = await runPlan(data as RoutingRequestRow)
+    return summary
+  } catch (e: unknown) {
+    fastify.log.error({ err: e }, 'routing_run_failed')
     return reply.code(500).send({ error: (e as Error).message })
   }
 })
@@ -318,10 +338,35 @@ function guessTier(name: string): 'reasoning' | 'coding' | 'classification' | 'e
   return 'general'
 }
 
+/** Discover Ollama models on every node and upsert them into ai_models. */
+async function registerDiscoveredModels(): Promise<{ ollama: Record<string, string[]> }> {
+  const discovered = await router.discoverLocalModels()
+  for (const [node, modelNames] of Object.entries(discovered.ollama)) {
+    for (const name of modelNames) {
+      const tier = guessTier(name)
+      await upsertModel({
+        provider: 'ollama',
+        modelId: name,
+        displayName: `${name} (ollama)`,
+        tier,
+        isLocal: true,
+        endpointUrl: node,
+        nodeId: node,
+        priority: 60,
+        capabilities: ['local', tier],
+      })
+    }
+  }
+  return discovered
+}
+
 async function startupTasks(): Promise<void> {
   try {
     await heartbeatNode(config.nodeId, config.nodeId, 'brain', ['router', 'ollama', 'orchestrator'])
-    await router.discoverLocalModels().catch(() => null)
+    // Register local models so the orchestrator has candidates (not just list them).
+    await registerDiscoveredModels().catch(() => null)
+    // Start the Hermes routing-brain poller (claims hermes.routing_requests).
+    startOrchestratorPoller()
   } catch (e) {
     fastify.log.warn({ err: e }, 'startup_tasks_failed')
   }

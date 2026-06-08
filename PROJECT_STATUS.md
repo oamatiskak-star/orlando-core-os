@@ -4,6 +4,29 @@
 
 ---
 
+## 🔴 HERSTEL HIER NA CRASH (sessie 17 — Hermes Core OS v2 self-routing brein)
+
+**Focus (2026-06-08, sessie 17):** Hermes ombouwen van command-router naar self-routing AI OS. 6-lagen pipeline (Project→Memory→Skill→Agent→Board) + GPT/Claude preflight (advisory) + model-router + incident-mode + auto-dispatch. Lokaal-eerst (80-90% via Ollama), DB-bemiddeld tussen Vercel-dashboard en lokale orchestrator op CLI-L. Plan: `~/.claude/plans/concurrent-mapping-finch.md`.
+
+**Architectuur:** dashboard schrijft `hermes.routing_requests` → lokale `ai-router` (PM2, naast Ollama) claimt via `routing_claim` RPC → draait pipeline → schrijft `hermes.routing_plans` → dashboard pollt. Geen tunnel. Reversibel werk → `hermes.dispatch_queue`; onomkeerbaar (stripe/prod-migratie/git push/vercel deploy) → `hermes.approvals` (HARDE GATE, Vercel registreert alleen, voert niet uit).
+
+**✅ GEBOUWD (typecheck schoon: router `npm run build` ok, frontend `tsc --noEmit` 0 errors; mistral L1 live geverifieerd → Aquier 0.95 in 18 tokens, lokaal):**
+- **Migratie `supabase/migrations/124_hermes_routing_brain.sql`** (NIET toegepast — hard gate): tabellen `routing_requests`/`routing_plans`/`boards`/`approvals` + `routing_claim()` RPC (kopie dispatch_claim, incidenten eerst) + RLS (service_role full, auth_read op plans/boards/approvals) + `hermes.skills.metadata`-kolom + seed 10 skills + 7 boards + engine_schedule-rij `ai:router-orchestrator`.
+- **Orchestrator** `ai-os/router/src/orchestrator/`: shared.ts, project-engine.ts (L1), memory-engine.ts (L2, defensief tegen embed-dim mismatch), skill-match.ts (L3), agent-match.ts (L4, leest .claude/agents frontmatter gecached), board-engine.ts (L5), preflight.ts (GPT+Claude advisory, Claude alleen bij code/arch/audit, degradeert zonder keys), incident.ts, dispatch.ts (reversibel→queue, onomkeerbaar→approvals), orchestrator.ts (runPlan), poller.ts (5s claim-loop).
+- **server.ts**: poller gestart in startupTasks + `registerDiscoveredModels()` bij boot (anders geen ai_models → geen kandidaten) + debug-endpoint `POST /v1/routing/run`.
+- **Frontend**: `lib/hermes/routing-client.ts` (submit/poll/format) + `command-router.ts` `INCIDENT_PATTERNS`/`detectIncident` + chat-route `unknown`-branch → `handleBrainOrFallback` (30s poll, valt terug op Claude `handleUnknown` als orchestrator offline) + `app/api/hermes/approvals/route.ts` (approve/reject, alleen registreren) + `components/dashboard/hermes/RoutingPlanPanel.tsx` + `ApprovalButtons.tsx` (gemount op `/dashboard/operations/hermes`).
+- **PM2**: `ai-router`-app in `ecosystem.cli-l.config.js` (port 8787, OLLAMA localhost, AI_EMBED_DIM=768).
+
+**⚠️ OPEN ACTIES ORLANDO (hard gates / niet door mij uitgevoerd):**
+1. **Migratie 124 toepassen** op DB `shaunumewswpxhmgbtvv` (prod-DB migratie = hard gate). Verifieer: `select count(*) from hermes.skills` ≥10, `hermes.boards`=7, RPC `hermes.routing_claim` bestaat.
+2. **EMBED-DIM check vóór live memory:** `ai_memory.embedding` kolom-dim moet 768 zijn (nomic) — memory-engine is defensief (skipt bij mismatch) dus pipeline breekt niet, maar L2 levert dan niks tot dim klopt.
+3. **ai-router starten op CLI-L:** `cd ai-os/router && npm install && npm run build` → `pm2 start ecosystem.cli-l.config.js --only ai-router` (env: SUPABASE_URL/SERVICE_ROLE_KEY + optioneel ANTHROPIC/OPENAI keys uit host-env). Test: `curl -XPOST localhost:8787/v1/routing/run -H 'x-api-key: <AI_ROUTER_API_KEY>' -d '{"company_id":"<uuid>","raw_message":"conversie Aquier checkout te laag"}'`.
+4. **Niet gepusht/gemerged** — alles op werkboom (deze o.s.m.amatiskak-kopie levert via GitHub). Branch + PR nodig.
+
+**Niet gedaan (volgende sessie indien gewenst):** live end-to-end run (vereist migratie+creds), memory seeden per project (scope='project', scopeRef=projectnaam), .claude/agents↔hermes.subagents naam-alignment.
+
+---
+
 ## 🔴 HERSTEL HIER NA CRASH (sessie 16 — Hermes terminal-agent)
 
 **Focus (2026-06-02, sessie 16):** Hermes bereikbaar maken in de terminal zoals Claude Code (kent ALLE commando's, leest begrijpend — geen vast menu).
