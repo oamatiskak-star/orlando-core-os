@@ -34,6 +34,7 @@ type Row = {
   selected_thumbnail: string | null
   music_selected: boolean
   music_provider: string | null
+  learning_status: string
   updated_at: string | null
 }
 
@@ -98,6 +99,7 @@ export default function ContentQualityCenter() {
               {DIMS.map((d) => <th key={d.key} className="p-2 text-center">{d.label}</th>)}
               <th className="p-2 text-center">Thumb-set</th>
               <th className="p-2 text-center">Muziek</th>
+              <th className="p-2 text-center">Learning</th>
               <th className="p-2 text-center">Gate</th>
               <th className="p-2 text-center">Upload</th>
               <th className="p-3 text-left">Status / reden</th>
@@ -123,6 +125,12 @@ export default function ContentQualityCenter() {
                 <td className="p-2 text-center text-xs">
                   {r.music_selected ? <span className="text-emerald-700 font-semibold">{r.music_provider ?? 'ja'}</span> : <span className="text-stone-400">—</span>}
                 </td>
+                <td className="p-2 text-center text-[11px]">
+                  <span className={clsx('px-1.5 py-0.5 rounded',
+                    r.learning_status === 'completed' ? 'text-emerald-700 bg-emerald-50'
+                    : r.learning_status?.startsWith('blocked') ? 'text-red-700 bg-red-50'
+                    : 'text-stone-500 bg-stone-100')}>{r.learning_status ?? 'pending'}</span>
+                </td>
                 <td className="p-2 text-center">
                   {r.gate_passed
                     ? <ShieldCheck size={16} className="text-emerald-600 inline" />
@@ -139,7 +147,7 @@ export default function ContentQualityCenter() {
               </tr>
             ))}
             {!loading && rows.length === 0 && (
-              <tr><td colSpan={DIMS.length + 6} className="p-8 text-center text-stone-400 text-sm">Nog geen gescoorde video-projecten.</td></tr>
+              <tr><td colSpan={DIMS.length + 7} className="p-8 text-center text-stone-400 text-sm">Nog geen gescoorde video-projecten.</td></tr>
             )}
           </tbody>
         </table>

@@ -27,6 +27,7 @@ export async function GET() {
   const reworkMap: Record<string, string | null> = {}
   const thumbMap: Record<string, { count: number; chosen: string | null }> = {}
   const musicMap: Record<string, { score: number | null; provider: string | null }> = {}
+  const learnMap: Record<string, string> = {}
   if (ids.length > 0) {
     const { data: projs } = await admin.from('video_projects').select('id, rework_reason').in('id', ids)
     for (const p of (projs ?? []) as any[]) reworkMap[p.id] = p.rework_reason ?? null
@@ -38,6 +39,9 @@ export async function GET() {
     }
     const { data: musics } = await admin.from('audio_assets').select('project_id, final_score, provider').eq('kind', 'music').in('project_id', ids)
     for (const m of (musics ?? []) as any[]) musicMap[m.project_id] = { score: m.final_score ?? null, provider: m.provider ?? null }
+    // learning_status (FASE 5) — defensief: video_learning_summary kan nog ontbreken (migr 154 niet toegepast) → default 'pending'
+    const { data: ls } = await admin.from('video_learning_summary').select('video_project_id, learning_status').in('video_project_id', ids)
+    for (const l of (ls ?? []) as any[]) learnMap[l.video_project_id] = l.learning_status ?? 'pending'
   }
 
   const rows = base.map((r) => ({
@@ -48,6 +52,7 @@ export async function GET() {
     selected_thumbnail: thumbMap[r.project_id]?.chosen ?? null,
     music_selected: !!musicMap[r.project_id],
     music_provider: musicMap[r.project_id]?.provider ?? null,
+    learning_status: learnMap[r.project_id] ?? 'pending',
   }))
   return NextResponse.json({ ok: true, rows })
 }
