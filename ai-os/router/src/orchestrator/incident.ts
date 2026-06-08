@@ -5,14 +5,25 @@ import { hermesDb } from './shared.js'
  * command-router INCIDENT_PATTERNS (cannot import frontend TS from here).
  */
 export const INCIDENT_PATTERNS: RegExp[] = [
-  /betaling.*(werkt niet|mislukt|kan niet|faalt)/i,
+  // betalingen
+  /betaling(en)?.*(werkt? niet|werken niet|mislukt|mislukken|kan niet|faalt|falen)/i,
   /(kan|kunnen).*niet.*betal/i,
+  // login
   /login.*(werkt niet|mislukt|kan niet)/i,
   /(kan|kunnen).*niet.*inlogg/i,
-  /website.*(offline|plat|down|onbereikbaar)/i,
+  // checkout
+  /checkout.*(werkt niet|mislukt|hangt|kan niet)/i,
+  // website / pagina laadt of werkt niet
+  /(website|site|pagina|homepage).*(offline|plat|down|onbereikbaar|laadt? niet|laden niet|werkt niet|werken niet)/i,
+  // deployment
   /deployment.*(fout|mislukt|faalt|gefaald)/i,
+  /deploy.*(mislukt|faalt|gefaald)/i,
+  // data
   /data.*(kwijt|weg|verloren|gewist)/i,
-  /pdf.*(fout|mislukt|niet gegenereerd|kapot)/i,
+  // pdf
+  /pdf.*(fout|mislukt|niet gegenereerd|kapot|werkt niet|lukt niet)/i,
+  // generieke storingsfrasen
+  /\b(laadt|laden|werkt|werken|reageert)\s+niet\b/i,
 ]
 
 export function detectIncident(message: string): boolean {
