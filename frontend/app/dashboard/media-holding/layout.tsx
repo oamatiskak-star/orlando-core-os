@@ -5,7 +5,7 @@ import { usePathname } from 'next/navigation'
 import clsx from 'clsx'
 import {
   LayoutGrid, Layers, Video, Clapperboard, Server,
-  BarChart3, Crosshair, Settings as SettingsIcon, Archive, Crown,
+  BarChart3, Crosshair, Settings as SettingsIcon, Archive, Crown, ShieldCheck,
 } from 'lucide-react'
 
 const TABS = [
@@ -14,6 +14,7 @@ const TABS = [
   { label: 'Build Tracker',   href: '/dashboard/media-holding/build',     icon: Layers },
   { label: 'Channels',        href: '/dashboard/media-holding/channels',  icon: Video },
   { label: 'Content Factory', href: '/dashboard/media-holding/factory',   icon: Clapperboard },
+  { label: 'Quality Center',  href: '/dashboard/media-holding/content-quality-center', icon: ShieldCheck },
   { label: 'Analytics',       href: '/dashboard/media-holding/analytics', icon: BarChart3 },
   { label: 'Compete',         href: '/dashboard/media-holding/compete',   icon: Crosshair },
   { label: 'Workers',         href: '/dashboard/media-holding/workers',   icon: Server },

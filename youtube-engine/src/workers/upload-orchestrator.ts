@@ -65,6 +65,23 @@ async function getOverQuotaChannelIds(limits: Record<string, number>): Promise<s
     .map(([id]) => id)
 }
 
+// Content Factory 2.0 upload-protection gate.
+// Returns { gated, reason }. If a queue item has NO linked video_projects row
+// (all legacy uploads), the gate is bypassed (gated=false) so nothing currently
+// in production breaks. A linked project must pass ALL score thresholds AND be
+// approved (enforced in SQL via video_project_gate_status.upload_eligible).
+async function checkUploadGate(queueId: string): Promise<{ gated: boolean; reason: string | null }> {
+  const db = getSupabase()
+  const { data } = await db
+    .from('video_project_gate_status')
+    .select('upload_eligible, block_reason')
+    .eq('youtube_upload_queue_id', queueId)
+    .maybeSingle()
+  if (!data) return { gated: false, reason: null }          // geen CF2-project → legacy passthrough
+  if (data.upload_eligible) return { gated: false, reason: null }
+  return { gated: true, reason: data.block_reason ?? 'gate_failed' }
+}
+
 async function pollQueuedItems(): Promise<void> {
   const db = getSupabase()
 
@@ -107,6 +124,23 @@ async function pollQueuedItems(): Promise<void> {
       })
       const { data: ch } = await db.from('youtube_channels').select('naam').eq('id', item.channel_id).maybeSingle()
       await notifyQuotaLimit(ch?.naam ?? item.channel_id, uploadedToday, channelLimit)
+      continue
+    }
+
+    // Content Factory 2.0 gate — block under-threshold / unapproved projects before enqueue.
+    // Legacy items (no linked video_projects row) pass through unaffected.
+    const gate = await checkUploadGate(item.id)
+    if (gate.gated) {
+      log.warn('Upload gate blocked item', { queueId: item.id, reason: gate.reason })
+      // manual_review_required is an existing queue status; pollQueuedItems only
+      // re-selects ('queued','retrying'), so a gated item stops being re-polled
+      // until a human re-queues it after fixing scores.
+      await updateQueueStatus(item.id, 'manual_review_required', {
+        last_error: `CF2.0 gate: ${gate.reason}`,
+      })
+      await db.from('video_projects')
+        .update({ status: 'blocked', gate_blocked_reason: gate.reason })
+        .eq('youtube_upload_queue_id', item.id)
       continue
     }
 
