@@ -7,11 +7,13 @@ export const PROJECTS = [
   'Aquier',
   'SterkCalc',
   'Vastgoed Core OS',
+  'STRKBOUW',
+  'STRKBEHEER',
   'YouTube Engine',
+  'Affiliate Engine',
   'Trading Engine',
   'Administratie',
   'Marketing',
-  'Bouwcalculator',
 ] as const
 export type ProjectName = (typeof PROJECTS)[number]
 
