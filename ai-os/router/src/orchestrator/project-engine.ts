@@ -77,7 +77,14 @@ interface Scored {
 }
 
 function hit(message: string, toks: Set<string>, word: string): boolean {
-  return word.includes(' ') ? message.includes(word) : toks.has(word)
+  if (word.includes(' ')) return message.includes(word)
+  if (toks.has(word)) return true
+  // Samengestelde woorden (NL): "belastingaangifte"⊃"belasting", "kanaalgroei"⊃"kanaal".
+  // Alleen voor onderscheidende woorden (≥5 tekens) → geen false hits op 'api'/'ads'/'seo'.
+  if (word.length >= 5) {
+    for (const t of toks) if (t.includes(word)) return true
+  }
+  return false
 }
 
 function scoreProjects(message: string, boosts: Partial<Record<ProjectName, number>>): Scored {
