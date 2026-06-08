@@ -37,3 +37,4 @@ ai-os/router/node_modules/
 ai-os/router/dist/
 ai-os/worker-node/node_modules/
 ai-os/worker-node/dist/
+ai-os/router/.env

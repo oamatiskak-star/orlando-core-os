@@ -98,7 +98,8 @@ module.exports = {
       name:         'ai-router',
       cwd:          `${BASE}/ai-os/router`,
       script:       'node',
-      args:         'dist/server.js',
+      // --import ws-preload: levert global WebSocket op Node <22 (supabase-realtime).
+      args:         '--import ./ws-preload.mjs dist/server.js',
       interpreter:  'none',
       watch:         false,
       autorestart:   true,
