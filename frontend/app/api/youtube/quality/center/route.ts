@@ -20,10 +20,34 @@ export async function GET() {
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
   // v_video_cqi staat niet in de gegenereerde Supabase-types → cast naar any[].
-  const rows = ((data ?? []) as any[]).map((r) => ({
+  const base = (data ?? []) as any[]
+  const ids = base.map((r) => r.project_id)
+
+  // Verrijking (FASE H): thumbnail-varianten, gekozen thumbnail, muziek, rework_reason.
+  const reworkMap: Record<string, string | null> = {}
+  const thumbMap: Record<string, { count: number; chosen: string | null }> = {}
+  const musicMap: Record<string, { score: number | null; provider: string | null }> = {}
+  if (ids.length > 0) {
+    const { data: projs } = await admin.from('video_projects').select('id, rework_reason').in('id', ids)
+    for (const p of (projs ?? []) as any[]) reworkMap[p.id] = p.rework_reason ?? null
+    const { data: tvs } = await admin.from('thumbnail_variants').select('project_id, variant, chosen').in('project_id', ids)
+    for (const t of (tvs ?? []) as any[]) {
+      const e = thumbMap[t.project_id] ?? { count: 0, chosen: null }
+      e.count += 1; if (t.chosen) e.chosen = t.variant
+      thumbMap[t.project_id] = e
+    }
+    const { data: musics } = await admin.from('audio_assets').select('project_id, final_score, provider').eq('kind', 'music').in('project_id', ids)
+    for (const m of (musics ?? []) as any[]) musicMap[m.project_id] = { score: m.final_score ?? null, provider: m.provider ?? null }
+  }
+
+  const rows = base.map((r) => ({
     ...r,
-    // upload_eligible = puur afgeleid (read-only): approval + gate. Geen actie hier.
     upload_eligible: r.approved === true && r.gate_passed === true,
+    rework_reason: reworkMap[r.project_id] ?? null,
+    thumbnail_variant_count: thumbMap[r.project_id]?.count ?? 0,
+    selected_thumbnail: thumbMap[r.project_id]?.chosen ?? null,
+    music_selected: !!musicMap[r.project_id],
+    music_provider: musicMap[r.project_id]?.provider ?? null,
   }))
   return NextResponse.json({ ok: true, rows })
 }

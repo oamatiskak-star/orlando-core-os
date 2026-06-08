@@ -29,6 +29,11 @@ type Row = {
   gate_passed: boolean | null
   gate_reason: string | null
   upload_eligible: boolean
+  rework_reason: string | null
+  thumbnail_variant_count: number
+  selected_thumbnail: string | null
+  music_selected: boolean
+  music_provider: string | null
   updated_at: string | null
 }
 
@@ -91,6 +96,8 @@ export default function ContentQualityCenter() {
             <tr className="bg-stone-50 text-stone-500 text-xs uppercase tracking-wider">
               <th className="text-left p-3">Video</th>
               {DIMS.map((d) => <th key={d.key} className="p-2 text-center">{d.label}</th>)}
+              <th className="p-2 text-center">Thumb-set</th>
+              <th className="p-2 text-center">Muziek</th>
               <th className="p-2 text-center">Gate</th>
               <th className="p-2 text-center">Upload</th>
               <th className="p-3 text-left">Status / reden</th>
@@ -109,6 +116,13 @@ export default function ContentQualityCenter() {
                     <span className={clsx('inline-block min-w-[2.2rem] px-1.5 py-0.5 rounded font-semibold text-xs', scoreClass(v))}>{v ?? '—'}</span>
                   </td>
                 })}
+                <td className="p-2 text-center text-xs">
+                  <span className="text-stone-600">{r.thumbnail_variant_count}×</span>
+                  {r.selected_thumbnail ? <span className="ml-1 text-emerald-700 font-semibold">{r.selected_thumbnail}</span> : <span className="ml-1 text-stone-400">—</span>}
+                </td>
+                <td className="p-2 text-center text-xs">
+                  {r.music_selected ? <span className="text-emerald-700 font-semibold">{r.music_provider ?? 'ja'}</span> : <span className="text-stone-400">—</span>}
+                </td>
                 <td className="p-2 text-center">
                   {r.gate_passed
                     ? <ShieldCheck size={16} className="text-emerald-600 inline" />
@@ -120,11 +134,12 @@ export default function ContentQualityCenter() {
                 <td className="p-3">
                   <div className="text-xs text-stone-600">{r.status}</div>
                   {r.gate_reason && <div className="text-[11px] text-red-500 truncate max-w-[280px]" title={r.gate_reason}>{r.gate_reason}</div>}
+                  {r.rework_reason && r.rework_reason !== r.gate_reason && <div className="text-[11px] text-amber-600 truncate max-w-[280px]" title={r.rework_reason}>rework: {r.rework_reason}</div>}
                 </td>
               </tr>
             ))}
             {!loading && rows.length === 0 && (
-              <tr><td colSpan={DIMS.length + 4} className="p-8 text-center text-stone-400 text-sm">Nog geen gescoorde video-projecten.</td></tr>
+              <tr><td colSpan={DIMS.length + 6} className="p-8 text-center text-stone-400 text-sm">Nog geen gescoorde video-projecten.</td></tr>
             )}
           </tbody>
         </table>

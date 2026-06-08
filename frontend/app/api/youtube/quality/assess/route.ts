@@ -63,11 +63,20 @@ export async function POST(req: NextRequest) {
   const premiumVoice = voice?.provider === 'elevenlabs' || voice?.provider === 'openai_tts'
   const voice_score = voice ? (premiumVoice ? clamp(voice.final_score ?? 96) : 80) : 0
 
-  // ── Thumbnail / Music: nog geen engine → pending (blokkeert de gate bewust) ──
-  const thumbPending = true   // FASE: thumbnail-engine volgt
-  const musicPending = true   // FASE: music-engine volgt
-  const thumbnail_score = 0
-  const music_score = 0
+  // ── Thumbnail (FASE E): gekozen/hoogste variant uit thumbnail_variants ──
+  const { data: thumbs } = await admin.from('thumbnail_variants')
+    .select('thumbnail_score, chosen').eq('project_id', video_project_id)
+    .order('thumbnail_score', { ascending: false })
+  const thumbPending = !thumbs || thumbs.length === 0
+  const chosenThumb = (thumbs ?? []).find((t) => t.chosen) ?? (thumbs ?? [])[0]
+  const thumbnail_score = chosenThumb ? clamp(chosenThumb.thumbnail_score) : 0
+
+  // ── Music (FASE F): laatste audio_assets(kind='music') ──
+  const { data: music } = await admin.from('audio_assets')
+    .select('final_score').eq('project_id', video_project_id).eq('kind', 'music')
+    .order('created_at', { ascending: false }).limit(1).maybeSingle()
+  const musicPending = !music
+  const music_score = music ? clamp(music.final_score) : 0
 
   // ── LLM-dimensies (tekst) ──
   let llm: LlmScores = { hook_score: 0, retention_prediction: 0, cta_score: 0, title_score: 0, content_reject: { reject: true, reasons: ['llm_unavailable'] } }
