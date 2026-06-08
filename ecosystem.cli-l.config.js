@@ -88,5 +88,35 @@ module.exports = {
       error_file:    '/tmp/pm2-yt-discovery-err.log',
       time:          true,
     },
+
+    // ── AI Router + Hermes routing-brein (orchestrator-poller) ──
+    // Draait naast Ollama op CLI-L. Local-first routing + de 6-lagen pipeline.
+    // Build vooraf: cd ai-os/router && npm install && npm run build.
+    // Provider-keys (ANTHROPIC/OPENAI) optioneel — zonder keys degradeert
+    // preflight naar local-only advies. SUPABASE_* uit host-env.
+    {
+      name:         'ai-router',
+      cwd:          `${BASE}/ai-os/router`,
+      script:       'node',
+      args:         'dist/server.js',
+      interpreter:  'none',
+      watch:         false,
+      autorestart:   true,
+      max_restarts:  999,
+      restart_delay: 10000,
+      env: {
+        NODE_ENV:        'production',
+        AI_NODE_ID:      'cli-l',
+        AI_ROUTER_PORT:  '8787',
+        AI_ROUTER_HOST:  '127.0.0.1',
+        OLLAMA_BASE_URL: 'http://localhost:11434',
+        AI_LOCAL_FIRST:  '1',
+        AI_EMBED_MODEL:  'nomic-embed-text',
+        AI_EMBED_DIM:    '768', // nomic-embed-text levert 768 dims (NIET 1024)
+      },
+      log_file:      '/tmp/pm2-ai-router.log',
+      error_file:    '/tmp/pm2-ai-router-err.log',
+      time:          true,
+    },
   ],
 }

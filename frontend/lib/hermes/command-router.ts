@@ -215,3 +215,23 @@ export function parseCommand(raw: string): ParsedCommand {
   // 11. Onbekend
   return { kind: 'unknown', hosts, raw: text, understood: 'Niet herkend als commando' }
 }
+
+/**
+ * Incident-patronen (single source of truth). Houd de woording identiek aan de
+ * orchestrator-kopie in ai-os/router/src/orchestrator/incident.ts — die kan deze
+ * frontend-module niet importeren.
+ */
+export const INCIDENT_PATTERNS: RegExp[] = [
+  /betaling.*(werkt niet|mislukt|kan niet|faalt)/i,
+  /(kan|kunnen).*niet.*betal/i,
+  /login.*(werkt niet|mislukt|kan niet)/i,
+  /(kan|kunnen).*niet.*inlogg/i,
+  /website.*(offline|plat|down|onbereikbaar)/i,
+  /deployment.*(fout|mislukt|faalt|gefaald)/i,
+  /data.*(kwijt|weg|verloren|gewist)/i,
+  /pdf.*(fout|mislukt|niet gegenereerd|kapot)/i,
+]
+
+export function detectIncident(message: string): boolean {
+  return INCIDENT_PATTERNS.some((re) => re.test(message))
+}

@@ -1,6 +1,7 @@
 import { createAdminClient } from '@/lib/supabase/admin'
 import Link from 'next/link'
 import { Cpu, ArrowRightLeft, ShieldAlert, Gauge, ScanLine, Bot } from 'lucide-react'
+import RoutingPlanPanel from '@/components/dashboard/hermes/RoutingPlanPanel'
 
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
@@ -98,6 +99,9 @@ export default async function HermesCockpitPage() {
             <Tile icon={<ShieldAlert size={12} />} label="Open findings" value={errs.critical + errs.high + errs.medium + errs.low} sub={`${errs.critical} crit · ${errs.high} high`} />
             <Tile icon={<ShieldAlert size={12} />} label="Escalaties" value={escalationsOpen} sub={`${approvalsPending} CEO-approvals`} />
           </div>
+
+          {/* Routing-brein (self-routing AI OS) */}
+          <RoutingPlanPanel />
 
           {/* Hosts */}
           <Section title="Hosts (CLI-L / CLI-R)" href="/dashboard/operations/dispatch" hrefLabel="Naar dispatch-bord →">
