@@ -19,7 +19,7 @@ async function v(db: ReturnType<typeof createAdminClient>, view: string, opts?: 
 
 export default async function HermesControlCenter() {
   const db = createAdminClient()
-  const [cc, tok, models, projects, skills, agents, playbooks, failures, skillPerf] = await Promise.all([
+  const [cc, tok, models, projects, skills, agents, playbooks, failures, skillPerf, producers, consumers, queueH] = await Promise.all([
     v(db, 'v_control_center', { single: true }) as Promise<any>,
     v(db, 'v_token_intelligence', { single: true }) as Promise<any>,
     v(db, 'v_model_usage') as Promise<any[]>,
@@ -29,6 +29,9 @@ export default async function HermesControlCenter() {
     v(db, 'v_playbook_usage', { limit: 8 }) as Promise<any[]>,
     v(db, 'v_failure_intelligence', { limit: 8 }) as Promise<any[]>,
     v(db, 'v_skill_performance', { limit: 8 }) as Promise<any[]>,
+    v(db, 'v_producer_stats') as Promise<any[]>,
+    v(db, 'v_consumer_stats') as Promise<any[]>,
+    v(db, 'v_queue_health', { single: true }) as Promise<any>,
   ])
 
   // Systeem-checks (router/ollama = process-laag → afgeleid uit recente activiteit + queue).
@@ -52,6 +55,28 @@ export default async function HermesControlCenter() {
         <Tile icon={<Cpu size={12} />} label="Queue / in-flight" value={`${queue} / ${inFlight}`} />
         <Tile icon={<Cpu size={12} />} label="Escalaties 24u" value={cc?.escalations_24h ?? 0} />
       </div>
+
+      {/* Execution OS — producers / consumers / queue (FASE 11) */}
+      <Section title="Execution OS — producers → Hermes → dispatch → executie">
+        <div className="grid grid-cols-2 md:grid-cols-6 gap-2 mb-2">
+          <KV k="Queue" v={queueH?.queued ?? 0} />
+          <KV k="Running" v={queueH?.running ?? 0} />
+          <KV k="Uitgevoerd" v={queueH?.done ?? 0} tone="emerald" />
+          <KV k="Failed" v={queueH?.failed ?? 0} tone={queueH?.failed ? 'amber' : undefined} />
+          <KV k="Stuck" v={queueH?.stuck ?? 0} tone={queueH?.stuck ? 'amber' : undefined} />
+          <KV k="Producers" v={producers.length} />
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <div>
+            <div className="text-[10.5px] text-white/45 mb-1">Producers (requests 24u/7d/30d)</div>
+            <Table head={['Producer', '24u', '7d', '30d']} rows={producers.map((p) => [p.producer, p.requests_24h, p.requests_7d, p.requests_30d])} />
+          </div>
+          <div>
+            <div className="text-[10.5px] text-white/45 mb-1">Consumers (Hermes-dispatch)</div>
+            <Table head={['Consumer', 'Items', 'Done', 'Failed', 'Open']} rows={consumers.map((c) => [c.consumer, c.items, c.done, c.failed, c.open])} />
+          </div>
+        </div>
+      </Section>
 
       {/* Token intelligence */}
       <Section title="Token Intelligence (24u) — lokaal vs all-Claude">

@@ -17,6 +17,7 @@ import {
 import { invalidateRegistry, loadModels, upsertModel } from './registry.js'
 import { db, logRouter } from './db.js'
 import { startOrchestratorPoller } from './orchestrator/poller.js'
+import { startExecutorPoller } from './orchestrator/executor.js'
 import { runPlan } from './orchestrator/orchestrator.js'
 import { hermesDb, type RoutingRequestRow } from './orchestrator/shared.js'
 
@@ -367,6 +368,8 @@ async function startupTasks(): Promise<void> {
     await registerDiscoveredModels().catch(() => null)
     // Start the Hermes routing-brain poller (claims hermes.routing_requests).
     startOrchestratorPoller()
+    // Start the Hermes executor (consumes + executes dispatched analysis-taken).
+    startExecutorPoller()
   } catch (e) {
     fastify.log.warn({ err: e }, 'startup_tasks_failed')
   }
