@@ -10,8 +10,11 @@
 -- Bouwt UITSLUITEND de dataspine, de Content Impact Score en de upload-gate.
 -- Geen AI-engines, geen externe calls. Breidt bestaande Media Holding OS uit;
 -- dupliceert geen bestaande tabellen (bridge via nullable FK's).
--- North Star = CONTENT IMPACT SCORE = 40% revenue + 30% leads + 20% authority
--- + 10% viral growth.
+-- North Star = CONTENT IMPACT SCORE = revenue/leads/authority/viral, gewogen via
+-- de content_impact_weights config-tabel (default 40/30/20/10) en LIVE berekend in
+-- de gate-view — gewichten wijzigbaar zonder schema-migratie/rewrite/backfill.
+-- Hardening R1-R5: multi-valuta, product-neutrale attributie, flexibele CIS,
+-- multi-channel (platform), uitgebreide funnel/platform CHECK's.
 -- ════════════════════════════════════════════════════════════════════════════
 
 -- ── shared updated_at trigger (eigen, ordering-onafhankelijk) ────────────────
@@ -25,6 +28,36 @@ begin
 end;
 $$;
 
+-- ── R3. Content Impact Score config — gewichten als DATA, niet als schema ─────
+-- De CIS-gewichten zijn business-policy, geen datamodel. Ze leven in een
+-- single-row config-tabel en worden gewijzigd via UPDATE (geen schema-migratie,
+-- geen data-rewrite, geen backfill). CIS wordt LIVE berekend uit de opgeslagen
+-- subscores in video_scores via de functie hieronder + de gate-view.
+create table if not exists public.content_impact_weights (
+  id               integer primary key default 1 check (id = 1),  -- afdwingen: single row
+  weight_revenue   numeric(4,3) not null default 0.40,
+  weight_leads     numeric(4,3) not null default 0.30,
+  weight_authority numeric(4,3) not null default 0.20,
+  weight_viral     numeric(4,3) not null default 0.10,
+  updated_at       timestamptz  not null default now()
+);
+insert into public.content_impact_weights (id) values (1) on conflict (id) do nothing;
+
+create or replace function public.content_impact_score(
+  p_revenue integer, p_leads integer, p_authority integer, p_viral integer)
+returns numeric
+language sql
+stable
+set search_path = public, pg_temp
+as $f$
+  select round(
+    coalesce(p_revenue,0)   * w.weight_revenue +
+    coalesce(p_leads,0)     * w.weight_leads +
+    coalesce(p_authority,0) * w.weight_authority +
+    coalesce(p_viral,0)     * w.weight_viral, 2)
+  from public.content_impact_weights w where w.id = 1;
+$f$;
+
 -- ── 1. video_projects — de spine, bridge tussen content- en upload-pipeline ──
 create table if not exists public.video_projects (
   id                      uuid primary key default gen_random_uuid(),
@@ -32,6 +65,11 @@ create table if not exists public.video_projects (
   content_item_id         uuid references public.media_holding_content_items(id) on delete set null,
   channel_id              uuid references public.media_holding_channels(id) on delete set null,
   youtube_upload_queue_id uuid references public.youtube_upload_queue(id) on delete set null,
+  -- R4 kanaal-neutraliteit: platform van dit project (vrije tekst, geen CHECK om
+  -- toekomstige kanalen toe te voegen zonder migratie). De YT-specifieke pointer
+  -- staat hierboven; niet-YT-publishers koppelen hun publicatie platform-neutraal
+  -- via media_holding_uploads en raadplegen dezelfde gate (video_project_gate_status).
+  platform                text not null default 'youtube',
   -- identiteit
   title                   text,
   hook                    text,
@@ -58,6 +96,7 @@ create index if not exists idx_video_projects_queue    on public.video_projects(
 create index if not exists idx_video_projects_content  on public.video_projects(content_item_id);
 create index if not exists idx_video_projects_channel  on public.video_projects(channel_id);
 create index if not exists idx_video_projects_category on public.video_projects(content_category);
+create index if not exists idx_video_projects_platform on public.video_projects(platform);
 
 -- ── 2. video_scores — 1:N versioned; laatste versie telt ─────────────────────
 create table if not exists public.video_scores (
@@ -78,13 +117,10 @@ create table if not exists public.video_scores (
   leads_score          integer not null default 0 check (leads_score between 0 and 100),
   authority_score      integer not null default 0 check (authority_score between 0 and 100),
   viral_score          integer not null default 0 check (viral_score between 0 and 100),
-  -- CONTENT IMPACT SCORE = 40% revenue + 30% leads + 20% authority + 10% viral
-  content_impact_score numeric(6,2) generated always as (
-    revenue_score   * 0.40 +
-    leads_score     * 0.30 +
-    authority_score * 0.20 +
-    viral_score     * 0.10
-  ) stored,
+  -- R3: GEEN stored content_impact_score meer. CIS wordt live afgeleid uit deze
+  -- 4 subscores via public.content_impact_score(...) + config-gewichten, zodat
+  -- gewichten wijzigbaar zijn zonder schema-migratie/rewrite. (Subscores blijven
+  -- de bron; CIS is altijd herleidbaar en point-in-time-snapshotbaar indien later nodig.)
   scored_by            text not null default 'manual' check (scored_by in ('manual','agent')),
   notes                text,
   created_at           timestamptz not null default now(),
@@ -99,7 +135,7 @@ create table if not exists public.viral_patterns (
   pattern_type text not null,
   descriptor   jsonb not null default '{}'::jsonb,
   niche        text,
-  platform     text check (platform in ('youtube','tiktok','instagram','facebook','snapchat','reddit')),
+  platform     text check (platform in ('youtube','tiktok','instagram','facebook','snapchat','reddit','linkedin','x')),
   success_rate numeric(5,2) not null default 0 check (success_rate between 0 and 100),
   sample_size  integer not null default 0,
   conditions   jsonb not null default '{}'::jsonb,
@@ -119,12 +155,23 @@ create table if not exists public.video_attribution (
   utm_campaign           text,
   utm_content            text,   -- conventie: utm_content = project_id
   utm_term               text,
-  stage                  text not null check (stage in ('click','lead','sale')),
+  -- R5: volledige funnel-stages incl. abonnement + netto-omzet correcties
+  stage                  text not null check (stage in (
+                            'click','lead','signup','trial','subscription_started',
+                            'sale','upsell','refund','chargeback')),
   -- hergebruik bestaande monetisatie-graph i.p.v. dupliceren
   affiliate_link_id      uuid references public.affiliate_links(id) on delete set null,
   monetization_stream_id uuid references public.monetization_streams(id) on delete set null,
+  -- R2: product-neutrale attributie (vrije tekst; GEEN FK/CHECK naar huidige
+  -- productset → Deal Scan, Premium Deal Scan, Transformatie Analyse, Ontwikkelrapport,
+  -- Financieringsmemo, Membership, Mandaat I-V, Capital Desk, toekomstige SaaS).
+  product_type           text,
+  product_ref            text,
+  order_id               text,            -- bv. Stripe order/session id (cross-systeem)
   lead_email             text,
   revenue                numeric(14,2) not null default 0,
+  -- R1: multi-valuta (EUR/USD/GBP/AED/…); default EUR (basismarkt NL).
+  currency               text not null default 'EUR',
   external_ref           text,
   raw_payload            jsonb not null default '{}'::jsonb,
   occurred_at            timestamptz not null default now(),
@@ -135,6 +182,8 @@ create index if not exists idx_video_attr_stage        on public.video_attributi
 create index if not exists idx_video_attr_campaign     on public.video_attribution(utm_campaign);
 create index if not exists idx_video_attr_affiliate    on public.video_attribution(affiliate_link_id);
 create index if not exists idx_video_attr_monetization on public.video_attribution(monetization_stream_id);
+create index if not exists idx_video_attr_product      on public.video_attribution(product_type);
+create index if not exists idx_video_attr_order        on public.video_attribution(order_id);
 
 -- ── 5. upload-eligibility functie — exacte gate-drempels, één bron ───────────
 create or replace function public.video_project_upload_eligible(p_project_id uuid)
@@ -177,7 +226,10 @@ select
   s.hook_score, s.thumbnail_score, s.voice_score, s.visual_score,
   s.music_score, s.cta_score, s.retention_prediction, s.cqi,
   s.revenue_score, s.leads_score, s.authority_score, s.viral_score,
-  s.content_impact_score,
+  -- R3: CIS live afgeleid uit subscores + config-gewichten (null als nog niet gescoord)
+  case when s.id is null then null
+       else public.content_impact_score(s.revenue_score, s.leads_score, s.authority_score, s.viral_score)
+  end as content_impact_score,
   public.video_project_upload_eligible(vp.id) as upload_eligible,
   case
     when not vp.approved              then 'not_approved'
@@ -226,17 +278,20 @@ end;
 $f$;
 
 -- ── RLS + policies + grants (huisstijl: authenticated full, service_role bypass)
-alter table public.video_projects    enable row level security;
-alter table public.video_scores      enable row level security;
-alter table public.viral_patterns    enable row level security;
-alter table public.video_attribution enable row level security;
+alter table public.video_projects          enable row level security;
+alter table public.video_scores            enable row level security;
+alter table public.viral_patterns          enable row level security;
+alter table public.video_attribution       enable row level security;
+alter table public.content_impact_weights  enable row level security;
 
-create policy video_projects_auth    on public.video_projects    for all to authenticated using (true) with check (true);
-create policy video_scores_auth      on public.video_scores      for all to authenticated using (true) with check (true);
-create policy viral_patterns_auth    on public.viral_patterns    for all to authenticated using (true) with check (true);
-create policy video_attribution_auth on public.video_attribution for all to authenticated using (true) with check (true);
+create policy video_projects_auth         on public.video_projects         for all to authenticated using (true) with check (true);
+create policy video_scores_auth           on public.video_scores           for all to authenticated using (true) with check (true);
+create policy viral_patterns_auth         on public.viral_patterns         for all to authenticated using (true) with check (true);
+create policy video_attribution_auth      on public.video_attribution      for all to authenticated using (true) with check (true);
+create policy content_impact_weights_auth on public.content_impact_weights for all to authenticated using (true) with check (true);
 
-grant all on public.video_projects, public.video_scores, public.viral_patterns, public.video_attribution
+grant all on public.video_projects, public.video_scores, public.viral_patterns,
+             public.video_attribution, public.content_impact_weights
   to authenticated, service_role;
 grant select on public.video_project_gate_status to authenticated, service_role;
 
@@ -251,4 +306,8 @@ create trigger trg_video_scores_uat before update on public.video_scores
 
 drop trigger if exists trg_viral_patterns_uat on public.viral_patterns;
 create trigger trg_viral_patterns_uat before update on public.viral_patterns
+  for each row execute function public._cf2_touch_updated_at();
+
+drop trigger if exists trg_content_impact_weights_uat on public.content_impact_weights;
+create trigger trg_content_impact_weights_uat before update on public.content_impact_weights
   for each row execute function public._cf2_touch_updated_at();
