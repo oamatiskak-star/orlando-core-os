@@ -57,6 +57,7 @@ export async function POST(req: NextRequest) {
       .select('machine_id, worktree_path')
       .ilike('entity', `%${ctx.name}%`)
       .in('status', ['active', 'paused', 'context_full', 'crashed'])
+      .is('archived_at', null)
       .order('updated_at', { ascending: false })
       .limit(1)
       .maybeSingle()
