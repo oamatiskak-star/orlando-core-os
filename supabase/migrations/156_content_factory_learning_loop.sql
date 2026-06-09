@@ -1,5 +1,8 @@
--- 154_content_factory_learning_loop.sql
+-- 156_content_factory_learning_loop.sql  (hernummerd van 154 i.v.m. collisie met
+--   main's 154_cf2_north_star_additive + 155_build_tracker_documents)
 -- Content Factory 2.0 — FASE 5: omzet-gestuurde learning-loop (STRUCTUUR).
+-- STATUS: READY_FOR_PRODUCTION + BLOCKED_BY_SEQUENCE (Orlando) — NIET toepassen
+--   tot CF2 live-state audit + end-to-end shadow-run bewezen zijn.
 --
 -- Additief + idempotent. Bouwt alleen de opslag voor de feedback-loop; activeert
 -- niets. Geen fake/backfill-data. NIET automatisch op prod toepassen — vereist

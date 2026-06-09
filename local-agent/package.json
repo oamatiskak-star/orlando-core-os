@@ -6,7 +6,8 @@
   "scripts": {
     "start": "node dist/index.js",
     "dev": "ts-node src/index.ts",
-    "build": "tsc"
+    "build": "tsc",
+    "sync:tracker": "ts-node src/build-tracker-sync.ts"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.45.0",

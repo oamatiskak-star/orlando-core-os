@@ -39,6 +39,56 @@ function log(msg: string, ...args: unknown[]) {
 }
 
 let warnedMissing = false
+let warnedNoConflictFn = false
+
+type ConflictRow = { item_id: string; title: string; detail: string | null; match_pattern: string | null; source_commit: string | null }
+
+/**
+ * BUILD_TRACKER sectie-D gate (flag-and-confirm). Voor queued taken van deze host:
+ * check tegen hermes.tracker_conflict_check(); bij een match → taak NIET stil laten
+ * lopen maar op 'blocked' zetten + loggen in hermes.decisions. Mens heft op na review.
+ * Standaard 0 hits (sectie-D items hebben pas een match_pattern na curatie) → veilig.
+ */
+async function checkTrackerConflicts(): Promise<void> {
+  const { data: tasks, error } = await hermes()
+    .from('dispatch_queue')
+    .select('id, title, workstream, repo')
+    .in('target_host', [HOST_ID, 'any'])
+    .eq('status', 'queued')
+    .limit(25)
+  if (error || !tasks?.length) return
+
+  for (const t of tasks as Array<{ id: string; title: string; workstream: string | null; repo: string | null }>) {
+    const res = await hermes().rpc('tracker_conflict_check', {
+      p_title: t.title, p_workstream: t.workstream, p_repo: t.repo,
+    })
+    if (res.error) {
+      if (!warnedNoConflictFn) {
+        warnedNoConflictFn = true
+        log('hermes.tracker_conflict_check niet beschikbaar — migratie 155 nog niet toegepast? Gate uit tot dan.', res.error.message)
+      }
+      return
+    }
+    const conflicts = (res.data ?? []) as ConflictRow[]
+    if (!conflicts.length) continue
+
+    const reason = `BUILD_TRACKER sectie D (niet-opnieuw-doen): ${conflicts.map((c) => c.title).join('; ')}`
+    await hermes().from('dispatch_queue').update({
+      status: 'blocked',
+      result: { tracker_conflict: conflicts, blocked_by: 'build_tracker_section_d' },
+    }).eq('id', t.id).eq('status', 'queued')
+
+    await hermes().from('decisions').insert({
+      kind: 'tracker_conflict',
+      subject: t.title,
+      decision: 'blocked-pending-review',
+      reason,
+      alternatives: conflicts,
+      outcome: 'pending',
+    })
+    log(`tracker-gate: taak "${t.title}" geblokkeerd (sectie D) — ${conflicts.length} match(es), wacht op review`)
+  }
+}
 
 async function tick(): Promise<void> {
   const nowIso = new Date().toISOString()
@@ -89,6 +139,9 @@ async function tick(): Promise<void> {
   const q = queued.count ?? 0
   const c = claimed.count ?? 0
   if (q > 0 || c > 0) log(`werk voor ${HOST_ID}: ${q} queued · ${c} in behandeling`)
+
+  // 5. BUILD_TRACKER sectie-D gate (flag-and-confirm)
+  await checkTrackerConflicts()
 }
 
 async function main(): Promise<void> {

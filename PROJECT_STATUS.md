@@ -2,6 +2,9 @@
 
 > **Sessie protocol** (CLAUDE.md): Lees dit bestand bij elke nieuwe Claude Code sessie. Update na elke voltooide taak. Houd het herstel-blok actueel.
 
+> **📌 CANONIEKE BRON:** `BUILD_TRACKER.md` is de Single Source of Truth (Aquier + Orlando Core OS).
+> Dit `PROJECT_STATUS.md` is operationele sessie- en herstelcontext. **Bij conflicten prevaleert `BUILD_TRACKER.md`.**
+
 ---
 
 ## 🔴 HERSTEL HIER NA CRASH (sessie 18 — Hermes Core OS v2 self-routing brein)
