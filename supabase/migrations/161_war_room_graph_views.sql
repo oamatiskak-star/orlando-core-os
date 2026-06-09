@@ -1,4 +1,5 @@
--- 139_war_room_graph_views.sql
+-- 161_war_room_graph_views.sql (hernummerd van 139 i.v.m. collisie met 139_hermes_routing_brain.sql)
+-- Reeds toegepast op shaunum als 139; create-or-replace dus idempotent bij db push.
 -- Media War Room — read-only Creative Graph views.
 -- GEEN tabellen, GEEN workers, GEEN cron → Engine Planner-regel niet van toepassing.
 -- Alles afgeleid uit bestaande media_holding_* tabellen (public schema, project shaunum).
