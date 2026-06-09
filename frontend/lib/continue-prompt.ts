@@ -52,8 +52,8 @@ export function buildContinuePrompt(ctx: ContinuePromptContext): string {
 
   lines.push('')
   lines.push('Opdracht:')
-  lines.push('1. Lees PROJECT_STATUS.md in de projectroot en volg het SESSIE PROTOCOL uit CLAUDE.md.')
-  lines.push('2. Meld waar we gebleven zijn op dit onderdeel en pak de eerstvolgende openstaande taak op.')
+  lines.push('1. Lees PROJECT_STATUS.md (operationele context) én BUILD_TRACKER.md (canonieke beslisbron) in de projectroot; volg het SESSIE PROTOCOL uit CLAUDE.md. Bij conflict prevaleert BUILD_TRACKER.md. Voer NOOIT iets uit dat in sectie D (niet-opnieuw-doen) staat.')
+  lines.push('2. Meld waar we gebleven zijn op dit onderdeel en pak de eerstvolgende openstaande taak op (zie BUILD_TRACKER.md sectie E).')
   lines.push('3. Lever alleen productieklare, volledige bestanden — geen placeholders, mockups of snippets.')
   lines.push('4. Update PROJECT_STATUS.md na elke voltooide stap en houd het 🔴 HERSTEL HIER NA CRASH-blok actueel.')
   lines.push('')

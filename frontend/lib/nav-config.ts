@@ -212,6 +212,7 @@ export const NAV_MODULES: Record<string, NavModuleDef> = {
 
   // ── BUILD TRACKER (per-entity) ────────────────────────────────────────────
   build_tracker:       { key: 'build_tracker',       label: 'Build Tracker',           href: '/dashboard/build-tracker',           icon: Hammer },
+  tracker_canonical:   { key: 'tracker_canonical',   label: 'Canonieke Tracker',       href: '/dashboard/build-tracker/canonical', icon: ScrollText },
   osm:                 { key: 'osm',                 label: 'OSM',                     href: '/dashboard/osm',                     icon: Cpu },
   accounts:            { key: 'accounts',            label: 'Accounts & Affiliates',   href: '/dashboard/accounts',                icon: Key },
 
@@ -271,7 +272,7 @@ export const COMPANY_NAV: Record<string, CompanyNav> = {
       { title: 'OSIL', modules: ['osil_dashboard', 'osil_board', 'osil_kansen', 'osil_recovery', 'osil_optimalisatie', 'osil_fiscalist', 'osil_rapport'] },
       { title: 'Persoonlijk', modules: ['dyme_os', 'personal_finance', 'dga_loonstrook', 'loonstroken'] },
       { title: 'Bedrijven', modules: ['bedrijven'] },
-      { title: 'Operationeel', modules: ['build_tracker', 'osm', 'accounts', 'agenda', 'taken', 'planning', 'crm'] },
+      { title: 'Operationeel', modules: ['build_tracker', 'tracker_canonical', 'osm', 'accounts', 'agenda', 'taken', 'planning', 'crm'] },
       { title: 'Routines Control', modules: ['routines_hub', 'routines_live', 'routines_agents', 'routines_logs'] },
       { title: 'Operations',         modules: ['ops_dashboard', 'ops_hermes', 'engine_planner', 'ops_worker_control', 'ops_dispatch', 'ops_errors', 'ops_logs'] },
       { title: 'Automatisering',     modules: ['ops_workflows', 'ops_automations', 'ops_agents', 'ops_ai_optimizer', 'ops_suggestions', 'ops_manual', 'ops_templates'] },
