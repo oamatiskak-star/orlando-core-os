@@ -152,17 +152,20 @@ export async function runLearningLoop(nowMs: number): Promise<LearningRunResult>
     const hook_perf = avg(collected.map((c) => c.retention))
 
     await db.from('video_learning_summary').upsert({
-      video_project_id: p.id, learning_status,
+      video_project_id: p.id, channel_id: p.channel_id ?? null, learning_status,
       thumbnail_perf, hook_perf,
       voice_perf: null, visual_perf: null, music_perf: null, cta_perf: null, format_perf: null, channel_perf: null,
       blockers,
     }, { onConflict: 'video_project_id' })
 
     // OMZET-terugkoppeling: lees canoniek uit video_attribution (niet zelf herberekenen).
-    // viral_patterns.revenue_attributed alleen bijwerken met ECHTE canon-omzet.
+    // viral_patterns.revenue_attributed alleen bijwerken met ECHTE canon-omzet, en
+    // GESCOPED op kanaal (channel→topic) zodat kanalen elkaars patterns niet vervuilen.
     const canon = await canonicalAttribution(p.id)
     if (canon.revenue != null && canon.revenue > 0) {
-      await db.from('viral_patterns').update({ revenue_attributed: canon.revenue }).eq('niche', p.niche ?? '').eq('platform', 'youtube')
+      let vp = db.from('viral_patterns').update({ revenue_attributed: canon.revenue }).eq('niche', p.niche ?? '').eq('platform', 'youtube')
+      if (p.channel_id) vp = vp.eq('channel_id', p.channel_id)   // kanaal-scoping = geen kruisbestuiving
+      await vp
       await db.from('video_projects').update({ revenue_attributed: canon.revenue, leads_attributed: canon.leads ?? 0 }).eq('id', p.id)
     }
   }
