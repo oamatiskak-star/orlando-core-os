@@ -19,6 +19,8 @@ export const openai = useGateway
   ? { gpt4o: gw!('openai/gpt-4o'), gpt4: gw!('openai/gpt-4') }
   : null
 
-export const defaultModel = claude.sonnet
+export const defaultModel = useGateway
+  ? gw!('openai/gpt-4')
+  : anthropic('claude-sonnet-4-6')
 
 export { anthropic }

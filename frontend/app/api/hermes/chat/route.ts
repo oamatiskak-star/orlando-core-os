@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { generateText } from 'ai'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { createClient } from '@/lib/supabase/server'
-import { claude } from '@/lib/ai/client'
+import { defaultModel } from '@/lib/ai/client'
 import {
   parseCommand,
   COMMAND_HELP,
@@ -814,7 +814,7 @@ async function handleUnknown(db: AdminClient, cmd: ParsedCommand, companyId: str
       COMMAND_HELP.map((c) => c.example).join(' | ') +
       `. Verzin geen statussen; gebruik alleen de meegegeven context.`
     const { text } = await generateText({
-      model: claude.sonnet,
+      model: defaultModel,
       system,
       prompt: `Context: ${context || 'geen extra context beschikbaar'}\n\nVraag van Orlando: ${cmd.raw}`,
       maxOutputTokens: 400,
