@@ -38,6 +38,7 @@ export default async function OsmSessionsPage() {
   const { data } = await supabase
     .from('osm_sessions')
     .select('id, machine_id, entity, worktree_path, git_branch, last_prompt, last_response_summary, status, updated_at')
+    .is('archived_at', null)
     .order('updated_at', { ascending: false })
     .limit(50)
 

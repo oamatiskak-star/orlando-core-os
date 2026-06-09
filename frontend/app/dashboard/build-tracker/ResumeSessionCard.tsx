@@ -11,10 +11,14 @@ import {
   Copy,
   Check,
   Pause,
+  Play,
+  Square,
+  Trash2,
+  X,
   ExternalLink,
   RefreshCw,
 } from 'lucide-react'
-import { setSessionStatus } from '../osm/actions'
+import { setSessionStatus, stopSession, archiveSession } from '../osm/actions'
 
 type Session = {
   id: string
@@ -29,6 +33,7 @@ type Session = {
   updated_at: string
   tmux_session: string | null
   tmux_window: string | null
+  archived_at: string | null
 }
 
 const STATUS_STYLE: Record<Session['status'], { label: string; color: string }> = {
@@ -38,6 +43,9 @@ const STATUS_STYLE: Record<Session['status'], { label: string; color: string }> 
   crashed:      { label: 'Crashed',     color: 'text-red-400 bg-red-500/10' },
   done:         { label: 'Klaar',       color: 'text-white/40 bg-white/5' },
 }
+
+const SELECT_COLS =
+  'id, machine_id, entity, worktree_path, git_branch, last_commit_sha, last_prompt, last_response_summary, status, updated_at, tmux_session, tmux_window, archived_at'
 
 function timeAgo(iso: string): string {
   const s = Math.floor((Date.now() - new Date(iso).getTime()) / 1000)
@@ -51,16 +59,17 @@ export default function ResumeSessionCard() {
   const [sessions, setSessions] = useState<Session[]>([])
   const [copied, setCopied] = useState<string | null>(null)
   const [pendingId, setPendingId] = useState<string | null>(null)
+  const [confirmingId, setConfirmingId] = useState<string | null>(null)
+  const [toast, setToast] = useState<{ id: string; kind: 'ok' | 'err'; text: string } | null>(null)
   const [, startTransition] = useTransition()
 
   useEffect(() => {
     const supabase = createClient()
     supabase
       .from('osm_sessions')
-      .select(
-        'id, machine_id, entity, worktree_path, git_branch, last_commit_sha, last_prompt, last_response_summary, status, updated_at, tmux_session, tmux_window'
-      )
+      .select(SELECT_COLS)
       .in('status', ['active', 'paused', 'context_full', 'crashed'])
+      .is('archived_at', null)
       .order('updated_at', { ascending: false })
       .limit(6)
       .then(({ data }) => {
@@ -75,18 +84,51 @@ export default function ResumeSessionCard() {
       const row = payload.new as Session
       setSessions((prev) => {
         const without = prev.filter((s) => s.id !== row.id)
-        if (row.status === 'done') return without.slice(0, 6)
+        // Gestopt (done) of gearchiveerd → uit de actieve lijst halen
+        if (!row || row.status === 'done' || row.archived_at) return without.slice(0, 6)
         return [row, ...without].slice(0, 6)
       })
     }
   )
 
-  const updateStatus = (id: string, status: Session['status']) => {
+  const flash = (id: string, kind: 'ok' | 'err', text: string) => {
+    setToast({ id, kind, text })
+    setTimeout(() => setToast((t) => (t?.id === id ? null : t)), 2500)
+  }
+
+  // Pause/Play toggle (hergebruikt bestaande setSessionStatus)
+  const togglePause = (id: string, to: 'paused' | 'active') => {
     setPendingId(id)
     startTransition(async () => {
-      await setSessionStatus(id, status)
+      const res = await setSessionStatus(id, to)
       setPendingId(null)
+      if (!res?.ok) flash(id, 'err', res?.error || 'Mislukt')
     })
+  }
+
+  const onStop = async (id: string) => {
+    setPendingId(id)
+    const res = await stopSession(id)
+    setPendingId(null)
+    if (res?.ok) {
+      setSessions((prev) => prev.filter((s) => s.id !== id)) // optimistisch verwijderen uit actieve lijst
+      flash(id, 'ok', 'Sessie gestopt')
+    } else {
+      flash(id, 'err', res?.error || 'Stoppen mislukt')
+    }
+  }
+
+  const onArchive = async (id: string) => {
+    setConfirmingId(null)
+    setPendingId(id)
+    const res = await archiveSession(id)
+    setPendingId(null)
+    if (res?.ok) {
+      setSessions((prev) => prev.filter((s) => s.id !== id))
+      flash(id, 'ok', 'Sessie gearchiveerd')
+    } else {
+      flash(id, 'err', res?.error || 'Archiveren mislukt')
+    }
   }
 
   if (sessions.length === 0) return null
@@ -112,6 +154,8 @@ export default function ResumeSessionCard() {
           const isAlert = s.status === 'context_full' || s.status === 'crashed'
           const text = s.last_response_summary || s.last_prompt || ''
           const isPending = pendingId === s.id
+          const isConfirming = confirmingId === s.id
+          const t = toast?.id === s.id ? toast : null
           return (
             <div
               key={s.id}
@@ -157,47 +201,108 @@ export default function ResumeSessionCard() {
                   </span>
                 </div>
               )}
-              <div className="mt-2 flex items-center gap-2">
-                <code className="text-[10px] bg-black/30 px-1.5 py-0.5 rounded text-emerald-400 font-mono flex-1">
-                  /ga-verder
-                </code>
-                <button
-                  type="button"
-                  onClick={async () => {
-                    await navigator.clipboard.writeText('/ga-verder')
-                    setCopied(s.id)
-                    setTimeout(() => setCopied(null), 1500)
-                  }}
-                  className="text-white/40 hover:text-white/70 transition-colors"
-                  title="Copy /ga-verder"
-                >
-                  {copied === s.id ? (
-                    <Check size={12} className="text-emerald-400" />
-                  ) : (
-                    <Copy size={12} />
-                  )}
-                </button>
-                {s.status !== 'paused' && (
+
+              {isConfirming ? (
+                <div className="mt-2 rounded-md border border-red-500/30 bg-red-500/[0.06] p-2">
+                  <p className="text-[10.5px] text-white/80 leading-snug">
+                    Weet je zeker dat je deze sessie uit de actieve lijst wilt verwijderen?
+                  </p>
+                  <div className="mt-1.5 flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => onArchive(s.id)}
+                      disabled={isPending}
+                      className="inline-flex items-center gap-1 text-[10px] px-2 py-1 rounded bg-red-500/15 text-red-400 hover:bg-red-500/25 transition-colors disabled:opacity-40"
+                    >
+                      {isPending ? <RefreshCw size={11} className="animate-spin" /> : <Trash2 size={11} />}
+                      Verwijderen
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setConfirmingId(null)}
+                      disabled={isPending}
+                      className="text-[10px] px-2 py-1 rounded bg-white/5 text-white/60 hover:text-white/90 transition-colors disabled:opacity-40"
+                    >
+                      Annuleren
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="mt-2 flex items-center gap-2">
+                  <code className="text-[10px] bg-black/30 px-1.5 py-0.5 rounded text-emerald-400 font-mono flex-1">
+                    /ga-verder
+                  </code>
+
+                  {/* Kopiëren */}
                   <button
                     type="button"
-                    onClick={() => updateStatus(s.id, 'paused')}
-                    disabled={isPending}
-                    className="text-amber-400/70 hover:text-amber-400 transition-colors disabled:opacity-40"
-                    title="Pause (status → paused)"
+                    onClick={async () => {
+                      await navigator.clipboard.writeText('/ga-verder')
+                      setCopied(s.id)
+                      setTimeout(() => setCopied(null), 1500)
+                    }}
+                    className="text-white/40 hover:text-white/70 transition-colors"
+                    title="Copy /ga-verder"
                   >
-                    {isPending ? <RefreshCw size={12} className="animate-spin" /> : <Pause size={12} />}
+                    {copied === s.id ? (
+                      <Check size={12} className="text-emerald-400" />
+                    ) : (
+                      <Copy size={12} />
+                    )}
                   </button>
-                )}
-                <button
-                  type="button"
-                  onClick={() => updateStatus(s.id, 'done')}
-                  disabled={isPending}
-                  className="text-white/40 hover:text-white/70 transition-colors disabled:opacity-40"
-                  title="Mark done (status → done)"
-                >
-                  {isPending ? <RefreshCw size={12} className="animate-spin" /> : <Check size={12} />}
-                </button>
-              </div>
+
+                  {/* Pause / Play */}
+                  {s.status === 'paused' ? (
+                    <button
+                      type="button"
+                      onClick={() => togglePause(s.id, 'active')}
+                      disabled={isPending}
+                      className="text-emerald-400/70 hover:text-emerald-400 transition-colors disabled:opacity-40"
+                      title="Hervat (status → active)"
+                    >
+                      {isPending ? <RefreshCw size={12} className="animate-spin" /> : <Play size={12} />}
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => togglePause(s.id, 'paused')}
+                      disabled={isPending}
+                      className="text-amber-400/70 hover:text-amber-400 transition-colors disabled:opacity-40"
+                      title="Pauzeer (status → paused)"
+                    >
+                      {isPending ? <RefreshCw size={12} className="animate-spin" /> : <Pause size={12} />}
+                    </button>
+                  )}
+
+                  {/* Stop sessie → status 'done' (closed) */}
+                  <button
+                    type="button"
+                    onClick={() => onStop(s.id)}
+                    disabled={isPending}
+                    className="text-white/45 hover:text-white/85 transition-colors disabled:opacity-40"
+                    title="Stop sessie (sluit af → Klaar)"
+                  >
+                    {isPending ? <RefreshCw size={12} className="animate-spin" /> : <Square size={12} />}
+                  </button>
+
+                  {/* Verwijder sessie → archiveren (soft-delete) */}
+                  <button
+                    type="button"
+                    onClick={() => setConfirmingId(s.id)}
+                    disabled={isPending}
+                    className="text-red-400/60 hover:text-red-400 transition-colors disabled:opacity-40"
+                    title="Verwijder sessie uit actieve lijst (archiveren)"
+                  >
+                    <Trash2 size={12} />
+                  </button>
+                </div>
+              )}
+
+              {t && (
+                <p className={`mt-1.5 text-[10px] ${t.kind === 'ok' ? 'text-emerald-400' : 'text-red-400'}`}>
+                  {t.text}
+                </p>
+              )}
             </div>
           )
         })}
