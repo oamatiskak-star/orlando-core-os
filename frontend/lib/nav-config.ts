@@ -208,6 +208,7 @@ export const NAV_MODULES: Record<string, NavModuleDef> = {
   aquier_approvals:    { key: 'aquier_approvals',    label: 'Approve / Decline',       href: '/dashboard/aquier/approvals',        icon: ThumbsUp },
   aquier_audit:        { key: 'aquier_audit',        label: 'Checkout Audit',          href: '/dashboard/aquier/audit',            icon: ShieldAlert },
   aquier_forecast:     { key: 'aquier_forecast',     label: 'Forecast',                href: '/dashboard/aquier-forecast',         icon: BarChart3 },
+  aquier_seo_revenue:  { key: 'aquier_seo_revenue',  label: 'SEO Revenue',             href: '/dashboard/software/aquier/seo-revenue', icon: BarChart3 },
   aquier_verzamelaar:  { key: 'aquier_verzamelaar',  label: 'Verzamelaar (Aquier.com)', href: 'https://aquier.com/verzamelaar',    icon: Archive, external: true },
 
   // ── BUILD TRACKER (per-entity) ────────────────────────────────────────────
@@ -334,7 +335,7 @@ export const COMPANY_NAV: Record<string, CompanyNav> = {
   'modiwe-software': {
     sections: [
       { modules: ['dashboard', 'projectleider'] },
-      { title: 'Aquier', modules: ['aquier_hub', 'aquier_verzamelaar', 'aquier_projecten', 'aquier_planning', 'aquier_agenda', 'aquier_ai_lead', 'aquier_monitor', 'aquier_approvals', 'aquier_audit', 'aquier_forecast'] },
+      { title: 'Aquier', modules: ['aquier_hub', 'aquier_verzamelaar', 'aquier_projecten', 'aquier_planning', 'aquier_agenda', 'aquier_ai_lead', 'aquier_monitor', 'aquier_approvals', 'aquier_audit', 'aquier_forecast', 'aquier_seo_revenue'] },
       { title: 'Scrapers & Data', modules: ['acq_offmarket', 'acq_permits', 'acq_municipalities'] },
       { title: 'Acquisitie', modules: ['acq_leads'] },
       { title: 'Social', modules: ['fb_offmarket', 'fb_property'] },
