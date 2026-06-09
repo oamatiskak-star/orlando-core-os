@@ -36,6 +36,35 @@ function log(msg: string, ...args: unknown[]) {
   console.log(`[${new Date().toISOString()}] [tracker-sync] ${msg}`, ...args)
 }
 
+// Schrijft een audittrail-rij naar hermes.tracker_sync_log (migratie 158).
+// Degradeert netjes: ontbreekt de tabel, dan stil overslaan (geen crash).
+async function writeSyncLog(row: {
+  document_id?: string | null
+  documents_count: number
+  items_count: number
+  updated_count: number
+  conflicts_count: number
+  status: string
+  detail?: Record<string, unknown>
+}): Promise<void> {
+  const trigger = process.env.DISPATCH_TRIGGER ?? 'dispatch'
+  try {
+    const { error } = await db.schema('hermes').from('tracker_sync_log').insert({
+      trigger: ['manual', 'cron', 'dispatch', 'planner'].includes(trigger) ? trigger : 'dispatch',
+      document_id: row.document_id ?? null,
+      documents_count: row.documents_count,
+      items_count: row.items_count,
+      updated_count: row.updated_count,
+      conflicts_count: row.conflicts_count,
+      status: row.status,
+      detail: row.detail ?? {},
+    })
+    if (error) log('sync-log overgeslagen (tabel mist? mig 158):', error.message)
+  } catch (e) {
+    log('sync-log overgeslagen:', e instanceof Error ? e.message : e)
+  }
+}
+
 function gitInfo(dir: string): { branch: string | null; commit: string | null; repo: string | null } {
   const run = (cmd: string): string | null => {
     try { return execSync(cmd, { cwd: dir, stdio: ['ignore', 'pipe', 'ignore'] }).toString().trim() }
@@ -89,6 +118,11 @@ async function main(): Promise<void> {
   }
   if (existing.data?.checksum === checksum) {
     log(`ongewijzigd (checksum ${checksum.slice(0, 12)}…) — niets te doen.`)
+    await writeSyncLog({
+      document_id: existing.data.id,
+      documents_count: 1, items_count: 0, updated_count: 0, conflicts_count: 0,
+      status: 'unchanged', detail: { checksum: checksum.slice(0, 12) },
+    })
     return
   }
 
@@ -132,6 +166,19 @@ async function main(): Promise<void> {
       process.exit(1)
     }
   }
+
+  // Parser emit GEEN match_pattern (hand-gecureerd in DB); tel hier de sectie-D
+  // ("niet opnieuw doen") regels als conflict-indicatie voor de audittrail.
+  const conflictsCount = items.filter((it) => it.section === 'D').length
+  await writeSyncLog({
+    document_id: doc.data.id,
+    documents_count: 1,
+    items_count: items.length,
+    updated_count: items.length,
+    conflicts_count: conflictsCount,
+    status: 'synced',
+    detail: { commit, branch, per_section: perSection },
+  })
 
   log(`gesynct: doc ${doc.data.id} · commit ${commit ?? '?'} (${branch ?? '?'}) · ${items.length} items ` +
       `[A:${perSection.A ?? 0} B:${perSection.B ?? 0} C:${perSection.C ?? 0} D:${perSection.D ?? 0} E:${perSection.E ?? 0}]`)

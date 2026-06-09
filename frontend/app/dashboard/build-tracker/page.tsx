@@ -1,10 +1,13 @@
-import { Hammer, Calendar, User, ChevronLeft, CheckCircle2, TrendingUp } from 'lucide-react'
+import { Hammer, Calendar, User, ChevronLeft, CheckCircle2, TrendingUp, AlertTriangle, ListChecks } from 'lucide-react'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
 import { getActiveCompany } from '@/lib/active-company-server'
 import NewBuildButton from './NewBuildButton'
 import BuildCardActions from './BuildCardActions'
 import ResumeSessionCard from './ResumeSessionCard'
+import CanonicalTrackerMeta from '@/components/build/CanonicalTrackerMeta'
+import DagPrioriteitSection from '@/components/build/DagPrioriteitSection'
+import { getCanonicalSnapshot, COMPANY_SCOPE_KEYS } from '@/lib/canonical-tracker'
 
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
@@ -54,6 +57,13 @@ export default async function BuildTrackerPage() {
   const builds: Build[] = (data ?? []) as unknown as Build[]
   const lopend   = builds.filter((b) => b.status !== 'live')
   const voltooid = builds.filter((b) => b.status === 'live')
+
+  // Canonieke tracker — gefilterde weergave op de canonieke items voor dit bedrijf.
+  const scopeKeys = COMPANY_SCOPE_KEYS[company.id] ?? []
+  const snap = await getCanonicalSnapshot(supabase, scopeKeys)
+  const canonicalBlockers = snap.items.filter((i) => i.section === 'C').slice(0, 6)
+  const canonicalActions  = snap.items.filter((i) => i.section === 'E').slice(0, 6)
+  const hasCanonical = snap.document && (canonicalBlockers.length > 0 || canonicalActions.length > 0)
 
   const renderBuild = (b: Build) => {
     const badge = STATUS_BADGE[b.status] ?? STATUS_BADGE.planned
@@ -143,6 +153,52 @@ export default async function BuildTrackerPage() {
         </Link>
         <NewBuildButton companyColor={company.color} companyName={company.name} />
       </div>
+
+      {/* Canonieke metadata + refresh (read/sync-only) — gescoped op dit bedrijf */}
+      <CanonicalTrackerMeta
+        document={snap.document}
+        counts={snap.counts}
+        scopeLabel={scopeKeys.length ? company.short : 'cross-project'}
+      />
+
+      {/* Gefilterde canonieke items (alleen wat aan dit bedrijf gekoppeld is) */}
+      <div className="bg-white/[0.02] border border-white/[0.08] rounded-xl p-4">
+        <div className="flex items-center gap-2 mb-2">
+          <ListChecks size={13} className="text-white/50" />
+          <h2 className="text-[12px] font-semibold text-white/80">Canonieke items — {company.short}</h2>
+          <Link href="/dashboard/build-tracker/canonical" className="ml-auto text-[10px] text-white/45 hover:text-white/75">
+            volledige canonieke tracker →
+          </Link>
+        </div>
+        {!hasCanonical ? (
+          <p className="text-[11px] text-white/35">Geen gekoppelde canonieke items.</p>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <div>
+              <p className="text-[10px] font-semibold text-red-400/90 flex items-center gap-1 mb-1.5"><AlertTriangle size={11} /> Open blockers (C)</p>
+              {canonicalBlockers.length === 0 ? (
+                <p className="text-[10px] text-white/30">—</p>
+              ) : canonicalBlockers.map((i) => (
+                <div key={i.id} className="text-[10.5px] text-white/70 leading-snug mb-1">
+                  {i.blocker_code && <span className="text-[9px] font-bold text-red-400 mr-1">{i.blocker_code}</span>}
+                  {i.title}
+                </div>
+              ))}
+            </div>
+            <div>
+              <p className="text-[10px] font-semibold text-blue-400/90 flex items-center gap-1 mb-1.5"><ListChecks size={11} /> Volgende acties (E)</p>
+              {canonicalActions.length === 0 ? (
+                <p className="text-[10px] text-white/30">—</p>
+              ) : canonicalActions.map((i) => (
+                <div key={i.id} className="text-[10.5px] text-white/70 leading-snug mb-1">{i.title}</div>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Dagprioriteit — vandaag eerst starten, teruggeleid naar jaar-1 doel */}
+      <DagPrioriteitSection companySlug={company.id} />
 
       <ResumeSessionCard />
 
