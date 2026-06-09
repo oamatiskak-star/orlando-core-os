@@ -30,6 +30,35 @@
 
 ---
 
+## 🎯 HUIDIGE FOCUS (sessie 18 — Media War Room / Creative Graph GEBOUWD, branch `feat/media-war-room`)
+
+**Read-only observability-laag op de Content Factory** — Gro-achtige node/lijn-graph onder Media Holding OS.
+GEEN approval/blokkade; Hermes produceert autonoom door. Branch `feat/media-war-room` (vanaf main, **niet
+gemerged**, geen PR-OK gevraagd).
+
+**✅ GEBOUWD + GEVERIFIEERD:**
+- **Migratie `139_war_room_graph_views.sql` — TOEGEPAST op `shaunumewswpxhmgbtvv`.** 3 read-only views
+  (geen tabellen, geen worker → Engine Planner n.v.t.): `v_war_room_nodes` (campaign(niche)→channel→hook→
+  creative→platform), `v_war_room_edges` (spine + winner/revenue forward-compat), `v_war_room_campaigns`.
+  Live counts: 7 campagnes · 12 kanalen · 12 hooks · 72 creatives · 5 platform-uploads · 101 spine-edges.
+- **Frontend** (`frontend/`, React Flow `@xyflow/react` 12 + `@dagrejs/dagre` 3): route
+  `app/dashboard/media-holding/war-room/` met sub-tabs Graph/Campagnes/Timeline/A-B/Revenue; componenten
+  `components/war-room/{CreativeGraph,nodes}.tsx` + `lib/war-room/graph.ts` (dagre layout). API
+  `app/api/media-holding/war-room/{graph,campaigns,timeline}`. Nav: module `mh_war_room` in Cockpit-groep.
+- **Thumbnail-concept + laatste performance = facet op de creative-card** (visual_prompt + ctr/views/ret).
+  Dedicated thumbnail-variant- en winner-nodes + revenue-funnel = **Fase 2 (data-gated)**: `winner_extraction_jobs`=0
+  en `affiliate_*`=0 → A/B- en Revenue-tab tonen nette empty-states; architectuur (winner/revenue-edges) staat al klaar.
+- **Verificatie:** `tsc --noEmit` = 0 · `next build` groen (104/104 pagina's, alle 8 war-room routes als ƒ).
+  Build faalt alléén met lege env op **pre-existing** module-scope clients (`api/youtube/marketing/*`), niet op War Room.
+
+**🔴 OPEN / volgende stap:**
+- Committen op branch (gebeurt deze sessie) — **GEEN merge/PR naar main zonder OK Orlando**.
+- ⚠️ **Prod-databron:** prod-frontend env wijst naar `pmovaz`; views/data staan op `shaunum`. Vóór prod-deploy
+  bevestigen welk project prod gebruikt (of read-client naar shaunum) — anders is War Room lokaal groen maar prod leeg.
+- Fase 2 activeren zodra winner-/affiliate-data binnenkomt.
+
+---
+
 ## 🔴 HERSTEL HIER NA CRASH (sessie 17 — Watchdog strakker + Hermes direct-alert)
 
 **Trigger (2026-06-02):** 3 Render-services down terwijl watchdog draaide. Oorzaak gevonden: het

@@ -12,7 +12,7 @@ import {
   Gavel, Lock, Eye, Upload, Server, Tv2, Music,
   Radar, MapPin, Target, Megaphone, UserPlus, Maximize2,
   Briefcase, GanttChart, UserCog, Gauge, ThumbsUp, Sparkles,
-  CalendarClock,
+  CalendarClock, Network,
 } from 'lucide-react'
 
 export type NavModuleDef = {
@@ -118,6 +118,7 @@ export const NAV_MODULES: Record<string, NavModuleDef> = {
 
   // ── MEDIA HOLDING OS — suite-pagina's (consolidatie: geen dubbele YouTube-layer) ──
   mh_executive:         { key: 'mh_executive',         label: 'Executive Boardroom',     href: '/dashboard/media-holding/executive',          icon: Brain },
+  mh_war_room:          { key: 'mh_war_room',          label: 'Media War Room',          href: '/dashboard/media-holding/war-room',           icon: Network },
   mh_channels:          { key: 'mh_channels',          label: 'Alle Kanalen',            href: '/dashboard/media-holding/channels',           icon: Tv2 },
   mh_incubator:         { key: 'mh_incubator',         label: 'Channel Incubator',       href: '/dashboard/media-holding/channel-incubator',  icon: PlusCircle },
   mh_content_factory:   { key: 'mh_content_factory',   label: 'Content Factory',         href: '/dashboard/media-holding/content-factory',    icon: Package },
@@ -311,7 +312,7 @@ export const COMPANY_NAV: Record<string, CompanyNav> = {
     sections: [
       { modules: ['dashboard', 'projectleider'] },
       // ── MEDIA HOLDING OS — 6 schone groepen, geen dubbele upload/analytics-layer ──
-      { title: 'Cockpit',       modules: ['media_holding', 'mh_executive', 'mh_analytics'] },
+      { title: 'Cockpit',       modules: ['media_holding', 'mh_executive', 'mh_war_room', 'mh_analytics'] },
       {
         title: 'Kanalen', modules: [
           'mh_channels', 'mh_incubator',
