@@ -41,7 +41,7 @@ function fmtDateTime(s: string | null): string {
   return new Date(s).toLocaleString('nl-NL', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })
 }
 
-export default function CanonicalTrackerView({ document, items }: { document: TrackerDocument; items: TrackerItem[] }) {
+export default function CanonicalTrackerView({ document, items, showMeta = true }: { document: TrackerDocument; items: TrackerItem[]; showMeta?: boolean }) {
   const [syncing, setSyncing] = useState(false)
   const [msg, setMsg] = useState<string | null>(null)
 
@@ -75,21 +75,25 @@ export default function CanonicalTrackerView({ document, items }: { document: Tr
 
   return (
     <div className="space-y-5">
-      {/* Sync-metabalk */}
-      <div className="flex flex-wrap items-center gap-x-4 gap-y-1 bg-white/[0.03] border border-white/[0.06] rounded-xl px-4 py-2.5 text-[10.5px] text-white/50">
-        <span className="flex items-center gap-1.5">
-          <GitCommit size={12} />
-          <code className="text-white/70">{document.source_commit ?? '?'}</code>
-          <span className="text-white/35">{document.source_branch ? `(${document.source_branch})` : ''}</span>
-        </span>
-        <span>{document.source_repo ?? document.source_file}</span>
-        <span className="flex items-center gap-1.5"><Clock size={12} /> laatste sync {fmtDateTime(document.synced_at)} · {document.synced_by ?? '?'}</span>
-        <button onClick={requestSync} disabled={syncing}
-          className="ml-auto inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-white/[0.04] hover:bg-white/[0.08] transition-all text-white/65 hover:text-white disabled:opacity-50">
-          <RefreshCw size={12} className={syncing ? 'animate-spin' : ''} /> Sync aanvragen
-        </button>
-      </div>
-      {msg && <p className="text-[10px] text-white/45 -mt-3 px-1">{msg}</p>}
+      {/* Sync-metabalk — verborgen wanneer CanonicalTrackerMeta de balk levert */}
+      {showMeta && (
+        <>
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-1 bg-white/[0.03] border border-white/[0.06] rounded-xl px-4 py-2.5 text-[10.5px] text-white/50">
+            <span className="flex items-center gap-1.5">
+              <GitCommit size={12} />
+              <code className="text-white/70">{document.source_commit ?? '?'}</code>
+              <span className="text-white/35">{document.source_branch ? `(${document.source_branch})` : ''}</span>
+            </span>
+            <span>{document.source_repo ?? document.source_file}</span>
+            <span className="flex items-center gap-1.5"><Clock size={12} /> laatste sync {fmtDateTime(document.synced_at)} · {document.synced_by ?? '?'}</span>
+            <button onClick={requestSync} disabled={syncing}
+              className="ml-auto inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-white/[0.04] hover:bg-white/[0.08] transition-all text-white/65 hover:text-white disabled:opacity-50">
+              <RefreshCw size={12} className={syncing ? 'animate-spin' : ''} /> Sync aanvragen
+            </button>
+          </div>
+          {msg && <p className="text-[10px] text-white/45 -mt-3 px-1">{msg}</p>}
+        </>
+      )}
 
       {SECTIONS.map(({ key, label, color, Icon }) => {
         const secItems = items.filter((i) => i.section === key)

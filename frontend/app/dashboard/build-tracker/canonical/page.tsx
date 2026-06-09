@@ -2,32 +2,22 @@ import { ScrollText, ChevronLeft } from 'lucide-react'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
 import CanonicalTrackerView, { type TrackerDocument, type TrackerItem } from '@/components/build/CanonicalTrackerView'
+import CanonicalTrackerMeta from '@/components/build/CanonicalTrackerMeta'
+import { getCanonicalSnapshot, CANONICAL_SCOPES, getScope } from '@/lib/canonical-tracker'
 
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
 
-export default async function CanonicalTrackerPage() {
+export default async function CanonicalTrackerPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ scope?: string }>
+}) {
+  const { scope } = await searchParams
   const supabase = await createClient()
 
-  const { data: doc } = await supabase
-    .from('build_tracker_documents')
-    .select('id, source_file, source_repo, source_branch, source_commit, synced_by, synced_at')
-    .eq('is_current', true)
-    .eq('scope', 'cross-project')
-    .order('synced_at', { ascending: false })
-    .limit(1)
-    .maybeSingle()
-
-  let items: TrackerItem[] = []
-  if (doc) {
-    const { data } = await supabase
-      .from('build_tracker_items')
-      .select('id, section, item_rank, title, detail, status_tag, blocker_code, owner, repo, route, evidence, deploy_allowed')
-      .eq('document_id', doc.id)
-      .order('section', { ascending: true })
-      .order('item_rank', { ascending: true })
-    items = (data ?? []) as unknown as TrackerItem[]
-  }
+  const activeScope = scope && getScope(scope) ? scope : undefined
+  const snap = await getCanonicalSnapshot(supabase, activeScope ? [activeScope] : [])
 
   return (
     <div className="space-y-5">
@@ -44,7 +34,46 @@ export default async function CanonicalTrackerPage() {
         </div>
       </div>
 
-      <CanonicalTrackerView document={(doc ?? null) as TrackerDocument} items={items} />
+      <CanonicalTrackerMeta
+        document={snap.document}
+        counts={snap.counts}
+        scopeLabel={activeScope ? getScope(activeScope)?.label : undefined}
+      />
+
+      {/* Module-scope deeplinks (gefilterde weergaven op canonieke items) */}
+      <div className="flex flex-wrap items-center gap-1.5">
+        <Link
+          href="/dashboard/build-tracker/canonical"
+          className={`text-[10.5px] px-2.5 py-1 rounded-md border transition-all ${
+            !activeScope ? 'bg-white/[0.08] border-white/15 text-white' : 'bg-white/[0.03] border-white/[0.06] text-white/55 hover:text-white'
+          }`}
+        >
+          Alles (cross-project)
+        </Link>
+        {CANONICAL_SCOPES.map((s) => (
+          <Link
+            key={s.key}
+            href={`/dashboard/build-tracker/canonical?scope=${s.key}`}
+            className={`text-[10.5px] px-2.5 py-1 rounded-md border transition-all ${
+              activeScope === s.key ? 'bg-white/[0.08] border-white/15 text-white' : 'bg-white/[0.03] border-white/[0.06] text-white/55 hover:text-white'
+            }`}
+          >
+            {s.label}
+          </Link>
+        ))}
+      </div>
+
+      {activeScope && snap.items.length === 0 ? (
+        <p className="text-[11px] text-white/35 py-8 text-center bg-white/[0.02] border border-dashed border-white/10 rounded-xl">
+          Geen gekoppelde canonieke items voor scope &quot;{getScope(activeScope)?.label}&quot;.
+        </p>
+      ) : (
+        <CanonicalTrackerView
+          document={snap.document as TrackerDocument}
+          items={snap.items as unknown as TrackerItem[]}
+          showMeta={false}
+        />
+      )}
     </div>
   )
 }
