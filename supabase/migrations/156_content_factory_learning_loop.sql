@@ -47,14 +47,19 @@ create table if not exists public.video_performance_checkpoints (
 create index if not exists idx_vperf_project on public.video_performance_checkpoints(video_project_id);
 create index if not exists idx_vperf_status  on public.video_performance_checkpoints(source_status);
 
--- ── 2. video_learning_summary — geleerde subscores per project ────────────────
+-- ── 2. video_learning_summary — OPERATIONELE learning-state per project ──────
+-- RECONCILED met main's attributielaag (154_cf2_north_star_additive):
+--   * GEEN content_impact_score hier — canon = view public.v_video_impact
+--     (CIS = content_impact_score(revenue_score,leads_score,authority_score,viral_score)).
+--   * GEEN revenue/lead/authority/viral-subscore hier — canon = de impact-subscores
+--     op public.youtube_quality_scores (revenue_score/leads_score/authority_score/viral_score).
+-- Deze tabel houdt UITSLUITEND de operationele learning-state + dimensie-performance.
 create table if not exists public.video_learning_summary (
   video_project_id     uuid primary key references public.video_projects(id) on delete cascade,
   learning_status      text not null default 'pending'
                        check (learning_status in ('pending','awaiting_1h','awaiting_6h','awaiting_24h','awaiting_72h','completed','blocked_missing_keys')),
-  -- Content Impact Score: ALLEEN uit echte data; NULL zolang onvoldoende meetpunten
-  content_impact_score numeric(6,2),
-  -- performance per dimensie (NULL = nog niet leerbaar; geen default-success)
+  -- performance per QC-dimensie (NULL = nog niet leerbaar; geen default-success).
+  -- Dit zijn LEER-signalen per dimensie, GEEN impact/omzet-score (die is canoniek elders).
   hook_perf            numeric(6,2),
   thumbnail_perf       numeric(6,2),
   voice_perf           numeric(6,2),
@@ -63,11 +68,6 @@ create table if not exists public.video_learning_summary (
   cta_perf             numeric(6,2),
   format_perf          numeric(6,2),
   channel_perf         numeric(6,2),
-  -- omzet/lead/authority/viral-subscores (echte attributie)
-  revenue_subscore     numeric(12,2),
-  lead_subscore        integer,
-  authority_subscore   numeric(6,2),
-  viral_subscore       numeric(6,2),
   blockers             jsonb not null default '[]'::jsonb,
   updated_at           timestamptz not null default now()
 );

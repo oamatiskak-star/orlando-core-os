@@ -49,17 +49,21 @@ async function youtubeMetrics(youtubeVideoId: string | null): Promise<Partial<Me
   }
 }
 
-/** Echte Aquier-attributie via intent_events (utm_content=video:{id}) + leads. Geen fake. */
-async function aquierAttribution(projectId: string): Promise<{ website_clicks: number | null; leads: number | null; revenue: number | null }> {
-  const utmContent = `video:${projectId}`
-  // website-klikken: intent_events met deze utm_content
-  const { count: clicks } = await db.schema('vastgoed_core').from('intent_events')
-    .select('id', { count: 'exact', head: true }).contains('utm', { utm_content: utmContent })
-  // leads: newsletter_leads via dezelfde utm (indien gekoppeld) — alleen echte rijen
-  const { count: leads } = await db.schema('vastgoed_core').from('newsletter_leads')
-    .select('id', { count: 'exact', head: true }).contains('utm', { utm_content: utmContent })
-  // revenue: gekoppelde omzet — bij ontbrekende koppeling NULL (geen schatting)
-  return { website_clicks: clicks ?? null, leads: leads ?? null, revenue: null }
+/**
+ * CANONIEKE attributie uit main's `public.video_attribution` (event-grained).
+ * Single source of truth — GEEN parallelle intent_events-berekening meer.
+ * Alleen echte rijen; geen rijen → alles NULL (geen fake/schatting).
+ */
+async function canonicalAttribution(projectId: string): Promise<{ website_clicks: number | null; leads: number | null; revenue: number | null }> {
+  const { data: rows } = await db.from('video_attribution').select('stage, revenue').eq('project_id', projectId)
+  if (!rows || rows.length === 0) return { website_clicks: null, leads: null, revenue: null }
+  let clicks = 0, leads = 0, revenue = 0
+  for (const r of rows as any[]) {
+    if (r.stage === 'click') clicks++
+    else if (r.stage === 'lead') leads++
+    if (r.stage === 'sale' || r.stage === 'upsell' || r.stage === 'subscription_started') revenue += Number(r.revenue ?? 0)
+  }
+  return { website_clicks: clicks, leads, revenue }   // echte tellingen (0 = echt 0)
 }
 
 function dueCheckpoints(publishedAt: string, nowMs: number): Checkpoint[] {
@@ -98,7 +102,7 @@ export async function runLearningLoop(nowMs: number): Promise<LearningRunResult>
     let lastStatus: SourceStatus = 'pending'
     for (const cp of due) {
       const yt = await youtubeMetrics(ytId)
-      const attr = await aquierAttribution(p.id)
+      const attr = await canonicalAttribution(p.id)
 
       let status: SourceStatus
       if (!HAS_YT_ANALYTICS) status = 'blocked_missing_youtube_analytics_key'
@@ -124,10 +128,9 @@ export async function runLearningLoop(nowMs: number): Promise<LearningRunResult>
       written++
     }
 
-    // Learning-summary: alleen leerbare subscores uit ECHT verzamelde checkpoints.
+    // OPERATIONELE learning-state (GEEN CIS hier — canon = v_video_impact).
     const { data: cps } = await db.from('video_performance_checkpoints')
-      .select('source_status, ctr, retention, website_clicks, leads, revenue, views, subscribers_gained')
-      .eq('video_project_id', p.id)
+      .select('source_status, ctr, retention').eq('video_project_id', p.id)
     const collected = (cps ?? []).filter((c) => c.source_status === 'collected')
 
     const blockers: string[] = []
@@ -142,29 +145,25 @@ export async function runLearningLoop(nowMs: number): Promise<LearningRunResult>
     } else if (due.includes('72h')) learning_status = 'completed'
     else { const maxDue = due[due.length - 1]; learning_status = maxDue ? `awaiting_${maxDue}` : 'pending' }
 
-    // subscores ALLEEN uit echte data; anders NULL (geen default-success)
+    // dimensie-performance ALLEEN uit echte data; anders NULL (geen default-success).
+    // Dit zijn LEER-signalen, GEEN impact/omzet-score (die is canoniek v_video_impact).
     const avg = (vals: (number | null | undefined)[]) => { const n = vals.filter((v): v is number => typeof v === 'number'); return n.length ? n.reduce((s, v) => s + v, 0) / n.length : null }
     const thumbnail_perf = avg(collected.map((c) => c.ctr))
     const hook_perf = avg(collected.map((c) => c.retention))
-    const totalRevenue = avg(collected.map((c) => c.revenue)) != null ? collected.reduce((s, c) => s + (c.revenue ?? 0), 0) : null
-    const totalLeads = collected.some((c) => c.leads != null) ? collected.reduce((s, c) => s + (c.leads ?? 0), 0) : null
-    const totalClicks = collected.some((c) => c.website_clicks != null) ? collected.reduce((s, c) => s + (c.website_clicks ?? 0), 0) : null
-    const totalViews = collected.some((c) => c.views != null) ? collected.reduce((s, c) => s + (c.views ?? 0), 0) : null
-    // Content Impact Score = echte conversie-gewogen, alleen als er data is
-    const content_impact = (totalViews && totalClicks != null) ? Math.round((totalClicks / Math.max(1, totalViews)) * 1000) / 10 : null
 
     await db.from('video_learning_summary').upsert({
       video_project_id: p.id, learning_status,
-      content_impact_score: content_impact,
       thumbnail_perf, hook_perf,
       voice_perf: null, visual_perf: null, music_perf: null, cta_perf: null, format_perf: null, channel_perf: null,
-      revenue_subscore: totalRevenue, lead_subscore: totalLeads, authority_subscore: null,
-      viral_subscore: null, blockers,
+      blockers,
     }, { onConflict: 'video_project_id' })
 
-    // viral_patterns: alleen echte omzet terugkoppelen (geen fake)
-    if (totalRevenue != null && totalRevenue > 0) {
-      await db.from('viral_patterns').update({ revenue_attributed: totalRevenue }).eq('niche', p.niche ?? '').eq('platform', 'youtube')
+    // OMZET-terugkoppeling: lees canoniek uit video_attribution (niet zelf herberekenen).
+    // viral_patterns.revenue_attributed alleen bijwerken met ECHTE canon-omzet.
+    const canon = await canonicalAttribution(p.id)
+    if (canon.revenue != null && canon.revenue > 0) {
+      await db.from('viral_patterns').update({ revenue_attributed: canon.revenue }).eq('niche', p.niche ?? '').eq('platform', 'youtube')
+      await db.from('video_projects').update({ revenue_attributed: canon.revenue, leads_attributed: canon.leads ?? 0 }).eq('id', p.id)
     }
   }
 
