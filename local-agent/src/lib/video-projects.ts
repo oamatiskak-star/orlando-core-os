@@ -14,8 +14,8 @@ import type { SceneSpec } from './scene-planner'
  */
 
 const db = createClient(
-  process.env.SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!,
+  (process.env.SUPABASE_URL ?? 'http://preflight.invalid'),
+  (process.env.SUPABASE_SERVICE_ROLE_KEY ?? 'preflight'),
   { auth: { persistSession: false } },
 )
 
