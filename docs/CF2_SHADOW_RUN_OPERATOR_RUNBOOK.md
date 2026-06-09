@@ -48,27 +48,54 @@ node dist/video-projects-runner.js --shadow \
 - **Preflight BLOCKED:** `PREFLIGHT: BLOCKED_MISSING_SUPABASE_ENV` (of `_LLM_RUNTIME`/`_FFMPEG`) → run draait NIET.
 - **Shadow-run:** `SHADOW-RESULT: { projectId, sceneCount, voiceProvider, visualsSelected, musicScore, thumbnailVariants, renderUrl, cqi, gatePassed, status, reasons, noQueue:true }`. Bij ontbrekende bronnen → `status:"rework_required"` + `reasons` met `blocked_*`. Bij alle bronnen aanwezig + scores ≥ drempel → `status:"awaiting_approval"`.
 
-## 5. Bewijs-SQL (read-only)
+## 5. Bewijs-SQL (read-only) — ÉÉN query, met ingebouwd PASS/FAIL-verdict
+Plak deze ene query na de run; één rij met alle bewijs + `shadow_verdict`:
 ```sql
+with lp as (
+  select * from public.video_projects order by created_at desc limit 1
+),
+lq as (
+  select * from public.youtube_quality_scores
+  where video_project_id = (select id from lp)
+  order by created_at desc limit 1
+),
+cnt as (
+  select
+    (select count(*) from public.video_projects)                                            as vp,
+    (select count(*) from public.video_scenes)                                              as sc,
+    (select count(*) from public.audio_assets)                                              as au,
+    (select count(*) from public.visual_assets)                                             as vi,
+    (select count(*) from public.thumbnail_variants)                                        as th,
+    (select count(*) from public.youtube_quality_scores where video_project_id is not null) as qc,
+    (select count(*) from public.youtube_upload_queue q
+       join public.video_projects p on p.queue_id = q.id)                                   as uq
+)
 select
-  (select count(*) from public.video_projects)                                   as video_projects,
-  (select count(*) from public.video_scenes)                                     as scenes,
-  (select count(*) from public.audio_assets)                                     as audio_assets,
-  (select count(*) from public.visual_assets)                                    as visual_assets,
-  (select count(*) from public.thumbnail_variants)                               as thumbnails,
-  (select count(*) from public.youtube_quality_scores where video_project_id is not null) as qc_scores;
-
-select id, status, approved, queue_id, rework_reason
-from public.video_projects order by created_at desc limit 1;
-
-select gate_passed, gate_reason, content_quality_index
-from public.youtube_quality_scores where video_project_id is not null
-order by created_at desc limit 1;
-
--- MOET 0 zijn (geen upload-queue write door de shadow-run):
-select count(*) as upload_queue_rows_voor_dit_project from public.youtube_upload_queue q
-join public.video_projects vp on vp.queue_id = q.id;
+  c.vp as video_projects, c.sc as video_scenes, c.au as audio_assets, c.vi as visual_assets,
+  c.th as thumbnail_variants, c.qc as qc_scores, c.uq as upload_queue_inserts,
+  lp.id as latest_project, lp.status, lp.approved, lp.queue_id, lp.rework_reason,
+  lq.gate_passed, lq.gate_reason, lq.content_quality_index as cqi,
+  case
+    when c.vp > 0 and c.sc > 0 and c.qc >= 1
+      and lp.status in ('awaiting_approval','rework_required')
+      and lp.queue_id is null and lp.approved = false
+      and c.uq = 0
+    then 'PASS' else 'FAIL'
+  end as shadow_verdict,
+  nullif(concat_ws('; ',
+    case when c.vp = 0 then 'video_projects=0' end,
+    case when c.sc = 0 then 'video_scenes=0' end,
+    case when c.qc = 0 then 'qc_scores=0' end,
+    case when lp.status is null or lp.status not in ('awaiting_approval','rework_required') then 'status='||coalesce(lp.status,'(geen)') end,
+    case when lp.queue_id is not null then 'queue_id_NOT_NULL' end,
+    case when lp.approved then 'approved=true' end,
+    case when c.uq > 0 then 'upload_queue_inserts>0' end
+  ), '') as fail_reasons
+from cnt c left join lp on true left join lq on true;
 ```
+`shadow_verdict = PASS` ⇔ alle harde criteria uit §6 waar. `fail_reasons` toont
+exact wat faalt (NULL bij PASS). Assets-aanwezig-of-`blocked_*` blijkt uit
+`rework_reason`/`gate_reason` op de rij.
 
 ## 6. PASS-criteria (alle waar)
 - `video_projects > 0`
