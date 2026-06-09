@@ -16,7 +16,7 @@ import { localLlmJson, clampScore } from './local-llm'
  * placeholders. Geen track >=90 → rework.
  */
 
-const db = createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!, { auth: { persistSession: false } })
+const db = createClient((process.env.SUPABASE_URL ?? 'http://preflight.invalid'), (process.env.SUPABASE_SERVICE_ROLE_KEY ?? 'preflight'), { auth: { persistSession: false } })
 export const MUSIC_MIN_SCORE = 90
 export const MUSIC_GATE_NO_SOURCE = 'blocked_missing_music_source'
 

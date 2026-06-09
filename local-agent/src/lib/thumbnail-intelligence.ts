@@ -18,7 +18,7 @@ import { localLlmJson, clampScore } from './local-llm'
  * gate blokkeert). Schrijft public.thumbnail_variants (migratie 153).
  */
 
-const db = createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!, { auth: { persistSession: false } })
+const db = createClient((process.env.SUPABASE_URL ?? 'http://preflight.invalid'), (process.env.SUPABASE_SERVICE_ROLE_KEY ?? 'preflight'), { auth: { persistSession: false } })
 const CAPTION_FONT = process.env.CAPTION_FONT || '/System/Library/Fonts/Supplemental/Arial Bold.ttf'
 export const THUMB_MIN_SCORE = 90
 export const THUMB_GATE_NO_VISUALS = 'thumbnail_pending_no_visuals'

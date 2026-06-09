@@ -1,9 +1,16 @@
+import './ws-shim'   // MOET eerst — zet global WebSocket vóór elke @supabase-import
 import 'dotenv/config'
 import path from 'path'
 import os from 'os'
 import { generateContent } from './lib/ai'
 import { planScenes } from './lib/scene-planner'
 import { synthVoice } from './lib/audio'
+import { sourceVisualsForProject } from './lib/visual-intelligence'
+import { selectMusic } from './lib/music-intelligence'
+import { generateThumbnails } from './lib/thumbnail-intelligence'
+import { renderProject } from './lib/render'
+import { assessQuality } from './quality-assess'
+import { runPreflight } from './preflight'
 import * as spine from './lib/video-projects'
 
 /**
@@ -31,13 +38,19 @@ export interface ShadowOpts {
 }
 
 export interface ShadowResult {
-  projectId:     string
-  title:         string
-  sceneCount:    number
-  voiceProvider: string | null
-  status:        spine.WriterStatus
-  reasons:       string | null
-  noQueue:       boolean
+  projectId:        string
+  title:            string
+  sceneCount:       number
+  voiceProvider:    string | null
+  visualsSelected:  number
+  musicScore:       number | null
+  thumbnailVariants: number
+  renderUrl:        string | null
+  cqi:              number | null
+  gatePassed:       boolean
+  status:           spine.WriterStatus
+  reasons:          string | null
+  noQueue:          boolean
 }
 
 export async function runShadowTopic(o: ShadowOpts): Promise<ShadowResult> {
@@ -90,26 +103,57 @@ export async function runShadowTopic(o: ShadowOpts): Promise<ShadowResult> {
     final_score: null,
   })
 
-  // 5. Visual — GEEN fake clips. Echte Pexels-search vereist key + de volgende slice.
-  const visualBlocked = process.env.PEXELS_API_KEY ? null : 'blocked_missing_pexels_key'
+  // 6. Visual Intelligence (FASE A) — echte Pexels/Pixabay; geen key → blocked, geen fakes
+  const vis = await sourceVisualsForProject(projectId, o.format)
 
-  // 6. Status — elke open gate → rework_required + reden. NOOIT upload/approve/queue.
-  const reasons = [voiceRes.gateReason, visualBlocked].filter(Boolean).join('; ')
+  // 7. Music Intelligence (FASE F) — licensed catalogus; geen bron → blocked_missing_music_source
+  const mus = await selectMusic(projectId)
+
+  // 8. Thumbnail Intelligence (FASE E) — ≥3 echte varianten; geen visuals → blocked
+  const thumb = await generateThumbnails(projectId, o.format)
+
+  // 9. Render (FASE B) — alleen met echte assets; anders blocked (geen fake render)
+  let renderUrl: string | null = null
+  let renderBlocked: string | null = null
+  if (vis.assetsSelected > 0 && voiceRes.outputPath) {
+    try {
+      const r = await renderProject({ projectId, format: o.format, voicePath: voiceRes.outputPath, musicPath: null })
+      renderUrl = r.outputPath
+    } catch (e: any) { renderBlocked = 'blocked_render_failed' }
+  } else {
+    renderBlocked = vis.assetsSelected === 0 ? 'blocked_no_visual_assets' : 'blocked_no_voice'
+  }
+
+  // 10. QC (FASE C/G) — canonieke frontend-route schrijft youtube_quality_scores + gate
+  const qc = await assessQuality(projectId)
+
+  // Status — elke open gate → rework_required + reden. NOOIT upload/approve/queue.
+  const reasons = [
+    voiceRes.gateReason,
+    vis.blockedReason,
+    mus.blockedReason,
+    thumb.blockedReason,
+    renderBlocked,
+    qc.ok ? (qc.gate_passed ? null : qc.gate_reason) : qc.blocked,
+  ].filter(Boolean).join('; ')
+
   let status: spine.WriterStatus
   if (reasons) {
     status = 'rework_required'
     await spine.setStatus(projectId, status, reasons)
   } else {
-    // (pas in de volgende slice haalbaar: voice productie-klaar + visuals gerenderd)
-    status = 'awaiting_approval'
+    status = 'awaiting_approval'   // alle gates groen; menselijke approval volgt (buiten deze runner)
     await spine.setStatus(projectId, status, null)
   }
 
   const noQueue = await spine.assertNoQueue(projectId)
   return {
     projectId, title: content.title, sceneCount,
-    voiceProvider: voiceRes.provider, status,
-    reasons: reasons || null, noQueue,
+    voiceProvider: voiceRes.provider,
+    visualsSelected: vis.assetsSelected, musicScore: mus.selectedScore,
+    thumbnailVariants: thumb.variants, renderUrl,
+    cqi: qc.cqi ?? null, gatePassed: qc.gate_passed ?? false,
+    status, reasons: reasons || null, noQueue,
   }
 }
 
@@ -122,19 +166,26 @@ if (require.main === module) {
   }
   const topic = arg('topic', '')
   if (!topic) {
-    console.error('Gebruik: --topic "..." [--niche ..] [--lang nl|en|es] [--format 16:9|9:16|1:1] [--seconds 60]')
+    console.error('Gebruik: --shadow --topic "..." [--niche ..] [--lang nl|en|es] [--format 16:9|9:16|1:1] [--seconds 60]')
     process.exit(1)
   }
-  runShadowTopic({
-    topic,
-    niche:         arg('niche', 'vastgoed'),
-    language:      arg('lang', 'nl'),
-    format:        arg('format', '16:9') as '16:9' | '9:16' | '1:1',
-    voice:         arg('voice', 'nl-NL-ColetteNeural'),
-    targetSeconds: Number(arg('seconds', '60')),
-    lmStudioModel: process.env.LM_STUDIO_MODEL || 'default',
-    ollamaModel:   process.env.OLLAMA_MODEL || 'llama3.2',
-  })
-    .then((r) => { console.log('SHADOW-RESULT:', JSON.stringify(r, null, 2)); process.exit(0) })
-    .catch((e) => { console.error('SHADOW-FOUT:', e?.message ?? e); process.exit(1) })
+  // PREFLIGHT-GATE: geen record-producerende run zonder runtime. BLOCKED_* → stop,
+  // GEEN DB-writes, GEEN fake records.
+  runPreflight().then((pf) => {
+    if (!pf.ok) {
+      console.log('PREFLIGHT:', JSON.stringify(pf, null, 2))
+      console.error(`SHADOW-RUN GEBLOKKEERD (preflight): ${pf.blocked.join(', ')} — geen records geproduceerd, geen fakes.`)
+      process.exit(2)
+    }
+    return runShadowTopic({
+      topic,
+      niche:         arg('niche', 'vastgoed'),
+      language:      arg('lang', 'nl'),
+      format:        arg('format', '16:9') as '16:9' | '9:16' | '1:1',
+      voice:         arg('voice', 'nl-NL-ColetteNeural'),
+      targetSeconds: Number(arg('seconds', '60')),
+      lmStudioModel: process.env.LM_STUDIO_MODEL || 'default',
+      ollamaModel:   process.env.OLLAMA_MODEL || 'llama3.2',
+    }).then((r) => { console.log('SHADOW-RESULT:', JSON.stringify(r, null, 2)); process.exit(0) })
+  }).catch((e) => { console.error('SHADOW-FOUT:', e?.message ?? e); process.exit(1) })
 }
