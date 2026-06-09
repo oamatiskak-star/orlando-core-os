@@ -46,16 +46,24 @@ gemerged**, geen PR-OK gevraagd).
   `components/war-room/{CreativeGraph,nodes}.tsx` + `lib/war-room/graph.ts` (dagre layout). API
   `app/api/media-holding/war-room/{graph,campaigns,timeline}`. Nav: module `mh_war_room` in Cockpit-groep.
 - **Thumbnail-concept + laatste performance = facet op de creative-card** (visual_prompt + ctr/views/ret).
-  Dedicated thumbnail-variant- en winner-nodes + revenue-funnel = **Fase 2 (data-gated)**: `winner_extraction_jobs`=0
-  en `affiliate_*`=0 → A/B- en Revenue-tab tonen nette empty-states; architectuur (winner/revenue-edges) staat al klaar.
-- **Verificatie:** `tsc --noEmit` = 0 · `next build` groen (104/104 pagina's, alle 8 war-room routes als ƒ).
-  Build faalt alléén met lege env op **pre-existing** module-scope clients (`api/youtube/marketing/*`), niet op War Room.
+- **Fase 1 = MERGED naar main (PR #158) + in productie gedeployed** (dpl_9q27AR…). Migratiebestand hernummerd
+  139→`161_war_room_graph_views.sql` wegens collisie met `139_hermes_routing_brain.sql` (PR #159, MERGED).
+- **Prod-databron UITGEZOCHT:** actieve DB = **shaunum** (auth-logins 06-08/06-05; alle engines+env; media_holding_*
+  + war_room views aanwezig). `pmovaz` = legacy (laatste login 19-05, geen media_holding_*). `.env.prod` noemt
+  pmovaz nog (stale — opschonen waard). Aanrader: 1× in Vercel bevestigen `NEXT_PUBLIC_SUPABASE_URL`=shaunum.
+
+**✅ FASE 2 GEBOUWD (branch `feat/media-war-room-fase2`):**
+- **A/B & Winners** (`components/war-room/WinnerTree.tsx` + ab-tests page): React Flow mutatie-boom bron-creative→
+  varianten, kleur per status (groen=winnaar/klaar · rood=verliezer/mislukt · oranje=lopend); leest live uit
+  `winner_extraction_jobs`. Nu 0 jobs → nette empty-state; data-pad geverifieerd via zero-write VALUES-simulatie.
+- **Revenue-funnel** (`components/war-room/RevenueFunnel.tsx` + revenue page): 6-staps graph Hook→Creative→
+  Platform→Klik→Lead→Betaling met echte counts; linkerhelft (12/72/5) kleurt al groen, Klik/Lead/Betaling 0 tot
+  affiliate-data binnenkomt. Geen mockdata.
+- **Verificatie:** `tsc --noEmit` = 0 · `next build` groen (108/108 pagina's, alle war-room routes als ƒ).
 
 **🔴 OPEN / volgende stap:**
-- Committen op branch (gebeurt deze sessie) — **GEEN merge/PR naar main zonder OK Orlando**.
-- ⚠️ **Prod-databron:** prod-frontend env wijst naar `pmovaz`; views/data staan op `shaunum`. Vóór prod-deploy
-  bevestigen welk project prod gebruikt (of read-client naar shaunum) — anders is War Room lokaal groen maar prod leeg.
-- Fase 2 activeren zodra winner-/affiliate-data binnenkomt.
+- (optioneel) Vercel-env bevestigen + stale `pmovaz`-regel uit `.env.prod` halen.
+- Fase 2-graphs lichten automatisch volledig op zodra `winner_extraction_jobs` + `affiliate_*` data krijgen.
 
 ---
 
