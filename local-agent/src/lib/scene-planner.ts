@@ -1,0 +1,171 @@
+import axios from 'axios'
+
+/**
+ * SCENE-PLANNER (Content Factory 2.0 — FASE 2).
+ *
+ * Verdeelt een gegenereerd script in scenes voor de Automated Visual Production
+ * Engine. Spiegelt exact het LLM-transport van `ai.ts` (LM Studio primair →
+ * Ollama fallback, zelfde env-vars, zelfde strip-en-parse), zodat er geen nieuw
+ * model-pad ontstaat. Output mapt 1:1 op de kolommen van `public.video_scenes`
+ * (migratie 153). Geen API-key of host-keuze nodig — puur lokale LLM.
+ */
+
+const USE_LM_STUDIO   = process.env.USE_LM_STUDIO !== 'false'
+const LM_STUDIO_URL   = process.env.LM_STUDIO_URL   || 'http://localhost:1234'
+const LM_STUDIO_MODEL = process.env.LM_STUDIO_MODEL || 'default'
+const OLLAMA_URL      = process.env.OLLAMA_URL      || 'http://localhost:11434'
+const OLLAMA_MODEL    = process.env.OLLAMA_MODEL    || 'llama3.2'
+
+/** Eén scene — velden komen exact overeen met public.video_scenes. */
+export interface SceneSpec {
+  idx:               number
+  voice_text:        string
+  visual_intent:     string
+  search_query:      string
+  shot_type:         string
+  emotion:           string
+  pacing:            string
+  music_intensity:   string
+  caption_text:      string
+  expected_duration: number
+}
+
+export interface PlanScenesInput {
+  full_script:    string
+  title:          string
+  language:       string            // 'nl' | 'en' | 'es'
+  format:         '16:9' | '9:16' | '1:1'
+  target_seconds: number
+  lm_studio_model?: string
+  ollama_model?:    string
+}
+
+async function callLMStudio(prompt: string, model: string): Promise<string> {
+  const res = await axios.post(`${LM_STUDIO_URL}/v1/chat/completions`, {
+    model,
+    messages: [{ role: 'user', content: prompt }],
+    temperature: 0.7,
+    max_tokens: 4096,
+  }, { timeout: 120_000 })
+  return res.data.choices[0].message.content as string
+}
+
+async function callOllama(prompt: string, model: string): Promise<string> {
+  const res = await axios.post(`${OLLAMA_URL}/api/generate`, {
+    model,
+    prompt,
+    stream: false,
+    format: 'json',
+    options: { temperature: 0.6, num_predict: 8192, num_ctx: 8192 },
+  }, { timeout: 300_000 })
+  return res.data.response as string
+}
+
+function buildPrompt(input: PlanScenesInput, sceneCount: number, secPerScene: number): string {
+  const isNl = input.language === 'nl'
+  const langName = input.language === 'nl' ? 'Nederlands' : input.language === 'es' ? 'Spaans' : 'Engels'
+  const orientation = input.format === '9:16' ? 'verticaal (Shorts/Reels)' : input.format === '1:1' ? 'vierkant' : 'horizontaal (YouTube)'
+
+  if (isNl) {
+    return `Je bent een documentaire-regisseur die scripts opdeelt in cinematische scenes voor "${input.title}".
+Verdeel het onderstaande script in PRECIES ${sceneCount} scenes (formaat: ${orientation}).
+Elke scene duurt circa ${secPerScene} seconden.
+
+Geef UITSLUITEND één JSON-object terug met sleutel "scenes" = array. Elke scene:
+{
+  "voice_text": "de exacte voice-over zin(nen) voor deze scene (in het Nederlands)",
+  "visual_intent": "wat we zien — concreet, cinematisch",
+  "search_query": "Engelse stockvideo-zoekterm (2-5 woorden) voor deze scene",
+  "shot_type": "bv 'slow cinematic pan', 'aerial drone', 'close-up'",
+  "emotion": "bv 'curiosity', 'tension', 'authority'",
+  "pacing": "slow | medium | fast",
+  "music_intensity": "low | building | high",
+  "caption_text": "korte on-screen tekst (max 6 woorden)",
+  "expected_duration": ${secPerScene}
+}
+
+SCRIPT:
+${input.full_script}`
+  }
+
+  return `You are a documentary director splitting a script into cinematic scenes for "${input.title}".
+Split the script below into EXACTLY ${sceneCount} scenes (orientation: ${orientation}).
+Each scene lasts about ${secPerScene} seconds.
+
+Return ONLY one JSON object with key "scenes" = array. Each scene:
+{
+  "voice_text": "the exact voice-over sentence(s) for this scene (in ${langName})",
+  "visual_intent": "what we see — concrete, cinematic",
+  "search_query": "English stock-video search term (2-5 words) for this scene",
+  "shot_type": "e.g. 'slow cinematic pan', 'aerial drone', 'close-up'",
+  "emotion": "e.g. 'curiosity', 'tension', 'authority'",
+  "pacing": "slow | medium | fast",
+  "music_intensity": "low | building | high",
+  "caption_text": "short on-screen text (max 6 words)",
+  "expected_duration": ${secPerScene}
+}
+
+SCRIPT:
+${input.full_script}`
+}
+
+/** Haal het eerste JSON-object uit een LLM-respons (markdown-tolerant). */
+function extractJson(raw: string): any {
+  const cleaned = raw.replace(/```json/gi, '').replace(/```/g, '').trim()
+  const match = cleaned.match(/\{[\s\S]*\}/)
+  if (!match) throw new Error('scene-planner: geen JSON in LLM-respons')
+  return JSON.parse(match[0])
+}
+
+function clampScene(s: any, idx: number, fallbackDuration: number): SceneSpec {
+  const str = (v: unknown, d = ''): string => (typeof v === 'string' && v.trim() ? v.trim() : d)
+  const dur = Number(s?.expected_duration)
+  return {
+    idx,
+    voice_text:        str(s?.voice_text),
+    visual_intent:     str(s?.visual_intent),
+    search_query:      str(s?.search_query, str(s?.visual_intent)),
+    shot_type:         str(s?.shot_type, 'cinematic'),
+    emotion:           str(s?.emotion, 'neutral'),
+    pacing:            str(s?.pacing, 'medium'),
+    music_intensity:   str(s?.music_intensity, 'building'),
+    caption_text:      str(s?.caption_text),
+    expected_duration: Number.isFinite(dur) && dur > 0 ? dur : fallbackDuration,
+  }
+}
+
+/**
+ * Plant scenes voor een video. Bepaalt zelf een passend aantal scenes op basis
+ * van de doelduur (≈ 1 scene per 5s, min 3, max 40) en valt bij parse-fouten
+ * terug op Ollama (zoals ai.ts). Gooit alleen als beide modellen falen.
+ */
+export async function planScenes(input: PlanScenesInput): Promise<SceneSpec[]> {
+  const secPerScene = input.format === '9:16' ? 4 : 5
+  const sceneCount = Math.min(40, Math.max(3, Math.round(input.target_seconds / secPerScene)))
+  const prompt = buildPrompt(input, sceneCount, secPerScene)
+
+  const lmModel = input.lm_studio_model || LM_STUDIO_MODEL
+  const olModel = input.ollama_model    || OLLAMA_MODEL
+
+  let raw: string
+  try {
+    raw = USE_LM_STUDIO ? await callLMStudio(prompt, lmModel) : await callOllama(prompt, olModel)
+  } catch {
+    // Spiegelt ai.ts: bij falen van de primaire backend → de andere proberen.
+    raw = USE_LM_STUDIO ? await callOllama(prompt, olModel) : await callLMStudio(prompt, lmModel)
+  }
+
+  let parsed: any
+  try {
+    parsed = extractJson(raw)
+  } catch {
+    // Eén harde retry op de fallback-backend met dezelfde prompt.
+    const retryRaw = USE_LM_STUDIO ? await callOllama(prompt, olModel) : await callLMStudio(prompt, lmModel)
+    parsed = extractJson(retryRaw)
+  }
+
+  const arr: any[] = Array.isArray(parsed?.scenes) ? parsed.scenes : Array.isArray(parsed) ? parsed : []
+  if (arr.length === 0) throw new Error('scene-planner: lege scenes-array')
+
+  return arr.map((s, i) => clampScene(s, i + 1, secPerScene)).filter((s) => s.voice_text.length > 0)
+}

@@ -1,0 +1,138 @@
+import fs from 'fs'
+import { spawnSync } from 'child_process'
+import { generateTTS } from './tts'
+
+/**
+ * VOICE PROVIDER ROUTER (Content Factory 2.0 — FASE 2).
+ *
+ * Provider-onafhankelijk, kostenbewust, geen vendor lock-in.
+ * - Lokaal (gratis, voor bulk/shadow/test): local_xtts → piper → edge_tts.
+ * - Premium (publish): openai_tts / elevenlabs — ALLEEN ingezet wanneer de
+ *   lokale voice_score < 95 (anders blijft het lokaal = goedkoop).
+ *
+ * Productie-publish vereist voice_score >= 95 ongeacht provider. Een audio die
+ * die lat niet haalt levert een gateReason en mag NOOIT upload_ready worden.
+ */
+
+export type VoiceProvider = 'local_xtts' | 'piper' | 'edge_tts' | 'openai_tts' | 'elevenlabs'
+export type VoiceMode = 'shadow' | 'bulk' | 'premium'
+
+export const VOICE_GATE_PREMIUM = 'blocked_voice_below_95'          // gescoord <95, geen premium-escalatie mogelijk
+export const VOICE_GATE_NO_PROVIDER = 'blocked_no_voice_provider'    // geen enkele provider beschikbaar
+
+const LOCAL_ORDER:   VoiceProvider[] = ['local_xtts', 'piper', 'edge_tts']
+const PREMIUM_ORDER: VoiceProvider[] = ['elevenlabs', 'openai_tts']
+
+export interface VoiceResult {
+  provider: VoiceProvider | null
+  outputPath: string | null
+  productionReady: boolean        // alleen true bij premium-kwaliteit of lokaal met voice_score>=95
+  gateReason: string | null       // gezet wanneer NIET productie-klaar
+}
+
+export interface SynthOptions {
+  voice: string                   // edge-tts/xtts/piper-stemnaam of premium voiceId
+  mode: VoiceMode
+  localVoiceScore?: number | null // QC voice-score van een eerdere lokale render (>=95 → premium overslaan)
+  language?: string
+}
+
+// ── beschikbaarheid (geen aannames: detecteer per binary/env) ────────────────
+function hasBinary(bin: string): boolean {
+  try { return spawnSync('which', [bin]).status === 0 } catch { return false }
+}
+export function providerAvailable(p: VoiceProvider): boolean {
+  switch (p) {
+    case 'local_xtts':  return !!process.env.XTTS_URL || hasBinary('tts')          // coqui XTTS-server of CLI
+    case 'piper':       return !!process.env.PIPER_BIN || hasBinary('piper')
+    case 'edge_tts':    return hasBinary('edge-tts') || hasBinary('espeak')        // espeak = laatste lokale fallback
+    case 'openai_tts':  return !!process.env.OPENAI_API_KEY
+    case 'elevenlabs':  return !!process.env.ELEVENLABS_API_KEY
+  }
+}
+
+// ── provider-implementaties (draaien alleen als available) ───────────────────
+async function synthLocalXtts(text: string, out: string, voice: string): Promise<void> {
+  const base = process.env.XTTS_URL
+  if (base) {
+    const axios = (await import('axios')).default
+    const res = await axios.post(`${base}/api/tts`, { text, speaker: voice, language: 'auto' },
+      { responseType: 'arraybuffer', timeout: 180_000 })
+    fs.writeFileSync(out, Buffer.from(res.data)); return
+  }
+  const r = spawnSync('tts', ['--text', text, '--out_path', out], { encoding: 'utf8' })
+  if (r.status !== 0) throw new Error(`xtts faalde: ${r.stderr ?? ''}`)
+}
+async function synthPiper(text: string, out: string): Promise<void> {
+  const bin = process.env.PIPER_BIN || 'piper'
+  const model = process.env.PIPER_MODEL
+  const args = model ? ['--model', model, '--output_file', out] : ['--output_file', out]
+  const r = spawnSync(bin, args, { input: text, encoding: 'utf8' })
+  if (r.status !== 0) throw new Error(`piper faalde: ${r.stderr ?? ''}`)
+}
+async function synthOpenAi(text: string, out: string, voice: string): Promise<void> {
+  const axios = (await import('axios')).default
+  const res = await axios.post('https://api.openai.com/v1/audio/speech',
+    { model: process.env.OPENAI_TTS_MODEL || 'tts-1-hd', voice: voice || 'onyx', input: text },
+    { headers: { Authorization: `Bearer ${process.env.OPENAI_API_KEY}` }, responseType: 'arraybuffer', timeout: 120_000 })
+  fs.writeFileSync(out, Buffer.from(res.data))
+}
+async function synthElevenLabs(text: string, out: string, voiceId: string): Promise<void> {
+  const axios = (await import('axios')).default
+  const res = await axios.post(`https://api.elevenlabs.io/v1/text-to-speech/${voiceId}`,
+    { text, model_id: 'eleven_multilingual_v2', voice_settings: { stability: 0.5, similarity_boost: 0.75 } },
+    { headers: { 'xi-api-key': process.env.ELEVENLABS_API_KEY!, 'Content-Type': 'application/json', Accept: 'audio/mpeg' },
+      responseType: 'arraybuffer', timeout: 120_000 })
+  fs.writeFileSync(out, Buffer.from(res.data))
+}
+
+async function runProvider(p: VoiceProvider, text: string, out: string, voice: string): Promise<void> {
+  switch (p) {
+    case 'local_xtts':  return synthLocalXtts(text, out, voice)
+    case 'piper':       return synthPiper(text, out)
+    case 'edge_tts':    return generateTTS(text, out, voice)   // bestaande edge-tts/espeak
+    case 'openai_tts':  return synthOpenAi(text, out, voice)
+    case 'elevenlabs':  return synthElevenLabs(text, out, voice)
+  }
+}
+
+/**
+ * Kiest een provider volgens de kostenregel en synthetiseert.
+ * - shadow/bulk → eerste beschikbare LOKALE provider (gratis).
+ * - premium     → lokaal mag blijven als localVoiceScore>=95; anders escaleer
+ *                 naar premium (elevenlabs vóór openai). Geen premium beschikbaar
+ *                 + lokaal<95 → gateReason, NIET productie-klaar.
+ */
+export async function synthVoice(text: string, outputPath: string, opts: SynthOptions): Promise<VoiceResult> {
+  const localScore = opts.localVoiceScore ?? null
+  const localOk = localScore != null && localScore >= 95
+
+  // Premium-publish met onvoldoende lokale score → probeer premium-providers.
+  if (opts.mode === 'premium' && !localOk) {
+    for (const p of PREMIUM_ORDER) {
+      if (providerAvailable(p)) {
+        await runProvider(p, text, outputPath, opts.voice)
+        return { provider: p, outputPath, productionReady: true, gateReason: null }
+      }
+    }
+    // Geen premium beschikbaar → val terug op lokaal maar markeer geblokkeerd.
+    for (const p of LOCAL_ORDER) {
+      if (providerAvailable(p)) {
+        await runProvider(p, text, outputPath, opts.voice)
+        return { provider: p, outputPath, productionReady: false, gateReason: VOICE_GATE_PREMIUM }
+      }
+    }
+    return { provider: null, outputPath: null, productionReady: false, gateReason: VOICE_GATE_NO_PROVIDER }
+  }
+
+  // shadow/bulk (of premium met lokaal>=95) → lokale provider.
+  for (const p of LOCAL_ORDER) {
+    if (providerAvailable(p)) {
+      await runProvider(p, text, outputPath, opts.voice)
+      // Productie-klaar alleen als premium-modus mét bewezen lokale score>=95.
+      const productionReady = opts.mode === 'premium' && localOk
+      return { provider: p, outputPath, productionReady, gateReason: productionReady ? null : VOICE_GATE_PREMIUM }
+    }
+  }
+  return { provider: null, outputPath: null, productionReady: false, gateReason: VOICE_GATE_NO_PROVIDER }
+}
