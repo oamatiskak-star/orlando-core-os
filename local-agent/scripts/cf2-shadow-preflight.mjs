@@ -36,6 +36,37 @@ async function reachable(url, path) {
   } catch { return false }
 }
 
+// ECHTE validatie — geen schijn-PASS. Een lege/fake key of fake pad MOET falen.
+async function pexelsValid(key) {
+  if (!key) return false
+  try {
+    const ctl = new AbortController(); const t = setTimeout(() => ctl.abort(), 4000)
+    const r = await fetch('https://api.pexels.com/v1/search?query=city&per_page=1', { headers: { Authorization: key }, signal: ctl.signal })
+    clearTimeout(t)
+    if (r.status !== 200) return false             // 401 = ongeldige key → faalt
+    const j = await r.json().catch(() => null)      // eis ECHTE Pexels-respons (photos-array)
+    return !!j && Array.isArray(j.photos)          // proxy/stub zonder photos → faalt (geen schijn-PASS)
+  } catch { return false }
+}
+const AUDIO_RE = /\.(mp3|wav|m4a|aac|ogg|flac)$/i
+async function musicReady(catalog) {
+  if (!catalog) return false
+  // lokaal pad met echte audiobestanden?
+  try {
+    if (existsSync(catalog)) {
+      const fs = await import('node:fs')
+      return fs.readdirSync(catalog).some((f) => AUDIO_RE.test(f))
+    }
+  } catch { /* val door naar bucket-check */ }
+  // anders: Supabase-bucket met ≥1 audio-object?
+  try {
+    const { createClient } = await import('@supabase/supabase-js')
+    const sb = createClient(env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY, { auth: { persistSession: false } })
+    const { data, error } = await sb.storage.from(catalog).list('', { limit: 100 })
+    return !error && Array.isArray(data) && data.some((o) => AUDIO_RE.test(o.name))
+  } catch { return false }
+}
+
 const OLLAMA = env.OLLAMA_BASE_URL || env.OLLAMA_URL || 'http://localhost:11434'
 const LMSTUDIO = env.LM_STUDIO_BASE_URL || env.LM_STUDIO_URL || 'http://localhost:1234'
 const TTS = (env.TTS_PROVIDER || 'edge_tts').toLowerCase()
@@ -62,10 +93,10 @@ add('B5b', 'LM Studio bereikbaar', await reachable(LMSTUDIO, '/v1/models'), `sta
 add('B1', `TTS-provider (${TTS})`, ttsReady(), `installeer: pipx install edge-tts  (of piper/espeak)`) // local TTS
 // FFmpeg (al klaar verwacht)
 add('FF', 'FFmpeg', hasBin('ffmpeg'), 'brew install ffmpeg')
-// B2/B3/B4: keys/font/music
-add('B2', 'PEXELS_API_KEY', !!env.PEXELS_API_KEY, 'gratis key op pexels.com/api → .env')
-add('B3', 'MUSIC_CATALOG', !!env.MUSIC_CATALOG, 'royalty-free muziekbron (bucket/pad) → .env')
-add('B4', 'CAPTION_FONT bestaat', !!env.CAPTION_FONT && existsSync(env.CAPTION_FONT), 'geldig .ttf-pad → .env')
+// B2/B3/B4: keys/font/music — ECHTE checks (geen schijn-PASS bij fake waarden)
+add('B2', 'PEXELS key geldig (echte API-call)', await pexelsValid(env.PEXELS_API_KEY), 'geldige key op pexels.com/api → .env (fake/lege key faalt 401)')
+add('B3', 'MUSIC_CATALOG bevat audio (echt)', await musicReady(env.MUSIC_CATALOG), 'echte muziekbron met audiobestanden (lokaal pad óf Supabase-bucket)')
+add('B4', 'CAPTION_FONT bestaat', !!env.CAPTION_FONT && existsSync(env.CAPTION_FONT), 'geldig .ttf-pad naar bestaand font → .env')
 add('ENV', 'Supabase env', !!env.SUPABASE_URL && !!env.SUPABASE_SERVICE_ROLE_KEY, 'SUPABASE_URL + SERVICE_ROLE_KEY → .env')
 
 // B6: build (uitvoeren of controleren)

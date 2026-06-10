@@ -8,12 +8,16 @@ Doel: de **eerste CF2 shadow-run** lokaal uitvoeren — content→scenes→voice
 | ID | Check | Fix |
 |---|---|---|
 | B1 | TTS-provider (`TTS_PROVIDER`) bereikbaar | `pipx install edge-tts` (of piper/espeak) |
-| B2 | `PEXELS_API_KEY` gezet | gratis key op pexels.com/api → `.env` |
-| B3 | `MUSIC_CATALOG` gezet | royalty-free muziekbron (bucket/pad) → `.env` |
+| B2 | `PEXELS_API_KEY` geldig (echte API-call; fake/lege key faalt 401) | geldige key op pexels.com/api → `.env` |
+| B3 | `MUSIC_CATALOG` bevat audio (lokaal pad óf Supabase-bucket) | royalty-free muziekbron met ≥1 audiobestand → `.env` |
 | B4 | `CAPTION_FONT` bestaat | geldig `.ttf`-pad → `.env` |
 | B5 | Ollama (`:11434`) + LM Studio (`:1234`) bereikbaar | `ollama serve`; LM Studio server starten |
 | B6 | Build `dist/cf2-producer.js` | `npm ci && npm run build` (cf2:shadow bouwt zelf indien nodig) |
 | — | FFmpeg + Supabase-env | `brew install ffmpeg`; `.env` met SUPABASE_URL/SERVICE_ROLE_KEY |
+
+> **B1–B6 zijn echte validaties** — een fake/lege waarde faalt bewust (anti-schijn-PASS). B2 doet een echte Pexels API-call, B3 controleert op echte audiobestanden.
+>
+> **Echte readiness telt uitsluitend op de Mac Mini-host.** Een sandbox/CI-omgeving kan uitgaande HTTP stubben (bijv. B2 lijkt groen ongeacht de key) — die uitkomst is **niet leidend**. Alleen `npm run cf2:shadow` op de Mac Mini met echt internet + echte `.env` bewijst readiness.
 
 ## Exacte commando's
 ```bash
@@ -46,8 +50,8 @@ CF2 shadow-run readiness — mode=prepared · publish=0
   ✅ [B5b] LM Studio bereikbaar
   ✅ [B1] TTS-provider (edge_tts)
   ✅ [FF] FFmpeg
-  ✅ [B2] PEXELS_API_KEY
-  ✅ [B3] MUSIC_CATALOG
+  ✅ [B2] PEXELS key geldig (echte API-call)
+  ✅ [B3] MUSIC_CATALOG bevat audio (echt)
   ✅ [B4] CAPTION_FONT bestaat
   ✅ [ENV] Supabase env
   ✅ [B6] Build (dist/cf2-producer.js)
