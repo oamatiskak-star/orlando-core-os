@@ -35,6 +35,27 @@ select * from v_ph_storage;
 ```
 UI: open `/dashboard/media-holding/war-room/workspace` → Creative Library toont YouTube-thumbnails (i.ytimg.com); Hook Intelligence + Winners gevuld.
 
+## Fase 5 (CF2 Producer/Review/Attribution/Learning/Replanning) — NA review, jouw go
+> **164–170 zijn toegepast op prod (2026-06-10).** De onderstaande Fase-5-migraties zijn
+> gebouwd/getest maar **NIET toegepast** ("alleen voorbereiden voor activatie"). Volgorde:
+
+| # | Migratie | Wat | Afhankelijkheid |
+|---|---|---|---|
+| 8 | `171_cf2_producer_review.sql` | `cf2_jobs` + `cf2_job_steps` + `v_cf2_review` (Review Intelligence + Producer pipeline). | na 166 (content_horizon) + 170 (variation_requests) — beide nodig |
+| 9 | `172_attribution_engine.sql` | `v_attribution_channel` + `v_attribution_niche` (funnel + confidence). | — |
+| 10 | `173_learning_loop.sql` | `v_winner_patterns`/`v_loser_patterns`/`v_hook_patterns`/`v_thumbnail_patterns`/`v_channel_patterns`/`v_campaign_patterns`. | **na 169** (v_hook_classified) |
+| 11 | `174_horizon_replanning.sql` | `cf2_replan_log` + `request_horizon_replan()` + trigger-functie (NIET aangehecht). | na 166 |
+
+Live-check ná 171–174:
+```sql
+select count(*) from v_winner_patterns;       -- echte winnende patronen (money+long in finance, education+long in satisfying)
+select * from v_attribution_niche;            -- views echt, click/lead/sale 0 → "Geen data", confidence zichtbaar
+select count(*) from v_cf2_review;            -- 0 tot CF2 produceert (Producer Graph toont pipeline-template)
+```
+**Activatie van Fase 5F replanning-trigger** (apart, na go): voer de twee `create trigger`-regels onderaan `174_horizon_replanning.sql` uit. Tot dan is de keten alleen voorbereid.
+
+> **TOEGEPAST OP PROD 2026-06-10:** `171`→`175` (incl. `175_learning_loop_wiring.sql` — planner consumeert winners + hook-patronen). Learning Loop GESLOTEN + bewezen: `plan_content_horizon()` handmatig gedraaid → 22 horizon-items, 20 met bron-winner+hook-cat. Engines blijven enabled=false; geen productie/spend. Resterend vóór productie-GO: **CF2 producer-worker** (B4) + thumbnail-generatie + engines enabled=true + host.
+
 ## Apart aanzetten (NA review, jouw go — spend/host)
 Niet nodig voor de live-check hierboven. Voor autonome productie:
 1. Engines: `update engine_schedule set enabled=true, block_key='<blok>' where engine_key in ('content:horizon-planner','content:winner-detector','maintenance:db-janitor');`
