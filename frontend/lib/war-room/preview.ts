@@ -18,11 +18,18 @@ export function youtubeThumb(videoId: string): string {
 
 const VIDEO_RE = /\.(mp4|webm|mov|m4v)(\?|#|$)/i
 
-export function resolvePreview(outputUrl: string | null | undefined, youtubeId: string | null | undefined): Preview {
+// thumbnailUrl = expliciet opgeslagen thumbnail (youtube_videos.thumbnail_url, i.ytimg.com).
+export function resolvePreview(
+  outputUrl: string | null | undefined,
+  youtubeId: string | null | undefined,
+  thumbnailUrl?: string | null,
+): Preview {
   const yt = youtubeId ? youtubeThumb(youtubeId) : null
+  const thumb = thumbnailUrl && /^https?:\/\//i.test(thumbnailUrl) ? thumbnailUrl : null
   if (outputUrl && (VIDEO_RE.test(outputUrl) || outputUrl.includes('replicate.delivery'))) {
-    return { kind: 'video', url: outputUrl, poster: yt }
+    return { kind: 'video', url: outputUrl, poster: thumb ?? yt }
   }
+  if (thumb) return { kind: 'image', url: thumb }
   if (yt) return { kind: 'image', url: yt }
   if (outputUrl && /^https?:\/\//i.test(outputUrl)) return { kind: 'image', url: outputUrl }
   return null

@@ -69,9 +69,10 @@ export default function CreativeLibrary({
         const kids = (childrenOf.get(n.node_id) ?? []).map((cid) => byId.get(cid)).filter(Boolean) as WarRoomRawNode[]
         const platformKids = kids.filter((k) => k.node_type === 'platform')
         const ytKid = platformKids.find((k) => (k.platform ?? '').toLowerCase() === 'youtube' && k.payload?.platform_video_id)
-        const youtubeId = (ytKid?.payload?.platform_video_id as string | undefined) ?? null
+        const youtubeId = (n.payload?.youtube_video_id as string | undefined) ?? (ytKid?.payload?.platform_video_id as string | undefined) ?? null
+        const thumbnailUrl = (n.payload?.thumbnail_url as string | undefined) ?? null
         const outputUrl = (n.payload?.output_url as string | undefined) ?? null
-        const preview = resolvePreview(outputUrl, youtubeId)
+        const preview = resolvePreview(outputUrl, youtubeId, thumbnailUrl)
         if (preview) withPreview++
         return {
           id: n.node_id,

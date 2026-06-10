@@ -19,7 +19,8 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
     .maybeSingle()
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-  if (!ci) return NextResponse.json({ error: 'Niet gevonden' }, { status: 404 })
+  // Fallback: id is een youtube_videos.id (levende bron, migratie 164)
+  if (!ci) return youtubeDetail(supabase, id)
 
   const [metricRes, uploadsRes, channelRes, convRes] = await Promise.all([
     supabase.from('media_holding_metrics').select('views, ctr_pct, retention_pct, revenue, likes, comments, shares, saves, snapshot_at')
@@ -82,6 +83,67 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
       roas,
       commission,
       metric_at: m?.snapshot_at ?? null,
+    },
+  })
+}
+
+type SB = Awaited<ReturnType<typeof createClient>>
+
+// Detail voor een LEVENDE youtube_videos creative (migratie 164). Echte velden, geen mock.
+async function youtubeDetail(supabase: SB, id: string) {
+  const { data: yv } = await supabase
+    .from('youtube_videos')
+    .select('id, channel_id, title, description, youtube_video_id, thumbnail_url, status, upload_status, is_short, views, ctr, retention, revenue, estimated_revenue, watch_time, duration_seconds, published_at, scheduled_at')
+    .eq('id', id)
+    .maybeSingle()
+
+  if (!yv) return NextResponse.json({ error: 'Niet gevonden' }, { status: 404 })
+
+  const [anRes, chRes] = await Promise.all([
+    supabase.from('youtube_video_analytics').select('views, ctr, avg_view_percentage, estimated_revenue, watch_time_minutes, recorded_at')
+      .eq('video_id', id).order('recorded_at', { ascending: false }).limit(1),
+    yv.channel_id ? supabase.from('youtube_channels').select('name').eq('id', yv.channel_id).maybeSingle() : Promise.resolve({ data: null }),
+  ])
+  const an = (anRes.data ?? [])[0] ?? null
+  const preview = resolvePreview(null, (yv.youtube_video_id as string | null) ?? null, (yv.thumbnail_url as string | null) ?? null)
+  const num = (v: unknown) => (v == null ? null : Number(v))
+
+  return NextResponse.json({
+    id: yv.id,
+    title: yv.title || 'YouTube video',
+    kind: yv.is_short ? 'short' : 'long',
+    status: yv.upload_status || yv.status,
+    output_url: null,
+    channel: chRes.data ? { name: (chRes.data as { name: string }).name, niche: null } : null,
+    platforms: [{ platform: 'youtube', status: yv.upload_status || yv.status }],
+    preview,
+    language: null,
+    duration_seconds: yv.duration_seconds ?? null,
+    failure_reason: null,
+    hook: null,
+    description: (yv.description as string) || null,
+    thumbnail_concept: null,
+    hook_pattern: null,
+    retention_strategy: null,
+    generated_by: 'youtube-engine',
+    source_score: null,
+    script: (yv.description as string) || null,
+    voice_music: null,
+    retention_analysis: null,
+    cta: null,
+    audience: null,
+    funnel_phase: null,
+    performance: {
+      views: num(an?.views ?? yv.views),
+      ctr_pct: num(an?.ctr ?? yv.ctr),
+      retention_pct: num(an?.avg_view_percentage ?? yv.retention),
+      watchtime_min: num(an?.watch_time_minutes ?? yv.watch_time),
+      engagement_pct: null,
+      revenue: num(an?.estimated_revenue ?? yv.estimated_revenue ?? yv.revenue),
+      cost: null,
+      roas: null,
+      commission: 0,
+      metric_at: an?.recorded_at ?? null,
     },
   })
 }

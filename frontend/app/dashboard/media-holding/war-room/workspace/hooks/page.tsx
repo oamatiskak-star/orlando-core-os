@@ -28,7 +28,8 @@ export default async function HookLibraryPage() {
   const previewOf = (creativeNode: WarRoomRawNode) => {
     const platformKids = (childrenOf.get(creativeNode.node_id) ?? []).map((c) => byId.get(c)).filter((k) => k?.node_type === 'platform') as WarRoomRawNode[]
     const ytKid = platformKids.find((k) => (k.platform ?? '').toLowerCase() === 'youtube' && k.payload?.platform_video_id)
-    return resolvePreview((creativeNode.payload?.output_url as string | undefined) ?? null, (ytKid?.payload?.platform_video_id as string | undefined) ?? null)
+    const youtubeId = (creativeNode.payload?.youtube_video_id as string | undefined) ?? (ytKid?.payload?.platform_video_id as string | undefined) ?? null
+    return resolvePreview((creativeNode.payload?.output_url as string | undefined) ?? null, youtubeId, (creativeNode.payload?.thumbnail_url as string | undefined) ?? null)
   }
 
   const hooks: HookRow[] = rawNodes

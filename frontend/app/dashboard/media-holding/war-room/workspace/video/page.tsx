@@ -34,7 +34,8 @@ export default async function VideoStudioPage() {
       const s = scores.get(n.node_id)
       const platformKids = (childrenOf.get(n.node_id) ?? []).map((c) => byId.get(c)).filter((k) => k?.node_type === 'platform') as WarRoomRawNode[]
       const ytKid = platformKids.find((k) => (k.platform ?? '').toLowerCase() === 'youtube' && k.payload?.platform_video_id)
-      const preview = resolvePreview((n.payload?.output_url as string | undefined) ?? null, (ytKid?.payload?.platform_video_id as string | undefined) ?? null)
+      const youtubeId = (n.payload?.youtube_video_id as string | undefined) ?? (ytKid?.payload?.platform_video_id as string | undefined) ?? null
+      const preview = resolvePreview((n.payload?.output_url as string | undefined) ?? null, youtubeId, (n.payload?.thumbnail_url as string | undefined) ?? null)
       if (preview) withPreview++
       return {
         id: n.node_id.replace(/^creative:/, ''),
