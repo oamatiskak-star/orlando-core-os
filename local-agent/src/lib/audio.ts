@@ -1,6 +1,6 @@
 import fs from 'fs'
 import { spawnSync } from 'child_process'
-import { generateTTS } from './tts'
+import { generateTTS, resolveBin } from './tts'
 
 /**
  * VOICE PROVIDER ROUTER (Content Factory 2.0 — FASE 2).
@@ -38,14 +38,15 @@ export interface SynthOptions {
 }
 
 // ── beschikbaarheid (geen aannames: detecteer per binary/env) ────────────────
-function hasBinary(bin: string): boolean {
-  try { return spawnSync('which', [bin]).status === 0 } catch { return false }
+// resolveBin zoekt ook in ~/.local/bin (pipx) + homebrew — robuust onder scheduler/PM2.
+function hasBinary(bin: string, envVar?: string): boolean {
+  return resolveBin(bin, envVar) !== null
 }
 export function providerAvailable(p: VoiceProvider): boolean {
   switch (p) {
     case 'local_xtts':  return !!process.env.XTTS_URL || hasBinary('tts')          // coqui XTTS-server of CLI
     case 'piper':       return !!process.env.PIPER_BIN || hasBinary('piper')
-    case 'edge_tts':    return hasBinary('edge-tts') || hasBinary('espeak')        // espeak = laatste lokale fallback
+    case 'edge_tts':    return hasBinary('edge-tts', 'EDGE_TTS_BIN') || hasBinary('espeak', 'ESPEAK_BIN')  // espeak = laatste lokale fallback
     case 'openai_tts':  return !!process.env.OPENAI_API_KEY
     case 'elevenlabs':  return !!process.env.ELEVENLABS_API_KEY
   }
