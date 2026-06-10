@@ -48,6 +48,17 @@ async function pexelsValid(key) {
     return !!j && Array.isArray(j.photos)          // proxy/stub zonder photos → faalt (geen schijn-PASS)
   } catch { return false }
 }
+async function pixabayValid(key) {
+  if (!key) return false
+  try {
+    const ctl = new AbortController(); const t = setTimeout(() => ctl.abort(), 4000)
+    const r = await fetch(`https://pixabay.com/api/videos/?key=${encodeURIComponent(key)}&q=city&per_page=3&safesearch=true`, { signal: ctl.signal })
+    clearTimeout(t)
+    if (r.status !== 200) return false             // 400 [ERROR] = ongeldige key → faalt
+    const j = await r.json().catch(() => null)      // eis ECHTE Pixabay-respons (hits-array)
+    return !!j && Array.isArray(j.hits)
+  } catch { return false }
+}
 // MUSIC_CATALOG moet exact zijn wat de echte engine leest (music-intelligence.ts
 // loadCatalog): een JSON-manifest [{name, path, license, ...}]. Geen map, geen
 // bucket — die keurt de preflight goed terwijl de producer alsnog faalt (schijn-PASS).
@@ -93,7 +104,10 @@ add('B1', `TTS-provider (${TTS})`, ttsReady(), `installeer: pipx install edge-tt
 // FFmpeg (al klaar verwacht)
 add('FF', 'FFmpeg', hasBin('ffmpeg'), 'brew install ffmpeg')
 // B2/B3/B4: keys/font/music — ECHTE checks (geen schijn-PASS bij fake waarden)
-add('B2', 'PEXELS key geldig (echte API-call)', await pexelsValid(env.PEXELS_API_KEY), 'geldige key op pexels.com/api → .env (fake/lege key faalt 401)')
+const pexelsOk = await pexelsValid(env.PEXELS_API_KEY)
+const pixabayOk = await pixabayValid(env.PIXABAY_API_KEY)
+const visualProvider = pexelsOk ? 'pexels' : pixabayOk ? 'pixabay' : 'geen'
+add('B2', `Visual-provider geldig (${visualProvider})`, pexelsOk || pixabayOk, 'geldige PEXELS_API_KEY óf PIXABAY_API_KEY → .env (fake/lege key faalt)')
 add('B3', 'MUSIC_CATALOG = JSON-manifest met echte audio', await musicReady(env.MUSIC_CATALOG), 'JSON-manifest [{name,path,license}] met bestaande audiobestanden — bouw: npm run music:catalog <map>')
 add('B4', 'CAPTION_FONT bestaat', !!env.CAPTION_FONT && existsSync(env.CAPTION_FONT), 'geldig .ttf-pad naar bestaand font → .env')
 add('ENV', 'Supabase env', !!env.SUPABASE_URL && !!env.SUPABASE_SERVICE_ROLE_KEY, 'SUPABASE_URL + SERVICE_ROLE_KEY → .env')

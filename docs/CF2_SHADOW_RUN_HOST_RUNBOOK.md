@@ -8,7 +8,7 @@ Doel: de **eerste CF2 shadow-run** lokaal uitvoeren — content→scenes→voice
 | ID | Check | Fix |
 |---|---|---|
 | B1 | TTS-provider (`TTS_PROVIDER`) bereikbaar | `pipx install edge-tts` (of piper/espeak) |
-| B2 | `PEXELS_API_KEY` geldig (echte API-call; fake/lege key faalt 401) | geldige key op pexels.com/api → `.env` |
+| B2 | Visual-provider geldig (echte API-call): `PEXELS_API_KEY` **óf** `PIXABAY_API_KEY` | minstens één geldige key → `.env` (fake/lege key faalt) |
 | B3 | `MUSIC_CATALOG` = JSON-manifest `[{name,path,license}]` met bestaande audio | `npm run music:catalog -- <map>` → zet manifest-pad in `.env` |
 | B4 | `CAPTION_FONT` bestaat | geldig `.ttf`-pad → `.env` |
 | B5 | Ollama (`:11434`) + LM Studio (`:1234`) bereikbaar | `ollama serve`; LM Studio server starten |
@@ -50,7 +50,7 @@ CF2 shadow-run readiness — mode=prepared · publish=0
   ✅ [B5b] LM Studio bereikbaar
   ✅ [B1] TTS-provider (edge_tts)
   ✅ [FF] FFmpeg
-  ✅ [B2] PEXELS key geldig (echte API-call)
+  ✅ [B2] Visual-provider geldig (pixabay)
   ✅ [B3] MUSIC_CATALOG = JSON-manifest met echte audio
   ✅ [B4] CAPTION_FONT bestaat
   ✅ [ENV] Supabase env
@@ -68,7 +68,7 @@ Alle checks groen. Voer de shadow-run zelf uit (lokaal, GEEN upload):
 | `[B1] ❌` | geen TTS-binary | `pipx install edge-tts` of `brew install espeak` |
 | `[B5a/b] ❌` | model niet gestart | `ollama serve` / LM Studio server |
 | video-stap `failed: VOICE_GATE_NO_PROVIDER` | TTS ontbreekt tijdens run | idem B1 |
-| `VISUAL_GATE_NO_PEXELS` | geen PEXELS key | B2 |
+| `VISUAL_GATE_NO_PROVIDER` | geen Pexels én geen Pixabay key | B2 (één van beide volstaat) |
 | `MUSIC_GATE_NO_SOURCE` | geen MUSIC_CATALOG | B3 |
 | thumbnail-gate `failed` | geen thumbnail (verplicht) | controleer visual/font; thumbnail is hard vereist |
 | `[B6] ❌` | tsc-fout | `npm ci && npm run build`, los TS-fouten op |
