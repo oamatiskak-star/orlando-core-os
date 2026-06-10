@@ -3,7 +3,7 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import clsx from 'clsx'
-import { LayoutGrid, Megaphone, Clapperboard, Lightbulb, BarChart3, Mail, Filter, Tv2, CalendarClock, HeartPulse, Brain, Trophy } from 'lucide-react'
+import { LayoutGrid, Megaphone, Clapperboard, Lightbulb, BarChart3, Mail, Filter, Tv2, CalendarClock, HeartPulse, Brain, Trophy, GitBranch, Coins, GraduationCap } from 'lucide-react'
 
 const BASE = '/dashboard/media-holding/war-room/workspace'
 
@@ -15,6 +15,9 @@ const SUBTABS = [
   { label: 'Hook Library',     href: `${BASE}/hooks`,            icon: Lightbulb },
   { label: 'Hook Intelligence', href: `${BASE}/hook-intelligence`, icon: Brain },
   { label: 'Winners',          href: `${BASE}/winners`,          icon: Trophy },
+  { label: 'Producer Graph',   href: `${BASE}/producer`,         icon: GitBranch },
+  { label: 'Attribution',      href: `${BASE}/attribution`,      icon: Coins },
+  { label: 'Learning Loop',    href: `${BASE}/learning`,         icon: GraduationCap },
   { label: 'Voor overmorgen',  href: `${BASE}/horizon`,          icon: CalendarClock },
   { label: 'Performance',      href: `${BASE}/performance`,      icon: BarChart3 },
   { label: 'Email Studio',     href: `${BASE}/email`,            icon: Mail },
