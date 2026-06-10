@@ -1,35 +1,39 @@
 /**
  * CF2 Producer — orchestrator over de cf2_jobs-queue (Review Intelligence + Producer Graph).
  *
- * GATED / PREPARED. Standaard CF2_PRODUCER_MODE=prepared → er wordt NIETS geproduceerd,
- * geüpload of uitgegeven; de orchestrator valideert alleen de keten + lokale-model-health.
- * In live-mode (aparte go) delegeert hij per stap naar de bestaande lokale-first toolkit in
- * local-agent/src/lib (ai/scene-planner/visual-intelligence/thumbnail-intelligence/tts/
- * audio/render/video/storage) en logt status/timestamps per stap in cf2_job_steps.
+ * GATED. Standaard CF2_PRODUCER_MODE=prepared → er wordt NIETS geproduceerd, geüpload of
+ * uitgegeven; de orchestrator valideert alleen de keten + lokale-model-health.
+ *
+ * In live-mode (aparte go, host: Mac Mini) delegeert de zware productie naar de bestaande
+ * lokale-first producer `runShadowTopic` (shadow-core): topic → content → scenes → voice →
+ * visual → music → thumbnail → render, ALLES lokaal en ZONDER upload/publicatie. De
+ * stapresultaten worden gelogd in cf2_job_steps (Producer Graph audittrail). Upload blijft
+ * bewust over (geen publicatie) tot een aparte publish-go.
  *
  * Wordt NIET vanzelf gestart: geen import in index.ts/scheduler, geen cron. Draaien vereist
- * expliciet CF2_PRODUCER_RUN=1 + CF2_PRODUCER_MODE=live + engine enabled=true (host: Mac Mini).
+ * expliciet CF2_PRODUCER_RUN=1 + CF2_PRODUCER_MODE=live + engine enabled=true.
  */
 import { createClient, SupabaseClient } from '@supabase/supabase-js'
 import axios from 'axios'
+import { runShadowTopic } from './shadow-core'
 
 type Mode = 'prepared' | 'live'
 const MODE: Mode = (process.env.CF2_PRODUCER_MODE as Mode) || 'prepared'
 const OLLAMA_URL = process.env.OLLAMA_URL || 'http://localhost:11434'
 const LM_STUDIO_URL = process.env.LM_STUDIO_URL || 'http://localhost:1234'
+const OLLAMA_MODEL = process.env.OLLAMA_MODEL || 'llama3.2'
+const LM_STUDIO_MODEL = process.env.LM_STUDIO_MODEL || 'default'
 
-// Generatie-stappen (selectie-stappen viral/hook/winner/horizon zijn al 'done' bij seeding)
-const GEN_STEPS = ['creative', 'thumbnail', 'video', 'upload', 'attribution'] as const
-type GenStep = (typeof GEN_STEPS)[number]
+type GenStep = 'creative' | 'thumbnail' | 'video' | 'upload' | 'attribution'
 
 type Cf2Job = {
   id: string
   bron_niche: string | null
   bron_hook_category: string | null
-  bron_thumbnail_ref: string | null
   source_winner_video_id: string | null
+  bron_channel_id: string | null
+  bron_horizon_id: string | null
   reason: string | null
-  status: string
 }
 
 function db(): SupabaseClient {
@@ -50,72 +54,94 @@ async function setStep(client: SupabaseClient, jobId: string, step: GenStep, pat
   await client.from('cf2_job_steps').update(patch).eq('job_id', jobId).eq('step', step)
 }
 
+function langForNiche(niche: string | null): string {
+  if (!niche) return 'en'
+  if (niche.endsWith('_es')) return 'es'
+  if (niche.includes('_nl')) return 'nl'
+  return 'en'
+}
+
+/** Resolveer onderwerp + youtube-kanaal voor een job (bron-winner / horizon-plan). */
+async function jobContext(client: SupabaseClient, job: Cf2Job): Promise<{ topic: string; channelId: string | null }> {
+  let topic = job.reason ?? `${job.bron_niche ?? 'content'} video`
+  if (job.bron_horizon_id) {
+    const { data } = await client.from('content_horizon').select('title_draft').eq('id', job.bron_horizon_id).maybeSingle()
+    if (data?.title_draft) topic = data.title_draft as string
+  } else if (job.source_winner_video_id) {
+    const { data } = await client.from('youtube_videos').select('title').eq('id', job.source_winner_video_id).maybeSingle()
+    if (data?.title) topic = `Variant: ${data.title as string}`
+  }
+  let channelId: string | null = null
+  if (job.bron_channel_id) {
+    const { data } = await client.from('media_holding_channels').select('youtube_channel_id').eq('id', job.bron_channel_id).maybeSingle()
+    channelId = (data?.youtube_channel_id as string | null) ?? null
+  }
+  return { topic, channelId }
+}
+
+const nowIso = () => new Date().toISOString()
+
 /**
- * Live-generator integratiepunt. Tot expliciete koppeling gooit dit bewust een fout, zodat
- * live-mode niet stilletjes "niets" produceert. Koppel hier de bestaande lokale-first libs:
- *   creative   → lib/ai.ts (generateContent) + lib/scene-planner.ts
- *   thumbnail  → lib/thumbnail-intelligence.ts (VERPLICHT — geen video zonder thumbnail)
- *   video      → lib/visual-intelligence.ts + lib/tts.ts + lib/audio.ts + lib/render.ts + lib/video.ts
- *   upload     → youtube_upload_queue (youtube-engine)
- *   attribution→ video_attribution / affiliate_*
+ * LIVE-productie van één job via de bestaande shadow-producer (lokaal, GEEN upload).
+ * Mapt het ShadowResult op de cf2_job_steps-audittrail. Thumbnail is verplicht.
  */
-async function runLiveStep(_job: Cf2Job, step: GenStep): Promise<void> {
-  throw new Error(`live-generator voor stap '${step}' nog niet gekoppeld — koppel local-agent/src/lib/* vóór activatie`)
+async function produceJobLive(client: SupabaseClient, job: Cf2Job): Promise<void> {
+  const ctx = await jobContext(client, job)
+  await setStep(client, job.id, 'creative', { status: 'running', started_at: nowIso() })
+  try {
+    const r = await runShadowTopic({
+      channelId: ctx.channelId,
+      niche: job.bron_niche,
+      topic: ctx.topic,
+      language: langForNiche(job.bron_niche),
+      format: '9:16',             // shorts-first (kanaalregel)
+      voice: 'default',
+      targetSeconds: 50,
+      lmStudioModel: LM_STUDIO_MODEL,
+      ollamaModel: OLLAMA_MODEL,
+    })
+
+    await setStep(client, job.id, 'creative', { status: 'done', completed_at: nowIso(), meta: { project_id: r.projectId, title: r.title, scenes: r.sceneCount } })
+
+    // thumbnail VERPLICHT — geen video zonder thumbnail (bewezen patroon: 100% winners)
+    if (r.thumbnailVariants > 0) await setStep(client, job.id, 'thumbnail', { status: 'done', completed_at: nowIso(), meta: { variants: r.thumbnailVariants } })
+    else await setStep(client, job.id, 'thumbnail', { status: 'failed', failed_at: nowIso(), failure_reason: 'thumbnail-gate: geen variant gegenereerd' })
+
+    if (r.renderUrl && r.gatePassed) await setStep(client, job.id, 'video', { status: 'done', completed_at: nowIso(), meta: { render_url: r.renderUrl, cqi: r.cqi } })
+    else await setStep(client, job.id, 'video', { status: 'failed', failed_at: nowIso(), failure_reason: r.reasons ?? 'kwaliteits-gate niet gehaald' })
+
+    // upload bewust overgeslagen — shadow publiceert niet (aparte publish-go)
+    await setStep(client, job.id, 'upload', { status: 'skipped', failure_reason: 'shadow: geen upload (geen publicatie)' })
+    await setStep(client, job.id, 'attribution', { status: 'skipped', failure_reason: 'wacht op publicatie + UTM' })
+
+    const ok = r.thumbnailVariants > 0 && r.renderUrl && r.gatePassed
+    await client.from('cf2_jobs').update({ status: ok ? 'produced' : 'failed', output_content_id: r.projectId, updated_at: nowIso() }).eq('id', job.id)
+  } catch (e) {
+    await setStep(client, job.id, 'creative', { status: 'failed', failed_at: nowIso(), failure_reason: String((e as Error).message ?? e) })
+    await client.from('cf2_jobs').update({ status: 'failed', updated_at: nowIso() }).eq('id', job.id)
+  }
 }
 
-/** Verwerk één job door de generatie-stappen. Prepared = valideren/loggen, geen spend. */
-async function processJob(client: SupabaseClient, job: Cf2Job): Promise<void> {
-  for (const step of GEN_STEPS) {
-    if (MODE === 'prepared') {
-      // niet uitvoeren: markeer expliciet als voorbereid, geen generatie/upload/spend
-      await setStep(client, job.id, step, {
-        status: 'skipped',
-        failure_reason: 'prepared: niet uitgevoerd (geen spend) — wacht op live-activatie',
-      })
-      continue
-    }
-    // live-mode
-    await setStep(client, job.id, step, { status: 'running', started_at: new Date().toISOString() })
-    try {
-      // thumbnail is verplicht: geen video zonder thumbnail (bewezen patroon: 100% winners)
-      await runLiveStep(job, step)
-      await setStep(client, job.id, step, { status: 'done', completed_at: new Date().toISOString() })
-    } catch (e) {
-      await setStep(client, job.id, step, {
-        status: 'failed', failed_at: new Date().toISOString(), failure_reason: String((e as Error).message ?? e),
-      })
-      await client.from('cf2_jobs').update({ status: 'failed', updated_at: new Date().toISOString() }).eq('id', job.id)
-      return
-    }
-  }
-  if (MODE === 'live') {
-    await client.from('cf2_jobs').update({ status: 'produced', updated_at: new Date().toISOString() }).eq('id', job.id)
-  }
-}
-
-export async function runCf2Producer(limit = 5): Promise<{ mode: Mode; health: { ollama: boolean; lmstudio: boolean }; processed: number; pending: number }> {
+export async function runCf2Producer(limit = 3): Promise<{ mode: Mode; health: { ollama: boolean; lmstudio: boolean }; processed: number; pending: number }> {
   const client = db()
   const health = await localModelHealth()
-
   const { count: pending } = await client.from('cf2_jobs').select('id', { count: 'exact', head: true }).eq('status', 'planned')
 
-  // PREPARED: valideer alleen — geen mutaties, geen productie.
-  if (MODE === 'prepared') {
-    return { mode: MODE, health, processed: 0, pending: pending ?? 0 }
-  }
+  // PREPARED (default): alleen valideren — geen mutaties, geen productie, geen spend.
+  if (MODE === 'prepared') return { mode: MODE, health, processed: 0, pending: pending ?? 0 }
 
-  // LIVE (gated): vereist gezonde lokale modellen (lokaal-first; cloud alleen uitzondering).
+  // LIVE (gated): lokaal-first vereist; cloud alleen uitzondering.
   if (!health.ollama && !health.lmstudio) {
     throw new Error('geen lokaal model bereikbaar (Ollama/LM Studio) — start lokale modellen vóór live-productie')
   }
   const { data: jobs } = await client.from('cf2_jobs')
-    .select('id, bron_niche, bron_hook_category, bron_thumbnail_ref, source_winner_video_id, reason, status')
+    .select('id, bron_niche, bron_hook_category, source_winner_video_id, bron_channel_id, bron_horizon_id, reason')
     .eq('status', 'planned').order('created_at', { ascending: true }).limit(limit)
 
   let processed = 0
   for (const job of (jobs ?? []) as Cf2Job[]) {
-    await client.from('cf2_jobs').update({ status: 'producing', updated_at: new Date().toISOString() }).eq('id', job.id)
-    await processJob(client, job)
+    await client.from('cf2_jobs').update({ status: 'producing', updated_at: nowIso() }).eq('id', job.id)
+    await produceJobLive(client, job)
     processed++
   }
   return { mode: MODE, health, processed, pending: pending ?? 0 }

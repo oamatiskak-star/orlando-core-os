@@ -52,11 +52,13 @@
 
 Queue is geseed: `select public.cf2_seed_jobs_from_horizon();` → 22 cf2_jobs met volledige provenance + 9-stap audittrail (viral/hook/winner/horizon = done, creative→attribution = pending).
 
-**Activatie (aparte go, spend — Mac Mini host, lokaal-first):**
-1. Koppel de live-generators in `runLiveStep()` aan de bestaande libs: `lib/ai.ts` (creative), `lib/thumbnail-intelligence.ts` (thumbnail — VERPLICHT), `lib/visual-intelligence.ts`+`tts.ts`+`audio.ts`+`render.ts`+`video.ts` (video), youtube_upload_queue (upload).
-2. Start lokale modellen (Ollama `:11434` / LM Studio `:1234`).
-3. `CF2_PRODUCER_MODE=live CF2_PRODUCER_RUN=1 node dist/cf2-producer.js` (of via scheduler), kleine batch eerst.
+**Generators GEKOPPELD (2026-06-10):** `runLiveStep`/`produceJobLive` delegeert de zware productie naar de bestaande lokale-first producer **`runShadowTopic` (shadow-core)** — content→scenes→voice→visual→music→thumbnail→render, ALLES lokaal en **ZONDER upload**. Thumbnail verplicht (gate). Mapt op cf2_job_steps. Default `CF2_PRODUCER_MODE=prepared` (geen call). tsc schoon, niet gestart.
+
+**Activatie (aparte go's, host: Mac Mini, lokaal-first):**
+1. Start lokale modellen (Ollama `:11434` / LM Studio `:1234`).
+2. **Shadow-productie (geen upload, lokaal):** `CF2_PRODUCER_MODE=live CF2_PRODUCER_RUN=1 node dist/cf2-producer.js` — produceert lokaal + vult cf2_job_steps; **publiceert niet**.
+3. **Publicatie-go (apart):** upload-stap koppelen aan `youtube_upload_queue` (nu bewust 'skipped: geen publicatie').
 4. Engine `content:cf2-video-projects-runner` → enabled=true + tijdblok.
-> Lokaal-first: 80–90% via Ollama/LM Studio; cloud alleen uitzondering. Pas hier ontstaat spend.
+> Lokaal-first: 80–90% via Ollama/LM Studio; cloud alleen uitzondering. Render = lokale compute; YouTube-upload pas na publicatie-go.
 
 > Geen van bovenstaande is uitgevoerd. Workers blijven uit tot jouw aparte go per optie.
