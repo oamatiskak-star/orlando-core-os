@@ -23,10 +23,10 @@ const db = createClient(
 
 const CAPTION_FONT = process.env.CAPTION_FONT || '/System/Library/Fonts/Supplemental/Arial Bold.ttf'
 
-function dims(format: '16:9' | '9:16' | '1:1'): { scale: string; crop: string } {
-  if (format === '9:16') return { scale: 'scale=-2:1920', crop: 'crop=1080:1920' }
-  if (format === '1:1')  return { scale: 'scale=1080:-2', crop: 'crop=1080:1080' }
-  return { scale: 'scale=1920:-2', crop: 'crop=1920:1080' }
+function dims(format: '16:9' | '9:16' | '1:1'): { w: number; h: number } {
+  if (format === '9:16') return { w: 1080, h: 1920 }
+  if (format === '1:1')  return { w: 1080, h: 1080 }
+  return { w: 1920, h: 1080 }
 }
 
 /** drawtext-veilige escape. */
@@ -36,8 +36,10 @@ function esc(s: string): string {
 
 /** Eén scene-clip: trim → scale/crop naar formaat → optionele caption-overlay. */
 function processScene(inputPath: string, outputPath: string, durationSec: number, format: '16:9' | '9:16' | '1:1', caption: string): Promise<void> {
-  const { scale, crop } = dims(format)
-  const filters = [scale, crop]
+  const { w, h } = dims(format)
+  // force_original_aspect_ratio=increase → bron dekt altijd w×h (ook 2160x4096 / afwijkende
+  // aspect), dan center-crop. Voorkomt 'crop groter dan bron' (ffmpeg code 234).
+  const filters = [`scale=${w}:${h}:force_original_aspect_ratio=increase`, `crop=${w}:${h}`]
   if (caption && fs.existsSync(CAPTION_FONT) && hasDrawtext()) {
     filters.push(
       `drawtext=fontfile='${CAPTION_FONT}':text='${esc(caption)}':fontcolor=white:fontsize=48:` +
