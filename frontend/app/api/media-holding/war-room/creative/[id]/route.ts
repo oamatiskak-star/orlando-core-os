@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { resolvePreview } from '@/lib/war-room/preview'
 
 export const revalidate = 0
 
@@ -23,13 +24,15 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
   const [metricRes, uploadsRes, channelRes, convRes] = await Promise.all([
     supabase.from('media_holding_metrics').select('views, ctr_pct, retention_pct, revenue, likes, comments, shares, saves, snapshot_at')
       .eq('content_item_id', id).order('snapshot_at', { ascending: false }).limit(1),
-    supabase.from('media_holding_uploads').select('platform, status').eq('content_item_id', id),
+    supabase.from('media_holding_uploads').select('platform, status, platform_video_id').eq('content_item_id', id),
     ci.channel_id ? supabase.from('media_holding_channels').select('name, niche').eq('id', ci.channel_id).maybeSingle() : Promise.resolve({ data: null }),
     supabase.from('affiliate_conversions').select('commission_eur, status').eq('content_item_id', id),
   ])
 
   const m = (metricRes.data ?? [])[0] ?? null
   const cb = (ci.content_brief ?? {}) as Record<string, unknown>
+  const ytUpload = (uploadsRes.data ?? []).find((u) => (u.platform ?? '').toLowerCase() === 'youtube' && u.platform_video_id)
+  const preview = resolvePreview(ci.output_url, (ytUpload?.platform_video_id as string | undefined) ?? null)
   const cost = ci.render_cost_eur != null ? Number(ci.render_cost_eur) : null
   const revenue = m?.revenue != null ? Number(m.revenue) : (ci.revenue_attributed != null ? Number(ci.revenue_attributed) : null)
   const confirmedConv = (convRes.data ?? []).filter((c) => (c.status ?? '').toLowerCase() === 'confirmed')
@@ -47,6 +50,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
     output_url: ci.output_url,
     channel: channelRes.data ? { name: (channelRes.data as { name: string }).name, niche: (channelRes.data as { niche: string | null }).niche } : null,
     platforms: (uploadsRes.data ?? []).map((u) => ({ platform: u.platform, status: u.status })),
+    preview,
     language: ci.language,
     duration_seconds: ci.duration_seconds,
     failure_reason: ci.failure_reason,
