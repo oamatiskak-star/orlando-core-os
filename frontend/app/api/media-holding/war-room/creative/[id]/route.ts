@@ -13,7 +13,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
 
   const { data: ci, error } = await supabase
     .from('media_holding_content_items')
-    .select('id, channel_id, kind, title, hook, status, output_url, content_brief, render_cost_eur, revenue_attributed, duration_seconds, language, published_at, scheduled_at, failure_reason')
+    .select('id, channel_id, kind, title, hook, status, output_url, content_brief, render_cost_eur, revenue_attributed, duration_seconds, language, published_at, scheduled_at, failure_reason, prompt, retention_analysis')
     .eq('id', id)
     .maybeSingle()
 
@@ -58,6 +58,10 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
     retention_strategy: (cb.retention_strategy as string) || null,
     generated_by: (cb.generated_by as string) || null,
     source_score: cb.source_score ?? null,
+    // Video Studio velden
+    script: (ci.prompt as string) || (cb.beschrijving as string) || null,
+    voice_music: (cb.audio_prompt as string) || null,
+    retention_analysis: ci.retention_analysis ?? null,
     // niet aanwezig in de bron → expliciet null (UI: "Geen data")
     cta: (cb.cta as string) ?? null,
     audience: (cb.target_audience as string) ?? null,
