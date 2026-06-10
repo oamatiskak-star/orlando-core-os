@@ -4,6 +4,7 @@ import fs from 'fs'
 import path from 'path'
 import os from 'os'
 import { createClient } from '@supabase/supabase-js'
+import { hasDrawtext } from './ffmpeg-caps'
 
 /**
  * RENDER ENGINE (Content Factory 2.0 — FASE B).
@@ -37,7 +38,7 @@ function esc(s: string): string {
 function processScene(inputPath: string, outputPath: string, durationSec: number, format: '16:9' | '9:16' | '1:1', caption: string): Promise<void> {
   const { scale, crop } = dims(format)
   const filters = [scale, crop]
-  if (caption && fs.existsSync(CAPTION_FONT)) {
+  if (caption && fs.existsSync(CAPTION_FONT) && hasDrawtext()) {
     filters.push(
       `drawtext=fontfile='${CAPTION_FONT}':text='${esc(caption)}':fontcolor=white:fontsize=48:` +
       `box=1:boxcolor=black@0.5:boxborderw=16:x=(w-text_w)/2:y=h-(h/6)`,
