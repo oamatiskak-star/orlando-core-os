@@ -48,22 +48,21 @@ async function pexelsValid(key) {
     return !!j && Array.isArray(j.photos)          // proxy/stub zonder photos → faalt (geen schijn-PASS)
   } catch { return false }
 }
-const AUDIO_RE = /\.(mp3|wav|m4a|aac|ogg|flac)$/i
+// MUSIC_CATALOG moet exact zijn wat de echte engine leest (music-intelligence.ts
+// loadCatalog): een JSON-manifest [{name, path, license, ...}]. Geen map, geen
+// bucket — die keurt de preflight goed terwijl de producer alsnog faalt (schijn-PASS).
 async function musicReady(catalog) {
-  if (!catalog) return false
-  // lokaal pad met echte audiobestanden?
+  if (!catalog || !existsSync(catalog)) return false
   try {
-    if (existsSync(catalog)) {
-      const fs = await import('node:fs')
-      return fs.readdirSync(catalog).some((f) => AUDIO_RE.test(f))
-    }
-  } catch { /* val door naar bucket-check */ }
-  // anders: Supabase-bucket met ≥1 audio-object?
-  try {
-    const { createClient } = await import('@supabase/supabase-js')
-    const sb = createClient(env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY, { auth: { persistSession: false } })
-    const { data, error } = await sb.storage.from(catalog).list('', { limit: 100 })
-    return !error && Array.isArray(data) && data.some((o) => AUDIO_RE.test(o.name))
+    const fs = await import('node:fs')
+    const arr = JSON.parse(fs.readFileSync(catalog, 'utf8'))
+    if (!Array.isArray(arr)) return false
+    const tracks = arr.filter((t) => t && t.path && t.license)   // zelfde filter als loadCatalog()
+    if (tracks.length === 0) return false
+    // anti-schijn-PASS: minstens één lokaal verwezen audiobestand moet echt bestaan
+    const local = tracks.filter((t) => typeof t.path === 'string' && !/^https?:\/\//i.test(t.path))
+    if (local.length > 0) return local.some((t) => existsSync(t.path))
+    return true   // alleen remote URL's — engine haalt op tijdens render
   } catch { return false }
 }
 
@@ -95,7 +94,7 @@ add('B1', `TTS-provider (${TTS})`, ttsReady(), `installeer: pipx install edge-tt
 add('FF', 'FFmpeg', hasBin('ffmpeg'), 'brew install ffmpeg')
 // B2/B3/B4: keys/font/music — ECHTE checks (geen schijn-PASS bij fake waarden)
 add('B2', 'PEXELS key geldig (echte API-call)', await pexelsValid(env.PEXELS_API_KEY), 'geldige key op pexels.com/api → .env (fake/lege key faalt 401)')
-add('B3', 'MUSIC_CATALOG bevat audio (echt)', await musicReady(env.MUSIC_CATALOG), 'echte muziekbron met audiobestanden (lokaal pad óf Supabase-bucket)')
+add('B3', 'MUSIC_CATALOG = JSON-manifest met echte audio', await musicReady(env.MUSIC_CATALOG), 'JSON-manifest [{name,path,license}] met bestaande audiobestanden — bouw: npm run music:catalog <map>')
 add('B4', 'CAPTION_FONT bestaat', !!env.CAPTION_FONT && existsSync(env.CAPTION_FONT), 'geldig .ttf-pad naar bestaand font → .env')
 add('ENV', 'Supabase env', !!env.SUPABASE_URL && !!env.SUPABASE_SERVICE_ROLE_KEY, 'SUPABASE_URL + SERVICE_ROLE_KEY → .env')
 

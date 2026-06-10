@@ -9,7 +9,7 @@ Doel: de **eerste CF2 shadow-run** lokaal uitvoeren — content→scenes→voice
 |---|---|---|
 | B1 | TTS-provider (`TTS_PROVIDER`) bereikbaar | `pipx install edge-tts` (of piper/espeak) |
 | B2 | `PEXELS_API_KEY` geldig (echte API-call; fake/lege key faalt 401) | geldige key op pexels.com/api → `.env` |
-| B3 | `MUSIC_CATALOG` bevat audio (lokaal pad óf Supabase-bucket) | royalty-free muziekbron met ≥1 audiobestand → `.env` |
+| B3 | `MUSIC_CATALOG` = JSON-manifest `[{name,path,license}]` met bestaande audio | `npm run music:catalog -- <map>` → zet manifest-pad in `.env` |
 | B4 | `CAPTION_FONT` bestaat | geldig `.ttf`-pad → `.env` |
 | B5 | Ollama (`:11434`) + LM Studio (`:1234`) bereikbaar | `ollama serve`; LM Studio server starten |
 | B6 | Build `dist/cf2-producer.js` | `npm ci && npm run build` (cf2:shadow bouwt zelf indien nodig) |
@@ -51,7 +51,7 @@ CF2 shadow-run readiness — mode=prepared · publish=0
   ✅ [B1] TTS-provider (edge_tts)
   ✅ [FF] FFmpeg
   ✅ [B2] PEXELS key geldig (echte API-call)
-  ✅ [B3] MUSIC_CATALOG bevat audio (echt)
+  ✅ [B3] MUSIC_CATALOG = JSON-manifest met echte audio
   ✅ [B4] CAPTION_FONT bestaat
   ✅ [ENV] Supabase env
   ✅ [B6] Build (dist/cf2-producer.js)

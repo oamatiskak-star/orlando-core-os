@@ -8,6 +8,7 @@
     "dev": "ts-node src/index.ts",
     "build": "tsc",
     "cf2:shadow": "node scripts/cf2-shadow-preflight.mjs",
+    "music:catalog": "node scripts/build-music-catalog.mjs",
     "sync:tracker": "ts-node src/build-tracker-sync.ts"
   },
   "dependencies": {
