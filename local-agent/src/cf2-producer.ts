@@ -17,6 +17,7 @@
  * expliciet CF2_PRODUCER_RUN=1 + CF2_PRODUCER_MODE=live (+ CF2_PUBLISH=1 voor private upload)
  * + engine enabled=true. Host: Mac Mini (lokale modellen + render).
  */
+import 'dotenv/config'   // MOET als eerste: laadt .env vóór elke transitieve lib-const (bv. USE_LM_STUDIO in local-llm.ts)
 import { createClient, SupabaseClient } from '@supabase/supabase-js'
 import axios from 'axios'
 import { runShadowTopic } from './shadow-core'
@@ -29,6 +30,8 @@ const OLLAMA_MODEL = process.env.OLLAMA_MODEL || 'llama3.2'
 const LM_STUDIO_MODEL = process.env.LM_STUDIO_MODEL || 'default'
 
 type GenStep = 'creative' | 'thumbnail' | 'video' | 'upload' | 'attribution'
+
+const log = (...a: unknown[]) => console.log('[cf2]', ...a)
 
 type Cf2Job = {
   id: string
@@ -91,7 +94,10 @@ const nowIso = () => new Date().toISOString()
  */
 async function produceJobLive(client: SupabaseClient, job: Cf2Job): Promise<void> {
   const ctx = await jobContext(client, job)
+  const short = job.id.slice(0, 8)
+  log(`job ${short} → "${ctx.topic}" (niche=${job.bron_niche ?? '?'}, kanaal=${ctx.channelId ?? 'geen'})`)
   await setStep(client, job.id, 'creative', { status: 'running', started_at: nowIso() })
+  log(`  creative/render bezig… (lokaal model + visual + tts + ffmpeg — kan minuten duren)`)
   try {
     const r = await runShadowTopic({
       channelId: ctx.channelId,
@@ -106,13 +112,14 @@ async function produceJobLive(client: SupabaseClient, job: Cf2Job): Promise<void
     })
 
     await setStep(client, job.id, 'creative', { status: 'done', completed_at: nowIso(), meta: { project_id: r.projectId, title: r.title, scenes: r.sceneCount } })
+    log(`  creative done — project ${String(r.projectId).slice(0, 8)} "${r.title}" (${r.sceneCount} scenes)`)
 
     // thumbnail VERPLICHT — geen video zonder thumbnail (bewezen patroon: 100% winners)
-    if (r.thumbnailVariants > 0) await setStep(client, job.id, 'thumbnail', { status: 'done', completed_at: nowIso(), meta: { variants: r.thumbnailVariants } })
-    else await setStep(client, job.id, 'thumbnail', { status: 'failed', failed_at: nowIso(), failure_reason: 'thumbnail-gate: geen variant gegenereerd' })
+    if (r.thumbnailVariants > 0) { await setStep(client, job.id, 'thumbnail', { status: 'done', completed_at: nowIso(), meta: { variants: r.thumbnailVariants } }); log(`  thumbnail done (${r.thumbnailVariants} varianten)`) }
+    else { await setStep(client, job.id, 'thumbnail', { status: 'failed', failed_at: nowIso(), failure_reason: 'thumbnail-gate: geen variant gegenereerd' }); log(`  thumbnail FAILED (geen variant)`) }
 
-    if (r.renderUrl && r.gatePassed) await setStep(client, job.id, 'video', { status: 'done', completed_at: nowIso(), meta: { render_url: r.renderUrl, cqi: r.cqi } })
-    else await setStep(client, job.id, 'video', { status: 'failed', failed_at: nowIso(), failure_reason: r.reasons ?? 'kwaliteits-gate niet gehaald' })
+    if (r.renderUrl && r.gatePassed) { await setStep(client, job.id, 'video', { status: 'done', completed_at: nowIso(), meta: { render_url: r.renderUrl, cqi: r.cqi } }); log(`  video done — ${r.renderUrl} (cqi=${r.cqi})`) }
+    else { await setStep(client, job.id, 'video', { status: 'failed', failed_at: nowIso(), failure_reason: r.reasons ?? 'kwaliteits-gate niet gehaald' }); log(`  video FAILED — ${r.reasons ?? 'kwaliteits-gate niet gehaald'}`) }
 
     const ok = r.thumbnailVariants > 0 && !!r.renderUrl && r.gatePassed
 
@@ -143,19 +150,24 @@ async function produceJobLive(client: SupabaseClient, job: Cf2Job): Promise<void
     await setStep(client, job.id, 'attribution', { status: 'skipped', failure_reason: 'wacht op publicatie + UTM' })
 
     await client.from('cf2_jobs').update({ status: ok ? 'produced' : 'failed', output_content_id: r.projectId, updated_at: nowIso() }).eq('id', job.id)
+    log(`  job ${short} → ${ok ? 'PRODUCED ✅' : 'FAILED ❌'}`)
   } catch (e) {
-    await setStep(client, job.id, 'creative', { status: 'failed', failed_at: nowIso(), failure_reason: String((e as Error).message ?? e) })
+    const msg = String((e as Error).message ?? e)
+    await setStep(client, job.id, 'creative', { status: 'failed', failed_at: nowIso(), failure_reason: msg })
     await client.from('cf2_jobs').update({ status: 'failed', updated_at: nowIso() }).eq('id', job.id)
+    log(`  job ${short} → FAILED ❌ (${msg})`)
   }
 }
 
 export async function runCf2Producer(limit = 3): Promise<{ mode: Mode; health: { ollama: boolean; lmstudio: boolean }; processed: number; pending: number }> {
   const client = db()
+  const backend = (process.env.USE_LM_STUDIO !== 'false') ? `LM Studio (${LM_STUDIO_MODEL})` : `Ollama (${OLLAMA_MODEL})`
   const health = await localModelHealth()
   const { count: pending } = await client.from('cf2_jobs').select('id', { count: 'exact', head: true }).eq('status', 'planned')
+  log(`mode=${MODE} · backend=${backend} · health ollama=${health.ollama} lmstudio=${health.lmstudio} · planned=${pending ?? 0}`)
 
   // PREPARED (default): alleen valideren — geen mutaties, geen productie, geen spend.
-  if (MODE === 'prepared') return { mode: MODE, health, processed: 0, pending: pending ?? 0 }
+  if (MODE === 'prepared') { log('prepared-mode → alleen validatie, geen productie.'); return { mode: MODE, health, processed: 0, pending: pending ?? 0 } }
 
   // LIVE (gated): lokaal-first vereist; cloud alleen uitzondering.
   if (!health.ollama && !health.lmstudio) {
@@ -165,12 +177,18 @@ export async function runCf2Producer(limit = 3): Promise<{ mode: Mode; health: {
     .select('id, bron_niche, bron_hook_category, source_winner_video_id, bron_channel_id, bron_horizon_id, reason')
     .eq('status', 'planned').order('created_at', { ascending: true }).limit(limit)
 
+  const queue = (jobs ?? []) as Cf2Job[]
+  if (queue.length === 0) { log('geen planned jobs — niets te doen.'); return { mode: MODE, health, processed: 0, pending: pending ?? 0 } }
+  log(`${queue.length} job(s) deze run (limit=${limit}).`)
+
   let processed = 0
-  for (const job of (jobs ?? []) as Cf2Job[]) {
+  for (const job of queue) {
     await client.from('cf2_jobs').update({ status: 'producing', updated_at: nowIso() }).eq('id', job.id)
     await produceJobLive(client, job)
     processed++
+    log(`voortgang: ${processed}/${queue.length} verwerkt`)
   }
+  log(`klaar — ${processed} verwerkt.`)
   return { mode: MODE, health, processed, pending: pending ?? 0 }
 }
 
