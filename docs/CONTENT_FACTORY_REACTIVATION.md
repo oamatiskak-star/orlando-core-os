@@ -46,4 +46,17 @@
 2. **Daarna meten:** als je nieuwe ad-creatives wilt, start **Optie A** met een kleine test-batch en meet kosten/output.
 3. **CF2 (Optie B)** pas aanzetten als Optie A bewijst dat de keten end-to-end levert en de ROI het render-budget rechtvaardigt.
 
+## 5. CF2 Producer-worker (gebouwd, PREPARED — niet gestart)
+
+`local-agent/src/cf2-producer.ts` — orchestrator over de `cf2_jobs`-queue (Review Intelligence + Producer Graph). Default **CF2_PRODUCER_MODE=prepared** → valideert alleen (lokale-model-health + pending jobs), produceert/uploadt/spendt NIETS. Wordt niet vanzelf gestart (geen import in index.ts/scheduler, geen cron).
+
+Queue is geseed: `select public.cf2_seed_jobs_from_horizon();` → 22 cf2_jobs met volledige provenance + 9-stap audittrail (viral/hook/winner/horizon = done, creative→attribution = pending).
+
+**Activatie (aparte go, spend — Mac Mini host, lokaal-first):**
+1. Koppel de live-generators in `runLiveStep()` aan de bestaande libs: `lib/ai.ts` (creative), `lib/thumbnail-intelligence.ts` (thumbnail — VERPLICHT), `lib/visual-intelligence.ts`+`tts.ts`+`audio.ts`+`render.ts`+`video.ts` (video), youtube_upload_queue (upload).
+2. Start lokale modellen (Ollama `:11434` / LM Studio `:1234`).
+3. `CF2_PRODUCER_MODE=live CF2_PRODUCER_RUN=1 node dist/cf2-producer.js` (of via scheduler), kleine batch eerst.
+4. Engine `content:cf2-video-projects-runner` → enabled=true + tijdblok.
+> Lokaal-first: 80–90% via Ollama/LM Studio; cloud alleen uitzondering. Pas hier ontstaat spend.
+
 > Geen van bovenstaande is uitgevoerd. Workers blijven uit tot jouw aparte go per optie.
