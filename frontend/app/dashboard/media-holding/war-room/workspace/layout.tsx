@@ -3,21 +3,23 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import clsx from 'clsx'
-import { LayoutGrid, Megaphone, Clapperboard, Lightbulb, BarChart3, Mail, Filter, Tv2, CalendarClock, HeartPulse } from 'lucide-react'
+import { LayoutGrid, Megaphone, Clapperboard, Lightbulb, BarChart3, Mail, Filter, Tv2, CalendarClock, HeartPulse, Brain, Trophy } from 'lucide-react'
 
 const BASE = '/dashboard/media-holding/war-room/workspace'
 
 const SUBTABS = [
-  { label: 'Creative Library', href: BASE,                  icon: LayoutGrid },
-  { label: 'Channel Strategy', href: `${BASE}/channels`,    icon: Tv2 },
-  { label: 'Campaign Studio',  href: `${BASE}/campaigns`,   icon: Megaphone },
-  { label: 'Video Studio',     href: `${BASE}/video`,       icon: Clapperboard },
-  { label: 'Hook Library',     href: `${BASE}/hooks`,       icon: Lightbulb },
-  { label: 'Voor overmorgen',  href: `${BASE}/horizon`,     icon: CalendarClock },
-  { label: 'Performance',      href: `${BASE}/performance`, icon: BarChart3 },
-  { label: 'Email Studio',     href: `${BASE}/email`,       icon: Mail },
-  { label: 'Funnels',          href: `${BASE}/funnels`,     icon: Filter },
-  { label: 'Platform Health',  href: `${BASE}/maintenance`, icon: HeartPulse },
+  { label: 'Creative Library', href: BASE,                       icon: LayoutGrid },
+  { label: 'Channel Strategy', href: `${BASE}/channels`,         icon: Tv2 },
+  { label: 'Campaign Studio',  href: `${BASE}/campaigns`,        icon: Megaphone },
+  { label: 'Video Studio',     href: `${BASE}/video`,            icon: Clapperboard },
+  { label: 'Hook Library',     href: `${BASE}/hooks`,            icon: Lightbulb },
+  { label: 'Hook Intelligence', href: `${BASE}/hook-intelligence`, icon: Brain },
+  { label: 'Winners',          href: `${BASE}/winners`,          icon: Trophy },
+  { label: 'Voor overmorgen',  href: `${BASE}/horizon`,          icon: CalendarClock },
+  { label: 'Performance',      href: `${BASE}/performance`,      icon: BarChart3 },
+  { label: 'Email Studio',     href: `${BASE}/email`,            icon: Mail },
+  { label: 'Funnels',          href: `${BASE}/funnels`,          icon: Filter },
+  { label: 'Platform Health',  href: `${BASE}/maintenance`,      icon: HeartPulse },
 ]
 
 export default function WorkspaceLayout({ children }: { children: React.ReactNode }) {
