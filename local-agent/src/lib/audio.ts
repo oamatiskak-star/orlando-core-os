@@ -1,6 +1,6 @@
 import fs from 'fs'
 import { spawnSync } from 'child_process'
-import { generateTTS } from './tts'
+import { generateTTS, resolveBin } from './tts'
 
 /**
  * VOICE PROVIDER ROUTER (Content Factory 2.0 — FASE 2).
@@ -23,6 +23,19 @@ export const VOICE_GATE_NO_PROVIDER = 'blocked_no_voice_provider'    // geen enk
 const LOCAL_ORDER:   VoiceProvider[] = ['local_xtts', 'piper', 'edge_tts']
 const PREMIUM_ORDER: VoiceProvider[] = ['elevenlabs', 'openai_tts']
 
+// edge-tts vereist een geldige stemnaam ('default' → ValueError). Map per taal naar
+// een echte neural-stem (ook espeak-vriendelijk: leidt 'nl'/'en'-prefix af).
+function defaultVoiceFor(language?: string): string {
+  const l = (language || 'en').toLowerCase()
+  if (l.startsWith('nl')) return 'nl-NL-ColetteNeural'
+  if (l.startsWith('es')) return 'es-ES-ElviraNeural'
+  return 'en-US-JennyNeural'
+}
+/** Lost 'default'/leeg op naar een echte stem per taal; expliciete stemnaam blijft behouden. */
+function resolveVoice(requested: string | undefined, language?: string): string {
+  return (!requested || requested === 'default') ? defaultVoiceFor(language) : requested
+}
+
 export interface VoiceResult {
   provider: VoiceProvider | null
   outputPath: string | null
@@ -38,14 +51,15 @@ export interface SynthOptions {
 }
 
 // ── beschikbaarheid (geen aannames: detecteer per binary/env) ────────────────
-function hasBinary(bin: string): boolean {
-  try { return spawnSync('which', [bin]).status === 0 } catch { return false }
+// resolveBin zoekt ook in ~/.local/bin (pipx) + homebrew — robuust onder scheduler/PM2.
+function hasBinary(bin: string, envVar?: string): boolean {
+  return resolveBin(bin, envVar) !== null
 }
 export function providerAvailable(p: VoiceProvider): boolean {
   switch (p) {
     case 'local_xtts':  return !!process.env.XTTS_URL || hasBinary('tts')          // coqui XTTS-server of CLI
     case 'piper':       return !!process.env.PIPER_BIN || hasBinary('piper')
-    case 'edge_tts':    return hasBinary('edge-tts') || hasBinary('espeak')        // espeak = laatste lokale fallback
+    case 'edge_tts':    return hasBinary('edge-tts', 'EDGE_TTS_BIN') || hasBinary('espeak', 'ESPEAK_BIN')  // espeak = laatste lokale fallback
     case 'openai_tts':  return !!process.env.OPENAI_API_KEY
     case 'elevenlabs':  return !!process.env.ELEVENLABS_API_KEY
   }
@@ -118,7 +132,7 @@ export async function synthVoice(text: string, outputPath: string, opts: SynthOp
     // Geen premium beschikbaar → val terug op lokaal maar markeer geblokkeerd.
     for (const p of LOCAL_ORDER) {
       if (providerAvailable(p)) {
-        await runProvider(p, text, outputPath, opts.voice)
+        await runProvider(p, text, outputPath, resolveVoice(opts.voice, opts.language))
         return { provider: p, outputPath, productionReady: false, gateReason: VOICE_GATE_PREMIUM }
       }
     }
@@ -128,7 +142,7 @@ export async function synthVoice(text: string, outputPath: string, opts: SynthOp
   // shadow/bulk (of premium met lokaal>=95) → lokale provider.
   for (const p of LOCAL_ORDER) {
     if (providerAvailable(p)) {
-      await runProvider(p, text, outputPath, opts.voice)
+      await runProvider(p, text, outputPath, resolveVoice(opts.voice, opts.language))
       // Productie-klaar alleen als premium-modus mét bewezen lokale score>=95.
       const productionReady = opts.mode === 'premium' && localOk
       return { provider: p, outputPath, productionReady, gateReason: productionReady ? null : VOICE_GATE_PREMIUM }

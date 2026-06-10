@@ -28,7 +28,7 @@ const db = createClient(
   { auth: { persistSession: false } },
 )
 
-export const VISUAL_GATE_NO_PEXELS = 'blocked_missing_pexels_key'
+export const VISUAL_GATE_NO_PROVIDER = 'blocked_missing_visual_provider'
 export const VISUAL_MIN_SCORE = 85
 
 type Orientation = 'landscape' | 'portrait' | 'square'
@@ -135,13 +135,14 @@ export interface VisualResult {
 }
 
 /**
- * Bron-visuals voor alle scenes van een project. Geen Pexels-key → meteen
- * geblokkeerd, GEEN rijen, GEEN fakes. Per scene: zoek → score → beste >=85 →
- * download → visual_assets-rij → koppel scene.selected_asset_id.
+ * Bron-visuals voor alle scenes van een project. Geen visual-provider (Pexels
+ * NOCH Pixabay) → meteen geblokkeerd, GEEN rijen, GEEN fakes. Per scene: zoek
+ * (Pexels → Pixabay) → score → beste >=85 → download → visual_assets-rij →
+ * koppel scene.selected_asset_id. Eén van beide keys volstaat.
  */
 export async function sourceVisualsForProject(projectId: string, format: '16:9' | '9:16' | '1:1'): Promise<VisualResult> {
-  if (!process.env.PEXELS_API_KEY) {
-    return { blockedReason: VISUAL_GATE_NO_PEXELS, sceneCount: 0, assetsSelected: 0, belowThreshold: 0 }
+  if (!process.env.PEXELS_API_KEY && !process.env.PIXABAY_API_KEY) {
+    return { blockedReason: VISUAL_GATE_NO_PROVIDER, sceneCount: 0, assetsSelected: 0, belowThreshold: 0 }
   }
   const orientation: Orientation = format === '9:16' ? 'portrait' : format === '1:1' ? 'square' : 'landscape'
 
