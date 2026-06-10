@@ -23,6 +23,19 @@ export const VOICE_GATE_NO_PROVIDER = 'blocked_no_voice_provider'    // geen enk
 const LOCAL_ORDER:   VoiceProvider[] = ['local_xtts', 'piper', 'edge_tts']
 const PREMIUM_ORDER: VoiceProvider[] = ['elevenlabs', 'openai_tts']
 
+// edge-tts vereist een geldige stemnaam ('default' → ValueError). Map per taal naar
+// een echte neural-stem (ook espeak-vriendelijk: leidt 'nl'/'en'-prefix af).
+function defaultVoiceFor(language?: string): string {
+  const l = (language || 'en').toLowerCase()
+  if (l.startsWith('nl')) return 'nl-NL-ColetteNeural'
+  if (l.startsWith('es')) return 'es-ES-ElviraNeural'
+  return 'en-US-JennyNeural'
+}
+/** Lost 'default'/leeg op naar een echte stem per taal; expliciete stemnaam blijft behouden. */
+function resolveVoice(requested: string | undefined, language?: string): string {
+  return (!requested || requested === 'default') ? defaultVoiceFor(language) : requested
+}
+
 export interface VoiceResult {
   provider: VoiceProvider | null
   outputPath: string | null
@@ -119,7 +132,7 @@ export async function synthVoice(text: string, outputPath: string, opts: SynthOp
     // Geen premium beschikbaar → val terug op lokaal maar markeer geblokkeerd.
     for (const p of LOCAL_ORDER) {
       if (providerAvailable(p)) {
-        await runProvider(p, text, outputPath, opts.voice)
+        await runProvider(p, text, outputPath, resolveVoice(opts.voice, opts.language))
         return { provider: p, outputPath, productionReady: false, gateReason: VOICE_GATE_PREMIUM }
       }
     }
@@ -129,7 +142,7 @@ export async function synthVoice(text: string, outputPath: string, opts: SynthOp
   // shadow/bulk (of premium met lokaal>=95) → lokale provider.
   for (const p of LOCAL_ORDER) {
     if (providerAvailable(p)) {
-      await runProvider(p, text, outputPath, opts.voice)
+      await runProvider(p, text, outputPath, resolveVoice(opts.voice, opts.language))
       // Productie-klaar alleen als premium-modus mét bewezen lokale score>=95.
       const productionReady = opts.mode === 'premium' && localOk
       return { provider: p, outputPath, productionReady, gateReason: productionReady ? null : VOICE_GATE_PREMIUM }
