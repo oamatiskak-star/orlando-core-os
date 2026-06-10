@@ -7,11 +7,15 @@
  * In live-mode (aparte go, host: Mac Mini) delegeert de zware productie naar de bestaande
  * lokale-first producer `runShadowTopic` (shadow-core): topic → content → scenes → voice →
  * visual → music → thumbnail → render, ALLES lokaal en ZONDER upload/publicatie. De
- * stapresultaten worden gelogd in cf2_job_steps (Producer Graph audittrail). Upload blijft
- * bewust over (geen publicatie) tot een aparte publish-go.
+ * stapresultaten worden gelogd in cf2_job_steps (Producer Graph audittrail).
+ *
+ * Upload is gecodeerd maar HARD GATED: alleen bij CF2_PUBLISH=1 wordt een queue-rij in
+ * youtube_upload_queue gemaakt, ALTIJD privacy_status='private' (nooit direct publiek;
+ * handmatige review vóór public). Zonder CF2_PUBLISH=1 → upload 'skipped'.
  *
  * Wordt NIET vanzelf gestart: geen import in index.ts/scheduler, geen cron. Draaien vereist
- * expliciet CF2_PRODUCER_RUN=1 + CF2_PRODUCER_MODE=live + engine enabled=true.
+ * expliciet CF2_PRODUCER_RUN=1 + CF2_PRODUCER_MODE=live (+ CF2_PUBLISH=1 voor private upload)
+ * + engine enabled=true. Host: Mac Mini (lokale modellen + render).
  */
 import { createClient, SupabaseClient } from '@supabase/supabase-js'
 import axios from 'axios'
@@ -110,11 +114,34 @@ async function produceJobLive(client: SupabaseClient, job: Cf2Job): Promise<void
     if (r.renderUrl && r.gatePassed) await setStep(client, job.id, 'video', { status: 'done', completed_at: nowIso(), meta: { render_url: r.renderUrl, cqi: r.cqi } })
     else await setStep(client, job.id, 'video', { status: 'failed', failed_at: nowIso(), failure_reason: r.reasons ?? 'kwaliteits-gate niet gehaald' })
 
-    // upload bewust overgeslagen — shadow publiceert niet (aparte publish-go)
-    await setStep(client, job.id, 'upload', { status: 'skipped', failure_reason: 'shadow: geen upload (geen publicatie)' })
+    const ok = r.thumbnailVariants > 0 && !!r.renderUrl && r.gatePassed
+
+    // upload — HARD GATED: alleen bij CF2_PUBLISH=1 én geslaagde render; ALTIJD privacy='private'
+    // (nooit direct publiek). De youtube-engine pikt de queue-rij op; review vóór public maken.
+    if (ok && process.env.CF2_PUBLISH === '1' && ctx.channelId) {
+      await setStep(client, job.id, 'upload', { status: 'running', started_at: nowIso() })
+      try {
+        const { data: q, error } = await client.from('youtube_upload_queue').insert({
+          channel_id: ctx.channelId,
+          title: r.title,
+          privacy_status: 'private',
+          status: 'queued',
+          viral_score: r.cqi,
+          scheduled_publish_at: new Date(Date.now() + 48 * 3600 * 1000).toISOString(),
+        }).select('id').single()
+        if (error) throw new Error(error.message)
+        await setStep(client, job.id, 'upload', { status: 'done', completed_at: nowIso(), meta: { queue_id: q?.id, privacy: 'private' } })
+      } catch (e) {
+        await setStep(client, job.id, 'upload', { status: 'failed', failed_at: nowIso(), failure_reason: String((e as Error).message ?? e) })
+      }
+    } else {
+      await setStep(client, job.id, 'upload', {
+        status: 'skipped',
+        failure_reason: process.env.CF2_PUBLISH === '1' ? 'geen geslaagde render' : 'publicatie uit (CF2_PUBLISH!=1)',
+      })
+    }
     await setStep(client, job.id, 'attribution', { status: 'skipped', failure_reason: 'wacht op publicatie + UTM' })
 
-    const ok = r.thumbnailVariants > 0 && r.renderUrl && r.gatePassed
     await client.from('cf2_jobs').update({ status: ok ? 'produced' : 'failed', output_content_id: r.projectId, updated_at: nowIso() }).eq('id', job.id)
   } catch (e) {
     await setStep(client, job.id, 'creative', { status: 'failed', failed_at: nowIso(), failure_reason: String((e as Error).message ?? e) })

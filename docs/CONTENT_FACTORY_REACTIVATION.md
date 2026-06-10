@@ -57,7 +57,7 @@ Queue is geseed: `select public.cf2_seed_jobs_from_horizon();` → 22 cf2_jobs m
 **Activatie (aparte go's, host: Mac Mini, lokaal-first):**
 1. Start lokale modellen (Ollama `:11434` / LM Studio `:1234`).
 2. **Shadow-productie (geen upload, lokaal):** `CF2_PRODUCER_MODE=live CF2_PRODUCER_RUN=1 node dist/cf2-producer.js` — produceert lokaal + vult cf2_job_steps; **publiceert niet**.
-3. **Publicatie-go (apart):** upload-stap koppelen aan `youtube_upload_queue` (nu bewust 'skipped: geen publicatie').
+3. **Publicatie (apart, hard gated):** upload-stap is gecodeerd — zet `CF2_PUBLISH=1` → maakt een `youtube_upload_queue`-rij, ALTIJD `privacy_status='private'` (nooit direct publiek). De youtube-engine uploadt 'm privé; jij reviewt en zet handmatig op public. Zonder `CF2_PUBLISH=1` → upload 'skipped'.
 4. Engine `content:cf2-video-projects-runner` → enabled=true + tijdblok.
 > Lokaal-first: 80–90% via Ollama/LM Studio; cloud alleen uitzondering. Render = lokale compute; YouTube-upload pas na publicatie-go.
 
