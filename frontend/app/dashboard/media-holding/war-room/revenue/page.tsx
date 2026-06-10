@@ -1,5 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
-import { Banknote, MousePointerClick, Users, CreditCard } from 'lucide-react'
+import { Banknote, MousePointerClick, Users, CreditCard, ShieldCheck } from 'lucide-react'
 import RevenueFunnel, { type FunnelStage } from '@/components/war-room/RevenueFunnel'
 
 export const dynamic = 'force-dynamic'
@@ -9,57 +9,76 @@ const num = (n: number) => Intl.NumberFormat('nl-NL', { notation: 'compact' }).f
 
 export default async function RevenuePage() {
   const supabase = await createClient()
-  const [links, clicks, convs, creatives, uploads, hooks] = await Promise.all([
-    supabase.from('affiliate_links').select('id', { count: 'exact', head: true }),
+  const [clicks, convs, creatives, uploads, views] = await Promise.all([
     supabase.from('affiliate_clicks').select('id', { count: 'exact', head: true }),
     supabase.from('affiliate_conversions').select('commission_eur, status'),
     supabase.from('media_holding_content_items').select('id', { count: 'exact', head: true }),
     supabase.from('media_holding_uploads').select('id', { count: 'exact', head: true }),
-    supabase.from('v_war_room_nodes').select('node_id', { count: 'exact', head: true }).eq('node_type', 'hook'),
+    supabase.from('media_holding_metrics').select('views'),
   ])
 
-  const linkCount = links.count ?? 0
   const clickCount = clicks.count ?? 0
   const conversions = convs.data ?? []
   const confirmed = conversions.filter((c) => (c.status ?? '').toLowerCase() === 'confirmed')
   const revenue = confirmed.reduce((s, c) => s + (Number(c.commission_eur) || 0), 0)
-  const hasData = linkCount + clickCount + conversions.length > 0
+  const totalViews = (views.data ?? []).reduce((s, v) => s + (Number(v.views) || 0), 0)
+  const traffic = clickCount > 0 ? clickCount : totalViews
 
+  // Orlando-flow: Creative → Platform → Traffic → Lead → Membership → Sale → Revenue.
+  // Membership = geen bron-tabel (geen mock) → "Geen data".
   const stages: FunnelStage[] = [
-    { key: 'hook', label: 'Hook', value: num(hooks.count ?? 0), raw: hooks.count ?? 0 },
     { key: 'creative', label: 'Creative', value: num(creatives.count ?? 0), raw: creatives.count ?? 0 },
     { key: 'platform', label: 'Platform', value: num(uploads.count ?? 0), raw: uploads.count ?? 0 },
-    { key: 'klik', label: 'Klik', value: num(clickCount), raw: clickCount },
+    { key: 'traffic', label: 'Traffic', value: num(traffic), raw: traffic },
     { key: 'lead', label: 'Lead', value: num(conversions.length), raw: conversions.length },
-    { key: 'betaling', label: 'Betaling', value: eur(revenue), raw: confirmed.length },
+    { key: 'membership', label: 'Membership', value: 'Geen data', raw: 0 },
+    { key: 'sale', label: 'Sale', value: num(confirmed.length), raw: confirmed.length },
+    { key: 'revenue', label: 'Revenue', value: eur(revenue), raw: confirmed.length },
   ]
+
+  // Revenue confidence (verplicht): hoeveel van de funnel echt gekoppeld is.
+  let conf = 0
+  if (traffic > 0) conf += 0.34
+  if (conversions.length > 0) conf += 0.33
+  if (revenue > 0) conf += 0.33
+  const confidencePct = Math.round(conf * 100)
+  const confColor = confidencePct >= 66 ? '#22c55e' : confidencePct >= 33 ? '#f59e0b' : '#ef4444'
+  const hasCommercial = clickCount + conversions.length > 0
 
   return (
     <div className="space-y-4">
-      <p className="text-xs text-white/45">
-        Revenue-graph: Hook → Creative → Platform → Klik → Lead → Betaling. Volg een hook tot omzet. Groene schakels dragen al data.
-      </p>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <p className="text-xs text-white/45">
+          Revenue-flow: Creative → Platform → Traffic → Lead → Membership → Sale → Revenue. Groene schakels dragen echte data.
+        </p>
+        <span className="inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1 text-xs font-semibold"
+          style={{ color: confColor, borderColor: `${confColor}55`, background: `${confColor}14` }}
+          title="Revenue attributie-confidence: aandeel van de funnel dat echt gekoppeld is (geen schatting)">
+          <ShieldCheck size={13} />
+          Attributie-confidence {confidencePct}%
+        </span>
+      </div>
 
       <RevenueFunnel stages={stages} />
 
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-        <KPI icon={Banknote} label="Affiliate-links" value={String(linkCount)} />
         <KPI icon={MousePointerClick} label="Kliks" value={String(clickCount)} />
         <KPI icon={Users} label="Conversies" value={String(conversions.length)} />
-        <KPI icon={CreditCard} label="Commissie (confirmed)" value={eur(revenue)} accent="#22c55e" />
+        <KPI icon={CreditCard} label="Confirmed sales" value={String(confirmed.length)} />
+        <KPI icon={Banknote} label="Commissie (confirmed)" value={eur(revenue)} accent="#22c55e" />
       </div>
 
-      {!hasData && (
+      {!hasCommercial && (
         <div className="rounded-lg border border-white/10 bg-[#0e1525] p-6">
           <div className="flex items-center gap-2 text-sm font-semibold text-white">
             <Banknote size={16} className="text-emerald-400" />
-            Linkerhelft draait, attributie-helft wacht op data
+            Linkerhelft draait, commerciële helft wacht op data — confidence {confidencePct}%
           </div>
           <p className="mt-2 max-w-2xl text-xs leading-relaxed text-white/50">
-            Hook → Creative → Platform dragen al echte aantallen. De Affiliate Engine heeft nog geen
-            links/kliks/conversies (<code className="text-white/70">affiliate_*</code> = 0), dus Klik → Lead → Betaling staan op 0.
-            Zodra distributielinks UTM dragen en kliks/betalingen binnenkomen kleuren die schakels groen — geen verdere wiring nodig.
-            Per PROJECT_STATUS is UTM-/affiliate-attributie nu nog 0.
+            Creative → Platform → Traffic dragen echte aantallen. Lead → Sale → Revenue staan op 0 omdat
+            <code className="text-white/70"> affiliate_*</code> nog geen kliks/conversies heeft, en <span className="text-white/70">Membership</span> heeft
+            geen bron-tabel (daarom &quot;Geen data&quot;, geen schatting). Zodra distributielinks UTM dragen en betalingen binnenkomen
+            kleuren die schakels groen en stijgt de confidence automatisch — geen verdere wiring nodig.
           </p>
         </div>
       )}

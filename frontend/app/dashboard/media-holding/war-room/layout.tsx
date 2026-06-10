@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import clsx from 'clsx'
 import { Network, Megaphone, CalendarClock, FlaskConical, Banknote } from 'lucide-react'
+import Scoreboard from '@/components/war-room/Scoreboard'
 
 const TABS = [
   { label: 'Creative Graph', href: '/dashboard/media-holding/war-room',          icon: Network },
@@ -26,6 +27,7 @@ export default function WarRoomLayout({ children }: { children: React.ReactNode 
           De glazen wand van de Content Factory — observeren, niet blokkeren. Hermes produceert autonoom door.
         </p>
       </div>
+      <Scoreboard />
       <nav className="flex gap-1 border-b border-white/5 pb-0 overflow-x-auto">
         {TABS.map((t) => {
           const Icon = t.icon

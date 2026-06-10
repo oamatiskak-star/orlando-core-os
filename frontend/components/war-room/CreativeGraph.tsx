@@ -8,8 +8,9 @@ import {
 import '@xyflow/react/dist/style.css'
 import {
   layoutGraph, NODE_ACCENT,
-  type WarRoomRawNode, type WarRoomRawEdge, type WarRoomNodeType,
+  type WarRoomRawNode, type WarRoomRawEdge, type WarRoomNodeType, type WarRoomHermesRec,
 } from '@/lib/war-room/graph'
+import { computeScores, type WinnerStatus } from '@/lib/war-room/scoring'
 import { warRoomNodeTypes } from './nodes'
 
 const LEGEND: { type: WarRoomNodeType; label: string }[] = [
@@ -20,11 +21,24 @@ const LEGEND: { type: WarRoomNodeType; label: string }[] = [
   { type: 'platform', label: 'Platform' },
 ]
 
+// winner-status-filter (laag 2 projectie-controle)
+const WINNER_FILTERS: { key: string; label: string; match: WinnerStatus[] }[] = [
+  { key: 'all', label: 'Alle', match: [] },
+  { key: 'winners', label: 'Winners', match: ['top_1pct', 'top_5pct', 'winner'] },
+  { key: 'runner', label: 'Runner up', match: ['runner_up'] },
+  { key: 'under', label: 'Underperforming', match: ['underperforming', 'loser'] },
+]
+
 export default function CreativeGraph({
-  rawNodes, rawEdges,
-}: { rawNodes: WarRoomRawNode[]; rawEdges: WarRoomRawEdge[] }) {
+  rawNodes, rawEdges, hermesByChannel = {},
+}: {
+  rawNodes: WarRoomRawNode[]
+  rawEdges: WarRoomRawEdge[]
+  hermesByChannel?: Record<string, WarRoomHermesRec[]>
+}) {
   const [campaign, setCampaign] = useState<string>('all')
   const [platform, setPlatform] = useState<string>('all')
+  const [winnerFilter, setWinnerFilter] = useState<string>('all')
 
   const campaignOptions = useMemo(
     () => rawNodes.filter((n) => n.node_type === 'campaign').map((n) => n.label ?? '').sort(),
@@ -78,8 +92,40 @@ export default function CreativeGraph({
 
     const ns = rawNodes.filter((n) => keep.has(n.node_id))
     const es = rawEdges.filter((e) => keep.has(e.source_id) && keep.has(e.target_id))
-    return layoutGraph(ns, es)
-  }, [rawNodes, rawEdges, campaign, platform])
+
+    // Winner Engine + lagen berekenen over de gefilterde set
+    const scores = computeScores(ns)
+    const wf = WINNER_FILTERS.find((f) => f.key === winnerFilter)
+    const dimmed = wf && wf.match.length > 0
+
+    const laid = layoutGraph(ns, es)
+
+    // _score + _hermes injecteren in node.data; winner-filter dimt niet-matchende nodes
+    const enriched: Node[] = laid.nodes.map((nd) => {
+      const raw = byId.get(nd.id)!
+      const score = scores.get(nd.id)
+      const channelKey = raw.channel_id ?? undefined
+      let hermes: WarRoomHermesRec[] | undefined
+      if (raw.node_type === 'channel' && channelKey) hermes = hermesByChannel[channelKey]
+      if (raw.node_type === 'campaign') {
+        // campagne = union van top-recs van onderliggende kanalen
+        const set: WarRoomHermesRec[] = []
+        for (const kid of childrenOf.get(raw.node_id) ?? []) {
+          const k = byId.get(kid)
+          if (k?.node_type === 'channel' && k.channel_id && hermesByChannel[k.channel_id]) set.push(...hermesByChannel[k.channel_id])
+        }
+        if (set.length) hermes = set.sort((a, b) => (b.priority ?? 0) - (a.priority ?? 0)).slice(0, 4)
+      }
+      const matches = !dimmed || (score && wf!.match.includes(score.winner_status))
+      return {
+        ...nd,
+        data: { ...nd.data, _score: score, _hermes: hermes },
+        style: { ...(nd.style ?? {}), opacity: matches ? 1 : 0.18 },
+      }
+    })
+
+    return { nodes: enriched, edges: laid.edges }
+  }, [rawNodes, rawEdges, campaign, platform, winnerFilter, hermesByChannel])
 
   const [nodes, setNodes, onNodesChange] = useNodesState<Node>(filtered.nodes)
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>(filtered.edges)
@@ -118,9 +164,21 @@ export default function CreativeGraph({
             ))}
           </select>
         </div>
-        {(campaign !== 'all' || platform !== 'all') && (
+        <div className="flex items-center gap-1.5">
+          <label className="text-[10px] uppercase tracking-wide text-white/40">Winner</label>
+          <select
+            value={winnerFilter}
+            onChange={(e) => setWinnerFilter(e.target.value)}
+            className="rounded border border-white/10 bg-[#0e1525] px-2 py-1 text-xs text-white"
+          >
+            {WINNER_FILTERS.map((f) => (
+              <option key={f.key} value={f.key}>{f.label}</option>
+            ))}
+          </select>
+        </div>
+        {(campaign !== 'all' || platform !== 'all' || winnerFilter !== 'all') && (
           <button
-            onClick={() => { setCampaign('all'); setPlatform('all') }}
+            onClick={() => { setCampaign('all'); setPlatform('all'); setWinnerFilter('all') }}
             className="rounded border border-white/10 px-2 py-1 text-xs text-white/60 hover:text-white"
           >
             Reset

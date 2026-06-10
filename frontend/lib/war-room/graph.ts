@@ -25,13 +25,22 @@ export type WarRoomRawEdge = {
   edge_type: 'spine' | 'winner' | 'revenue'
 }
 
-// node-type → afmeting (px) voor dagre + render
+// Node-level Hermes-aanbeveling (bron: executive_recommendations, target_kind='channel').
+export type WarRoomHermesRec = {
+  id: string
+  action_kind: string
+  priority: number | null
+  rationale: string | null
+  status: string | null
+}
+
+// node-type → afmeting (px) voor dagre + render (ruimer i.v.m. geprojecteerde lagen)
 export const NODE_SIZE: Record<WarRoomNodeType, { w: number; h: number }> = {
-  campaign: { w: 210, h: 64 },
-  channel: { w: 210, h: 76 },
-  hook: { w: 250, h: 96 },
-  creative: { w: 250, h: 150 },
-  platform: { w: 170, h: 64 },
+  campaign: { w: 230, h: 132 },
+  channel: { w: 230, h: 156 },
+  hook: { w: 250, h: 118 },
+  creative: { w: 260, h: 206 },
+  platform: { w: 190, h: 104 },
 }
 
 export const NODE_ACCENT: Record<WarRoomNodeType, string> = {
