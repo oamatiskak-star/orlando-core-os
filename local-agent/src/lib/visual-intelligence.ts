@@ -3,6 +3,7 @@ import fs from 'fs'
 import path from 'path'
 import os from 'os'
 import axios from 'axios'
+import { spawnSync } from 'child_process'
 import { createClient } from '@supabase/supabase-js'
 import { localLlmJson } from './local-llm'
 
@@ -36,10 +37,30 @@ type Orientation = 'landscape' | 'portrait' | 'square'
 
 interface Candidate {
   provider: 'pexels' | 'pixabay'
+  kind: 'video' | 'photo'
   url: string
   width: number | null
   height: number | null
   duration: number
+}
+
+function clipDims(format: '16:9' | '9:16' | '1:1'): { w: number; h: number } {
+  if (format === '9:16') return { w: 1080, h: 1920 }
+  if (format === '1:1') return { w: 1080, h: 1080 }
+  return { w: 1920, h: 1080 }
+}
+
+// Foto → still videoclip (ken-burns-loos, scherp gecropt) zodat de render-keten 'm als
+// gewone clip behandelt. Pexels-foto's = enorme bibliotheek → veel hogere scene-dekking.
+function photoToClip(imgPath: string, outPath: string, durationSec: number, format: '16:9' | '9:16' | '1:1'): Promise<void> {
+  const { w, h } = clipDims(format)
+  return new Promise((resolve, reject) => {
+    const r = spawnSync('ffmpeg', ['-y', '-loop', '1', '-i', imgPath, '-t', String(Math.max(1, durationSec)),
+      '-vf', `scale=${w}:${h}:force_original_aspect_ratio=increase,crop=${w}:${h}`,
+      '-c:v', 'libx264', '-pix_fmt', 'yuv420p', '-r', '30', '-an', outPath], { timeout: 60_000, encoding: 'utf8' })
+    if (r.status === 0 && fs.existsSync(outPath)) resolve()
+    else reject(new Error(`photo-clip: ${(r.stderr || r.error?.message || 'ffmpeg status ' + r.status).toString().slice(0, 200)}`))
+  })
 }
 
 // ── Pexels (geport uit content-worker) ───────────────────────────────────────
@@ -58,7 +79,24 @@ async function searchPexels(query: string, orientation: Orientation): Promise<Ca
       .filter((f: any) => f.link && f.file_type === 'video/mp4')
       .sort((a: any, b: any) => (b.width ?? 0) - (a.width ?? 0))
     const best = files[0]
-    return best ? { provider: 'pexels' as const, url: best.link, width: best.width ?? null, height: best.height ?? null, duration: v.duration ?? 0 } : null
+    return best ? { provider: 'pexels' as const, kind: 'video' as const, url: best.link, width: best.width ?? null, height: best.height ?? null, duration: v.duration ?? 0 } : null
+  }).filter((c): c is Candidate => c !== null)
+}
+
+// ── Pexels foto's (extra bron — veel bredere dekking; foto wordt still-clip) ──
+async function searchPexelsPhotos(query: string, orientation: Orientation): Promise<Candidate[]> {
+  const apiKey = process.env.PEXELS_API_KEY
+  if (!apiKey) return []
+  const res = await axios.get('https://api.pexels.com/v1/search', {
+    headers: { Authorization: apiKey },
+    params: { query, per_page: 15, orientation },
+    timeout: 15_000,
+  })
+  const photos: any[] = res.data?.photos ?? []
+  return photos.map((p): Candidate | null => {
+    const url = p.src?.large2x || p.src?.large || p.src?.original
+    if (!url) return null
+    return { provider: 'pexels' as const, kind: 'photo' as const, url, width: p.width ?? null, height: p.height ?? null, duration: 0 }
   }).filter((c): c is Candidate => c !== null)
 }
 
@@ -78,7 +116,7 @@ async function searchPixabay(query: string, orientation: Orientation): Promise<C
     // Pixabay levert geen orientatie-filter; respecteer grof via aspect.
     const w = f.width ?? null, ht = f.height ?? null
     if (portrait && w && ht && w > ht) return null
-    return { provider: 'pixabay' as const, url: f.url, width: w, height: ht, duration: h.duration ?? 0 }
+    return { provider: 'pixabay' as const, kind: 'video' as const, url: f.url, width: w, height: ht, duration: h.duration ?? 0 }
   }).filter((c): c is Candidate => c !== null)
 }
 
@@ -186,6 +224,7 @@ export async function sourceVisualsForProject(projectId: string, format: '16:9' 
 
     let candidates = await searchPexels(query, orientation)
     if (candidates.length === 0) candidates = await searchPixabay(query, orientation)
+    if (candidates.length === 0) candidates = await searchPexelsPhotos(query, orientation)   // foto-vangnet
     if (candidates.length === 0) { below++; continue }
 
     // score alle kandidaten, kies hoogste
@@ -196,8 +235,18 @@ export async function sourceVisualsForProject(projectId: string, format: '16:9' 
     if (!winner || winner.s.final_visual_score < VISUAL_MIN_SCORE) { below++; continue }
 
     // download → storage-pad lokaal (render-laag mux't dit; geen upload)
+    // foto → eerst jpg, dan still-clip (mp4) zodat de render 'm als gewone clip ziet.
     const localPath = path.join(os.tmpdir(), `cf2-asset-${projectId}-${sc.id}.mp4`)
-    try { await downloadTo(winner.c.url, localPath) } catch { below++; continue }
+    try {
+      if (winner.c.kind === 'photo') {
+        const imgTmp = path.join(os.tmpdir(), `cf2-photo-${projectId}-${sc.id}.jpg`)
+        await downloadTo(winner.c.url, imgTmp)
+        await photoToClip(imgTmp, localPath, Number(sc.expected_duration) || 5, format)
+        try { fs.unlinkSync(imgTmp) } catch { /* */ }
+      } else {
+        await downloadTo(winner.c.url, localPath)
+      }
+    } catch { below++; continue }
 
     const { data: asset } = await db.from('visual_assets').insert({
       scene_id: sc.id, project_id: projectId,
@@ -206,7 +255,7 @@ export async function sourceVisualsForProject(projectId: string, format: '16:9' 
       local_asset_url: localPath,
       license: winner.c.provider === 'pexels' ? 'Pexels License' : 'Pixabay License',
       license_status: 'free_commercial',
-      duration: winner.c.duration,
+      duration: winner.c.kind === 'photo' ? (Number(sc.expected_duration) || 5) : winner.c.duration,
       resolution: winner.c.width && winner.c.height ? `${winner.c.width}x${winner.c.height}` : null,
       topic_relevance: winner.s.topic_relevance,
       cinematic_score: winner.s.cinematic_score,
