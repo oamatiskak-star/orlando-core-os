@@ -140,10 +140,15 @@ export async function renderProject(input: RenderInput): Promise<RenderResult> {
     const src = asset?.local_asset_url
     if (!src || !fs.existsSync(src)) continue   // geen asset → scene overslaan, NOOIT fake invullen
     const clip = path.join(work, `scene-${sc.idx}.mp4`)
-    await processScene(src, clip, Number(sc.expected_duration) || 5, input.format, sc.caption_text || '')
-    clips.push(clip)
+    // één kapotte bron mag de hele render niet doden — sla die scene over (geen fake-invulling).
+    try {
+      await processScene(src, clip, Number(sc.expected_duration) || 5, input.format, sc.caption_text || '')
+      if (fs.existsSync(clip)) clips.push(clip)
+    } catch (e: any) {
+      console.warn(`scene ${sc.idx} overgeslagen (clip-fout): ${(e?.message ?? e).toString().slice(0, 160)}`)
+    }
   }
-  if (clips.length === 0) throw new Error('renderProject: geen renderbare scenes (assets ontbreken — geen fakes)')
+  if (clips.length === 0) throw new Error('renderProject: geen renderbare scenes (alle clip-bronnen faalden)')
 
   const concatPath = path.join(work, 'concat.mp4')
   await concatScenes(clips, concatPath)
