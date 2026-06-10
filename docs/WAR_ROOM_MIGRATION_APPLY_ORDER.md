@@ -54,6 +54,8 @@ select count(*) from v_cf2_review;            -- 0 tot CF2 produceert (Producer 
 ```
 **Activatie van Fase 5F replanning-trigger** (apart, na go): voer de twee `create trigger`-regels onderaan `174_horizon_replanning.sql` uit. Tot dan is de keten alleen voorbereid.
 
+> **TOEGEPAST OP PROD 2026-06-10:** `171`→`175` (incl. `175_learning_loop_wiring.sql` — planner consumeert winners + hook-patronen). Learning Loop GESLOTEN + bewezen: `plan_content_horizon()` handmatig gedraaid → 22 horizon-items, 20 met bron-winner+hook-cat. Engines blijven enabled=false; geen productie/spend. Resterend vóór productie-GO: **CF2 producer-worker** (B4) + thumbnail-generatie + engines enabled=true + host.
+
 ## Apart aanzetten (NA review, jouw go — spend/host)
 Niet nodig voor de live-check hierboven. Voor autonome productie:
 1. Engines: `update engine_schedule set enabled=true, block_key='<blok>' where engine_key in ('content:horizon-planner','content:winner-detector','maintenance:db-janitor');`
