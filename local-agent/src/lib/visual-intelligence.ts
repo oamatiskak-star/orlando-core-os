@@ -4,6 +4,7 @@ import path from 'path'
 import os from 'os'
 import axios from 'axios'
 import { createClient } from '@supabase/supabase-js'
+import { localLlmJson } from './local-llm'
 
 /**
  * VISUAL INTELLIGENCE LAYER (Content Factory 2.0 — FASE A).
@@ -140,6 +141,26 @@ export interface VisualResult {
  * (Pexels → Pixabay) → score → beste >=85 → download → visual_assets-rij →
  * koppel scene.selected_asset_id. Eén van beide keys volstaat.
  */
+/** Vertaalt zoektermen één keer naar Engels (stock-bibliotheken zijn Engels). Fallback = origineel. */
+async function translateQueriesToEnglish(projectId: string, queries: string[]): Promise<string[]> {
+  try {
+    const { data: proj } = await db.from('video_projects').select('language').eq('id', projectId).maybeSingle()
+    const lang = (proj?.language || 'en').toLowerCase()
+    if (lang.startsWith('en')) return queries
+    const nonEmpty = queries.map((q, i) => ({ q, i })).filter((x) => x.q)
+    if (nonEmpty.length === 0) return queries
+    const prompt = `Translate each stock-video search term to concise ENGLISH (2-5 words, only the visual subject, no quotes). Keep the SAME order and count. Return ONLY JSON: {"queries":["...","..."]}.
+TERMS (${nonEmpty.length}):
+${nonEmpty.map((x, k) => `${k + 1}. ${x.q}`).join('\n')}`
+    const r = await localLlmJson(prompt)
+    const out = Array.isArray(r?.queries) ? (r.queries as unknown[]).map((s) => String(s ?? '').trim()) : null
+    if (!out || out.length !== nonEmpty.length) return queries
+    const result = [...queries]
+    nonEmpty.forEach((x, k) => { if (out[k]) result[x.i] = out[k] })
+    return result
+  } catch { return queries }
+}
+
 export async function sourceVisualsForProject(projectId: string, format: '16:9' | '9:16' | '1:1'): Promise<VisualResult> {
   if (!process.env.PEXELS_API_KEY && !process.env.PIXABAY_API_KEY) {
     return { blockedReason: VISUAL_GATE_NO_PROVIDER, sceneCount: 0, assetsSelected: 0, belowThreshold: 0 }
@@ -151,9 +172,16 @@ export async function sourceVisualsForProject(projectId: string, format: '16:9' 
     .eq('project_id', projectId).order('idx')
   const list = scenes ?? []
 
+  // Stock-bibliotheken (Pexels/Pixabay) zijn Engels-geïndexeerd. Het lokale model levert
+  // ondanks de prompt vaak niet-Engelse zoektermen → 0 hits. Vertaal de termen één keer
+  // naar Engels (deterministische extra stap); faalt de vertaling → val terug op origineel.
+  const rawQueries = list.map((sc) => (sc.search_query || sc.visual_intent || '').trim())
+  const enQueries = await translateQueriesToEnglish(projectId, rawQueries)
+
   let selected = 0, below = 0
-  for (const sc of list) {
-    const query = (sc.search_query || sc.visual_intent || '').trim()
+  for (let i = 0; i < list.length; i++) {
+    const sc = list[i]
+    const query = enQueries[i] || rawQueries[i]
     if (!query) { below++; continue }
 
     let candidates = await searchPexels(query, orientation)
