@@ -1,16 +1,18 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { Play, Clapperboard, Sparkles, FileText, Music, TrendingUp } from 'lucide-react'
+import { Sparkles, FileText, Music, TrendingUp, Clapperboard } from 'lucide-react'
 import { Sparkline } from '@/components/executive/Sparkline'
 import { WINNER_LABEL, WINNER_COLOR, type WinnerStatus } from '@/lib/war-room/scoring'
+import type { Preview } from '@/lib/war-room/preview'
+import CreativePreview from './CreativePreview'
 
 export type VideoRow = {
-  id: string          // content uuid
+  id: string
   name: string
   kind: string | null
   channel: string | null
-  thumb: string | null
+  preview: Preview
   winner: WinnerStatus | null
   views: number | null
   ctr: number | null
@@ -19,7 +21,7 @@ export type VideoRow = {
 }
 
 type Detail = {
-  title: string; output_url: string | null; hook: string | null
+  title: string; preview: Preview; hook: string | null
   script: string | null; voice_music: string | null; thumbnail_concept: string | null
   retention_analysis: unknown; failure_reason: string | null; retention_strategy: string | null
   performance: { watchtime_min: number | null; revenue: number | null; retention_pct: number | null }
@@ -28,7 +30,6 @@ type Detail = {
 const compact = (n: number) => Intl.NumberFormat('nl-NL', { notation: 'compact' }).format(n)
 const eur = (n: number) => Intl.NumberFormat('nl-NL', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }).format(n)
 
-// probeer een numerieke retentie-reeks uit retention_analysis te halen (anders null → "Geen data")
 function retentionSeries(ra: unknown): number[] | null {
   if (Array.isArray(ra) && ra.every((x) => typeof x === 'number')) return ra as number[]
   if (ra && typeof ra === 'object') {
@@ -68,26 +69,23 @@ export default function VideoStudio({ rows }: { rows: VideoRow[] }) {
   return (
     <div className="grid grid-cols-1 gap-3 lg:grid-cols-[1fr_360px]">
       {/* grid */}
-      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-3">
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-4">
         {rows.length === 0 && <div className="col-span-full rounded-lg border border-white/10 bg-[#0e1525] p-6 text-sm text-white/50">Nog geen video&apos;s.</div>}
         {rows.map((v) => {
           const wc = v.winner ? WINNER_COLOR[v.winner] : '#475569'
           return (
             <button key={v.id} onClick={() => setSel(v.id)}
-              className={`overflow-hidden rounded-lg border bg-[#0e1525] text-left transition-colors ${sel === v.id ? 'border-violet-400/50' : 'border-white/8 hover:border-white/20'}`}>
-              <div className="relative flex h-24 items-center justify-center bg-gradient-to-br from-cyan-500/15 to-violet-500/10 p-2 text-center text-[9px] leading-tight text-white/55">
-                {v.thumb ? <span className="line-clamp-3">{v.thumb}</span> : <Clapperboard size={20} className="text-white/30" />}
-                <span className="absolute right-1.5 top-1.5 rounded-full bg-black/40 p-1"><Play size={11} className="text-white/80" /></span>
+              className={`group overflow-hidden rounded-lg border bg-[#0e1525] text-left transition-all hover:-translate-y-0.5 ${sel === v.id ? 'border-violet-400/50' : 'border-white/8 hover:border-white/25'}`}>
+              <div className="relative">
+                <CreativePreview preview={v.preview} ratio="video" />
+                {v.winner && <span className="absolute left-1.5 top-1.5 rounded px-1 py-0.5 text-[8px] font-bold uppercase backdrop-blur-sm" style={{ color: wc, background: `${wc}26` }}>{WINNER_LABEL[v.winner]}</span>}
               </div>
               <div className="p-2">
-                <div className="flex items-start justify-between gap-1">
-                  <div className="text-[11px] font-medium leading-tight text-white line-clamp-2">{v.name}</div>
-                  {v.winner && <span className="shrink-0 rounded px-1 py-0.5 text-[8px] font-bold uppercase" style={{ color: wc, background: `${wc}1a` }}>{WINNER_LABEL[v.winner]}</span>}
-                </div>
+                <div className="text-[11px] font-medium leading-tight text-white line-clamp-2">{v.name}</div>
                 <div className="mt-1 flex gap-2 text-[9px] text-white/40">
                   <span>{v.views != null ? `${compact(v.views)} views` : '— views'}</span>
-                  <span className="text-emerald-400/70">{v.ctr != null ? `CTR ${v.ctr}%` : ''}</span>
-                  <span className="ml-auto text-emerald-400/80">{v.revenue != null ? eur(v.revenue) : ''}</span>
+                  {v.ctr != null && <span className="text-emerald-400/70">CTR {v.ctr}%</span>}
+                  {v.revenue != null && <span className="ml-auto text-emerald-400/80">{eur(v.revenue)}</span>}
                 </div>
               </div>
             </button>
@@ -103,11 +101,7 @@ export default function VideoStudio({ rows }: { rows: VideoRow[] }) {
           <div className="h-64 animate-pulse rounded bg-white/[0.04]" />
         ) : (
           <div className="space-y-3">
-            <div className="flex h-36 items-center justify-center overflow-hidden rounded-lg border border-white/5 bg-gradient-to-br from-cyan-500/15 to-violet-500/10 p-2 text-center text-[10px] text-white/55">
-              {detail.output_url
-                ? <a href={detail.output_url} target="_blank" rel="noreferrer" className="flex flex-col items-center gap-1 text-white/80 hover:text-white"><Play size={26} /> Preview player</a>
-                : detail.thumbnail_concept ? <span className="line-clamp-5">{detail.thumbnail_concept}</span> : <span className="italic text-white/30">Geen preview</span>}
-            </div>
+            <CreativePreview preview={detail.preview} mode="full" ratio="video" rounded="rounded-lg" />
             <div className="text-sm font-semibold text-white">{detail.title}</div>
 
             <div>

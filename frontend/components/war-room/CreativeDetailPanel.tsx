@@ -1,7 +1,9 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { X, Play, Sparkles } from 'lucide-react'
+import { X, Sparkles } from 'lucide-react'
+import CreativePreview from './CreativePreview'
+import type { Preview } from '@/lib/war-room/preview'
 
 type Detail = {
   id: string
@@ -11,6 +13,7 @@ type Detail = {
   output_url: string | null
   channel: { name: string; niche: string | null } | null
   platforms: { platform: string | null; status: string | null }[]
+  preview: Preview
   language: string | null
   duration_seconds: number | null
   failure_reason: string | null
@@ -86,18 +89,13 @@ export default function CreativeDetailPanel({ creativeId, onClose }: { creativeI
 
         {d && p && (
           <div className="space-y-4">
-            {/* preview */}
-            <div className="relative flex h-40 items-center justify-center overflow-hidden rounded-lg border border-white/5 bg-gradient-to-br from-cyan-500/15 to-violet-500/10 p-3 text-center text-[10px] text-white/55">
-              {d.output_url ? (
-                <a href={d.output_url} target="_blank" rel="noreferrer" className="flex flex-col items-center gap-1 text-white/80 hover:text-white">
-                  <Play size={28} /> <span className="text-[11px]">Video preview openen</span>
-                </a>
-              ) : d.thumbnail_concept ? (
-                <span className="line-clamp-6">{d.thumbnail_concept}</span>
-              ) : (
-                <span className="italic text-white/30">Geen preview beschikbaar</span>
-              )}
-            </div>
+            {/* preview — echte media (video/afbeelding) of nette fallback */}
+            <CreativePreview preview={d.preview} mode="full" ratio="portrait" rounded="rounded-lg" />
+            {d.thumbnail_concept && !d.preview && (
+              <div className="rounded border border-white/5 bg-white/[0.03] p-2 text-[10px] text-white/45">
+                <span className="uppercase tracking-wide text-white/30">thumbnail-concept: </span>{d.thumbnail_concept}
+              </div>
+            )}
 
             <div>
               <div className="text-sm font-semibold text-white">{d.title}</div>
@@ -117,6 +115,7 @@ export default function CreativeDetailPanel({ creativeId, onClose }: { creativeI
               <Field label="Funnel fase" value={d.funnel_phase} />
             </div>
             <Field label="Beschrijving" value={d.description} />
+            <Field label="Scene breakdown" value={null} />
 
             {/* Performance */}
             <div>

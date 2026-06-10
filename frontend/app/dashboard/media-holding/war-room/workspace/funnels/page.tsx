@@ -79,6 +79,7 @@ export default async function FunnelCommandCenterPage() {
               </div>
               <div className="mt-1.5 space-y-0.5 text-[9px]">
                 <div className="text-white/40">conv: <span className="text-white/60">{c != null ? `${c}%` : '—'}</span></div>
+                <div className="text-white/40">leak: <span className="text-red-300/70">{c != null ? `${Math.round((100 - c) * 10) / 10}%` : '—'}</span></div>
                 <div style={{ color: confColor }}>confidence: {conf}</div>
               </div>
             </div>
