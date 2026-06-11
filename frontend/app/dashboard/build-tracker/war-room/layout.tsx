@@ -3,10 +3,11 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import clsx from 'clsx'
-import { Network, CalendarClock, GitBranch, Flag, Banknote, AlertTriangle, Layers } from 'lucide-react'
+import { Network, CalendarClock, GitBranch, Flag, Banknote, AlertTriangle, Layers, LayoutDashboard } from 'lucide-react'
 
 const BASE = '/dashboard/build-tracker/war-room'
 const TABS = [
+  { label: 'Roadmap', href: `${BASE}/roadmap`, icon: LayoutDashboard },
   { label: 'Entity Graph', href: BASE, icon: Network },
   { label: 'Timeline', href: `${BASE}/timeline`, icon: CalendarClock },
   { label: 'Dependencies', href: `${BASE}/dependencies`, icon: GitBranch },
