@@ -10,7 +10,8 @@ type Cand = { item_a_id: string; item_b_id: string; item_a_title: string; item_b
 
 // Consolidation-engine — PROPOSE ONLY (aanscherping 3).
 // AI doet voorstellen (duplicaten + programma's); mergt NOOIT automatisch.
-// Bij ontbrekende/defecte AI (Anthropic €0) → deterministische pg_trgm-fallback.
+// Bij ontbrekende provider of een AI-fout → deterministische pg_trgm-fallback.
+// De exacte reden wordt vastgelegd in run.detail.fallback_reason (geen aanname over credits).
 export async function POST(req: NextRequest) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -42,11 +43,18 @@ export async function POST(req: NextRequest) {
 
   let status: 'ok' | 'deterministic_fallback' = 'ok'
   let model: string | null = null
+  let fallbackReason: string | null = null
   let aiVerdicts: Record<string, { is_duplicate: boolean; confidence: number; merge_title: string; program: string }> = {}
   let proposedPrograms: { label: string; description: string }[] = []
 
+  // provider beschikbaar? directe Anthropic-key ÓF Vercel AI Gateway (zie @/lib/ai/client).
+  // We gokken NIET over credits — we proberen de call en leggen de echte reden vast.
+  const providerReady = !!(
+    process.env.ANTHROPIC_API_KEY || process.env.AI_GATEWAY_API_KEY || process.env.VERCEL_OIDC_TOKEN
+  )
+
   // ── AI-pad (propose-only) ─────────────────────────────────────────────────
-  if (candidates.length > 0 && process.env.ANTHROPIC_API_KEY) {
+  if (candidates.length > 0 && providerReady) {
     try {
       const list = candidates.slice(0, 20)
         .map((c, i) => `${i}. "${c.item_a_title}"  ⟷  "${c.item_b_title}" (trgm=${c.similarity})`).join('\n')
@@ -78,11 +86,14 @@ ${list}`
       proposedPrograms = (json.programs ?? []).slice(0, 6)
         .map((p: { label?: string; description?: string }) => ({ label: p.label ?? 'Programma', description: p.description ?? '' }))
       model = 'claude-sonnet-4-6'
-    } catch {
-      status = 'deterministic_fallback' // o.a. Anthropic €0 → nooit hard falen
+    } catch (e) {
+      // echte reden vastleggen (key/credit/rate-limit/parse) — geen aanname; nooit hard falen
+      status = 'deterministic_fallback'
+      fallbackReason = (e instanceof Error ? e.message : String(e)).slice(0, 200)
     }
   } else if (candidates.length > 0) {
     status = 'deterministic_fallback'
+    fallbackReason = 'no_provider_configured'
   }
 
   // ── kandidaten wegschrijven (altijd PENDING — geen auto-merge) ─────────────
@@ -120,14 +131,14 @@ ${list}`
     status, model,
     duplicates_found: rows.filter((r) => r.ai_verdict === 'duplicate' || (!r.ai_verdict && r.similarity >= 0.6)).length,
     merges_proposed: programsInserted,
-    detail: { entity, candidates: rows.length, programs_proposed: programsInserted, ai: status === 'ok' },
+    detail: { entity, candidates: rows.length, programs_proposed: programsInserted, ai: status === 'ok', fallback_reason: fallbackReason },
   }).eq('id', runId)
 
   return NextResponse.json({
-    run_id: runId, status, model,
+    run_id: runId, status, model, fallback_reason: fallbackReason,
     candidates: rows.length, programs_proposed: programsInserted,
     note: status === 'deterministic_fallback'
-      ? 'AI niet beschikbaar — deterministische pg_trgm-voorstellen (propose-only).'
+      ? `Deterministische pg_trgm-voorstellen (propose-only). Fallback-reden: ${fallbackReason ?? 'onbekend'}.`
       : 'AI-voorstellen aangemaakt (propose-only, status pending).',
   })
 }
