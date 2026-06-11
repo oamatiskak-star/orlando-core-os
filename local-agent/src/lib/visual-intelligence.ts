@@ -6,6 +6,7 @@ import axios from 'axios'
 import { spawnSync } from 'child_process'
 import { createClient } from '@supabase/supabase-js'
 import { localLlmJson } from './local-llm'
+import { generateQueries } from './query-intelligence'
 
 /**
  * VISUAL INTELLIGENCE ENGINE (Content Factory 2.0 — FASE A).
@@ -264,16 +265,28 @@ export async function sourceVisualsForProject(projectId: string, format: '16:9' 
   }
   const orientation: Orientation = format === '9:16' ? 'portrait' : format === '1:1' ? 'square' : 'landscape'
 
-  const { data: proj } = await db.from('video_projects').select('language, niche').eq('id', projectId).maybeSingle()
+  const { data: proj } = await db.from('video_projects').select('language, niche, title').eq('id', projectId).maybeSingle()
   const niche = (proj?.niche as string | null) ?? null
 
   const { data: scenes } = await db.from('video_scenes')
-    .select('id, idx, search_query, visual_intent, expected_duration')
+    .select('id, idx, search_query, visual_intent, voice_text, expected_duration')
     .eq('project_id', projectId).order('idx')
   const list = scenes ?? []
 
   const rawQueries = list.map((sc) => (sc.search_query || sc.visual_intent || '').trim())
-  const enQueries = await translateQueriesToEnglish(proj?.language as string | null, rawQueries)
+  // Query Intelligence (CF2.1) — gated forward self-healing: zoek op intentie+niche i.p.v. ruwe titel.
+  // Default uit → bestaand gedrag (Engelse vertaling). Aan → betere queries voor NIEUWE producties.
+  let enQueries: string[]
+  if (process.env.CF2_QUERY_INTELLIGENCE === '1') {
+    enQueries = await Promise.all(list.map(async (sc, idx) => {
+      try {
+        const r = await generateQueries({ title: (proj as any)?.title, sceneIntent: sc.visual_intent, scriptText: (sc as any).voice_text, niche })
+        return r.best || rawQueries[idx]
+      } catch { return rawQueries[idx] }
+    }))
+  } else {
+    enQueries = await translateQueriesToEnglish(proj?.language as string | null, rawQueries)
+  }
 
   // niche-bronnen één keer ophalen (gedeeld over scenes; geen query-match, wél niche-fit)
   const ytArchive = await searchYouTubeArchive(niche)
