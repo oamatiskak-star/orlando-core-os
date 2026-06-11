@@ -1,4 +1,4 @@
--- 181_cf2_intent_preservation.sql
+-- 184_cf2_intent_preservation.sql
 -- CF2.7 Scene Intent Preservation Layer — LOGGING (Regel 6). Additief, reversibel.
 -- Geen feature, geen upload/publish/engine. Alleen audit-zichtbaarheid van de query-beslissing.
 
