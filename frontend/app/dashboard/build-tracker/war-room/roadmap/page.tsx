@@ -7,6 +7,12 @@ import ExecutiveStatusBar from '@/components/build-war-room/roadmap/ExecutiveSta
 import StatusColumns from '@/components/build-war-room/roadmap/StatusColumns'
 import PriorityDistribution from '@/components/build-war-room/roadmap/PriorityDistribution'
 import RoadmapTimeline from '@/components/build-war-room/roadmap/RoadmapTimeline'
+import TodayAgenda from '@/components/build-war-room/roadmap/TodayAgenda'
+import UpcomingMilestones from '@/components/build-war-room/roadmap/UpcomingMilestones'
+import OpenBuildItems from '@/components/build-war-room/roadmap/OpenBuildItems'
+import ActivityFeed from '@/components/build-war-room/roadmap/ActivityFeed'
+import DependencyOverview from '@/components/build-war-room/roadmap/DependencyOverview'
+import IncidentLifecycle from '@/components/build-war-room/roadmap/IncidentLifecycle'
 
 export const dynamic = 'force-dynamic'
 
@@ -19,14 +25,18 @@ export default async function RoadmapCommandCenterPage() {
   const supabase = await createClient()
   const slug = await getActiveCompanyId()
 
-  const [health, minutes, cert, completion, projects, blockers, milestones] = await Promise.all([
+  const [health, minutes, cert, completion, projects, blockers, milestones, agenda, items, activity, incidents] = await Promise.all([
     supabase.from('v_ceo_system_health').select('*'),
     supabase.from('v_ceo_minutes_daily').select('*').maybeSingle(),
     supabase.from('v_media_factory_certification').select('*').maybeSingle(),
     supabase.from('v_build_entity_completion').select('*').eq('entity_slug', slug).maybeSingle(),
     supabase.from('v_build_roadmap_projects').select('id,name,status_norm,priority_norm,progress,start_at,end_at,end_source,program').eq('entity_slug', slug),
-    supabase.from('v_build_blockers').select('title').eq('entity_slug', slug),
-    supabase.from('v_build_upcoming_milestones').select('naam,target_date,status'),
+    supabase.from('v_build_blockers').select('title,reason,entity_slug,code,waiting_on').eq('entity_slug', slug),
+    supabase.from('v_build_upcoming_milestones').select('id,milestone_nr,naam,status,progress_pct,value_stage,target_date'),
+    supabase.from('v_build_today_agenda').select('*').eq('entity_slug', slug),
+    supabase.from('v_build_war_room_nodes').select('node_id,label,status,payload').eq('node_type', 'build_item').eq('entity_slug', slug),
+    supabase.from('v_build_activity_feed').select('*').eq('entity_slug', slug).order('ts', { ascending: false }).limit(30),
+    supabase.from('infra_watchdog_incidents').select('service_name,service_type,failure_kind,failure_summary,proposed_actions,status,opened_at,resolved_at,incident_kind').order('opened_at', { ascending: false }).limit(20),
   ])
 
   const proj = (projects.data ?? []) as Proj[]
@@ -44,6 +54,12 @@ export default async function RoadmapCommandCenterPage() {
     none: proj.filter((p) => !p.priority_norm).length,
   }
   const comp = completion.data as { completion_pct?: number; done?: number; total?: number } | null
+
+  const incRows = (incidents.data ?? []) as Array<{ status: string | null; resolved_at: string | null }>
+  const openInc = incRows.filter((i) => !(i.status === 'resolved' || i.resolved_at)).length
+  const resolvedInc = incRows.length - openInc
+  const openItems = ((items.data ?? []) as Array<{ status: string | null }>)
+    .filter((i) => !['done', 'merged', 'closed'].includes((i.status ?? '').toLowerCase()))
 
   return (
     <div className="space-y-3">
@@ -76,9 +92,23 @@ export default async function RoadmapCommandCenterPage() {
         <PriorityDistribution dist={dist} />
       </div>
 
+      {/* F4 — dagsturing */}
+      <div className="grid gap-3 lg:grid-cols-2">
+        <TodayAgenda items={(agenda.data ?? []) as never} />
+        <UpcomingMilestones milestones={(milestones.data ?? []) as never} />
+      </div>
+      <div className="grid gap-3 lg:grid-cols-2">
+        <OpenBuildItems items={openItems as never} />
+        <ActivityFeed initial={(activity.data ?? []) as never} />
+      </div>
+      <div className="grid gap-3 lg:grid-cols-2">
+        <DependencyOverview blockers={(blockers.data ?? []) as never} />
+        <IncidentLifecycle incidents={(incidents.data ?? []) as never} openCount={openInc} resolvedCount={resolvedInc} />
+      </div>
+
       <p className="text-[10px] text-white/30">
-        Roadmap Command Center (F2) — System Health + CEO Minutes + Certification holding-breed; status/prioriteit per
-        actieve entiteit. Timeline/agenda/milestones/activiteit volgen in F3/F4.
+        Roadmap Command Center — operatie + autonomie holding-breed; strategie/dagsturing per actieve entiteit.
+        Cutover naar default + Knowledge Graph-tab = F5.
       </p>
     </div>
   )
