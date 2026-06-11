@@ -1,7 +1,7 @@
 import './ws-shim'   // MOET eerst — global WebSocket vóór @supabase (Node20)
 import 'dotenv/config'
 import { createClient, SupabaseClient } from '@supabase/supabase-js'
-import { generateQueries } from './lib/query-intelligence'
+import { refineQuery } from './lib/query-intelligence'
 
 /**
  * CF2.1 QUERY IMPROVEMENT LOOP (FASE 4) + HERMES VISUAL-LEARNING (FASE 8).
@@ -88,24 +88,27 @@ export async function runQueryImprovement(): Promise<{ scenes: number; candidate
     const niche = s.video_projects?.niche ?? null
     const oldQuery = s.search_query || s.visual_intent || ''
     const topic = topicByScene.get(s.id) ?? null
-    const r = await generateQueries({ title: s.video_projects?.title, sceneIntent: s.visual_intent, scriptText: s.voice_text, niche })
-    const predicted = r.variants[0]?.score ?? null
+    // CF2.7 — intent-preserving: raw blijft basis, alleen additieve verrijking / junk-override
+    const dec = await refineQuery({ rawQuery: oldQuery, title: s.video_projects?.title, sceneIntent: s.visual_intent, scriptText: s.voice_text, niche })
+    const keywords = dec.final_query.toLowerCase().split(/\s+/).filter((w) => w.length > 3)
+    // eerlijke voorspelling: override > enrich > preserve (geen winst als raw behouden blijft)
+    const base = topic ?? 60
+    const predicted = dec.mode === 'override' ? 75 : dec.mode === 'enrich' ? Math.min(95, base + 8) : base
 
     await client.from('cf2_query_feedback').insert({
       scene_id: s.id, project_id: s.project_id, niche,
-      old_query: oldQuery, generated_query: r.best,
-      generated_variants: r.variants,
+      old_query: oldQuery, generated_query: dec.final_query,
+      generated_variants: [], decision: dec,
       visual_confidence: s.visual_confidence, topic_relevance: topic, audit_score: topic,
       approved: null, failure_reason: topic != null && topic < 40 ? 'hard_mismatch' : 'low_topic_relevance',
     })
     await client.from('cf2_resource_candidates').insert({
       scene_id: s.id, project_id: s.project_id, niche,
-      original_query: oldQuery, improved_query: r.best, improved_keywords: r.keywords,
-      intent: r.variants[0]?.intent ?? null,
-      current_score: topic, predicted_score: predicted, status: 'pending',
+      original_query: oldQuery, improved_query: dec.final_query, improved_keywords: keywords,
+      intent: dec.mode, current_score: topic, predicted_score: predicted, status: 'pending',
     })
     candidates++
-    log(`  scene ${s.idx} (topic ${topic ?? '?'}): "${oldQuery}" → "${r.best}" (voorspeld ${predicted})`)
+    log(`  scene ${s.idx} (topic ${topic ?? '?'}): "${oldQuery}" → "${dec.final_query}" [${dec.mode}] (voorspeld ${predicted})`)
   }
 
   const learned = await updateLearning(client)
