@@ -6,7 +6,7 @@ import axios from 'axios'
 import { spawnSync } from 'child_process'
 import { createClient } from '@supabase/supabase-js'
 import { localLlmJson } from './local-llm'
-import { generateQueries } from './query-intelligence'
+import { refineQuery, type QueryDecision } from './query-intelligence'
 
 /**
  * VISUAL INTELLIGENCE ENGINE (Content Factory 2.0 — FASE A).
@@ -274,16 +274,19 @@ export async function sourceVisualsForProject(projectId: string, format: '16:9' 
   const list = scenes ?? []
 
   const rawQueries = list.map((sc) => (sc.search_query || sc.visual_intent || '').trim())
-  // Query Intelligence (CF2.1) — gated forward self-healing: zoek op intentie+niche i.p.v. ruwe titel.
-  // Default uit → bestaand gedrag (Engelse vertaling). Aan → betere queries voor NIEUWE producties.
+  // Query Intelligence (CF2.7 — Scene Intent Preservation): gated. Default uit → bestaand gedrag
+  // (Engelse vertaling). Aan → raw-query blijft basis, intelligence verrijkt ALLEEN additief
+  // (nooit onderwerpvervanging); override enkel bij junk-query. Beslissing wordt gelogd.
   let enQueries: string[]
+  const queryDecisions: (QueryDecision | null)[] = list.map(() => null)
   if (process.env.CF2_QUERY_INTELLIGENCE === '1') {
-    enQueries = await Promise.all(list.map(async (sc, idx) => {
+    const decisions = await Promise.all(list.map(async (sc, idx) => {
       try {
-        const r = await generateQueries({ title: (proj as any)?.title, sceneIntent: sc.visual_intent, scriptText: (sc as any).voice_text, niche })
-        return r.best || rawQueries[idx]
-      } catch { return rawQueries[idx] }
+        return await refineQuery({ rawQuery: rawQueries[idx], title: (proj as any)?.title, sceneIntent: sc.visual_intent, scriptText: (sc as any).voice_text, niche })
+      } catch { return null }
     }))
+    decisions.forEach((d, i) => { queryDecisions[i] = d })
+    enQueries = decisions.map((d, idx) => d?.final_query || rawQueries[idx])
   } else {
     enQueries = await translateQueriesToEnglish(proj?.language as string | null, rawQueries)
   }
@@ -405,6 +408,7 @@ export async function sourceVisualsForProject(projectId: string, format: '16:9' 
       advice,
       candidates: candidatesJson,
       sources_tried: sourcesTried,
+      query_decision: queryDecisions[i] ?? null,
     })
   }
 
