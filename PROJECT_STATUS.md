@@ -7,7 +7,20 @@
 
 ---
 
-## 🎯 HUIDIGE FOCUS (2026-06-11 — Build Tracker War Room = Intelligence Graph OS)
+## 🎯 HUIDIGE FOCUS (2026-06-11 — CLI-L: Media Factory End-to-End Closure)
+**Doel:** Media Factory autonoom (CEO Minutes/Day < 20) + één Command Center. Plan: `~/.claude/plans/glittery-swimming-sparkle.md`; audit live bewezen (geheugen `project_media_factory_closure`).
+**Beslissingen:** CF2 = enige pipeline of record (oude `youtube_upload_queue` uitfaseren); volautomatisch publiek met CQI/QC-gate als poortwachter.
+**Branch:** `feat/media-factory-command-center` (vanaf origin/main).
+**Fase 1 = KLAAR (tsc schoon · SQL live gevalideerd · NIET op prod):**
+- `supabase/migrations/185_media_factory_command_center.sql` — additief: views `v_mf_uploads`/`v_mf_channels`/`v_mf_health` (één verdict + %), `mf_classify_dead_queue()` (264 dode records klaar), `hermes_supervisor()` fix (Scrapers-stil alleen bij actieve scrapers → ruis weg), `media_factory_daily_digest()` + pg_cron 06:00 UTC.
+- `frontend/app/dashboard/media-factory/page.tsx` — 10 secties; composeert bestaande views (cert + ceo-minuten backbone bestond al).
+- `frontend/lib/nav-config.ts` — nav-entry `mf_command` (modiwe-media Cockpit, eerste positie).
+**🔴 HARDE GATES (Orlando's go):** migratie 185 op prod + `mf_classify_dead_queue(true)` = wachten (gekozen: alles in één PR). CF2_PUBLISH=1 = Fase 2.
+**Volgende:** PR; daarna Fase 2 (storage-handoff /tmp→bucket + quota-aware upload + CF2 public-uitgang).
+
+---
+
+## 🎯 VORIGE FOCUS (2026-06-11 — Build Tracker War Room = Intelligence Graph OS)
 **CLI-R: Build Tracker geëvolueerd naar visuele kennisgraaf (React-Flow), zelfde kwaliteit als Media War Room.**
 Branch `feat/build-tracker-war-room` (worktree `~/Code/.wt-build-war-room`, vanaf `origin/main`). **PR open → Ready for Review.**
 - **Data-laag (migr 181/182/183, LIVE op shaunum, additief):** `v_build_war_room_nodes/_edges` deriveren de hiërarchie
