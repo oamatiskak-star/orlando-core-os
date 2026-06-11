@@ -21,6 +21,7 @@ import 'dotenv/config'   // MOET als eerste: laadt .env vóór elke transitieve 
 import { createClient, SupabaseClient } from '@supabase/supabase-js'
 import axios from 'axios'
 import { runShadowTopic } from './shadow-core'
+import { uploadVideoToStorage } from './lib/storage'
 
 type Mode = 'prepared' | 'live'
 const MODE: Mode = (process.env.CF2_PRODUCER_MODE as Mode) || 'prepared'
@@ -123,21 +124,45 @@ async function produceJobLive(client: SupabaseClient, job: Cf2Job): Promise<void
 
     const ok = r.thumbnailVariants > 0 && !!r.renderUrl && r.gatePassed
 
-    // upload — HARD GATED: alleen bij CF2_PUBLISH=1 én geslaagde render; ALTIJD privacy='private'
-    // (nooit direct publiek). De youtube-engine pikt de queue-rij op; review vóór public maken.
-    if (ok && process.env.CF2_PUBLISH === '1' && ctx.channelId) {
+    // Upload-uitgang (Fase 2 / B2). HARD GATED op CF2_PUBLISH=1; de CQI/QC-gate (ok=gatePassed) is
+    // de poortwachter — alleen kwaliteit-geslaagde projecten bereiken dit punt (de ~67% rework valt af).
+    // Drie stappen sluiten de keten die voorheen brak:
+    //   1) render → DURABLE Supabase Storage (overleeft /tmp-cleanup → fixt 'input file not found'),
+    //   2) youtube_videos-rij met storage-refs (de upload-worker leest storage_path/file_path),
+    //   3) queue-rij MÉT video_id — zonder video_id vond de worker nooit een bestand (kernbug Fase 1-audit).
+    // Upload gaat als 'private' naar YouTube; publish-overdue promoot direct naar PUBLIC
+    // (scheduled_publish_at=nu) zodra verwerkt → volautomatisch publiek, QC-bewaakt.
+    if (ok && process.env.CF2_PUBLISH === '1' && ctx.channelId && r.renderUrl) {
       await setStep(client, job.id, 'upload', { status: 'running', started_at: nowIso() })
       try {
-        const { data: q, error } = await client.from('youtube_upload_queue').insert({
-          channel_id: ctx.channelId,
-          title: r.title,
+        const storagePath = `cf2/${ctx.channelId}/${r.projectId}.mp4`
+        const signedUrl = await uploadVideoToStorage(r.renderUrl, storagePath)
+        const { data: vid, error: vErr } = await client.from('youtube_videos').insert({
+          channel_id:     ctx.channelId,
+          video_id:       `pending_${Date.now()}`,
+          title:          r.title,
           privacy_status: 'private',
-          status: 'queued',
-          viral_score: r.cqi,
-          scheduled_publish_at: new Date(Date.now() + 48 * 3600 * 1000).toISOString(),
+          file_path:      signedUrl,
+          storage_bucket: 'yt-videos',
+          storage_path:   storagePath,
+          status:         'queued',
+          upload_status:  'pending',
+          is_short:       true,
+          viral_score:    r.cqi,
+        }).select('id').single()
+        if (vErr || !vid?.id) throw new Error(`youtube_videos insert: ${vErr?.message ?? 'geen id'}`)
+        const { data: q, error } = await client.from('youtube_upload_queue').insert({
+          video_id:             vid.id,
+          channel_id:           ctx.channelId,
+          title:                r.title,
+          privacy_status:       'private',
+          status:               'queued',
+          viral_score:          r.cqi,
+          scheduled_publish_at: nowIso(),   // QC-geslaagd → direct publiek na verwerking (publish-overdue)
         }).select('id').single()
         if (error) throw new Error(error.message)
-        await setStep(client, job.id, 'upload', { status: 'done', completed_at: nowIso(), meta: { queue_id: q?.id, privacy: 'private' } })
+        await client.from('video_projects').update({ queue_id: q?.id, render_url: signedUrl }).eq('id', r.projectId)
+        await setStep(client, job.id, 'upload', { status: 'done', completed_at: nowIso(), meta: { queue_id: q?.id, video_id: vid.id, storage_path: storagePath, privacy: 'private', auto_public: true } })
       } catch (e) {
         await setStep(client, job.id, 'upload', { status: 'failed', failed_at: nowIso(), failure_reason: String((e as Error).message ?? e) })
       }
