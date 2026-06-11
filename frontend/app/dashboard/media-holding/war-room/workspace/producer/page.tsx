@@ -1,5 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
-import { ChevronRight, Sparkles, CircleDashed, CircleCheck, CircleX, Loader, Eye, AlertTriangle } from 'lucide-react'
+import { ChevronRight, Sparkles, CircleDashed, CircleCheck, CircleX, Loader, Eye, AlertTriangle, Wand2, TrendingUp, ArrowRight } from 'lucide-react'
 
 export const dynamic = 'force-dynamic'
 
@@ -25,6 +25,9 @@ function StepIcon({ status }: { status?: string }) {
 
 type VisualProject = { project_id: string; title: string | null; scenes_total: number; scenes_with_visual: number; scenes_low_confidence: number; avg_confidence: number | null; decisions_logged: number }
 type SceneVisual = { project_id: string; project_title: string | null; scene_idx: number | null; query_used: string | null; chosen_provider: string | null; chosen_kind: string | null; final_score: number | null; confidence: number | null; low_confidence: boolean; advice: string | null; candidates_evaluated: number }
+type QueryIntel = { id: string; project_title: string | null; scene_idx: number | null; niche: string | null; original_query: string | null; improved_query: string | null; intent: string | null; current_score: number | null; predicted_score: number | null; predicted_gain: number | null; status: string; mismatch_type: string | null; mismatch_reason: string | null }
+type LowRelevance = { project_title: string | null; scene_idx: number | null; query_used: string | null; chosen_provider: string | null; topic_relevance: number | null; visual_confidence: number | null; visual_advice: string | null }
+type Metrics = { scenes_scored: number; avg_topic_relevance: number | null; avg_visual_confidence: number | null; mismatch_pct: number | null; hard_mismatch_pct: number | null; avg_query_improvement_gain: number | null; resource_pending: number; learned_niches: number }
 
 export default async function ProducerGraphPage() {
   const supabase = await createClient()
@@ -41,6 +44,14 @@ export default async function ProducerGraphPage() {
   const visualProjects = (viProjects ?? []) as VisualProject[]
   const lowScenes = (viLowScenes ?? []) as SceneVisual[]
   const confColor = (c: number | null) => (c == null ? 'text-white/40' : c >= 78 ? 'text-emerald-400' : c >= 55 ? 'text-amber-400' : 'text-red-400')
+
+  // CF2.1 Query Intelligence & Self-Healing (FASE 6)
+  const { data: qiData } = await supabase.from('v_cf2_query_intelligence').select('*').order('predicted_gain', { ascending: false }).limit(30)
+  const { data: lrData } = await supabase.from('v_cf2_low_relevance').select('*').order('topic_relevance', { ascending: true }).limit(30)
+  const { data: metricsData } = await supabase.from('v_cf2_visual_learning_metrics').select('*').maybeSingle()
+  const queryIntel = (qiData ?? []) as QueryIntel[]
+  const lowRelevance = (lrData ?? []) as LowRelevance[]
+  const m = metricsData as Metrics | null
 
   return (
     <div className="space-y-4">
@@ -157,6 +168,73 @@ export default async function ProducerGraphPage() {
                 </div>
               ))}
             </div>
+          </div>
+        )}
+      </div>
+
+      {/* CF2.1 — Query Intelligence & Self-Healing (FASE 6) */}
+      <div className="mt-6 space-y-3">
+        <div className="flex items-center gap-2">
+          <Wand2 size={14} className="text-violet-300" />
+          <h2 className="text-sm font-semibold text-white">Query Intelligence &amp; Self-Healing</h2>
+          <span className="text-[10px] text-white/40">zoek op intentie, niet op titel · leert van mismatches</span>
+        </div>
+
+        {/* Learning-metrics-strip (FASE 7 samenvatting) */}
+        {m && (
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-7">
+            {[
+              { l: 'avg topic', v: m.avg_topic_relevance, c: confColor(m.avg_topic_relevance) },
+              { l: 'avg confidence', v: m.avg_visual_confidence, c: 'text-white/80' },
+              { l: 'mismatch %', v: m.mismatch_pct, c: 'text-amber-300' },
+              { l: 'hard mismatch %', v: m.hard_mismatch_pct, c: 'text-red-400' },
+              { l: 'query-winst', v: m.avg_query_improvement_gain != null ? `+${m.avg_query_improvement_gain}` : '—', c: 'text-emerald-400' },
+              { l: 're-source pending', v: m.resource_pending, c: 'text-sky-300' },
+              { l: 'geleerde niches', v: m.learned_niches, c: 'text-violet-300' },
+            ].map((x) => (
+              <div key={x.l} className="rounded-lg border border-white/8 bg-[#0e1525] p-2 text-center">
+                <div className={`text-sm font-bold ${x.c}`}>{x.v ?? '—'}</div>
+                <div className="text-[8px] uppercase tracking-wide text-white/40">{x.l}</div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Re-Source Candidates / Most Improved — origineel → verbeterd */}
+        {queryIntel.length === 0 ? (
+          <div className="rounded-lg border border-white/10 bg-[#0e1525] p-4 text-xs text-white/50">
+            Geen re-source-kandidaten. Zodra de Query Improvement Loop draait, verschijnt hier per zwakke scene de
+            verbeterde, intentie-gebaseerde query met voorspelde winst. Geen automatische re-source (gated).
+          </div>
+        ) : (
+          <div className="rounded-lg border border-white/8 bg-[#0e1525] p-3">
+            <div className="mb-2 flex items-center gap-1.5 text-[11px] font-semibold text-white/80">
+              <TrendingUp size={11} className="text-emerald-400" /> Re-Source kandidaten · origineel → verbeterd
+            </div>
+            <div className="space-y-1.5">
+              {queryIntel.map((q) => (
+                <div key={q.id} className="rounded border border-white/8 bg-black/20 px-2 py-1.5 text-[9px]">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="text-white/45">{q.project_title ?? 'Project'} · scene {q.scene_idx ?? '?'}</span>
+                    {q.mismatch_type && <span className="rounded bg-amber-500/[0.12] px-1 text-[8px] text-amber-300">{q.mismatch_type}</span>}
+                    <span className="rounded bg-white/[0.05] px-1 text-[8px] uppercase text-white/45">{q.status}</span>
+                    <span className="ml-auto text-white/40">
+                      <span className={confColor(q.current_score)}>{q.current_score ?? '—'}</span>
+                      {' → '}
+                      <span className="text-emerald-400">{q.predicted_score ?? '—'}</span>
+                      {q.predicted_gain != null && q.predicted_gain > 0 && <span className="ml-1 text-emerald-300">(+{q.predicted_gain})</span>}
+                    </span>
+                  </div>
+                  <div className="mt-1 flex flex-wrap items-center gap-1.5 text-[9px]">
+                    <span className="text-red-300/70 line-through">{q.original_query ?? '—'}</span>
+                    <ArrowRight size={9} className="text-white/30" />
+                    <span className="font-medium text-emerald-300">{q.improved_query ?? '—'}</span>
+                  </div>
+                  {q.mismatch_reason && <div className="mt-0.5 text-white/35">{q.mismatch_reason}</div>}
+                </div>
+              ))}
+            </div>
+            <p className="mt-2 text-[8px] text-white/35">Re-source is gated — geen automatische uitvoering zonder expliciete GO.</p>
           </div>
         )}
       </div>
