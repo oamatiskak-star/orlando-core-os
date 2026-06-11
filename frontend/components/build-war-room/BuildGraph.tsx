@@ -34,13 +34,13 @@ const ZOOMS: { key: string; label: string; days: number | null }[] = [
 ]
 
 export default function BuildGraph({
-  rawNodes: initialNodes, rawEdges: initialEdges,
-}: { rawNodes: BuildRawNode[]; rawEdges: BuildRawEdge[] }) {
+  rawNodes: initialNodes, rawEdges: initialEdges, defaultZoom = 'all',
+}: { rawNodes: BuildRawNode[]; rawEdges: BuildRawEdge[]; defaultZoom?: string }) {
   const [rawNodes, setRawNodes] = useState(initialNodes)
   const [rawEdges, setRawEdges] = useState(initialEdges)
   const [entity, setEntity] = useState<string>('all')
   const [status, setStatus] = useState<string>('all')
-  const [zoom, setZoom] = useState<string>('all')
+  const [zoom, setZoom] = useState<string>(defaultZoom)
   const [live, setLive] = useState(false)
 
   // realtime: bij mutaties op de build-tabellen → graph opnieuw ophalen (WP4)
@@ -176,7 +176,7 @@ export default function BuildGraph({
           nodes={nodes} edges={edges}
           onNodesChange={onNodesChange} onEdgesChange={onEdgesChange}
           nodeTypes={buildWarRoomNodeTypes}
-          fitView minZoom={0.05}
+          fitView fitViewOptions={{ maxZoom: 1, padding: 0.25 }} minZoom={0.05}
           proOptions={{ hideAttribution: true }}
         >
           <Background color="#1e293b" gap={20} />

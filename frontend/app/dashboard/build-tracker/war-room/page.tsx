@@ -70,7 +70,7 @@ export default async function BuildWarRoomGraphPage() {
           Nog geen build-data. Zodra de Build Tracker gevuld is verschijnt de graph hier.
         </div>
       ) : (
-        <BuildGraph rawNodes={rawNodes} rawEdges={rawEdges} />
+        <BuildGraph rawNodes={rawNodes} rawEdges={rawEdges} defaultZoom="day" />
       )}
     </div>
   )
