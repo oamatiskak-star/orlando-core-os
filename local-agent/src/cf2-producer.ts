@@ -194,7 +194,7 @@ export async function runCf2Producer(limit = 3): Promise<{ mode: Mode; health: {
 
 // Alleen draaien bij expliciete opt-in. Geen auto-start.
 if (require.main === module && process.env.CF2_PRODUCER_RUN === '1') {
-  runCf2Producer()
+  runCf2Producer(Number(process.env.CF2_PRODUCER_LIMIT) || 3)
     .then((r) => { console.log('[cf2-producer]', JSON.stringify(r)); process.exit(0) })
     .catch((e) => { console.error('[cf2-producer] error', e); process.exit(1) })
 }

@@ -5,6 +5,7 @@ import path from 'path'
 import os from 'os'
 import { createClient } from '@supabase/supabase-js'
 import { localLlmJson, clampScore } from './local-llm'
+import { hasDrawtext } from './ffmpeg-caps'
 
 /**
  * THUMBNAIL INTELLIGENCE ENGINE (Content Factory 2.0 — FASE E).
@@ -33,8 +34,9 @@ function esc(s: string): string { return s.replace(/\\/g, '\\\\').replace(/:/g, 
 /** Eén thumbnail-variant: frame uit asset → scale/crop → titel-overlay → PNG. */
 function renderVariantImage(assetPath: string, outPath: string, format: '16:9' | '9:16' | '1:1', title: string, seekSec: number, fontsize: number, yPos: string): Promise<void> {
   const { w, h } = thumbDims(format)
-  const filters = [`scale=${w}:-2`, `crop=${w}:${h}`]
-  if (title && fs.existsSync(CAPTION_FONT)) {
+  // force_original_aspect_ratio=increase → bron dekt altijd w×h (ook landscape→9:16), dan center-crop.
+  const filters = [`scale=${w}:${h}:force_original_aspect_ratio=increase`, `crop=${w}:${h}`]
+  if (title && fs.existsSync(CAPTION_FONT) && hasDrawtext()) {
     filters.push(`drawtext=fontfile='${CAPTION_FONT}':text='${esc(title)}':fontcolor=white:fontsize=${fontsize}:box=1:boxcolor=black@0.55:boxborderw=20:x=(w-text_w)/2:y=${yPos}`)
   }
   fs.mkdirSync(path.dirname(outPath), { recursive: true })

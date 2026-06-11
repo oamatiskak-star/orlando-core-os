@@ -115,7 +115,7 @@ export async function runShadowTopic(o: ShadowOpts): Promise<ShadowResult> {
     try {
       const r = await renderProject({ projectId, format: o.format, voicePath: voiceRes.outputPath, musicPath: null })
       renderUrl = r.outputPath
-    } catch (e: any) { renderBlocked = 'blocked_render_failed' }
+    } catch (e: any) { renderBlocked = `blocked_render_failed: ${(e?.message ?? e).toString().slice(0, 220)}` }
   } else {
     renderBlocked = vis.assetsSelected === 0 ? 'blocked_no_visual_assets' : 'blocked_no_voice'
   }

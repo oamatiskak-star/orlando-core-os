@@ -4,6 +4,7 @@ import fs from 'fs'
 import path from 'path'
 import os from 'os'
 import { createClient } from '@supabase/supabase-js'
+import { hasDrawtext } from './ffmpeg-caps'
 
 /**
  * RENDER ENGINE (Content Factory 2.0 — FASE B).
@@ -22,10 +23,10 @@ const db = createClient(
 
 const CAPTION_FONT = process.env.CAPTION_FONT || '/System/Library/Fonts/Supplemental/Arial Bold.ttf'
 
-function dims(format: '16:9' | '9:16' | '1:1'): { scale: string; crop: string } {
-  if (format === '9:16') return { scale: 'scale=-2:1920', crop: 'crop=1080:1920' }
-  if (format === '1:1')  return { scale: 'scale=1080:-2', crop: 'crop=1080:1080' }
-  return { scale: 'scale=1920:-2', crop: 'crop=1920:1080' }
+function dims(format: '16:9' | '9:16' | '1:1'): { w: number; h: number } {
+  if (format === '9:16') return { w: 1080, h: 1920 }
+  if (format === '1:1')  return { w: 1080, h: 1080 }
+  return { w: 1920, h: 1080 }
 }
 
 /** drawtext-veilige escape. */
@@ -35,9 +36,11 @@ function esc(s: string): string {
 
 /** Eén scene-clip: trim → scale/crop naar formaat → optionele caption-overlay. */
 function processScene(inputPath: string, outputPath: string, durationSec: number, format: '16:9' | '9:16' | '1:1', caption: string): Promise<void> {
-  const { scale, crop } = dims(format)
-  const filters = [scale, crop]
-  if (caption && fs.existsSync(CAPTION_FONT)) {
+  const { w, h } = dims(format)
+  // force_original_aspect_ratio=increase → bron dekt altijd w×h (ook 2160x4096 / afwijkende
+  // aspect), dan center-crop. Voorkomt 'crop groter dan bron' (ffmpeg code 234).
+  const filters = [`scale=${w}:${h}:force_original_aspect_ratio=increase`, `crop=${w}:${h}`]
+  if (caption && fs.existsSync(CAPTION_FONT) && hasDrawtext()) {
     filters.push(
       `drawtext=fontfile='${CAPTION_FONT}':text='${esc(caption)}':fontcolor=white:fontsize=48:` +
       `box=1:boxcolor=black@0.5:boxborderw=16:x=(w-text_w)/2:y=h-(h/6)`,
@@ -139,10 +142,15 @@ export async function renderProject(input: RenderInput): Promise<RenderResult> {
     const src = asset?.local_asset_url
     if (!src || !fs.existsSync(src)) continue   // geen asset → scene overslaan, NOOIT fake invullen
     const clip = path.join(work, `scene-${sc.idx}.mp4`)
-    await processScene(src, clip, Number(sc.expected_duration) || 5, input.format, sc.caption_text || '')
-    clips.push(clip)
+    // één kapotte bron mag de hele render niet doden — sla die scene over (geen fake-invulling).
+    try {
+      await processScene(src, clip, Number(sc.expected_duration) || 5, input.format, sc.caption_text || '')
+      if (fs.existsSync(clip)) clips.push(clip)
+    } catch (e: any) {
+      console.warn(`scene ${sc.idx} overgeslagen (clip-fout): ${(e?.message ?? e).toString().slice(0, 160)}`)
+    }
   }
-  if (clips.length === 0) throw new Error('renderProject: geen renderbare scenes (assets ontbreken — geen fakes)')
+  if (clips.length === 0) throw new Error('renderProject: geen renderbare scenes (alle clip-bronnen faalden)')
 
   const concatPath = path.join(work, 'concat.mp4')
   await concatScenes(clips, concatPath)
