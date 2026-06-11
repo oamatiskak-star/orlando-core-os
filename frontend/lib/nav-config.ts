@@ -117,6 +117,7 @@ export const NAV_MODULES: Record<string, NavModuleDef> = {
   youtube_slicetheory:  { key: 'youtube_slicetheory',  label: 'SliceTheory',             href: '/dashboard/youtube/channel/slicetheory',  icon: Video },
 
   // ── MEDIA HOLDING OS — suite-pagina's (consolidatie: geen dubbele YouTube-layer) ──
+  mf_command:           { key: 'mf_command',           label: 'Media Factory · Command', href: '/dashboard/media-factory',                    icon: Gauge },
   mh_executive:         { key: 'mh_executive',         label: 'Executive Boardroom',     href: '/dashboard/media-holding/executive',          icon: Brain },
   mh_war_room:          { key: 'mh_war_room',          label: 'Media War Room',          href: '/dashboard/media-holding/war-room',           icon: Network },
   mh_channels:          { key: 'mh_channels',          label: 'Alle Kanalen',            href: '/dashboard/media-holding/channels',           icon: Tv2 },
@@ -313,7 +314,7 @@ export const COMPANY_NAV: Record<string, CompanyNav> = {
     sections: [
       { modules: ['dashboard', 'projectleider'] },
       // ── MEDIA HOLDING OS — 6 schone groepen, geen dubbele upload/analytics-layer ──
-      { title: 'Cockpit',       modules: ['media_holding', 'mh_executive', 'mh_war_room', 'mh_analytics'] },
+      { title: 'Cockpit',       modules: ['mf_command', 'media_holding', 'mh_executive', 'mh_war_room', 'mh_analytics'] },
       {
         title: 'Kanalen', modules: [
           'mh_channels', 'mh_incubator',
