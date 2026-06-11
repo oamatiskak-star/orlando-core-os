@@ -18,14 +18,15 @@ Branch `feat/build-tracker-war-room` (worktree `~/Code/.wt-build-war-room`, vana
 - **Frontend:** `/dashboard/build-tracker/war-room` (+ tabs Timeline/Dependencies/Milestones/Revenue/Blockers&Risk/Consolidation),
   realtime (supabase channel), nav additief (Build War Room naast Build Tracker, niets vervangen).
 - **Consolidation = propose-only:** AI (claude.sonnet) doet alléén voorstellen → `build_duplicate_candidates` (pending) +
-  `build_programs` (is_proposed); mens beslist via `/consolidate/decide`. Graceful fallback naar pg_trgm bij Anthropic €0
-  (geverifieerd: vindt echte overlap zoals "Deal Flow Card V3⟷V2" 0.72).
+  `build_programs` (is_proposed); mens beslist via `/consolidate/decide`. AI-pad is gewired; bij ontbrekende provider of
+  AI-fout draait de deterministische pg_trgm-fallback (run.detail.fallback_reason legt de echte reden vast — geen
+  aanname over credits). pg_trgm-pad geverifieerd: vindt echte overlap zoals "Deal Flow Card V3⟷V2" 0.72.
 - **Data-integriteit (Orlando-aanscherpingen):** elke koppeling draagt `confidence`+`source_reason`; PR's = `inferred`;
   geen auto-merge; nav additief; migratienummers geverifieerd (repo+prod). Zie geheugen `feedback_inference_data_integrity`.
 - **Verificatie:** `next build` exit 0 (TypeScript schoon, alle 13 routes in manifest); views gevalideerd op echte data.
 - **Open (Fase 2, niet-blokkerend):** multi-doc ingest draaien op CLI-L (`scripts/ingest-roadmaps.mjs`) voor entity-scoped
-  roadmaps; `build_project_dependencies` vullen voor project-naar-project kritisch pad; AI-consolidation echt draaien zodra
-  Anthropic-credits terug (nu deterministische fallback).
+  roadmaps; `build_project_dependencies` vullen voor project-naar-project kritisch pad; AI-consolidation runtime-verifiëren
+  (één echte POST → lees run.detail.fallback_reason; niet concluderen dat credits nul zijn zonder provider/API-respons).
 
 ---
 
