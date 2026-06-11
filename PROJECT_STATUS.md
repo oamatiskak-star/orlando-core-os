@@ -7,6 +7,28 @@
 
 ---
 
+## 🎯 HUIDIGE FOCUS (2026-06-11 — Build Tracker War Room = Intelligence Graph OS)
+**CLI-R: Build Tracker geëvolueerd naar visuele kennisgraaf (React-Flow), zelfde kwaliteit als Media War Room.**
+Branch `feat/build-tracker-war-room` (worktree `~/Code/.wt-build-war-room`, vanaf `origin/main`). **PR open → Ready for Review.**
+- **Data-laag (migr 181/182/183, LIVE op shaunum, additief):** `v_build_war_room_nodes/_edges` deriveren de hiërarchie
+  ENTITEIT→PROGRAMMA→PROJECT→MILESTONE→BUILD_ITEM→PR→RESULTAAT uit echte tabellen (7 entiteiten · 69 projecten ·
+  24 milestones · 52 items · 16 inferred-PR's · 10 revenue · 174 edges). Engine-views: completion% per entiteit,
+  blockers (9), risks (31), revenue-map, timeline (99 events). Nieuw additief: `build_programs` (+ `build_tracker.program_id`),
+  `build_project_dependencies` (bestond niet op prod), consolidation-tabellen + `build_consolidation_candidates()` (pg_trgm).
+- **Frontend:** `/dashboard/build-tracker/war-room` (+ tabs Timeline/Dependencies/Milestones/Revenue/Blockers&Risk/Consolidation),
+  realtime (supabase channel), nav additief (Build War Room naast Build Tracker, niets vervangen).
+- **Consolidation = propose-only:** AI (claude.sonnet) doet alléén voorstellen → `build_duplicate_candidates` (pending) +
+  `build_programs` (is_proposed); mens beslist via `/consolidate/decide`. Graceful fallback naar pg_trgm bij Anthropic €0
+  (geverifieerd: vindt echte overlap zoals "Deal Flow Card V3⟷V2" 0.72).
+- **Data-integriteit (Orlando-aanscherpingen):** elke koppeling draagt `confidence`+`source_reason`; PR's = `inferred`;
+  geen auto-merge; nav additief; migratienummers geverifieerd (repo+prod). Zie geheugen `feedback_inference_data_integrity`.
+- **Verificatie:** `next build` exit 0 (TypeScript schoon, alle 13 routes in manifest); views gevalideerd op echte data.
+- **Open (Fase 2, niet-blokkerend):** multi-doc ingest draaien op CLI-L (`scripts/ingest-roadmaps.mjs`) voor entity-scoped
+  roadmaps; `build_project_dependencies` vullen voor project-naar-project kritisch pad; AI-consolidation echt draaien zodra
+  Anthropic-credits terug (nu deterministische fallback).
+
+---
+
 ## 🔴 HERSTEL HIER NA CRASH (sessie 18 — Hermes Core OS v2 self-routing brein)
 
 **Focus (2026-06-08, sessie 17):** Hermes ombouwen van command-router naar self-routing AI OS. 6-lagen pipeline (Project→Memory→Skill→Agent→Board) + GPT/Claude preflight (advisory) + model-router + incident-mode + auto-dispatch. Lokaal-eerst (80-90% via Ollama), DB-bemiddeld tussen Vercel-dashboard en lokale orchestrator op CLI-L. Plan: `~/.claude/plans/concurrent-mapping-finch.md`.
