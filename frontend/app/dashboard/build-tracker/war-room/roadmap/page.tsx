@@ -6,10 +6,14 @@ import CertificationCard from '@/components/build-war-room/roadmap/Certification
 import ExecutiveStatusBar from '@/components/build-war-room/roadmap/ExecutiveStatusBar'
 import StatusColumns from '@/components/build-war-room/roadmap/StatusColumns'
 import PriorityDistribution from '@/components/build-war-room/roadmap/PriorityDistribution'
+import RoadmapTimeline from '@/components/build-war-room/roadmap/RoadmapTimeline'
 
 export const dynamic = 'force-dynamic'
 
-type Proj = { status_norm: string; priority_norm: string | null }
+type Proj = {
+  id: string; name: string; status_norm: string; priority_norm: string | null
+  progress: number | null; start_at: string | null; end_at: string | null; end_source: string; program: string
+}
 
 export default async function RoadmapCommandCenterPage() {
   const supabase = await createClient()
@@ -20,9 +24,9 @@ export default async function RoadmapCommandCenterPage() {
     supabase.from('v_ceo_minutes_daily').select('*').maybeSingle(),
     supabase.from('v_media_factory_certification').select('*').maybeSingle(),
     supabase.from('v_build_entity_completion').select('*').eq('entity_slug', slug).maybeSingle(),
-    supabase.from('v_build_roadmap_projects').select('status_norm,priority_norm').eq('entity_slug', slug),
+    supabase.from('v_build_roadmap_projects').select('id,name,status_norm,priority_norm,progress,start_at,end_at,end_source,program').eq('entity_slug', slug),
     supabase.from('v_build_blockers').select('title').eq('entity_slug', slug),
-    supabase.from('v_build_upcoming_milestones').select('id'),
+    supabase.from('v_build_upcoming_milestones').select('naam,target_date,status'),
   ])
 
   const proj = (projects.data ?? []) as Proj[]
@@ -63,6 +67,10 @@ export default async function RoadmapCommandCenterPage() {
         openBlockers={(blockers.data ?? []).length}
         upcomingMilestones={(milestones.data ?? []).length}
       />
+
+      {/* ② Roadmap Timeline (hero) */}
+      <RoadmapTimeline projects={proj as never} milestones={(milestones.data ?? []) as never} />
+
       <div className="grid gap-3 lg:grid-cols-2">
         <StatusColumns counts={statusCounts} />
         <PriorityDistribution dist={dist} />
