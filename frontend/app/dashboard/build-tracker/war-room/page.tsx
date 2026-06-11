@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
+import { getActiveCompanyId } from '@/lib/active-company-server'
 import BuildGraph from '@/components/build-war-room/BuildGraph'
 import type { BuildRawNode, BuildRawEdge } from '@/lib/build-war-room/graph'
 
@@ -6,10 +7,11 @@ export const dynamic = 'force-dynamic'
 
 export default async function BuildWarRoomGraphPage() {
   const supabase = await createClient()
+  const slug = await getActiveCompanyId() // actieve entiteit (cookie orlando_active_company) == entity_slug
   const [nodesRes, edgesRes, complRes] = await Promise.all([
-    supabase.from('v_build_war_room_nodes').select('*'),
+    supabase.from('v_build_war_room_nodes').select('*').eq('entity_slug', slug),
     supabase.from('v_build_war_room_edges').select('*'),
-    supabase.from('v_build_entity_completion').select('*').order('completion_pct', { ascending: false }),
+    supabase.from('v_build_entity_completion').select('*').eq('entity_slug', slug),
   ])
 
   const rawNodes = (nodesRes.data ?? []) as BuildRawNode[]

@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
+import { getActiveCompanyId } from '@/lib/active-company-server'
 
 export const dynamic = 'force-dynamic'
 
@@ -9,7 +10,8 @@ type Row = {
 
 export default async function BuildRevenuePage() {
   const supabase = await createClient()
-  const { data, error } = await supabase.from('v_build_revenue_map').select('*').order('expected', { ascending: false })
+  const slug = await getActiveCompanyId()
+  const { data, error } = await supabase.from('v_build_revenue_map').select('*').eq('entity_slug', slug).order('expected', { ascending: false })
   if (error) {
     return <div className="rounded-lg border border-red-500/20 bg-red-500/5 p-4 text-sm text-red-300">Kon revenue-map niet laden: {error.message}</div>
   }

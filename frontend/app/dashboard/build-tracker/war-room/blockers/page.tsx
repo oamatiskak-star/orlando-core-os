@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
+import { getActiveCompanyId } from '@/lib/active-company-server'
 
 export const dynamic = 'force-dynamic'
 
@@ -9,9 +10,10 @@ const SEV: Record<string, string> = { high: '#ef4444', medium: '#f59e0b', low: '
 
 export default async function BuildBlockersPage() {
   const supabase = await createClient()
+  const slug = await getActiveCompanyId()
   const [blk, risk] = await Promise.all([
-    supabase.from('v_build_blockers').select('*'),
-    supabase.from('v_build_risks').select('*'),
+    supabase.from('v_build_blockers').select('*').eq('entity_slug', slug),
+    supabase.from('v_build_risks').select('*').eq('entity_slug', slug),
   ])
   if (blk.error || risk.error) {
     return <div className="rounded-lg border border-red-500/20 bg-red-500/5 p-4 text-sm text-red-300">Kon blockers/risico&apos;s niet laden: {blk.error?.message ?? risk.error?.message}</div>
