@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
+import { getActiveCompanyId } from '@/lib/active-company-server'
 import BuildGraph from '@/components/build-war-room/BuildGraph'
 import type { BuildRawNode, BuildRawEdge } from '@/lib/build-war-room/graph'
 
@@ -6,8 +7,9 @@ export const dynamic = 'force-dynamic'
 
 export default async function BuildDependenciesPage() {
   const supabase = await createClient()
+  const slug = await getActiveCompanyId()
   const [nodesRes, edgesRes] = await Promise.all([
-    supabase.from('v_build_war_room_nodes').select('*'),
+    supabase.from('v_build_war_room_nodes').select('*').eq('entity_slug', slug),
     supabase.from('v_build_war_room_edges').select('*'),
   ])
   const rawNodes = (nodesRes.data ?? []) as BuildRawNode[]

@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
+import { getActiveCompanyId } from '@/lib/active-company-server'
 
 export const dynamic = 'force-dynamic'
 
@@ -13,8 +14,9 @@ const STATUS_COLOR: Record<string, string> = {
 
 export default async function BuildMilestonesPage() {
   const supabase = await createClient()
+  const slug = await getActiveCompanyId()
   const { data, error } = await supabase
-    .from('v_build_war_room_nodes').select('*').eq('node_type', 'milestone')
+    .from('v_build_war_room_nodes').select('*').eq('node_type', 'milestone').eq('entity_slug', slug)
   if (error) {
     return <div className="rounded-lg border border-red-500/20 bg-red-500/5 p-4 text-sm text-red-300">Kon milestones niet laden: {error.message}</div>
   }
