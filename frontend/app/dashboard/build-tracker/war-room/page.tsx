@@ -13,6 +13,7 @@ import OpenBuildItems from '@/components/build-war-room/roadmap/OpenBuildItems'
 import ActivityFeed from '@/components/build-war-room/roadmap/ActivityFeed'
 import DependencyOverview from '@/components/build-war-room/roadmap/DependencyOverview'
 import IncidentLifecycle from '@/components/build-war-room/roadmap/IncidentLifecycle'
+import RevenueLayer from '@/components/build-war-room/roadmap/RevenueLayer'
 
 export const dynamic = 'force-dynamic'
 
@@ -25,7 +26,7 @@ export default async function RoadmapCommandCenterPage() {
   const supabase = await createClient()
   const slug = await getActiveCompanyId()
 
-  const [health, minutes, cert, completion, projects, blockers, milestones, agenda, items, activity, incidents] = await Promise.all([
+  const [health, minutes, cert, completion, projects, blockers, milestones, agenda, items, activity, incidents, revPosition, revByEntity] = await Promise.all([
     supabase.from('v_ceo_system_health').select('*'),
     supabase.from('v_ceo_minutes_daily').select('*').maybeSingle(),
     supabase.from('v_media_factory_certification').select('*').maybeSingle(),
@@ -37,6 +38,8 @@ export default async function RoadmapCommandCenterPage() {
     supabase.from('v_build_war_room_nodes').select('node_id,label,status,payload').eq('node_type', 'build_item').eq('entity_slug', slug),
     supabase.from('v_build_activity_feed').select('*').eq('entity_slug', slug).order('ts', { ascending: false }).limit(30),
     supabase.from('infra_watchdog_incidents').select('service_name,service_type,failure_kind,failure_summary,proposed_actions,status,opened_at,resolved_at,incident_kind').order('opened_at', { ascending: false }).limit(20),
+    supabase.from('v_ceo_revenue_position').select('*').maybeSingle(),
+    supabase.from('v_ceo_revenue_by_entity').select('*'),
   ])
 
   const proj = (projects.data ?? []) as Proj[]
@@ -105,6 +108,9 @@ export default async function RoadmapCommandCenterPage() {
         <DependencyOverview blockers={(blockers.data ?? []) as never} />
         <IncidentLifecycle incidents={(incidents.data ?? []) as never} openCount={openInc} resolvedCount={resolvedInc} />
       </div>
+
+      {/* F6 — omzet-laag */}
+      <RevenueLayer position={revPosition.data as never} byEntity={(revByEntity.data ?? []) as never} />
 
       <p className="text-[10px] text-white/30">
         Roadmap Command Center — operatie + autonomie holding-breed; strategie/dagsturing per actieve entiteit.
