@@ -39,50 +39,87 @@ async function getChannelVideos(token: string, channelId: string, maxResults = 5
   })).filter((v: { id: string }) => v.id)
 }
 
-async function getVideoAnalytics(
-  token: string,
-  ytChannelId: string,
-  videoIds: string[],
-  startDate: string,
-  endDate: string
-): Promise<Record<string, { views: number; watch_time_minutes: number; avg_view_percentage: number; likes: number; comments: number; ctr: number; impressions: number; estimated_revenue: number }>> {
-  if (!videoIds.length) return {}
+type VideoStats = {
+  views: number; watch_time_minutes: number; avg_view_percentage: number
+  likes: number; comments: number; ctr: number; impressions: number
+  estimated_revenue: number; rpm: number
+}
 
+// Eén YouTube-Analytics-report-call. Parseert via columnHeaders (volgorde-robuust,
+// net als youtube-engine/src/lib/youtube-api.ts). Geeft null bij API-fout zodat de
+// aanroeper kan degraderen zonder de werkende core-ingestie te breken.
+async function runReport(
+  token: string, ytChannelId: string, videoIds: string[],
+  startDate: string, endDate: string, metrics: string
+): Promise<Record<string, Record<string, number>> | null> {
   const url = new URL('https://youtubeanalytics.googleapis.com/v2/reports')
   url.searchParams.set('ids', `channel==${ytChannelId}`)
   url.searchParams.set('startDate', startDate)
   url.searchParams.set('endDate', endDate)
-  // NB: 'impressions' is geen geldige identifier voor het video-report (geeft 400),
-  // 'estimatedRevenue' vereist de yt-analytics-monetary.readonly scope en
-  // 'annotationClickThroughRate' is gedepreceerd. Daarom alleen de core-metrics.
-  // ctr/impressions/estimated_revenue worden via een aparte report-call gevuld (TODO).
-  url.searchParams.set('metrics', 'views,estimatedMinutesWatched,averageViewPercentage,likes,comments')
+  url.searchParams.set('metrics', metrics)
   url.searchParams.set('dimensions', 'video')
   url.searchParams.set('filters', `video==${videoIds.join(',')}`)
   url.searchParams.set('maxResults', '200')
 
   const res = await fetch(url.toString(), { headers: { Authorization: `Bearer ${token}` } })
   if (!res.ok) {
-    console.warn('Analytics API error:', res.status, await res.text().catch(() => ''))
-    return {}
+    console.warn(`Analytics report [${metrics}] error:`, res.status, await res.text().catch(() => ''))
+    return null
   }
-
   const data = await res.json()
-  const result: Record<string, any> = {}
-
+  const headers: string[] = (data.columnHeaders ?? []).map((h: { name?: string }) => h.name ?? '')
+  const vidIdx = headers.indexOf('video')
+  const out: Record<string, Record<string, number>> = {}
   for (const row of data.rows ?? []) {
-    // Volgorde matcht de metrics-string hierboven: views, estimatedMinutesWatched,
-    // averageViewPercentage, likes, comments.
-    const [videoId, views, watchMin, avgPct, likes, comments] = row
+    const vid = String(vidIdx >= 0 ? row[vidIdx] : row[0])
+    const rec: Record<string, number> = {}
+    headers.forEach((h, i) => { if (h && h !== 'video') rec[h] = Number(row[i] ?? 0) })
+    out[vid] = rec
+  }
+  return out
+}
+
+async function getVideoAnalytics(
+  token: string,
+  ytChannelId: string,
+  videoIds: string[],
+  startDate: string,
+  endDate: string
+): Promise<Record<string, VideoStats>> {
+  if (!videoIds.length) return {}
+
+  // 1) Core-metrics — altijd; deze landen zeker (yt-analytics.readonly volstaat).
+  const core = await runReport(token, ytChannelId, videoIds, startDate, endDate,
+    'views,estimatedMinutesWatched,averageViewPercentage,likes,comments')
+  if (!core) return {}
+
+  // 2) CTR + impressions — best-effort (geen extra scope nodig). Faalt → 0, geen regressie.
+  const ctrRep = await runReport(token, ytChannelId, videoIds, startDate, endDate,
+    'impressions,impressionClickThroughRate')
+
+  // 3) Omzet — best-effort; vereist yt-analytics-monetary.readonly + gemonetiseerd (YPP) kanaal.
+  //    Tot YPP/scope geregeld is faalt dit netjes → estimated_revenue/rpm = 0.
+  const revRep = await runReport(token, ytChannelId, videoIds, startDate, endDate,
+    'estimatedRevenue')
+
+  const result: Record<string, VideoStats> = {}
+  for (const [videoId, c] of Object.entries(core)) {
+    const ctrRow = ctrRep?.[videoId] ?? {}
+    const revRow = revRep?.[videoId] ?? {}
+    const views = Math.round(c['views'] ?? 0)
+    const estimatedRevenue = Number((revRow['estimatedRevenue'] ?? 0).toFixed(2))
     result[videoId] = {
-      views:               Math.round(views ?? 0),
-      watch_time_minutes:  Number((watchMin ?? 0).toFixed(2)),
-      avg_view_percentage: Number((avgPct ?? 0).toFixed(2)),
-      likes:               Math.round(likes ?? 0),
-      comments:            Math.round(comments ?? 0),
-      ctr:                 0,
-      impressions:         0,
-      estimated_revenue:   0,
+      views,
+      watch_time_minutes:  Number((c['estimatedMinutesWatched'] ?? 0).toFixed(2)),
+      avg_view_percentage: Number((c['averageViewPercentage'] ?? 0).toFixed(2)),
+      likes:               Math.round(c['likes'] ?? 0),
+      comments:            Math.round(c['comments'] ?? 0),
+      // impressionClickThroughRate komt als percentage (bv. 5.23); kolom ctr = numeric(5,2).
+      ctr:                 Number((ctrRow['impressionClickThroughRate'] ?? 0).toFixed(2)),
+      impressions:         Math.round(ctrRow['impressions'] ?? 0),
+      estimated_revenue:   estimatedRevenue,
+      // RPM = omzet per 1000 views (standaard). 0 zolang kanaal niet gemonetiseerd is.
+      rpm:                 views > 0 ? Number(((estimatedRevenue / views) * 1000).toFixed(2)) : 0,
     }
   }
 
@@ -197,6 +234,7 @@ export async function GET(request: NextRequest) {
           ctr:                 stats.ctr,
           impressions:         stats.impressions,
           estimated_revenue:   stats.estimated_revenue,
+          rpm:                 stats.rpm,
         })
       }
 
