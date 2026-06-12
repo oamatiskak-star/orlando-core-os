@@ -27,7 +27,7 @@ select
   ci.id                                   as content_item_id,
   ci.title,
   ci.channel_id,
-  coalesce(mhc.name, mhc.naam)            as channel_name,
+  mhc.name                                as channel_name,
   coalesce(cl.clicks, 0)                  as clicks,
   coalesce(cv.leads, 0)                   as leads,
   coalesce(cv.sales, 0)                   as sales,

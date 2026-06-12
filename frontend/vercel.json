@@ -41,6 +41,10 @@
       "schedule": "30 7 * * 1"
     },
     {
+      "path": "/api/youtube/cron/affiliate-orchestration",
+      "schedule": "40 7 * * 1"
+    },
+    {
       "path": "/api/orchestrator/cron/execute-tasks",
       "schedule": "*/5 * * * *"
     },
