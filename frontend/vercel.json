@@ -37,6 +37,10 @@
       "schedule": "0 8 1 * *"
     },
     {
+      "path": "/api/youtube/cron/growth-plan",
+      "schedule": "30 7 * * 1"
+    },
+    {
       "path": "/api/orchestrator/cron/execute-tasks",
       "schedule": "*/5 * * * *"
     },

@@ -8,6 +8,7 @@ import YoutubeRevenueCard from './YoutubeRevenueCard'
 import LearningRecommendationsCard from './LearningRecommendationsCard'
 import FunnelAttributionCard from './FunnelAttributionCard'
 import DirectorDecisionsCard from './DirectorDecisionsCard'
+import GrowthPlanCard from './GrowthPlanCard'
 
 type Stream = {
   id: string
@@ -146,6 +147,8 @@ export default function MonetizationView() {
       <FunnelAttributionCard />
 
       <DirectorDecisionsCard />
+
+      <GrowthPlanCard />
 
       {trackMsg && <div className="bg-white/[0.04] border border-white/10 rounded-lg px-4 py-2.5 text-[11px] text-white/70">{trackMsg}</div>}
 
