@@ -36,6 +36,7 @@ export async function POST(
       'https://www.googleapis.com/auth/youtube.upload',
       'https://www.googleapis.com/auth/youtube.readonly',
       'https://www.googleapis.com/auth/yt-analytics.readonly', // Phase 5 Retention Lab
+      'https://www.googleapis.com/auth/yt-analytics-monetary.readonly', // S1: revenue/RPM-ingestie
     ],
     tiktok:    ['video.upload', 'user.info.basic'],
     instagram: ['instagram_basic','instagram_content_publish'],

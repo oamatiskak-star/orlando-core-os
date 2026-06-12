@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from 'react'
 import Link from 'next/link'
 import { Wallet, ChevronLeft, RefreshCw, Plus, Trash2, Link as LinkIcon, X } from 'lucide-react'
 import clsx from 'clsx'
+import YoutubeRevenueCard from './YoutubeRevenueCard'
 
 type Stream = {
   id: string
@@ -133,6 +134,8 @@ export default function MonetizationView() {
         <Kpi label="Sponsors" value={`€ ${(totals.by_stream_type.sponsor ?? 0).toFixed(2)}`} color="text-indigo-300" />
         <Kpi label="Affiliate / Product" value={`€ ${((totals.by_stream_type.affiliate ?? 0) + (totals.by_stream_type.product ?? 0)).toFixed(2)}`} color="text-amber-300" />
       </div>
+
+      <YoutubeRevenueCard />
 
       {trackMsg && <div className="bg-white/[0.04] border border-white/10 rounded-lg px-4 py-2.5 text-[11px] text-white/70">{trackMsg}</div>}
 

@@ -6,6 +6,8 @@ const SCOPES = [
   'https://www.googleapis.com/auth/youtube.readonly',
   'https://www.googleapis.com/auth/youtube.force-ssl',
   'https://www.googleapis.com/auth/yt-analytics.readonly',
+  // S1: nodig voor estimatedRevenue/RPM-ingestie. Vereist eenmalige her-consent per kanaal.
+  'https://www.googleapis.com/auth/yt-analytics-monetary.readonly',
 ].join(' ')
 
 export async function GET(request: NextRequest) {
