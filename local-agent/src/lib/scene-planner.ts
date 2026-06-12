@@ -36,8 +36,24 @@ export interface PlanScenesInput {
   language:       string            // 'nl' | 'en' | 'es'
   format:         '16:9' | '9:16' | '1:1'
   target_seconds: number
+  niche?:         string | null     // CF2 Scene-Query V2 — niche-verankering (gated)
   lm_studio_model?: string
   ollama_model?:    string
+}
+
+/**
+ * CF2 Scene-Query V2 (GATED: CF2_SCENE_QUERY_V2=1, default uit → bestaand gedrag).
+ * Dwingt CONCRETE, filmbare, niche-verankerde stock-zoektermen af i.p.v. generieke
+ * "person doing X". Upstream-fix voor lage topic_relevance (CF2.9-bevinding).
+ */
+function searchQueryInstruction(niche: string | null | undefined): string {
+  if (process.env.CF2_SCENE_QUERY_V2 !== '1') {
+    return 'English stock-video search term (2-5 words) for this scene'
+  }
+  return `CONCRETE filmable stock-footage subject in ENGLISH (2-5 words). Name the actual visual SUBJECT + setting${niche ? ` for the niche "${niche}"` : ''} — NOT a generic action. ` +
+    `Prefer specific objects/places/scenes over "person doing X". ` +
+    `GOOD: "stock market trading floor", "modern apartment interior", "construction crane skyline", "server room data center", "gold bars vault". ` +
+    `BAD (never use): "person standing", "someone thinking", "man looking", "thing happening", "intro screen"`
 }
 
 async function callLMStudio(prompt: string, model: string): Promise<string> {
@@ -65,6 +81,7 @@ function buildPrompt(input: PlanScenesInput, sceneCount: number, secPerScene: nu
   const isNl = input.language === 'nl'
   const langName = input.language === 'nl' ? 'Nederlands' : input.language === 'es' ? 'Spaans' : 'Engels'
   const orientation = input.format === '9:16' ? 'verticaal (Shorts/Reels)' : input.format === '1:1' ? 'vierkant' : 'horizontaal (YouTube)'
+  const sqInstr = searchQueryInstruction(input.niche)
 
   if (isNl) {
     return `Je bent een documentaire-regisseur die scripts opdeelt in cinematische scenes voor "${input.title}".
@@ -75,7 +92,7 @@ Geef UITSLUITEND één JSON-object terug met sleutel "scenes" = array. Elke scen
 {
   "voice_text": "de exacte voice-over zin(nen) voor deze scene (in het Nederlands)",
   "visual_intent": "wat we zien — concreet, cinematisch",
-  "search_query": "Engelse stockvideo-zoekterm (2-5 woorden) voor deze scene",
+  "search_query": "${sqInstr}",
   "shot_type": "bv 'slow cinematic pan', 'aerial drone', 'close-up'",
   "emotion": "bv 'curiosity', 'tension', 'authority'",
   "pacing": "slow | medium | fast",
@@ -96,7 +113,7 @@ Return ONLY one JSON object with key "scenes" = array. Each scene:
 {
   "voice_text": "the exact voice-over sentence(s) for this scene (in ${langName})",
   "visual_intent": "what we see — concrete, cinematic",
-  "search_query": "English stock-video search term (2-5 words) for this scene",
+  "search_query": "${sqInstr}",
   "shot_type": "e.g. 'slow cinematic pan', 'aerial drone', 'close-up'",
   "emotion": "e.g. 'curiosity', 'tension', 'authority'",
   "pacing": "slow | medium | fast",
@@ -117,6 +134,31 @@ function extractJson(raw: string): any {
   return JSON.parse(match[0])
 }
 
+/**
+ * CF2 Scene-Query V2 — deterministische concretisering (gated). Stock-search matcht
+ * de LEIDENDE term; het 8B-model levert vaak "person ... with <onderwerp>" waarbij de
+ * concrete context achteraan verloren gaat. Deze transform leidt de query met het
+ * concrete onderwerp en kapt expressie-/lengte-ruis. Geen onderwerp → query blijft gelijk.
+ */
+const Q_MODIFIER = /^(calm|bright|happy|serious|dark|soft|warm|cold|good|nice|beautiful|big|small|colou?rful|blurry|clear|sad|angry|neutral|positive|negative)\b/i
+const Q_TRAIL = /\s+(with|and|of|in|on|at|the|a|an|to|for)$/i
+function concretizeQuery(q: string): string {
+  if (process.env.CF2_SCENE_QUERY_V2 !== '1') return q
+  let s = (q || '').trim()
+  // 1) strip trailing emotie/expressie/actie-ruis ("... and happy expression", "... and waving goodbye")
+  s = s.replace(/\s+and\s+.*$/i, '').trim()
+  s = s.replace(/\b(serious|satisfied|happy|grateful|concerned|calm|worried|neutral|excited|focused)\s+expression\b/gi, '').trim()
+  // 2) "person ... with <onderwerp>" → leid met <onderwerp>, MAAR alleen als het een concreet
+  //    onderwerp is (geen modifier-adjectief zoals "calm background") — anders onderwerp behouden
+  const m = s.match(/^(?:a |the )?(?:person|man|woman|someone|people|guy|girl|individual)\b.*?\bwith\b\s+(.+)$/i)
+  if (m && m[1] && !Q_MODIFIER.test(m[1].trim())) s = m[1].trim()
+  // 3) opschonen + kap op 5 woorden (stock matcht kort+concreet het best)
+  s = s.replace(/\s{2,}/g, ' ').replace(/[,.;:]+$/, '').replace(Q_TRAIL, '').trim()
+  const words = s.split(/\s+/).filter(Boolean)
+  if (words.length > 5) s = words.slice(0, 5).join(' ').replace(Q_TRAIL, '').trim()
+  return s.length >= 3 ? s : (q || '').trim()
+}
+
 function clampScene(s: any, idx: number, fallbackDuration: number): SceneSpec {
   const str = (v: unknown, d = ''): string => (typeof v === 'string' && v.trim() ? v.trim() : d)
   const dur = Number(s?.expected_duration)
@@ -124,7 +166,7 @@ function clampScene(s: any, idx: number, fallbackDuration: number): SceneSpec {
     idx,
     voice_text:        str(s?.voice_text),
     visual_intent:     str(s?.visual_intent),
-    search_query:      str(s?.search_query, str(s?.visual_intent)),
+    search_query:      concretizeQuery(str(s?.search_query, str(s?.visual_intent))),
     shot_type:         str(s?.shot_type, 'cinematic'),
     emotion:           str(s?.emotion, 'neutral'),
     pacing:            str(s?.pacing, 'medium'),
