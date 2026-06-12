@@ -29,6 +29,14 @@
       "schedule": "20 11 * * *"
     },
     {
+      "path": "/api/youtube/cron/director-cycle?period=weekly",
+      "schedule": "0 7 * * 1"
+    },
+    {
+      "path": "/api/youtube/cron/director-cycle?period=monthly",
+      "schedule": "0 8 1 * *"
+    },
+    {
       "path": "/api/orchestrator/cron/execute-tasks",
       "schedule": "*/5 * * * *"
     },
