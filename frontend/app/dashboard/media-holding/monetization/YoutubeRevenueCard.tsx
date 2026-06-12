@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { Youtube } from 'lucide-react'
+import { MonitorPlay } from 'lucide-react'
 
 type ChannelRev = {
   channel_id: string; channel_name: string
@@ -42,7 +42,7 @@ export default function YoutubeRevenueCard() {
   return (
     <div className="bg-white/[0.03] border border-white/10 rounded-xl p-4 space-y-3">
       <div className="flex items-center gap-2">
-        <Youtube size={15} className="text-red-400" />
+        <MonitorPlay size={15} className="text-red-400" />
         <h2 className="text-sm font-semibold text-white">YouTube-omzet (organisch)</h2>
         <span className="text-[10px] text-white/40">live uit youtube_video_analytics</span>
       </div>
