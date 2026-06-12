@@ -1,18 +1,20 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { Brain, ArrowUpRight, ArrowDownRight, OctagonX, FlaskConical } from 'lucide-react'
+import { Brain, ArrowUpRight, ArrowDownRight, OctagonX, FlaskConical, Copy } from 'lucide-react'
 
 type Rec = {
   id: string; niche: string; category: string | null; action: 'increase'|'reduce'|'stop'|'test'
   recommendation: string; confidence: number; win_rate: number | null; sample_n: number
 }
 type Pattern = { niche: string; category: string; length_bucket: string; n: number; avg_score?: number; avg_views?: number }
+type ReplItem = { job_id: string; status: string; niche: string | null; source_title: string | null }
 type Resp = {
   recommendations: Rec[]
   by_action: Record<string, number>
   winners: Pattern[]
   losers: Pattern[]
+  replication?: { total: number; planned: number; items: ReplItem[] }
 }
 
 const ACTION = {
@@ -83,6 +85,27 @@ export default function LearningRecommendationsCard() {
             })}
           </div>
         </>
+      )}
+
+      {!loading && data?.replication && (
+        <div className="pt-2 border-t border-white/5">
+          <div className="flex items-center gap-2 mb-1">
+            <Copy size={12} className="text-cyan-300" />
+            <p className="text-[11px] text-white/60">
+              Replicatie-queue: <span className="text-cyan-300 font-medium">{data.replication.planned} gepland</span>
+              <span className="text-white/35"> / {data.replication.total} totaal</span>
+            </p>
+          </div>
+          {data.replication.items.length > 0 && (
+            <div className="space-y-0.5">
+              {data.replication.items.slice(0, 4).map((it) => (
+                <p key={it.job_id} className="text-[10px] text-white/45 truncate">
+                  ↻ {it.source_title || it.niche || 'winner'} <span className="text-white/30">· {it.status}</span>
+                </p>
+              ))}
+            </div>
+          )}
+        </div>
       )}
     </div>
   )
