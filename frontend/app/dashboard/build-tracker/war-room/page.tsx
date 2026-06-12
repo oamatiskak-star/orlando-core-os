@@ -1,77 +1,115 @@
 import { createClient } from '@/lib/supabase/server'
 import { getActiveCompanyId } from '@/lib/active-company-server'
-import BuildGraph from '@/components/build-war-room/BuildGraph'
-import type { BuildRawNode, BuildRawEdge } from '@/lib/build-war-room/graph'
+import SystemHealthBoard from '@/components/build-war-room/roadmap/health/SystemHealthBoard'
+import CeoMinutesGauge from '@/components/build-war-room/roadmap/CeoMinutesGauge'
+import CertificationCard from '@/components/build-war-room/roadmap/CertificationCard'
+import ExecutiveStatusBar from '@/components/build-war-room/roadmap/ExecutiveStatusBar'
+import StatusColumns from '@/components/build-war-room/roadmap/StatusColumns'
+import PriorityDistribution from '@/components/build-war-room/roadmap/PriorityDistribution'
+import RoadmapTimeline from '@/components/build-war-room/roadmap/RoadmapTimeline'
+import TodayAgenda from '@/components/build-war-room/roadmap/TodayAgenda'
+import UpcomingMilestones from '@/components/build-war-room/roadmap/UpcomingMilestones'
+import OpenBuildItems from '@/components/build-war-room/roadmap/OpenBuildItems'
+import ActivityFeed from '@/components/build-war-room/roadmap/ActivityFeed'
+import DependencyOverview from '@/components/build-war-room/roadmap/DependencyOverview'
+import IncidentLifecycle from '@/components/build-war-room/roadmap/IncidentLifecycle'
 
 export const dynamic = 'force-dynamic'
 
-export default async function BuildWarRoomGraphPage() {
+type Proj = {
+  id: string; name: string; status_norm: string; priority_norm: string | null
+  progress: number | null; start_at: string | null; end_at: string | null; end_source: string; program: string
+}
+
+export default async function RoadmapCommandCenterPage() {
   const supabase = await createClient()
-  const slug = await getActiveCompanyId() // actieve entiteit (cookie orlando_active_company) == entity_slug
-  const [nodesRes, edgesRes, complRes] = await Promise.all([
-    supabase.from('v_build_war_room_nodes').select('*').eq('entity_slug', slug),
-    supabase.from('v_build_war_room_edges').select('*'),
-    supabase.from('v_build_entity_completion').select('*').eq('entity_slug', slug),
+  const slug = await getActiveCompanyId()
+
+  const [health, minutes, cert, completion, projects, blockers, milestones, agenda, items, activity, incidents] = await Promise.all([
+    supabase.from('v_ceo_system_health').select('*'),
+    supabase.from('v_ceo_minutes_daily').select('*').maybeSingle(),
+    supabase.from('v_media_factory_certification').select('*').maybeSingle(),
+    supabase.from('v_build_entity_completion').select('*').eq('entity_slug', slug).maybeSingle(),
+    supabase.from('v_build_roadmap_projects').select('id,name,status_norm,priority_norm,progress,start_at,end_at,end_source,program').eq('entity_slug', slug),
+    supabase.from('v_build_blockers').select('title,reason,entity_slug,code,waiting_on').eq('entity_slug', slug),
+    supabase.from('v_build_upcoming_milestones').select('id,milestone_nr,naam,status,progress_pct,value_stage,target_date'),
+    supabase.from('v_build_today_agenda').select('*').eq('entity_slug', slug),
+    supabase.from('v_build_war_room_nodes').select('node_id,label,status,payload').eq('node_type', 'build_item').eq('entity_slug', slug),
+    supabase.from('v_build_activity_feed').select('*').eq('entity_slug', slug).order('ts', { ascending: false }).limit(30),
+    supabase.from('infra_watchdog_incidents').select('service_name,service_type,failure_kind,failure_summary,proposed_actions,status,opened_at,resolved_at,incident_kind').order('opened_at', { ascending: false }).limit(20),
   ])
 
-  const rawNodes = (nodesRes.data ?? []) as BuildRawNode[]
-  const allEdges = (edgesRes.data ?? []) as BuildRawEdge[]
-  const ids = new Set(rawNodes.map((n) => n.node_id))
-  const rawEdges = allEdges.filter((e) => ids.has(e.source_id) && ids.has(e.target_id))
-  const completion = (complRes.data ?? []) as Array<{
-    entity_slug: string; entity_name: string; completion_pct: number
-    total: number; done: number; blocker_count: number
-  }>
-
-  const err = nodesRes.error?.message ?? edgesRes.error?.message
-  if (err) {
-    return (
-      <div className="rounded-lg border border-red-500/20 bg-red-500/5 p-4 text-sm text-red-300">
-        Kon de graph niet laden: {err}
-      </div>
-    )
+  const proj = (projects.data ?? []) as Proj[]
+  const statusCounts = {
+    done: proj.filter((p) => p.status_norm === 'done').length,
+    in_progress: proj.filter((p) => p.status_norm === 'in_progress').length,
+    queued: proj.filter((p) => p.status_norm === 'queued').length,
+    blocked: proj.filter((p) => p.status_norm === 'blocked').length,
   }
+  const dist = {
+    P0: proj.filter((p) => p.priority_norm === 'P0').length,
+    P1: proj.filter((p) => p.priority_norm === 'P1').length,
+    P2: proj.filter((p) => p.priority_norm === 'P2').length,
+    P3: proj.filter((p) => p.priority_norm === 'P3').length,
+    none: proj.filter((p) => !p.priority_norm).length,
+  }
+  const comp = completion.data as { completion_pct?: number; done?: number; total?: number } | null
 
-  const count = (t: string) => rawNodes.filter((n) => n.node_type === t).length
+  const incRows = (incidents.data ?? []) as Array<{ status: string | null; resolved_at: string | null }>
+  const openInc = incRows.filter((i) => !(i.status === 'resolved' || i.resolved_at)).length
+  const resolvedInc = incRows.length - openInc
+  const openItems = ((items.data ?? []) as Array<{ status: string | null }>)
+    .filter((i) => !['done', 'merged', 'closed'].includes((i.status ?? '').toLowerCase()))
 
   return (
     <div className="space-y-3">
-      {/* completion per entiteit (echte milestones/projecten, geen handmatig %) */}
-      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-7">
-        {completion.map((c) => (
-          <div key={c.entity_slug} className="rounded-lg border border-white/5 bg-[#0e1525] p-2.5">
-            <div className="text-[10px] uppercase tracking-wide text-white/40 truncate">{c.entity_name}</div>
-            <div className="mt-1 flex items-baseline gap-1">
-              <span className="text-lg font-bold text-white">{c.completion_pct}%</span>
-              <span className="text-[10px] text-white/35">{c.done}/{c.total}</span>
-            </div>
-            <div className="mt-1 h-1.5 w-full rounded-full bg-white/10 overflow-hidden">
-              <div className="h-full rounded-full bg-violet-400" style={{ width: `${c.completion_pct}%` }} />
-            </div>
-            {c.blocker_count > 0 && (
-              <div className="mt-1 text-[9px] font-semibold text-red-400">{c.blocker_count} blocker(s)</div>
-            )}
-          </div>
-        ))}
+      {/* CEO-OS kern: minuten + certificering (holding-breed) */}
+      <div className="grid gap-3 lg:grid-cols-2">
+        <CeoMinutesGauge data={minutes.data as never} />
+        <CertificationCard data={cert.data as never} />
       </div>
 
-      <div className="flex flex-wrap gap-4 text-xs text-white/45">
-        <span>{count('entity')} entiteiten</span>
-        <span>{count('program')} programma&apos;s</span>
-        <span>{count('project')} projecten</span>
-        <span>{count('milestone')} milestones</span>
-        <span>{count('build_item')} build items</span>
-        <span>{count('pr')} PR&apos;s (inferred)</span>
-        <span>{count('revenue')} resultaten</span>
+      {/* operationele gezondheid (holding-breed) */}
+      <SystemHealthBoard data={(health.data ?? []) as never} />
+
+      {/* strategie (per actieve entiteit) */}
+      <ExecutiveStatusBar
+        completionPct={comp?.completion_pct ?? 0}
+        done={comp?.done ?? statusCounts.done}
+        total={comp?.total ?? proj.length}
+        active={statusCounts.in_progress}
+        queued={statusCounts.queued}
+        blocked={statusCounts.blocked}
+        openBlockers={(blockers.data ?? []).length}
+        upcomingMilestones={(milestones.data ?? []).length}
+      />
+
+      {/* ② Roadmap Timeline (hero) */}
+      <RoadmapTimeline projects={proj as never} milestones={(milestones.data ?? []) as never} />
+
+      <div className="grid gap-3 lg:grid-cols-2">
+        <StatusColumns counts={statusCounts} />
+        <PriorityDistribution dist={dist} />
       </div>
 
-      {rawNodes.length === 0 ? (
-        <div className="rounded-lg border border-white/10 bg-[#0e1525] p-6 text-sm text-white/50">
-          Nog geen build-data. Zodra de Build Tracker gevuld is verschijnt de graph hier.
-        </div>
-      ) : (
-        <BuildGraph rawNodes={rawNodes} rawEdges={rawEdges} defaultZoom="day" />
-      )}
+      {/* F4 — dagsturing */}
+      <div className="grid gap-3 lg:grid-cols-2">
+        <TodayAgenda items={(agenda.data ?? []) as never} />
+        <UpcomingMilestones milestones={(milestones.data ?? []) as never} />
+      </div>
+      <div className="grid gap-3 lg:grid-cols-2">
+        <OpenBuildItems items={openItems as never} />
+        <ActivityFeed initial={(activity.data ?? []) as never} />
+      </div>
+      <div className="grid gap-3 lg:grid-cols-2">
+        <DependencyOverview blockers={(blockers.data ?? []) as never} />
+        <IncidentLifecycle incidents={(incidents.data ?? []) as never} openCount={openInc} resolvedCount={resolvedInc} />
+      </div>
+
+      <p className="text-[10px] text-white/30">
+        Roadmap Command Center — operatie + autonomie holding-breed; strategie/dagsturing per actieve entiteit.
+        De volledige node-graaf staat onder de tab "Knowledge Graph".
+      </p>
     </div>
   )
 }

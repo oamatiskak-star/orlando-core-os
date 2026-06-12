@@ -7,13 +7,13 @@ import { Network, CalendarClock, GitBranch, Flag, Banknote, AlertTriangle, Layer
 
 const BASE = '/dashboard/build-tracker/war-room'
 const TABS = [
-  { label: 'Roadmap', href: `${BASE}/roadmap`, icon: LayoutDashboard },
-  { label: 'Entity Graph', href: BASE, icon: Network },
+  { label: 'Roadmap', href: BASE, icon: LayoutDashboard },
   { label: 'Timeline', href: `${BASE}/timeline`, icon: CalendarClock },
   { label: 'Dependencies', href: `${BASE}/dependencies`, icon: GitBranch },
   { label: 'Milestones', href: `${BASE}/milestones`, icon: Flag },
   { label: 'Revenue', href: `${BASE}/revenue`, icon: Banknote },
   { label: 'Blockers & Risk', href: `${BASE}/blockers`, icon: AlertTriangle },
+  { label: 'Knowledge Graph', href: `${BASE}/graph`, icon: Network },
   { label: 'Consolidation', href: `${BASE}/consolidation`, icon: Layers },
 ]
 
