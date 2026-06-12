@@ -45,6 +45,7 @@ export async function POST(req: NextRequest) {
       url:             body.url,
       niche:           body.niche ?? null,
       channel_id:      body.channel_id ?? null,
+      content_item_id: body.content_item_id ?? null,
       commission_pct:  body.commission_pct ?? null,
       utm_template:    body.utm_template ?? undefined,
       short_link:      body.short_link ?? null,
