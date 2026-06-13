@@ -139,6 +139,74 @@ export async function goLive(
 }
 
 /**
+ * Onboarding stap 3 — ACCOUNT KOPPELEN. Slaat de affiliate-keys op ZONDER te activeren
+ * (account_status blijft ongemoeid; login_status -> 'created' = CONNECTED). Mapt de
+ * commerciële velden op de bestaande kolommen: referral_url -> affiliate_link,
+ * tracking_tag -> referral_code, affiliate_id -> metadata.affiliate_account_id.
+ */
+export async function connectProgram(
+  programId: string,
+  affiliateId: string | null,
+  trackingTag: string | null,
+  referralUrl: string | null,
+  actorId: string | null,
+): Promise<void> {
+  if (!trackingTag && !referralUrl) {
+    throw new Error('Tracking Tag of Referral URL is verplicht')
+  }
+  if (referralUrl) {
+    let ok = false
+    try { const u = new URL(referralUrl); ok = u.protocol === 'http:' || u.protocol === 'https:' } catch { ok = false }
+    if (!ok) throw new Error('Referral URL is geen geldige http(s)-URL')
+  }
+  const admin = createAdminClient()
+
+  const { data: prog } = await admin
+    .from('affiliate_programs').select('metadata').eq('id', programId).maybeSingle()
+  const metadata = { ...(prog?.metadata as Record<string, unknown> | null ?? {}) }
+  if (affiliateId) metadata.affiliate_account_id = affiliateId
+
+  const patch: Record<string, unknown> = {
+    login_status: 'created',
+    metadata,
+    last_status_check_at: new Date().toISOString(),
+  }
+  if (trackingTag) patch.referral_code = trackingTag
+  if (referralUrl) patch.affiliate_link = referralUrl
+
+  const { error } = await admin.from('affiliate_programs').update(patch).eq('id', programId)
+  if (error) throw new Error(error.message)
+
+  await audit(admin, programId, null, 'activation.connected', actorId, {
+    has_affiliate_id: Boolean(affiliateId), has_tag: Boolean(trackingTag), has_url: Boolean(referralUrl),
+  })
+}
+
+/**
+ * Onboarding stap 5 — ACTIVATE PROGRAM. Vereist dat het account is gekoppeld (referral_code
+ * of affiliate_link aanwezig) en zet account_status='active' -> de bestaande
+ * affiliate_go_live()-trigger doet approval + links activeren + rank + recommendations.
+ */
+export async function activateLive(programId: string, actorId: string | null): Promise<void> {
+  const admin = createAdminClient()
+  const { data: prog, error: readErr } = await admin
+    .from('affiliate_programs').select('referral_code, affiliate_link, account_status').eq('id', programId).maybeSingle()
+  if (readErr) throw new Error(readErr.message)
+  if (!prog) throw new Error(`Programma ${programId} niet gevonden`)
+  if (!prog.referral_code && !prog.affiliate_link) {
+    throw new Error('Koppel eerst een account (Tracking Tag / Referral URL) voordat je activeert')
+  }
+
+  const { error } = await admin
+    .from('affiliate_programs')
+    .update({ account_status: 'active', last_status_check_at: new Date().toISOString() })
+    .eq('id', programId)
+  if (error) throw new Error(error.message)
+
+  await audit(admin, programId, null, 'activation.activated', actorId, { from_status: prog.account_status })
+}
+
+/**
  * Fase 5 — content-koppeling. Genereert affiliate-links voor de top-N content-items per
  * gekoppeld kanaal via activate_channel_content_links() (idempotent). Zonder channelId:
  * loop over alle actieve kanaal-koppelingen van het programma.
