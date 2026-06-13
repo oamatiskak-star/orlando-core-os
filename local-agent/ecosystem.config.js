@@ -53,5 +53,23 @@ module.exports = {
         WATCHDOG_HOST_ID:      'cli-l',
       },
     },
+    {
+      // €60K Sprint B — CF2-producer als autonome, scheduler-driven loop.
+      // Gated door de Engine Planner (engine content:cf2-video-projects-runner,
+      // blok 'content' 18:30-22:00). Live-productie via lokale modellen (Ollama/LM Studio),
+      // credit-vrij; upload als private + auto-public via publish-overdue.
+      name:        'cf2-producer',
+      script:      'dist/cf2-producer.js',
+      instances:   1,
+      autorestart: true,
+      watch:       false,
+      env:         {
+        NODE_ENV:           'production',
+        CF2_PRODUCER_LOOP:  '1',
+        CF2_PRODUCER_MODE:  'live',
+        CF2_PUBLISH:        '1',
+        CF2_PRODUCER_LIMIT: '3',
+      },
+    },
   ],
 }
