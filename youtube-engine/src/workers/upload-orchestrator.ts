@@ -65,6 +65,27 @@ async function getOverQuotaChannelIds(limits: Record<string, number>): Promise<s
     .map(([id]) => id)
 }
 
+// CF2 upload-protection chokepoint (canonieke spine 153, NIET de verboden #149-scoring/view/RPC).
+// Blokkeert queue-items die gekoppeld zijn aan een NIET-goedgekeurd CF2 video_project.
+// Legacy/non-CF2 uploads (geen video_projects.queue_id-link) passeren ongemoeid.
+// Fail-open op lookup-fouten: de live legacy-pijplijn mag nooit gehalt worden door een DB-hiccup.
+// Approval-bron = uitsluitend video_projects.approved (boolean) uit de canonieke spine.
+async function cf2ApprovalBlocked(queueId: string): Promise<string | null> {
+  const db = getSupabase()
+  const { data, error } = await db
+    .from('video_projects')
+    .select('approved, status')
+    .eq('queue_id', queueId)
+    .maybeSingle()
+  if (error) {
+    log.warn('CF2-gate: approval-lookup faalde — item doorgelaten (fail-open)', { queueId, error: error.message })
+    return null
+  }
+  if (!data) return null                       // geen CF2-koppeling → legacy upload, doorlaten
+  if (data.approved === true) return null       // expliciet goedgekeurd → doorlaten
+  return `cf2_not_approved (status=${data.status ?? 'onbekend'})`
+}
+
 async function pollQueuedItems(): Promise<void> {
   const db = getSupabase()
 
@@ -118,6 +139,15 @@ async function pollQueuedItems(): Promise<void> {
       .maybeSingle()
     const videoTitle = (queueRow?.youtube_videos as any)?.title ?? queueRow?.title ?? 'Onbekend'
     const channelName = (queueRow?.youtube_channels as any)?.naam ?? item.channel_id
+
+    // CF2 upload-protection chokepoint — blokkeer niet-goedgekeurde CF2-content vóór dispatch
+    const cf2Block = await cf2ApprovalBlocked(item.id)
+    if (cf2Block) {
+      log.warn('CF2 upload-gate: niet-goedgekeurd project geblokkeerd', { queueId: item.id, reason: cf2Block })
+      await updateQueueStatus(item.id, 'manual_review_required', { last_error: cf2Block })
+      await addLog(item.id, item.video_id, 'warn', 'CF2 upload-gate: upload geblokkeerd tot goedkeuring', { reason: cf2Block })
+      continue
+    }
 
     await updateQueueStatus(item.id, 'preparing')
     await enqueueUpload({

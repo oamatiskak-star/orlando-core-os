@@ -80,6 +80,7 @@ export async function runShadowTopic(o: ShadowOpts): Promise<ShadowResult> {
     language:        o.language,
     format:          o.format,
     target_seconds:  o.targetSeconds,
+    niche:           o.niche ?? null,
     lm_studio_model: o.lmStudioModel,
     ollama_model:    o.ollamaModel,
   })

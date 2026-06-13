@@ -7,6 +7,50 @@
 
 ---
 
+## 🎯 HUIDIGE FOCUS (2026-06-13 — CLI-L: Affiliate Activation Center / One-Click)
+**Doel:** één command-center + één ACTIVEER-knop; Hermes voert alles uit wat technisch kan, toont
+alleen wettelijk/contractueel verplichte menselijke acties, gaat live bij referral/affiliate-link.
+**Branch:** `feat/affiliate-activation-center` (vanaf `feat/60k-autonomous-scale-loop`). Plan:
+`~/.claude/plans/mission-one-click-affiliate-activation-adaptive-lake.md`.
+**Beslissingen Orlando:** uitbreiden binnen bestaande `/dashboard/account-setup` hub (geen dubbele
+backend) · volledige auto-submit van externe aanvragen (env `BROWSER_REG_AUTO_SUBMIT` kill-switch +
+payload.auto_submit) · alle 6 fases nu.
+**KLAAR (alle 6 fases · ~85% backend bestond al, alleen schil gebouwd):**
+- `supabase/migrations/209_affiliate_activation_center.sql` — **LIVE op prod (shaunum)**: 4 ontbrekende
+  kanaal-koppelingen (LoopForge→Amazon NL/EU, BrickPulse→xTool+Bambu, Aquier→HubSpot), views
+  `v_affiliate_activation_center` + `v_affiliate_first_euro`, fn `activate_channel_content_links()`.
+- Frontend `/dashboard/account-setup/activation/` (page + ActivationTable/ManualRequiredCards/GoLiveForm/
+  FirstEuroPanel) · 5 API-routes `/api/account-setup/activation/*` · helper `lib/affiliate-programs/
+  activation.server.ts` · types/badges uitgebreid (marketplace/maker_hardware + ActivationStatus) ·
+  hub-CTA in account-setup/page.tsx · readiness-stap in `account-setup/cron/tick` (Engine-Planner-conform).
+- `local-agent/src/browser-registration-runner.ts` — auto-submit-tak + blocker-detectie (CAPTCHA/2FA/
+  incomplete → fallback human-gate) + audit `browser.auto_submit.*`.
+- **Hergebruikt (niet gedupliceerd):** affiliate_go_live()-trigger, rank_affiliate_programs,
+  generate_affiliate_recommendations, auto_generate_affiliate_link, affiliate_setup_readiness,
+  account_setup_runs-queue, clicks/conversions/ledger.
+**Verificatie:** frontend `tsc --noEmit` = 0 errors · local-agent `tsc` schoon · lucide-iconen bestaan ·
+DB-e2e (rollback): go-live-trigger → approved ✓, content-link genereert link waar content is ✓,
+affiliate_setup_readiness() = 44 MANUAL-acties live. `next build` = laatste gate (loopt).
+
+### 🔴 HERSTEL HIER NA CRASH (Affiliate Activation Center)
+- Branch `feat/affiliate-activation-center`. Migratie 209 staat al op prod (idempotent, niet opnieuw nodig).
+- Resteert: uitkomst `next build` controleren (`/tmp/aff_build.log`), daarna commit + PR (wacht op Orlando's OK).
+- Live auto-submit vereist `BROWSER_REG_AUTO_SUBMIT=true` op de Mac-mini-runner; default uit = bestaand
+  gedrag (menselijke gate). UI: `/dashboard/account-setup/activation`.
+
+---
+
+## ✅ CF2 OPERATIONELE VALIDATIE AFGEROND (2026-06-12 — 🟢 SHADOW-KETEN PRODUCTION PROVEN)
+**Verdict: `shadow_verdict = PASS`** (onafhankelijk geverifieerd op prod shaunum). De laatste FAIL-schakel (QC = 0 records) is gefixt door CLI-R.
+- **Root cause:** `frontend/lib/ai/client.ts` `useGateway`-trap — stale `VERCEL_OIDC_TOKEN` forceerde AI-gateway-pad mét lege `AI_GATEWAY_API_KEY` → `/api/youtube/quality/assess` gaf HTTP 502. **Fix:** geldige `ANTHROPIC_API_KEY` in frontend `.env.local`, geen OIDC/GATEWAY → direct anthropic-pad. CLI-R: geïsoleerde worktree @ origin/main `9ccdbb3`, `npm ci` + `next dev`, curl QC → **HTTP 200**.
+- **Verdict-query:** video_projects=36 · **qc_scores=1** · upload_inserts=0 · attribution=0 · learning=0 · approved=false · queue_id=null · latest_status=rework_required.
+- **Nuance (correct gedrag):** `gate_passed=false` / CQI 52 → QC-gate weigert terecht zwakke content (status max `quality_checked`, nooit approved/upload). PASS = "keten werkt + gate houdt", niet "video is goed".
+- **Scope 🟢 = shadow-keten** (Topic→Script→Scenes→Visuals→Voice→Music→Thumbnail→Render→QC-gate). Attributie + learning-loop blijven 0 = bewust post-publish, gated tot echte upload (`CF2_PUBLISH=1`).
+- **PR #148:** reeds gemerged 2026-06-09 10:32 CEST door Orlando's eigen account `oamatiskak-star` (commit `9a1de2f0`) — géén build-freeze-schending tijdens de validatie. Merge past geen migraties toe op prod; prod heeft alleen de gedocumenteerde additieve CF2.x-serie.
+- **Dispatch:** `hermes.dispatch_queue` id `b906fb74` (target cli-r) = done; ping `osm_terminal_commands` id `99d0c100` = done.
+
+---
+
 ## 🎯 HUIDIGE FOCUS (2026-06-11 — CLI-L: Media Factory End-to-End Closure)
 **Doel:** Media Factory autonoom (CEO Minutes/Day < 20) + één Command Center. Plan: `~/.claude/plans/glittery-swimming-sparkle.md`; audit live bewezen (geheugen `project_media_factory_closure`).
 **Beslissingen:** CF2 = enige pipeline of record (oude `youtube_upload_queue` uitfaseren); volautomatisch publiek met CQI/QC-gate als poortwachter.

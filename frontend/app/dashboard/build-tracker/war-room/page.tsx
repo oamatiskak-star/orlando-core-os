@@ -14,6 +14,8 @@ import ActivityFeed from '@/components/build-war-room/roadmap/ActivityFeed'
 import DependencyOverview from '@/components/build-war-room/roadmap/DependencyOverview'
 import IncidentLifecycle from '@/components/build-war-room/roadmap/IncidentLifecycle'
 import RevenueLayer from '@/components/build-war-room/roadmap/RevenueLayer'
+import AttentionItems from '@/components/build-war-room/roadmap/AttentionItems'
+import AutoRefresh from '@/components/build-war-room/roadmap/AutoRefresh'
 
 export const dynamic = 'force-dynamic'
 
@@ -26,7 +28,7 @@ export default async function RoadmapCommandCenterPage() {
   const supabase = await createClient()
   const slug = await getActiveCompanyId()
 
-  const [health, minutes, cert, completion, projects, blockers, milestones, agenda, items, activity, incidents, revPosition, revByEntity] = await Promise.all([
+  const [health, minutes, cert, completion, projects, blockers, milestones, agenda, items, activity, incidents, revPosition, revByEntity, attention, minutesTrend, certStreak] = await Promise.all([
     supabase.from('v_ceo_system_health').select('*'),
     supabase.from('v_ceo_minutes_daily').select('*').maybeSingle(),
     supabase.from('v_media_factory_certification').select('*').maybeSingle(),
@@ -40,6 +42,9 @@ export default async function RoadmapCommandCenterPage() {
     supabase.from('infra_watchdog_incidents').select('service_name,service_type,failure_kind,failure_summary,proposed_actions,status,opened_at,resolved_at,incident_kind').order('opened_at', { ascending: false }).limit(20),
     supabase.from('v_ceo_revenue_position').select('*').maybeSingle(),
     supabase.from('v_ceo_revenue_by_entity').select('*'),
+    supabase.from('v_ceo_attention').select('*'),
+    supabase.from('v_ceo_minutes_trend').select('day,ceo_minutes').order('day', { ascending: true }),
+    supabase.from('v_ceo_certification_streak').select('*').maybeSingle(),
   ])
 
   const proj = (projects.data ?? []) as Proj[]
@@ -66,14 +71,21 @@ export default async function RoadmapCommandCenterPage() {
 
   return (
     <div className="space-y-3">
+      {/* CEO-OS glazen wand — live auto-refresh */}
+      <div className="flex items-center justify-end">
+        <AutoRefresh intervalSec={30} />
+      </div>
       {/* CEO-OS kern: minuten + certificering (holding-breed) */}
       <div className="grid gap-3 lg:grid-cols-2">
-        <CeoMinutesGauge data={minutes.data as never} />
-        <CertificationCard data={cert.data as never} />
+        <CeoMinutesGauge data={minutes.data as never} trend={(minutesTrend.data ?? []) as never} />
+        <CertificationCard data={cert.data as never} streak={certStreak.data as never} />
       </div>
 
       {/* operationele gezondheid (holding-breed) */}
       <SystemHealthBoard data={(health.data ?? []) as never} />
+
+      {/* aandachtspunten — gesloten keten (echt probleem? root cause? mens nodig?) */}
+      <AttentionItems rows={(attention.data ?? []) as never} />
 
       {/* strategie (per actieve entiteit) */}
       <ExecutiveStatusBar

@@ -25,6 +25,9 @@ import { uploadVideoToStorage } from './lib/storage'
 
 type Mode = 'prepared' | 'live'
 const MODE: Mode = (process.env.CF2_PRODUCER_MODE as Mode) || 'prepared'
+const ENGINE_KEY = 'content:cf2-video-projects-runner'   // Engine Planner-key (mig 206)
+const LOOP_INTERVAL_MS = Number(process.env.CF2_PRODUCER_INTERVAL_MS) || 600_000   // 10 min
+const LOOP_LIMIT = Number(process.env.CF2_PRODUCER_LIMIT) || 3
 const OLLAMA_URL = process.env.OLLAMA_URL || 'http://localhost:11434'
 const LM_STUDIO_URL = process.env.LM_STUDIO_URL || 'http://localhost:1234'
 const OLLAMA_MODEL = process.env.OLLAMA_MODEL || 'llama3.2'
@@ -48,6 +51,17 @@ function db(): SupabaseClient {
   return createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!, {
     auth: { persistSession: false, autoRefreshToken: false },
   })
+}
+
+/** Engine Planner = single source of truth. De producer-loop draait alleen wanneer het
+ *  venster van engine 'content:cf2-video-projects-runner' open is (mig 206 enabled, blok
+ *  'content' 18:30-22:00). Fail-open als de RPC faalt (planner zelf is dan de gate via flag). */
+async function engineWindowOpen(client: SupabaseClient, key = ENGINE_KEY): Promise<boolean> {
+  try {
+    const { data, error } = await client.rpc('engine_window_open', { p_engine_key: key })
+    if (error) { log(`engine_window_open RPC fout (${error.message}) — fail-open`); return true }
+    return data !== false
+  } catch (e) { log(`engine_window_open exception (${String((e as Error).message ?? e)}) — fail-open`); return true }
 }
 
 /** Lokale-first health: pingt Ollama + LM Studio (read-only, geen spend). */
@@ -217,9 +231,41 @@ export async function runCf2Producer(limit = 3): Promise<{ mode: Mode; health: {
   return { mode: MODE, health, processed, pending: pending ?? 0 }
 }
 
-// Alleen draaien bij expliciete opt-in. Geen auto-start.
-if (require.main === module && process.env.CF2_PRODUCER_RUN === '1') {
-  runCf2Producer(Number(process.env.CF2_PRODUCER_LIMIT) || 3)
-    .then((r) => { console.log('[cf2-producer]', JSON.stringify(r)); process.exit(0) })
-    .catch((e) => { console.error('[cf2-producer] error', e); process.exit(1) })
+/**
+ * SCHEDULER-DRIVEN loop (Sprint B). Draait persistent onder PM2; produceert autonoom
+ * zodra de Engine Planner het venster opent (engine 'content:cf2-video-projects-runner').
+ * Geen operator-actie meer nodig: growth/winner seeden cf2_jobs, deze loop verwerkt ze.
+ * Niet-overlappend (één run tegelijk). Stopt nooit uit zichzelf (PM2 autorestart).
+ */
+let loopBusy = false
+export async function runCf2ProducerLoop(): Promise<void> {
+  const client = db()
+  log(`loop gestart — mode=${MODE} · interval=${LOOP_INTERVAL_MS / 1000}s · limit=${LOOP_LIMIT} · engine=${ENGINE_KEY}`)
+  const tick = async () => {
+    if (loopBusy) { log('vorige tick nog bezig — sla over'); return }
+    loopBusy = true
+    try {
+      if (!(await engineWindowOpen(client))) { log('engine-venster dicht — wacht'); return }
+      await runCf2Producer(LOOP_LIMIT)
+    } catch (e) {
+      log(`tick fout: ${String((e as Error).message ?? e)}`)
+    } finally {
+      loopBusy = false
+    }
+  }
+  await tick()
+  setInterval(tick, LOOP_INTERVAL_MS)
+}
+
+// Entrypoints:
+//   CF2_PRODUCER_LOOP=1  -> persistent scheduler-loop (PM2, autonoom; planner-gated)
+//   CF2_PRODUCER_RUN=1   -> eenmalige run (handmatig testen; niet planner-gated)
+if (require.main === module) {
+  if (process.env.CF2_PRODUCER_LOOP === '1') {
+    runCf2ProducerLoop().catch((e) => { console.error('[cf2-producer] loop fatal', e); process.exit(1) })
+  } else if (process.env.CF2_PRODUCER_RUN === '1') {
+    runCf2Producer(LOOP_LIMIT)
+      .then((r) => { console.log('[cf2-producer]', JSON.stringify(r)); process.exit(0) })
+      .catch((e) => { console.error('[cf2-producer] error', e); process.exit(1) })
+  }
 }

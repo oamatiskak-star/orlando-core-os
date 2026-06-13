@@ -6,6 +6,8 @@ export type ProgramCategory =
   | 'finance_crypto'
   | 'vastgoed_data'
   | 'affiliate_network'
+  | 'marketplace'
+  | 'maker_hardware'
   | 'other'
 
 export type AccountStatus =
@@ -123,7 +125,99 @@ export const CATEGORY_LABEL: Record<ProgramCategory, string> = {
   finance_crypto: 'Finance / Investing / Crypto',
   vastgoed_data: 'Vastgoed / Data',
   affiliate_network: 'Affiliate Networks',
+  marketplace: 'Marketplace',
+  maker_hardware: 'Maker / Hardware',
   other: 'Overig',
+}
+
+// ── Activation Center (migratie 209) ────────────────────────────────────────
+// Vereenvoudigde 5-staps activatiestatus voor het command-center, afgeleid uit
+// account_status + approval_status. Mission Fase 1.
+export type ActivationStatus =
+  | 'NOT_STARTED'
+  | 'PENDING'
+  | 'APPROVED'
+  | 'ACTIVE'
+  | 'BLOCKED'
+
+export function mapActivationStatus(
+  accountStatus: AccountStatus,
+  approvalStatus?: string | null,
+): ActivationStatus {
+  switch (accountStatus) {
+    case 'active':
+    case 'payout_active':
+      return 'ACTIVE'
+    case 'approved':
+      return 'APPROVED'
+    case 'applied':
+    case 'pending':
+      return approvalStatus === 'approved' ? 'APPROVED' : 'PENDING'
+    case 'rejected':
+    case 'suspended':
+      return 'BLOCKED'
+    case 'not_started':
+    default:
+      return 'NOT_STARTED'
+  }
+}
+
+// v_affiliate_activation_center — één rij per programma (Fase 1).
+export type ActivationRow = {
+  id: string
+  company_id: string | null
+  name: string
+  category: ProgramCategory
+  account_status: AccountStatus
+  approval_status: string | null
+  login_status: LoginStatus
+  tier: number | null
+  avg_epc: number | null
+  rpm_equiv: number | null
+  cookie_days: number | null
+  recurring: boolean | null
+  audience_fit_score: number | null
+  affiliate_link: string | null
+  referral_code: string | null
+  url: string | null
+  best_channel_name: string | null
+  best_est_epc: number | null
+  best_priority: number | null
+  revenue_potential: number | null
+  open_human_actions: number
+  active_runs: number
+  is_priority: boolean
+}
+
+// v_affiliate_first_euro — single-row rollup (Fase 6).
+export type FirstEuroRow = {
+  active_programs: number
+  clicks: number
+  leads: number
+  sales: number
+  commission_eur: number
+  revenue_eur: number
+  best_channel: string | null
+  best_affiliate: string | null
+  has_first_click: boolean
+  has_first_lead: boolean
+  has_first_sale: boolean
+  has_first_commission: boolean
+  has_first_euro: boolean
+}
+
+// v_affiliate_program_performance — per-programma omzetrij (Fase 6 detail).
+export type ProgramPerformanceRow = {
+  program_id: string
+  program_name: string
+  category: string | null
+  account_status: AccountStatus
+  registry_epc: number | null
+  clicks: number
+  conversions: number
+  confirmed: number
+  revenue_eur: number
+  actual_epc: number
 }
 
 export const ACCOUNT_STATUS_LABEL: Record<AccountStatus, string> = {

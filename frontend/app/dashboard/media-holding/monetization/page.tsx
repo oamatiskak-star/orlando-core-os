@@ -3,10 +3,13 @@
 import { useState } from 'react'
 import MonetizationView from './MonetizationView'
 import AffiliateEngineView from '../affiliate-engine/page'
+import RevenueBreakdownView from './RevenueBreakdownView'
 
-// Samengevoegd: Monetization (revenue-streams) + Affiliate Engine (deep-dive) in één pagina.
+// Samengevoegd: Monetization (revenue-streams) + Per niche & video (attributie)
+// + Affiliate Engine (deep-dive) in één pagina.
 const TABS = [
   { key: 'overzicht', label: 'Overzicht & Streams' },
+  { key: 'breakdown', label: 'Per niche & video' },
   { key: 'affiliate', label: 'Affiliate Deep-dive' },
 ] as const
 
@@ -29,7 +32,7 @@ export default function RevenuePage() {
           </button>
         ))}
       </div>
-      {tab === 'overzicht' ? <MonetizationView /> : <AffiliateEngineView />}
+      {tab === 'overzicht' ? <MonetizationView /> : tab === 'breakdown' ? <RevenueBreakdownView /> : <AffiliateEngineView />}
     </div>
   )
 }
