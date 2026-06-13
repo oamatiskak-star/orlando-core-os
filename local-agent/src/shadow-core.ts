@@ -9,6 +9,7 @@ import { selectMusic } from './lib/music-intelligence'
 import { generateThumbnails } from './lib/thumbnail-intelligence'
 import { renderProject } from './lib/render'
 import { assessQuality } from './quality-assess'
+import { loadChannelStrategy } from './lib/channel-strategy'
 import * as spine from './lib/video-projects'
 
 /**
@@ -50,9 +51,13 @@ export interface ShadowResult {
 }
 
 export async function runShadowTopic(o: ShadowOpts): Promise<ShadowResult> {
+  // CF2-repair: kanaal-strategie laden (niche/topics/own_cta) zodat de generatie niche-conform
+  // is en de eigen CTA injecteert. Fail-open: geen strategy → gedraagt zich als voorheen.
+  const strategy = await loadChannelStrategy(o.channelId)
+
   // 1. Script (lokale LLM, ai.ts)
   const content = await generateContent({
-    channel_name:    o.niche ?? 'Aquier',
+    channel_name:    strategy?.niche ?? o.niche ?? 'Aquier',
     topic:           o.topic,
     video_type:      o.format === '9:16' ? 'short' : 'longform',
     language:        o.language,
@@ -60,6 +65,8 @@ export async function runShadowTopic(o: ShadowOpts): Promise<ShadowResult> {
     target_seconds:  o.targetSeconds,
     ollama_model:    o.ollamaModel,
     lm_studio_model: o.lmStudioModel,
+    channel_topics:  strategy?.topics ?? [],
+    own_cta_options: strategy?.own_cta ?? [],
   })
 
   // 2. Spine: project (status 'draft')
