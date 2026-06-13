@@ -11,7 +11,9 @@
     "cf2:producer": "node dist/cf2-producer.js",
     "cf2:producer:loop": "CF2_PRODUCER_LOOP=1 CF2_PRODUCER_MODE=live CF2_PUBLISH=1 node dist/cf2-producer.js",
     "music:catalog": "node scripts/build-music-catalog.mjs",
-    "sync:tracker": "ts-node src/build-tracker-sync.ts"
+    "sync:tracker": "ts-node src/build-tracker-sync.ts",
+    "affiliate:discovery": "AFFILIATE_DISCOVERY_RUN=1 node dist/affiliate-discovery.js",
+    "affiliate:discovery:loop": "AFFILIATE_DISCOVERY_LOOP=1 node dist/affiliate-discovery.js"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.45.0",
