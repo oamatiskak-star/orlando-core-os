@@ -71,5 +71,20 @@ module.exports = {
         CF2_PRODUCER_LIMIT: '3',
       },
     },
+    {
+      // Affiliate Discovery — continue, config-gedreven crawler over affiliate_api_connectors.
+      // Gated via Engine Planner ('affiliate:discovery', blok acq_ai). Slaat connectors zonder
+      // credential over (geen mock). Draait alleen als enabled-connectors bestaan.
+      name:        'affiliate-discovery',
+      script:      'dist/affiliate-discovery.js',
+      instances:   1,
+      autorestart: true,
+      watch:       false,
+      env:         {
+        NODE_ENV:                       'production',
+        AFFILIATE_DISCOVERY_LOOP:       '1',
+        AFFILIATE_DISCOVERY_INTERVAL_MS: '21600000',
+      },
+    },
   ],
 }
