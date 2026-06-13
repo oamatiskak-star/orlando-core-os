@@ -1,6 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useRef, useState } from 'react'
+import Link from 'next/link'
 import { Zap, ChevronDown, ChevronRight, Loader2, Link2, Power } from 'lucide-react'
 import clsx from 'clsx'
 import { ActivationStatusBadge } from '@/lib/affiliate-programs/badges'
@@ -100,10 +101,12 @@ export default function ActivationTable({ initialRows }: { initialRows: Activati
         return (
           <div key={r.id} className="border-b border-white/5 last:border-0">
             <div className="grid grid-cols-2 md:grid-cols-[1.6fr_0.9fr_0.5fr_0.5fr_0.6fr_0.7fr_1fr_0.9fr_auto] gap-2 px-4 py-3 items-center text-xs">
-              <button onClick={() => setExpanded(isOpen ? null : r.id)} className="flex items-center gap-1.5 text-left min-w-0">
-                {isOpen ? <ChevronDown size={13} className="text-white/40 shrink-0" /> : <ChevronRight size={13} className="text-white/40 shrink-0" />}
-                <span className="font-semibold text-white truncate">{r.name}</span>
-              </button>
+              <span className="flex items-center gap-1.5 min-w-0">
+                <button onClick={() => setExpanded(isOpen ? null : r.id)} className="shrink-0 text-white/40 hover:text-white">
+                  {isOpen ? <ChevronDown size={13} /> : <ChevronRight size={13} />}
+                </button>
+                <Link href={`/dashboard/account-setup/activation/${r.id}`} className="font-semibold text-white truncate hover:text-violet-300">{r.name}</Link>
+              </span>
               <span><ActivationStatusBadge status={status} size="xs" /></span>
               <span className="text-right tabular-nums text-white/70">{r.tier ?? '—'}</span>
               <span className="text-right tabular-nums text-white/70">{r.rpm_equiv ?? '—'}</span>
