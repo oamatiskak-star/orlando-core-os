@@ -67,6 +67,7 @@ type BusinessProfile = {
   legal_name: string | null; trade_name: string | null; kvk_number: string | null; vat_number: string | null
   address: string | null; postal_code: string | null; city: string | null; country: string | null
   website: string | null; contact_email: string | null; contact_phone: string | null; iban: string | null
+  short_pitch: string | null; business_description: string | null
 }
 
 type StepKind =
@@ -128,7 +129,7 @@ async function loadProgram(programId: string): Promise<ProgramRow | null> {
 }
 async function loadBusinessProfile(companyId: string): Promise<BusinessProfile | null> {
   const { data } = await db.from('business_profiles')
-    .select('legal_name, trade_name, kvk_number, vat_number, address, postal_code, city, country, website, contact_email, contact_phone, iban')
+    .select('legal_name, trade_name, kvk_number, vat_number, address, postal_code, city, country, website, contact_email, contact_phone, iban, short_pitch, business_description')
     .eq('company_id', companyId).maybeSingle()
   return (data as BusinessProfile) ?? null
 }
@@ -148,6 +149,8 @@ function resolveSource(source: string, bp: BusinessProfile | null, password: str
     const val = bp?.[key]
     return val && String(val).trim() !== '' ? String(val) : null
   }
+  // literal:<waarde> — vaste waarde uit de field-map (bv. voornaam/land), niet uit een bron
+  if (source.startsWith('literal:')) { const v = source.slice('literal:'.length); return v.trim() !== '' ? v : null }
   return null
 }
 
