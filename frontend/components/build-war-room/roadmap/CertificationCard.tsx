@@ -20,9 +20,12 @@ const CRITERIA: { key: keyof Cert; label: string }[] = [
   { key: 'c10_low_escalation', label: 'Alleen echte escalaties' },
 ]
 
-export default function CertificationCard({ data }: { data: Cert | null }) {
+type Streak = { green_streak_days: number; last_green_day: string | null; green_today: boolean; days_tracked: number }
+
+export default function CertificationCard({ data, streak }: { data: Cert | null; streak?: Streak | null }) {
   const certified = data?.status === 'CERTIFIED'
   const passed = data ? CRITERIA.filter((c) => data[c.key] === true).length : 0
+  const sd = Math.min(7, streak?.green_streak_days ?? 0)
   return (
     <div className="rounded-lg border border-white/5 bg-[#0e1525] p-4">
       <div className="flex items-center justify-between">
@@ -33,6 +36,20 @@ export default function CertificationCard({ data }: { data: Cert | null }) {
         </span>
       </div>
       <div className="mt-1 text-xs text-white/45">{passed}/10 criteria groen · "kan ik 7 dagen niets doen?"</div>
+
+      {/* 7-dagen-streak richting certificering */}
+      <div className="mt-2 flex items-center gap-2">
+        <div className="flex gap-0.5">
+          {Array.from({ length: 7 }).map((_, i) => (
+            <span key={i} className="h-2 w-3 rounded-sm" style={{ background: i < sd ? '#22c55e' : '#ffffff14' }} />
+          ))}
+        </div>
+        <span className="text-[10px] text-white/45">
+          {streak?.green_streak_days ?? 0}/7 dagen aaneengesloten groen
+          {!streak?.green_today && (streak?.days_tracked ?? 0) > 0 && <span className="text-white/30"> · vandaag niet</span>}
+          {streak?.last_green_day && <span className="text-white/30"> · laatst {new Date(streak.last_green_day).toLocaleDateString('nl-NL', { day: 'numeric', month: 'short' })}</span>}
+        </span>
+      </div>
       <div className="mt-2 grid grid-cols-1 gap-1 sm:grid-cols-2">
         {CRITERIA.map((c) => {
           const pass = data?.[c.key] === true
