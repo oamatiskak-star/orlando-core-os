@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { Layers, AlertCircle, Wallet, CheckCircle2, Clock } from 'lucide-react'
+import { Layers, AlertCircle, Wallet, CheckCircle2, Clock, Zap } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
 import { getActiveCompany } from '@/lib/active-company-server'
 import { KpiStrip, type Kpi } from '@/components/executive/KpiStrip'
@@ -58,6 +58,20 @@ export default async function AccountSetupHubPage() {
   return (
     <div className="space-y-5">
       <KpiStrip items={kpis} />
+
+      <Link
+        href="/dashboard/account-setup/activation"
+        className="flex items-center justify-between gap-3 rounded-xl border border-violet-500/25 bg-violet-500/[0.08] px-4 py-3 hover:bg-violet-500/[0.14] transition-colors"
+      >
+        <div className="flex items-center gap-2.5">
+          <Zap size={16} className="text-violet-300" />
+          <div>
+            <p className="text-[13px] font-semibold text-white">Affiliate Activation Center</p>
+            <p className="text-[10px] text-white/50">Eén klik — Hermes activeert alles wat technisch kan. Prioriteit: xTool, Bambu, Amazon, TradingView, Binance, HubSpot.</p>
+          </div>
+        </div>
+        <span className="text-[11px] text-violet-200/80">Openen →</span>
+      </Link>
 
       {total === 0 ? (
         <div className="bg-white/[0.04] rounded-xl border border-white/[0.06] py-12 text-center">
