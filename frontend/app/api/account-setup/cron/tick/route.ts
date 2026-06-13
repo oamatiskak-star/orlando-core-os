@@ -35,6 +35,8 @@ export async function GET(req: NextRequest) {
   let remindersCreated = 0
   let verificationsFlagged = 0
   let payoutsExpected = 0
+  let readinessActions = 0
+  let recommendations = 0
 
   try {
     // Programma's met open human-actions (om duplicaten te vermijden)
@@ -125,8 +127,15 @@ export async function GET(req: NextRequest) {
       })
     }
 
-    await reportHeartbeat('account-setup-cron-tick', { remindersCreated, verificationsFlagged, payoutsExpected }, 'ok')
-    return NextResponse.json({ ok: true, remindersCreated, verificationsFlagged, payoutsExpected })
+    // 4) Affiliate activation: MANUAL-detectie + per-kanaal aanbevelingen verversen.
+    //    Engine-Planner-conform: draait mee op deze bestaande cron (geen losse job).
+    const readiness = await admin.rpc('affiliate_setup_readiness')
+    if (!readiness.error) readinessActions = Number(readiness.data ?? 0)
+    const recs = await admin.rpc('generate_affiliate_recommendations', { p_top: 3 })
+    if (!recs.error) recommendations = Number(recs.data ?? 0)
+
+    await reportHeartbeat('account-setup-cron-tick', { remindersCreated, verificationsFlagged, payoutsExpected, readinessActions, recommendations }, 'ok')
+    return NextResponse.json({ ok: true, remindersCreated, verificationsFlagged, payoutsExpected, readinessActions, recommendations })
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err)
     await reportHeartbeat('account-setup-cron-tick', { error: msg }, 'error')

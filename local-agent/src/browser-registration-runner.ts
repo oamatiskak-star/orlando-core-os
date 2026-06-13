@@ -20,6 +20,13 @@
  * GEEN mock: ontbrekende field-map of business-gegevens → expliciete human-action,
  * nooit verzonnen waarden. Wachtwoorden alleen in de credentialstore (notes),
  * nooit in step-output/audit/logs; type=password maskeert visueel in screenshots.
+ *
+ * AUTO-SUBMIT (mission): per-run via payload.auto_submit=true, globaal gated door env
+ * BROWSER_REG_AUTO_SUBMIT (default uit). Wanneer actief verstuurt de runner de externe
+ * affiliate-aanvraag ZELF — een onomkeerbare, naar-buiten-gerichte actie — en logt elke
+ * stap in account_setup_audit_log (browser.auto_submit.*). Veiligheidsklep: bij een
+ * CAPTCHA/2FA/anti-bot-challenge óf ontbrekende gegevens valt hij automatisch terug op de
+ * menselijke goedkeur-gate; hij verzendt nooit met incomplete data.
  */
 import 'dotenv/config'
 import { randomBytes } from 'crypto'
@@ -39,6 +46,9 @@ const SERVICE_HEARTBEAT_MS      = parseInt(process.env.BROWSER_REG_SERVICE_HEART
 const RUN_HEARTBEAT_MS          = parseInt(process.env.BROWSER_REG_RUN_HEARTBEAT_MS ?? '30000')
 const APPROVAL_POLL_MS          = parseInt(process.env.BROWSER_REG_APPROVAL_POLL_MS ?? '3000')
 const APPROVAL_TIMEOUT_MS       = parseInt(process.env.BROWSER_REG_APPROVAL_TIMEOUT_MS ?? `${2 * 60 * 60 * 1000}`)
+// Globale kill-switch voor auto-submit. Per-run wordt het pas actief als ook
+// payload.auto_submit=true is. Default uit → bestaand gedrag (menselijke gate) blijft.
+const AUTO_SUBMIT_ENABLED       = (process.env.BROWSER_REG_AUTO_SUBMIT ?? 'false').toLowerCase() === 'true'
 
 if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
   console.error('Browser-reg runner: SUPABASE_URL en SUPABASE_SERVICE_ROLE_KEY zijn verplicht.')
@@ -186,8 +196,10 @@ async function awaitApproval(
   }
 }
 
+type FillResult = 'filled' | 'missing' | 'no_selector' | 'failed'
+
 // ── één veld invullen (skip + human-action als bron of selector ontbreekt) ──
-async function fillField(page: Page, runId: string, programId: string, fd: FieldDescriptor, bp: BusinessProfile | null, password: string): Promise<void> {
+async function fillField(page: Page, runId: string, programId: string, fd: FieldDescriptor, bp: BusinessProfile | null, password: string): Promise<FillResult> {
   const value = resolveSource(fd.source, bp, password)
   if (value === null) {
     await recordStep(runId, 'fill_field', 'skipped', { field: fd.field, reason: 'bron leeg (nog invullen)' })
@@ -197,12 +209,12 @@ async function fillField(page: Page, runId: string, programId: string, fd: Field
       description: `Bron ${fd.source} is leeg. Vul dit in bij business_profiles of handmatig in de browser.`,
       status: 'open', metadata: { field: fd.field, source: fd.source },
     })
-    return
+    return 'missing'
   }
   const selector = await firstAvailable(page, fd.selectors)
   if (!selector) {
     await recordStep(runId, 'fill_field', 'skipped', { field: fd.field, reason: 'selector niet gevonden op pagina' })
-    return
+    return 'no_selector'
   }
   try {
     if (fd.strategy === 'fill') await page.locator(selector).first().fill(value)
@@ -212,9 +224,29 @@ async function fillField(page: Page, runId: string, programId: string, fd: Field
     await recordStep(runId, 'fill_field', 'completed', {
       field: fd.field, selector, value: fd.sensitive ? '***' : value,
     })
+    return 'filled'
   } catch (e) {
     await recordStep(runId, 'fill_field', 'failed', { field: fd.field, selector }, { message: (e as Error).message })
+    return 'failed'
   }
+}
+
+/**
+ * Detecteer een menselijke challenge die auto-submit onveilig maakt: CAPTCHA-iframes
+ * (reCAPTCHA/hCaptcha/Turnstile) of een OTP/2FA-invoer. Niet gevonden → null.
+ */
+async function detectBlockers(page: Page): Promise<string | null> {
+  const captchaSelectors = [
+    'iframe[src*="recaptcha"]', 'iframe[src*="hcaptcha"]', 'iframe[src*="turnstile"]',
+    'iframe[title*="captcha" i]', 'div.g-recaptcha', 'div.h-captcha', 'div.cf-turnstile',
+  ]
+  for (const sel of captchaSelectors) {
+    const n = await page.locator(sel).count().catch(() => 0)
+    if (n > 0) return 'captcha'
+  }
+  const otp = await page.locator('input[autocomplete="one-time-code"], input[name*="otp" i], input[name*="2fa" i], input[type="tel"][maxlength="6"]').count().catch(() => 0)
+  if (otp > 0) return '2fa'
+  return null
 }
 
 /**
@@ -291,6 +323,12 @@ async function executeRun(run: RunRow): Promise<void> {
     const password = generatePassword()
     await storeCredentials(program, password)
 
+    // Auto-submit alleen als de run het vraagt ÉN de globale kill-switch aan staat.
+    const payload = (run.payload ?? {}) as Record<string, unknown>
+    const autoSubmit = AUTO_SUBMIT_ENABLED && payload.auto_submit === true
+    let missingData = 0
+    if (autoSubmit) await audit(program.id, run.id, 'browser.auto_submit.enabled', { service: SERVICE_ID })
+
     browser = await chromium.launch({ headless: false, args: ['--start-maximized'] })
     const context = await browser.newContext({ viewport: null })
     const page = await context.newPage()
@@ -300,25 +338,49 @@ async function executeRun(run: RunRow): Promise<void> {
     await recordStep(run.id, 'navigate', 'completed', { url: fieldMap.signup_url })
     await captureAndUpload(page, run.id, program.id, 'na navigeren')
 
-    // 2) velden invullen (niet-gated automatisch; gated vraagt eerst goedkeuring)
+    // 2) velden invullen (niet-gated automatisch; gated vraagt goedkeuring tenzij auto-submit)
     for (const fd of fieldMap.fields) {
       if (fd.gated) {
         const shot = await captureAndUpload(page, run.id, program.id, `vóór gated veld ${fd.field}`)
-        const dec = await awaitApproval(run.id, program.id, 'approve_action',
-          `Goedkeuren: veld ${fd.field}`, `Agent wil ${fd.field} invullen. Goedkeuren om door te gaan.`, shot)
-        if (dec === 'rejected') { await finishCancelled(run.id, program.id, 'gated veld afgewezen'); return }
+        if (autoSubmit) {
+          await recordStep(run.id, 'await_approval', 'skipped', { field: fd.field, reason: 'auto_submit' })
+          await audit(program.id, run.id, 'browser.auto_submit.gated_field_skipped', { field: fd.field })
+        } else {
+          const dec = await awaitApproval(run.id, program.id, 'approve_action',
+            `Goedkeuren: veld ${fd.field}`, `Agent wil ${fd.field} invullen. Goedkeuren om door te gaan.`, shot)
+          if (dec === 'rejected') { await finishCancelled(run.id, program.id, 'gated veld afgewezen'); return }
+        }
       }
-      await fillField(page, run.id, program.id, fd, bp, password)
+      const res = await fillField(page, run.id, program.id, fd, bp, password)
+      if (res === 'missing') missingData++
       await captureAndUpload(page, run.id, program.id, `na veld ${fd.field}`)
     }
 
-    // 3) submit-gate: agent vult, mens keurt verzending goed (CAPTCHA/2FA doe je hier in de echte browser)
+    // 3) submit-gate: mens keurt verzending goed — TENZIJ auto-submit veilig kan doorgaan.
     const preSubmitShot = await captureAndUpload(page, run.id, program.id, 'klaar om te verzenden')
-    const decision = await awaitApproval(run.id, program.id, 'approve_submit',
-      `Verzenden goedkeuren: ${program.name}`,
-      'Alle bekende velden zijn ingevuld. Doe eventueel CAPTCHA/2FA in het Chrome-venster op de Mac en keur daarna verzending goed.',
-      preSubmitShot)
-    if (decision === 'rejected') { await finishCancelled(run.id, program.id, 'verzending afgewezen'); return }
+    if (autoSubmit) {
+      // Veiligheidsklep: nooit auto-submitten met een challenge of incomplete data.
+      const blocker = await detectBlockers(page)
+      const reason = blocker ?? (missingData > 0 ? 'incomplete_data' : null)
+      if (reason) {
+        await audit(program.id, run.id, 'browser.auto_submit.fallback_human', { reason, fields_missing: missingData })
+        const decision = await awaitApproval(run.id, program.id, 'approve_submit',
+          `Verzenden goedkeuren: ${program.name}`,
+          `Auto-submit kon niet veilig doorgaan (${reason}). Los CAPTCHA/2FA op of vul ontbrekende gegevens aan in het Chrome-venster en keur daarna verzending goed.`,
+          preSubmitShot)
+        if (decision === 'rejected') { await finishCancelled(run.id, program.id, 'verzending afgewezen'); return }
+      } else {
+        // Onomkeerbare, naar-buiten-gerichte actie — expliciet in de audit-log.
+        await audit(program.id, run.id, 'browser.auto_submit.submitting', { final_url_before: page.url(), fields_missing: missingData })
+        await recordStep(run.id, 'await_approval', 'skipped', { reason: 'auto_submit' })
+      }
+    } else {
+      const decision = await awaitApproval(run.id, program.id, 'approve_submit',
+        `Verzenden goedkeuren: ${program.name}`,
+        'Alle bekende velden zijn ingevuld. Doe eventueel CAPTCHA/2FA in het Chrome-venster op de Mac en keur daarna verzending goed.',
+        preSubmitShot)
+      if (decision === 'rejected') { await finishCancelled(run.id, program.id, 'verzending afgewezen'); return }
+    }
 
     // 4) submit
     const submitSel = await firstAvailable(page, fieldMap.submit_selectors)
@@ -340,7 +402,7 @@ async function executeRun(run: RunRow): Promise<void> {
       await db.from('affiliate_programs').update({
         account_status: 'applied', login_status: 'created', last_status_check_at: new Date().toISOString(),
       }).eq('id', program.id)
-      await audit(program.id, run.id, 'browser.registration_submitted', { final_url: url })
+      await audit(program.id, run.id, 'browser.registration_submitted', { final_url: url, auto_submit: autoSubmit })
     } else {
       await db.from('account_setup_human_actions').insert({
         program_id: program.id, run_id: run.id, action_kind: 'manual_review',
