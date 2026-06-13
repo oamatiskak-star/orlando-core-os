@@ -37,6 +37,21 @@ async function callOllama(prompt: string, model: string): Promise<string> {
   return res.data.response as string
 }
 
+// Cloud-route (publish-grade): claude.sonnet via Anthropic API. Zelfde model als de QC →
+// content geoptimaliseerd voor de QC-criteria. Gebruikt bij CONTENT_MODEL=claude.
+const USE_CLAUDE = process.env.CONTENT_MODEL === 'claude' && !!process.env.ANTHROPIC_API_KEY
+async function callClaude(prompt: string): Promise<string> {
+  const res = await axios.post('https://api.anthropic.com/v1/messages', {
+    model: process.env.CONTENT_CLAUDE_MODEL || 'claude-sonnet-4-6',
+    max_tokens: 4096,
+    messages: [{ role: 'user', content: prompt }],
+  }, {
+    headers: { 'x-api-key': process.env.ANTHROPIC_API_KEY!, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },
+    timeout: 120_000,
+  })
+  return (res.data?.content?.[0]?.text ?? '') as string
+}
+
 // Dutch words that virtually never appear in English text
 const DUTCH_PATTERN = /\b(voor|naar|van|bij|zijn|wordt|worden|hebben|maar|ook|dan|als|met|aan|wat|hoe|dit|dat|zo|jouw|mijn|ons|onze|beste|welke|werd|waren|zou|zal|kan|mag|moet|geen|wel|nog|toch|door|over|onder|boven|naast|tussen|buiten|binnen|tijdens|hierbij|hierdoor|hiervan|hierin|hiermee|daarmee|daarin|daarvoor|daarna|waarmee|waarbij|wanneer|terwijl|omdat|indien|hoewel|echter|tevens|namelijk|immers)\b/gi
 
@@ -89,6 +104,13 @@ Stijl: ${payload.style}
 Kanaal: ${payload.channel_name}
 Taal: Nederlands
 
+KWALITEITSEISEN (verplicht — anders wordt de video afgekeurd door de QC):
+- HOOK: GEEN cliché/versleten fear-zin ("inflatie vernietigt je spaargeld", "wist je dat..."). Open met een CONCREET getal/percentage/bedrag of een controversiële/verrassende stelling die een curiosity-gap opent.
+- RETENTIE: onthul NOOIT het antwoord/de opties in de eerste 15s. Bouw een open loop ("3 opties — de derde verbaast 9 van de 10 beleggers") en los pas later op.
+- CONCREETHEID: gebruik echte cijfers, rendementen, jaartallen of cases — geen vage generieke uitspraken die op elke finance-video passen.
+- CTA: stuur naar een concrete Aquier-stap (dealcheck / adresscan / financieringsscan / rapport / Mandaat) — NOOIT "like & subscribe".
+- TITEL: concreet getal + spanning + differentiatie. GEEN generieke validatie-taal ("die echt werken", "die je moet kennen").
+
 Geef ALLEEN geldige JSON terug (geen markdown, geen code blocks):
 {
   "title": "pakkende SEO-titel max 70 tekens",
@@ -109,18 +131,18 @@ Geef ALLEEN geldige JSON terug (geen markdown, geen code blocks):
 
     let raw: string
     try {
-      if (USE_LM_STUDIO) {
+      if (USE_CLAUDE) {
+        raw = await callClaude(finalPrompt)
+      } else if (USE_LM_STUDIO) {
         raw = await callLMStudio(finalPrompt, payload.lm_studio_model)
       } else {
         raw = await callOllama(finalPrompt, payload.ollama_model)
       }
     } catch (primaryErr) {
-      console.warn('Primaire AI mislukt, fallback naar andere:', (primaryErr as Error).message)
-      if (USE_LM_STUDIO) {
-        raw = await callOllama(finalPrompt, payload.ollama_model)
-      } else {
-        raw = await callLMStudio(finalPrompt, payload.lm_studio_model)
-      }
+      console.warn('Primaire AI mislukt, fallback naar lokaal:', (primaryErr as Error).message)
+      raw = USE_LM_STUDIO
+        ? await callLMStudio(finalPrompt, payload.lm_studio_model)
+        : await callOllama(finalPrompt, payload.ollama_model)
     }
 
     // Extract JSON — strip markdown code blocks first

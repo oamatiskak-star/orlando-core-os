@@ -84,16 +84,21 @@ async function synthPiper(text: string, out: string): Promise<void> {
   const r = spawnSync(bin, args, { input: text, encoding: 'utf8' })
   if (r.status !== 0) throw new Error(`piper faalde: ${r.stderr ?? ''}`)
 }
+const OPENAI_TTS_VOICES = ['alloy', 'echo', 'fable', 'onyx', 'nova', 'shimmer', 'ash', 'sage', 'coral']
 async function synthOpenAi(text: string, out: string, voice: string): Promise<void> {
   const axios = (await import('axios')).default
+  // OpenAI accepteert alleen vaste stemnamen; map onbekende (bv. 'default'/edge-tts-naam) → 'onyx'.
+  const oaVoice = OPENAI_TTS_VOICES.includes(voice) ? voice : 'onyx'
   const res = await axios.post('https://api.openai.com/v1/audio/speech',
-    { model: process.env.OPENAI_TTS_MODEL || 'tts-1-hd', voice: voice || 'onyx', input: text },
+    { model: process.env.OPENAI_TTS_MODEL || 'tts-1-hd', voice: oaVoice, input: text },
     { headers: { Authorization: `Bearer ${process.env.OPENAI_API_KEY}` }, responseType: 'arraybuffer', timeout: 120_000 })
   fs.writeFileSync(out, Buffer.from(res.data))
 }
 async function synthElevenLabs(text: string, out: string, voiceId: string): Promise<void> {
   const axios = (await import('axios')).default
-  const res = await axios.post(`https://api.elevenlabs.io/v1/text-to-speech/${voiceId}`,
+  // 'default'/edge-tts-naam is geen geldige ElevenLabs voice-id → val terug op env of standaardstem.
+  const vid = /^[A-Za-z0-9]{20,}$/.test(voiceId) ? voiceId : (process.env.ELEVENLABS_VOICE_ID || '21m00Tcm4TlvDq8ikWAM')
+  const res = await axios.post(`https://api.elevenlabs.io/v1/text-to-speech/${vid}`,
     { text, model_id: 'eleven_multilingual_v2', voice_settings: { stability: 0.5, similarity_boost: 0.75 } },
     { headers: { 'xi-api-key': process.env.ELEVENLABS_API_KEY!, 'Content-Type': 'application/json', Accept: 'audio/mpeg' },
       responseType: 'arraybuffer', timeout: 120_000 })

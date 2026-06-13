@@ -25,7 +25,7 @@ export async function assessQuality(videoProjectId: string): Promise<QcResult> {
     const res = await axios.post(
       `${base.replace(/\/$/, '')}/api/youtube/quality/assess`,
       { video_project_id: videoProjectId },
-      { timeout: 60_000 },
+      { timeout: 180_000 },   // QC draait claude.sonnet (kan >60s) → ruim timeout, anders blocked_qc_route_unreachable
     )
     return {
       ok: true,
