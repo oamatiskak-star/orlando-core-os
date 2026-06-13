@@ -52,6 +52,26 @@ async function callClaude(prompt: string): Promise<string> {
   return (res.data?.content?.[0]?.text ?? '') as string
 }
 
+/**
+ * Claude (sonnet) beschikbaar als JSON-judge? Alleen op ANTHROPIC_API_KEY — onafhankelijk van
+ * CONTENT_MODEL (content-generatie kan lokaal blijven terwijl scoring via Claude loopt).
+ */
+export const CLAUDE_AVAILABLE = !!process.env.ANTHROPIC_API_KEY
+
+/**
+ * JSON-judge via claude.sonnet (dezelfde Anthropic-laag als generateContent). Parseert de JSON
+ * uit de respons. GOOIT bij ontbrekende key/onbereikbaar/ongeldige JSON — de caller valt dan
+ * expliciet terug op de lokale scorer (geen verzonnen score).
+ */
+export async function claudeJson(prompt: string): Promise<any> {
+  if (!CLAUDE_AVAILABLE) throw new Error('ANTHROPIC_API_KEY ontbreekt')
+  const raw = await callClaude(prompt)
+  const stripped = raw.replace(/```(?:json)?/g, '').replace(/```/g, '')
+  const m = stripped.match(/\{[\s\S]*\}/)
+  if (!m) throw new Error('claudeJson: geen JSON in respons')
+  return JSON.parse(m[0])
+}
+
 // Dutch words that virtually never appear in English text
 const DUTCH_PATTERN = /\b(voor|naar|van|bij|zijn|wordt|worden|hebben|maar|ook|dan|als|met|aan|wat|hoe|dit|dat|zo|jouw|mijn|ons|onze|beste|welke|werd|waren|zou|zal|kan|mag|moet|geen|wel|nog|toch|door|over|onder|boven|naast|tussen|buiten|binnen|tijdens|hierbij|hierdoor|hiervan|hierin|hiermee|daarmee|daarin|daarvoor|daarna|waarmee|waarbij|wanneer|terwijl|omdat|indien|hoewel|echter|tevens|namelijk|immers)\b/gi
 
