@@ -68,14 +68,30 @@ export async function generateContent(payload: {
   target_seconds: number
   ollama_model:  string
   lm_studio_model: string
+  channel_topics?:  string[]   // CF2-repair: kanaal-niche-topics (niche-conform genereren)
+  own_cta_options?: string[]   // CF2-repair: kanaal-eigen CTA's (verplicht i.p.v. generiek)
 }): Promise<ContentResult> {
   const isShort   = payload.video_type === 'short'
   const words     = Math.round(payload.target_seconds * 2.5)
   const isEnglish = payload.language !== 'nl'
 
+  // CF2 content-engine repair: niche- en CTA-context uit channel_strategy in de prompt vouwen.
+  const topics = (payload.channel_topics ?? []).filter(Boolean)
+  const ownCta = (payload.own_cta_options ?? []).filter(Boolean)
+  const nicheInstr = topics.length
+    ? (isEnglish
+        ? ` Stay STRICTLY within the channel niche topics [${topics.join(', ')}]; never produce off-niche (gaming/music/entertainment) content.`
+        : ` Blijf STRIKT binnen de kanaal-niche-topics [${topics.join(', ')}]; nooit off-niche (gaming/muziek/entertainment) content.`)
+    : ''
+  const ctaInstr = ownCta.length
+    ? (isEnglish
+        ? ` MANDATORY CTA: end with EXACTLY one of these channel CTAs (never "like & subscribe"): ${ownCta.join(' | ')}.`
+        : ` VERPLICHTE CTA: sluit af met EXACT één van deze kanaal-CTA's (nooit "like & subscribe"): ${ownCta.join(' | ')}.`)
+    : ''
+
   const systemContext = isEnglish
-    ? `You are an expert YouTube content creator for ${payload.channel_name}.`
-    : `Je bent een expert YouTube contentmaker voor ${payload.channel_name}.`
+    ? `You are an expert YouTube content creator for ${payload.channel_name}.${nicheInstr}${ctaInstr}`
+    : `Je bent een expert YouTube contentmaker voor ${payload.channel_name}.${nicheInstr}${ctaInstr}`
 
   const prompt = isEnglish ? `
 ${systemContext}
@@ -163,6 +179,14 @@ Geef ALLEEN geldige JSON terug (geen markdown, geen code blocks):
     result.cta               = asStr(result.cta)
     result.thumbnail_concept = asStr(result.thumbnail_concept)
     if (!Array.isArray(result.tags)) result.tags = []
+
+    // CF2-repair: forceer een kanaal-eigen CTA (geen generieke "abonneer/subscribe/like").
+    if (ownCta.length) {
+      const c = (result.cta ?? '').toLowerCase()
+      const generic = !c || c.includes('abonneer') || c.includes('subscribe') || c.includes('like &') || c.includes('like en')
+      const hasOwn = ownCta.some(o => c.includes(o.toLowerCase()))
+      if (generic || !hasOwn) result.cta = ownCta[0]
+    }
 
     // Language guard: English channels must not contain Dutch output
     if (isEnglish) {
