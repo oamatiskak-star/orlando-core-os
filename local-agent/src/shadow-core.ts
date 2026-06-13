@@ -87,10 +87,11 @@ export async function runShadowTopic(o: ShadowOpts): Promise<ShadowResult> {
   const sceneCount = await spine.writeScenes(projectId, scenes)
   await spine.setStatus(projectId, 'production_ready')
 
-  // 4. Voice (router, shadow = lokaal/gratis)
+  // 4. Voice (router): shadow = lokaal/gratis; bij publicatie (CF2_PUBLISH=1) = premium
+  //    (OpenAI/ElevenLabs) zodat voice_score>=95 de QC-gate haalt — anders blokkeert edge_tts.
   const audioPath = path.join(os.tmpdir(), `cf2-voice-${projectId}.mp3`)
   const voiceRes = await synthVoice(content.full_script, audioPath, {
-    voice: o.voice, mode: 'shadow', language: o.language,
+    voice: o.voice, mode: (process.env.CF2_PUBLISH === '1' ? 'premium' : 'shadow'), language: o.language,
   })
   await spine.writeVoiceAsset(projectId, {
     provider: voiceRes.provider ?? 'none',

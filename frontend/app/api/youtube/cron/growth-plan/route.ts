@@ -22,6 +22,11 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: error.message }, { status: 500 })
   }
 
+ feat/cf2-stronger-model-track
+  await reportHeartbeat('cron.vercel.growth-plan').catch(() => {}) /* watchdog-heartbeat */
+
+  return NextResponse.json({ ok: true, result: data ?? null })
+=======
   // Sprint A — brug Growth Engine -> Producer: zet de capaciteitsallocatie direct om
   // naar cf2_jobs (planned), zodat Hermes' schaalbesluiten autonoom productie triggeren.
   // Credit-vrij + idempotent (top-up tot videos_per_day per kanaal/dag). De CF2-producer
@@ -35,4 +40,5 @@ export async function GET(req: NextRequest) {
     result: data ?? null,
     jobs_seeded_from_growth: seeded.error ? `error: ${seeded.error.message}` : (seeded.data ?? 0),
   })
+ main
 }
