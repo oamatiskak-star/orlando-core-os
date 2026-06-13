@@ -1,6 +1,14 @@
 {
   "crons": [
     {
+      "path": "/api/media-holding/affiliate-engine/link-health",
+      "schedule": "30 1 * * *"
+    },
+    {
+      "path": "/api/media-holding/affiliate-engine/sync",
+      "schedule": "15 6 * * *"
+    },
+    {
       "path": "/api/youtube/cron/refresh-tokens",
       "schedule": "0 5 * * *"
     },
