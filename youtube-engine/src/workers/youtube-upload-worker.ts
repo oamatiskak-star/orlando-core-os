@@ -32,6 +32,59 @@ async function downloadToTemp(url: string, dest: string): Promise<void> {
 const log = workerLogger('upload-worker')
 const CONCURRENCY = parseInt(process.env.UPLOAD_WORKER_CONCURRENCY ?? '2')
 
+// Tracked-shortlink basis voor affiliate-CTA's. Klikken lopen via /r/<short_code> (redirect-engine)
+// zodat affiliate_clicks geregistreerd wordt. NOOIT de rauwe affiliate-URL in de beschrijving.
+const SHORTLINK_BASE = (process.env.SHORTLINK_BASE_URL ?? process.env.NEXT_PUBLIC_APP_URL ?? 'https://dashboard.strkbeheer.nl').replace(/\/+$/, '')
+// Categorieën waar een affiliate-CTA inhoudelijk past (geen blinde injectie op alle kanalen).
+const AFFILIATE_CTA_CATEGORIES = ['ai_video', 'saas_ai', 'automation', 'creator_tools']
+const CTA_LABELS: Record<string, string> = {
+  ElevenLabs: '🎙️ De AI-stem in deze video',
+  Synthesia: '🎬 AI-video gemaakt met Synthesia',
+  HeyGen: '🎬 AI-avatars via HeyGen',
+}
+
+/**
+ * Voegt tracked affiliate-shortlink-CTA's toe aan de beschrijving op basis van de ACTIEVE
+ * affiliate_links die aan dit kanaal gemapt zijn. 100% data-gedreven (affiliate_links/-mappings),
+ * geen hardcoded link, altijd /r/<short_code> (nooit de rauwe URL). Fail-safe: een fout mag een
+ * upload nooit blokkeren; bij twijfel wordt de oorspronkelijke beschrijving teruggegeven.
+ */
+async function buildAffiliateDescription(
+  db: ReturnType<typeof getSupabase>,
+  channel: { id?: string; name?: string | null; naam?: string | null },
+  baseDescription: string,
+): Promise<string> {
+  try {
+    const channelName = channel.name ?? channel.naam
+    if (!channelName) return baseDescription
+    // youtube_channels → media_holding_channels (mappings hangen aan media_holding_channels.id)
+    const { data: mhc } = await db.from('media_holding_channels').select('id').ilike('name', channelName).maybeSingle()
+    if (!mhc) return baseDescription
+    const { data: maps } = await db.from('affiliate_channel_mappings')
+      .select('affiliate_program_id').eq('channel_id', mhc.id).eq('is_active', true)
+      .order('priority', { ascending: true })
+    if (!maps?.length) return baseDescription
+    const { data: progs } = await db.from('affiliate_programs')
+      .select('name').in('id', maps.map(m => m.affiliate_program_id))
+      .eq('account_status', 'active').in('category', AFFILIATE_CTA_CATEGORIES)
+    if (!progs?.length) return baseDescription
+    const { data: links } = await db.from('affiliate_links')
+      .select('network, short_code').in('network', progs.map(p => p.name))
+      .eq('active', true).is('content_item_id', null).not('short_code', 'is', null)
+    if (!links?.length) return baseDescription
+    const seen = new Set<string>()
+    const ctaLines = links
+      .filter(l => l.short_code && !seen.has(l.short_code) && seen.add(l.short_code))
+      .map(l => `${CTA_LABELS[l.network] ?? `👉 ${l.network}`}: ${SHORTLINK_BASE}/r/${l.short_code}`)
+    if (!ctaLines.length) return baseDescription
+    if (baseDescription.includes(`${SHORTLINK_BASE}/r/`)) return baseDescription // idempotent
+    return `${baseDescription}\n\n${ctaLines.join('\n')}`.trim()
+  } catch (e) {
+    log.warn('Affiliate-CTA injectie overgeslagen', { error: (e as Error).message })
+    return baseDescription
+  }
+}
+
 export function startYouTubeUploadWorker(): Worker {
   const worker = new Worker<UploadJobData>(
     QUEUE_NAMES.UPLOAD,
@@ -148,10 +201,15 @@ export function startYouTubeUploadWorker(): Worker {
       const startTime = Date.now()
 
       let lastProgressLog = 0
+      // Affiliate-CTA: tracked shortlink(s) uit actieve affiliate_links in de beschrijving (/r/<code>).
+      const description = await buildAffiliateDescription(db, channel, video.description ?? '')
+      if (description !== (video.description ?? '')) {
+        await addLog(queueId, videoId, 'info', 'Affiliate-shortlink toegevoegd aan beschrijving')
+      }
       const result = await uploadVideo(auth, {
         filePath,
         title: video.title,
-        description: video.description ?? '',
+        description,
         tags: video.tags ?? [],
         categoryId: video.category_id ?? '22',
         privacyStatus: effectivePrivacy,
