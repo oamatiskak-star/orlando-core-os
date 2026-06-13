@@ -5,14 +5,15 @@ import { usePathname } from 'next/navigation'
 import clsx from 'clsx'
 import {
   LayoutGrid, Layers, Video, Clapperboard, Server,
-  BarChart3, Crosshair, Settings as SettingsIcon, Archive, Crown, Briefcase,
+  BarChart3, Crosshair, Settings as SettingsIcon, Archive, Crown, Briefcase, Package,
 } from 'lucide-react'
 
 const TABS = [
-  { label: 'Overzicht',       href: '/dashboard/media-holding',           icon: LayoutGrid },
-  { label: 'Executive',       href: '/dashboard/media-holding/executive', icon: Crown },
-  { label: 'Portfolio',       href: '/dashboard/media-holding/portfolio', icon: Briefcase },
-  { label: 'Build Tracker',   href: '/dashboard/media-holding/build',     icon: Layers },
+  { label: 'Overzicht',       href: '/dashboard/media-holding',             icon: LayoutGrid },
+  { label: 'Executive',       href: '/dashboard/media-holding/executive',   icon: Crown },
+  { label: 'Portfolio',       href: '/dashboard/media-holding/portfolio',   icon: Briefcase },
+  { label: 'Offer Engine',    href: '/dashboard/media-holding/offer-engine', icon: Package },
+  { label: 'Build Tracker',   href: '/dashboard/media-holding/build',       icon: Layers },
   { label: 'Channels',        href: '/dashboard/media-holding/channels',  icon: Video },
   { label: 'Content Factory', href: '/dashboard/media-holding/factory',   icon: Clapperboard },
   { label: 'Analytics',       href: '/dashboard/media-holding/analytics', icon: BarChart3 },
