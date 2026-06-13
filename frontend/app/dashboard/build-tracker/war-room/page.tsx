@@ -28,7 +28,7 @@ export default async function RoadmapCommandCenterPage() {
   const supabase = await createClient()
   const slug = await getActiveCompanyId()
 
-  const [health, minutes, cert, completion, projects, blockers, milestones, agenda, items, activity, incidents, revPosition, revByEntity, attention] = await Promise.all([
+  const [health, minutes, cert, completion, projects, blockers, milestones, agenda, items, activity, incidents, revPosition, revByEntity, attention, minutesTrend] = await Promise.all([
     supabase.from('v_ceo_system_health').select('*'),
     supabase.from('v_ceo_minutes_daily').select('*').maybeSingle(),
     supabase.from('v_media_factory_certification').select('*').maybeSingle(),
@@ -43,6 +43,7 @@ export default async function RoadmapCommandCenterPage() {
     supabase.from('v_ceo_revenue_position').select('*').maybeSingle(),
     supabase.from('v_ceo_revenue_by_entity').select('*'),
     supabase.from('v_ceo_attention').select('*'),
+    supabase.from('v_ceo_minutes_trend').select('day,ceo_minutes').order('day', { ascending: true }),
   ])
 
   const proj = (projects.data ?? []) as Proj[]
@@ -75,7 +76,7 @@ export default async function RoadmapCommandCenterPage() {
       </div>
       {/* CEO-OS kern: minuten + certificering (holding-breed) */}
       <div className="grid gap-3 lg:grid-cols-2">
-        <CeoMinutesGauge data={minutes.data as never} />
+        <CeoMinutesGauge data={minutes.data as never} trend={(minutesTrend.data ?? []) as never} />
         <CertificationCard data={cert.data as never} />
       </div>
 
