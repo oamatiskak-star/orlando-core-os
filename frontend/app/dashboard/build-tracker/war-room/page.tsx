@@ -14,6 +14,7 @@ import ActivityFeed from '@/components/build-war-room/roadmap/ActivityFeed'
 import DependencyOverview from '@/components/build-war-room/roadmap/DependencyOverview'
 import IncidentLifecycle from '@/components/build-war-room/roadmap/IncidentLifecycle'
 import RevenueLayer from '@/components/build-war-room/roadmap/RevenueLayer'
+import AutoRefresh from '@/components/build-war-room/roadmap/AutoRefresh'
 
 export const dynamic = 'force-dynamic'
 
@@ -66,6 +67,10 @@ export default async function RoadmapCommandCenterPage() {
 
   return (
     <div className="space-y-3">
+      {/* CEO-OS glazen wand — live auto-refresh */}
+      <div className="flex items-center justify-end">
+        <AutoRefresh intervalSec={30} />
+      </div>
       {/* CEO-OS kern: minuten + certificering (holding-breed) */}
       <div className="grid gap-3 lg:grid-cols-2">
         <CeoMinutesGauge data={minutes.data as never} />
