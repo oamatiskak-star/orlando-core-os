@@ -14,6 +14,7 @@ import ActivityFeed from '@/components/build-war-room/roadmap/ActivityFeed'
 import DependencyOverview from '@/components/build-war-room/roadmap/DependencyOverview'
 import IncidentLifecycle from '@/components/build-war-room/roadmap/IncidentLifecycle'
 import RevenueLayer from '@/components/build-war-room/roadmap/RevenueLayer'
+import AttentionItems from '@/components/build-war-room/roadmap/AttentionItems'
 
 export const dynamic = 'force-dynamic'
 
@@ -26,7 +27,7 @@ export default async function RoadmapCommandCenterPage() {
   const supabase = await createClient()
   const slug = await getActiveCompanyId()
 
-  const [health, minutes, cert, completion, projects, blockers, milestones, agenda, items, activity, incidents, revPosition, revByEntity] = await Promise.all([
+  const [health, minutes, cert, completion, projects, blockers, milestones, agenda, items, activity, incidents, revPosition, revByEntity, attention] = await Promise.all([
     supabase.from('v_ceo_system_health').select('*'),
     supabase.from('v_ceo_minutes_daily').select('*').maybeSingle(),
     supabase.from('v_media_factory_certification').select('*').maybeSingle(),
@@ -40,6 +41,7 @@ export default async function RoadmapCommandCenterPage() {
     supabase.from('infra_watchdog_incidents').select('service_name,service_type,failure_kind,failure_summary,proposed_actions,status,opened_at,resolved_at,incident_kind').order('opened_at', { ascending: false }).limit(20),
     supabase.from('v_ceo_revenue_position').select('*').maybeSingle(),
     supabase.from('v_ceo_revenue_by_entity').select('*'),
+    supabase.from('v_ceo_attention').select('*'),
   ])
 
   const proj = (projects.data ?? []) as Proj[]
@@ -74,6 +76,9 @@ export default async function RoadmapCommandCenterPage() {
 
       {/* operationele gezondheid (holding-breed) */}
       <SystemHealthBoard data={(health.data ?? []) as never} />
+
+      {/* aandachtspunten — gesloten keten (echt probleem? root cause? mens nodig?) */}
+      <AttentionItems rows={(attention.data ?? []) as never} />
 
       {/* strategie (per actieve entiteit) */}
       <ExecutiveStatusBar
