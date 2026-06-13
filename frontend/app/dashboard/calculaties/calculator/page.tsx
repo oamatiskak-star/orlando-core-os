@@ -25,85 +25,341 @@ interface Hoofdstuk {
   open: boolean
 }
 
-// ─── Pre-built combis (2Jours-stijl) ─────────────────────────────────────────
+// ─── Pre-built combis (2Jours-stijl, uitgebreid) ─────────────────────────────
 
 const COMBIS: Record<string, Omit<Post, 'id'>[]> = {
+
+  // ── Ruwbouw ──────────────────────────────────────────────────────────────────
   Sloopwerk: [
-    { omschrijving: 'Sloop bestaande vloer (inclusief afvoer)', hoeveelheid: '', eenheid: 'm²', eenheidsprijs: '12.00' },
-    { omschrijving: 'Sloop binnenwanden', hoeveelheid: '', eenheid: 'm²', eenheidsprijs: '18.00' },
+    { omschrijving: 'Sloop bestaande vloer (incl. afvoer)', hoeveelheid: '', eenheid: 'm²', eenheidsprijs: '12.00' },
+    { omschrijving: 'Sloop binnenwanden (incl. afvoer)', hoeveelheid: '', eenheid: 'm²', eenheidsprijs: '18.00' },
     { omschrijving: 'Sloop dakbeschot / pannen', hoeveelheid: '', eenheid: 'm²', eenheidsprijs: '22.00' },
-    { omschrijving: 'Afvoer puin (container)', hoeveelheid: '', eenheid: 'm³', eenheidsprijs: '65.00' },
+    { omschrijving: 'Sloop badkamerinstallatie compleet', hoeveelheid: '', eenheid: 'ls', eenheidsprijs: '850.00' },
+    { omschrijving: 'Sloop keuken (incl. apparatuur)', hoeveelheid: '', eenheid: 'ls', eenheidsprijs: '680.00' },
+    { omschrijving: 'Breekwerk beton / fundering', hoeveelheid: '', eenheid: 'm³', eenheidsprijs: '180.00' },
+    { omschrijving: 'Afvoer puin (container 6 m³)', hoeveelheid: '', eenheid: 'st', eenheidsprijs: '390.00' },
   ],
-  Fundering: [
+
+  'Fundering & Grondwerk': [
     { omschrijving: 'Grondwerk / ontgraving', hoeveelheid: '', eenheid: 'm³', eenheidsprijs: '28.00' },
+    { omschrijving: 'Grond afvoeren (per vracht)', hoeveelheid: '', eenheid: 'st', eenheidsprijs: '320.00' },
     { omschrijving: 'Betonnen strookfundering', hoeveelheid: '', eenheid: 'm¹', eenheidsprijs: '185.00' },
+    { omschrijving: 'Vloerplaat beton 15 cm (incl. wapening)', hoeveelheid: '', eenheid: 'm²', eenheidsprijs: '95.00' },
+    { omschrijving: 'Poer beton (per stuk)', hoeveelheid: '', eenheid: 'st', eenheidsprijs: '380.00' },
     { omschrijving: 'Onderstopsel bestaande fundering', hoeveelheid: '', eenheid: 'm¹', eenheidsprijs: '280.00' },
     { omschrijving: 'Kruipruimte drainage', hoeveelheid: '', eenheid: 'm¹', eenheidsprijs: '45.00' },
+    { omschrijving: 'Zandbed / aanvulzand', hoeveelheid: '', eenheid: 'm³', eenheidsprijs: '38.00' },
   ],
+
   Metselwerk: [
     { omschrijving: 'Binnenwand metselwerk 10 cm', hoeveelheid: '', eenheid: 'm²', eenheidsprijs: '95.00' },
     { omschrijving: 'Buitengevel metselwerk 21 cm (spouw)', hoeveelheid: '', eenheid: 'm²', eenheidsprijs: '165.00' },
     { omschrijving: 'Borstwering / latei metselwerk', hoeveelheid: '', eenheid: 'm¹', eenheidsprijs: '120.00' },
     { omschrijving: 'Schoorsteenkanaal metselwerk', hoeveelheid: '', eenheid: 'm¹', eenheidsprijs: '320.00' },
+    { omschrijving: 'Koppelstenen / ankers spouwmuur', hoeveelheid: '', eenheid: 'st', eenheidsprijs: '4.50' },
+    { omschrijving: 'Gevelvoegen bijwerken', hoeveelheid: '', eenheid: 'm²', eenheidsprijs: '38.00' },
+    { omschrijving: 'Betonnen lateibalk plaatsen', hoeveelheid: '', eenheid: 'st', eenheidsprijs: '280.00' },
   ],
+
+  Betonwerk: [
+    { omschrijving: 'Gestort beton constructievloer (15 cm)', hoeveelheid: '', eenheid: 'm²', eenheidsprijs: '95.00' },
+    { omschrijving: 'Betonnen wand bekisten en storten', hoeveelheid: '', eenheid: 'm²', eenheidsprijs: '185.00' },
+    { omschrijving: 'Prefab betonnen element plaatsen', hoeveelheid: '', eenheid: 'st', eenheidsprijs: '650.00' },
+    { omschrijving: 'Betonnen trap gieten', hoeveelheid: '', eenheid: 'ls', eenheidsprijs: '2800.00' },
+    { omschrijving: 'Betonherstel (reparatiemortel)', hoeveelheid: '', eenheid: 'm²', eenheidsprijs: '65.00' },
+    { omschrijving: 'Wapeningsstaal (incl. verbinden)', hoeveelheid: '', eenheid: 'kg', eenheidsprijs: '2.20' },
+  ],
+
+  Riolering: [
+    { omschrijving: 'PVC-rioolbuis ø110 binnenriolering (incl. bochtstukken)', hoeveelheid: '', eenheid: 'm¹', eenheidsprijs: '48.00' },
+    { omschrijving: 'PVC-rioolbuis ø160 buitenriolering', hoeveelheid: '', eenheid: 'm¹', eenheidsprijs: '68.00' },
+    { omschrijving: 'PVC-rioolbuis ø200 hoofdriool', hoeveelheid: '', eenheid: 'm¹', eenheidsprijs: '95.00' },
+    { omschrijving: 'Kolkput plaatsen (incl. rooster)', hoeveelheid: '', eenheid: 'st', eenheidsprijs: '420.00' },
+    { omschrijving: 'Putje / cleanout aansluiting', hoeveelheid: '', eenheid: 'st', eenheidsprijs: '185.00' },
+    { omschrijving: 'Pompput met vlotter', hoeveelheid: '', eenheid: 'st', eenheidsprijs: '1850.00' },
+    { omschrijving: 'Infiltratiekrat plaatsen (incl. grond)', hoeveelheid: '', eenheid: 'st', eenheidsprijs: '320.00' },
+    { omschrijving: 'Ontstoppen riolering', hoeveelheid: '', eenheid: 'ls', eenheidsprijs: '285.00' },
+  ],
+
+  Asbestsanering: [
+    { omschrijving: 'Asbestinventarisatie (RI&E-rapport)', hoeveelheid: '', eenheid: 'ls', eenheidsprijs: '650.00' },
+    { omschrijving: 'Sanering asbestcement-platen (risicoklasse 1)', hoeveelheid: '', eenheid: 'm²', eenheidsprijs: '45.00' },
+    { omschrijving: 'Sanering asbestcement-platen (risicoklasse 2)', hoeveelheid: '', eenheid: 'm²', eenheidsprijs: '95.00' },
+    { omschrijving: 'Sanering asbestvezels / hechtgebonden', hoeveelheid: '', eenheid: 'm²', eenheidsprijs: '120.00' },
+    { omschrijving: 'Sanering asbestleidingen / bochtstukken', hoeveelheid: '', eenheid: 'm¹', eenheidsprijs: '85.00' },
+    { omschrijving: 'Afvoer en verwerking asbest (gecertificeerd)', hoeveelheid: '', eenheid: 'ton', eenheidsprijs: '980.00' },
+  ],
+
+  // ── Dak ──────────────────────────────────────────────────────────────────────
+  Dakwerk: [
+    { omschrijving: 'Dakpannen vervangen (incl. tengels, lat)', hoeveelheid: '', eenheid: 'm²', eenheidsprijs: '95.00' },
+    { omschrijving: 'Bitumen dakbedekking plat dak (2-laags)', hoeveelheid: '', eenheid: 'm²', eenheidsprijs: '85.00' },
+    { omschrijving: 'EPDM dakbedekking plat dak', hoeveelheid: '', eenheid: 'm²', eenheidsprijs: '78.00' },
+    { omschrijving: 'Dakgoot vervangen (zink)', hoeveelheid: '', eenheid: 'm¹', eenheidsprijs: '68.00' },
+    { omschrijving: 'Hemelwaterafvoer PVC ø80 (incl. klemmen)', hoeveelheid: '', eenheid: 'm¹', eenheidsprijs: '38.00' },
+    { omschrijving: 'Nokvorst vernieuwen (incl. mortel)', hoeveelheid: '', eenheid: 'm¹', eenheidsprijs: '95.00' },
+    { omschrijving: 'Dakrenovatie incl. ondervloer', hoeveelheid: '', eenheid: 'm²', eenheidsprijs: '145.00' },
+    { omschrijving: 'Dakbeschot hout (OSB/vuren)', hoeveelheid: '', eenheid: 'm²', eenheidsprijs: '42.00' },
+    { omschrijving: 'Loodwerk afdichting (borstweringen, schoorstenen)', hoeveelheid: '', eenheid: 'm¹', eenheidsprijs: '95.00' },
+  ],
+
+  'Dakkapel & Dakraam': [
+    { omschrijving: 'Dakkapel plaatsen (hout, standaard 3 m breed)', hoeveelheid: '', eenheid: 'st', eenheidsprijs: '14500.00' },
+    { omschrijving: 'Dakraam Velux 78×98 incl. montage + kraag', hoeveelheid: '', eenheid: 'st', eenheidsprijs: '1450.00' },
+    { omschrijving: 'Dakraam Velux 78×118 incl. montage + kraag', hoeveelheid: '', eenheid: 'st', eenheidsprijs: '1750.00' },
+    { omschrijving: 'Dakraam Velux 114×118 incl. montage + kraag', hoeveelheid: '', eenheid: 'st', eenheidsprijs: '2200.00' },
+    { omschrijving: 'Lood rondom dakraam / dakkapel', hoeveelheid: '', eenheid: 'ls', eenheidsprijs: '380.00' },
+    { omschrijving: 'Dakkapel schilderwerk (buiten)', hoeveelheid: '', eenheid: 'ls', eenheidsprijs: '1200.00' },
+    { omschrijving: 'Uitbouw kap (dakhelling wijzigen)', hoeveelheid: '', eenheid: 'ls', eenheidsprijs: '8500.00' },
+  ],
+
+  Isolatie: [
+    { omschrijving: 'Spouwmuurisolatie (ingeblazen EPS)', hoeveelheid: '', eenheid: 'm²', eenheidsprijs: '28.00' },
+    { omschrijving: 'Dakisolatie PIR 10 cm', hoeveelheid: '', eenheid: 'm²', eenheidsprijs: '38.00' },
+    { omschrijving: 'Dakisolatie PIR 14 cm', hoeveelheid: '', eenheid: 'm²', eenheidsprijs: '48.00' },
+    { omschrijving: 'Vloerisolatie EPS (onder dekvloer)', hoeveelheid: '', eenheid: 'm²', eenheidsprijs: '35.00' },
+    { omschrijving: 'Binnenisolatie wand (gipskarton + rockwool)', hoeveelheid: '', eenheid: 'm²', eenheidsprijs: '65.00' },
+    { omschrijving: 'Gevelisolatie buitenzijde (composiet systeem)', hoeveelheid: '', eenheid: 'm²', eenheidsprijs: '120.00' },
+    { omschrijving: 'HR++ glas (vervangen beglazing)', hoeveelheid: '', eenheid: 'm²', eenheidsprijs: '185.00' },
+    { omschrijving: 'Triple glas (vervangen beglazing)', hoeveelheid: '', eenheid: 'm²', eenheidsprijs: '280.00' },
+    { omschrijving: 'Kruipruimte isolatie (folie + EPS)', hoeveelheid: '', eenheid: 'm²', eenheidsprijs: '42.00' },
+  ],
+
+  // ── Gevel & Kozijnen ──────────────────────────────────────────────────────────
+  Gevelrenovatie: [
+    { omschrijving: 'Gevel reinigen (hogedrukreiniger)', hoeveelheid: '', eenheid: 'm²', eenheidsprijs: '12.00' },
+    { omschrijving: 'Gevelvoegen bijwerken', hoeveelheid: '', eenheid: 'm²', eenheidsprijs: '38.00' },
+    { omschrijving: 'Betonherstel buitengevel', hoeveelheid: '', eenheid: 'm²', eenheidsprijs: '75.00' },
+    { omschrijving: 'Gevelisolatie met pleisterlaag (ETICS-systeem)', hoeveelheid: '', eenheid: 'm²', eenheidsprijs: '135.00' },
+    { omschrijving: 'Gevelbekleding hout (siberisch lariks)', hoeveelheid: '', eenheid: 'm²', eenheidsprijs: '95.00' },
+    { omschrijving: 'Gevelbekleding composiet / HPL', hoeveelheid: '', eenheid: 'm²', eenheidsprijs: '145.00' },
+    { omschrijving: 'Gevelnet / klimop verwijderen', hoeveelheid: '', eenheid: 'm²', eenheidsprijs: '18.00' },
+  ],
+
+  'Kozijnen & Deuren': [
+    { omschrijving: 'Kunststof raamkozijn HR++ glas', hoeveelheid: '', eenheid: 'st', eenheidsprijs: '1200.00' },
+    { omschrijving: 'Aluminium kozijn HR++ glas', hoeveelheid: '', eenheid: 'st', eenheidsprijs: '1650.00' },
+    { omschrijving: 'Voordeur compleet (incl. hang- en sluitwerk)', hoeveelheid: '', eenheid: 'st', eenheidsprijs: '2800.00' },
+    { omschrijving: 'Achterdeur compleet (incl. kozijn)', hoeveelheid: '', eenheid: 'st', eenheidsprijs: '2200.00' },
+    { omschrijving: 'Binnendeur (incl. kozijn, hang- en sluitwerk)', hoeveelheid: '', eenheid: 'st', eenheidsprijs: '480.00' },
+    { omschrijving: 'Schuifpui 2-delig aluminium HR++', hoeveelheid: '', eenheid: 'st', eenheidsprijs: '3500.00' },
+    { omschrijving: 'Schuifpui 3-delig aluminium HR++', hoeveelheid: '', eenheid: 'st', eenheidsprijs: '5200.00' },
+    { omschrijving: 'Garagedeur sectionaal (incl. motor)', hoeveelheid: '', eenheid: 'st', eenheidsprijs: '3800.00' },
+    { omschrijving: 'Kozijnen kitten (buiten)', hoeveelheid: '', eenheid: 'st', eenheidsprijs: '65.00' },
+  ],
+
+  // ── Afbouw ────────────────────────────────────────────────────────────────────
+  'Stucwerk & Plafonds': [
+    { omschrijving: 'Glad stucwerk wanden (2-laags)', hoeveelheid: '', eenheid: 'm²', eenheidsprijs: '22.00' },
+    { omschrijving: 'Glad stucwerk plafond', hoeveelheid: '', eenheid: 'm²', eenheidsprijs: '28.00' },
+    { omschrijving: 'Buitengevel spachtelputz', hoeveelheid: '', eenheid: 'm²', eenheidsprijs: '45.00' },
+    { omschrijving: 'Cementdekvloer / egaline', hoeveelheid: '', eenheid: 'm²', eenheidsprijs: '35.00' },
+    { omschrijving: 'Gipskarton wand op regelwerk', hoeveelheid: '', eenheid: 'm²', eenheidsprijs: '58.00' },
+    { omschrijving: 'Systeemplafond (600×600 cassettes)', hoeveelheid: '', eenheid: 'm²', eenheidsprijs: '48.00' },
+    { omschrijving: 'Gips scheidingswand (glaswol incl.)', hoeveelheid: '', eenheid: 'm²', eenheidsprijs: '75.00' },
+    { omschrijving: 'Corniche / plafondlijst stucwerk', hoeveelheid: '', eenheid: 'm¹', eenheidsprijs: '32.00' },
+  ],
+
   Tegelwerk: [
     { omschrijving: 'Wandtegels badkamer (incl. tegellijm en voeg)', hoeveelheid: '', eenheid: 'm²', eenheidsprijs: '85.00' },
     { omschrijving: 'Vloertegels badkamer / toilet', hoeveelheid: '', eenheid: 'm²', eenheidsprijs: '78.00' },
     { omschrijving: 'Vloertegels keuken / woonkamer', hoeveelheid: '', eenheid: 'm²', eenheidsprijs: '65.00' },
+    { omschrijving: 'Grote formaat tegel ≥60×60 cm', hoeveelheid: '', eenheid: 'm²', eenheidsprijs: '110.00' },
+    { omschrijving: 'Cementlook vloertegel', hoeveelheid: '', eenheid: 'm²', eenheidsprijs: '98.00' },
+    { omschrijving: 'Mozaïektegels', hoeveelheid: '', eenheid: 'm²', eenheidsprijs: '145.00' },
     { omschrijving: 'Tegelplint (5 cm)', hoeveelheid: '', eenheid: 'm¹', eenheidsprijs: '28.00' },
+    { omschrijving: 'Bestaande tegels verwijderen (incl. afvoer)', hoeveelheid: '', eenheid: 'm²', eenheidsprijs: '22.00' },
   ],
-  Stucwerk: [
-    { omschrijving: 'Glad stucwerk wanden (2-laags)', hoeveelheid: '', eenheid: 'm²', eenheidsprijs: '22.00' },
-    { omschrijving: 'Glad stucwerk plafond', hoeveelheid: '', eenheid: 'm²', eenheidsprijs: '28.00' },
-    { omschrijving: 'Buitengevel spachtelputz', hoeveelheid: '', eenheid: 'm²', eenheidsprijs: '45.00' },
-    { omschrijving: 'Cementdekvloer (egaline)', hoeveelheid: '', eenheid: 'm²', eenheidsprijs: '35.00' },
+
+  Vloerwerk: [
+    { omschrijving: 'Laminaatvloer leggen (incl. ondervloer)', hoeveelheid: '', eenheid: 'm²', eenheidsprijs: '28.00' },
+    { omschrijving: 'PVC-vloer leggen (incl. ondervloer)', hoeveelheid: '', eenheid: 'm²', eenheidsprijs: '32.00' },
+    { omschrijving: 'Parketvloer leggen (incl. schuren en lakken)', hoeveelheid: '', eenheid: 'm²', eenheidsprijs: '65.00' },
+    { omschrijving: 'Houten vloer schuren en lakken (bestaand)', hoeveelheid: '', eenheid: 'm²', eenheidsprijs: '28.00' },
+    { omschrijving: 'Gietvloer / Ardex woonkamer', hoeveelheid: '', eenheid: 'm²', eenheidsprijs: '95.00' },
+    { omschrijving: 'Betonlook gietvloer (2-laags)', hoeveelheid: '', eenheid: 'm²', eenheidsprijs: '110.00' },
+    { omschrijving: 'Epoxyvloer (garage / bedrijfsruimte)', hoeveelheid: '', eenheid: 'm²', eenheidsprijs: '45.00' },
+    { omschrijving: 'Tapijt leggen (incl. vilt)', hoeveelheid: '', eenheid: 'm²', eenheidsprijs: '22.00' },
+    { omschrijving: 'Plinten MDF lakken en plaatsen', hoeveelheid: '', eenheid: 'm¹', eenheidsprijs: '18.00' },
   ],
+
   Schilderwerk: [
-    { omschrijving: 'Binnenwanden schilderwerk (2 lagen)', hoeveelheid: '', eenheid: 'm²', eenheidsprijs: '12.00' },
+    { omschrijving: 'Binnenwanden schilderwerk (2 lagen verf)', hoeveelheid: '', eenheid: 'm²', eenheidsprijs: '12.00' },
     { omschrijving: 'Plafonds schilderwerk', hoeveelheid: '', eenheid: 'm²', eenheidsprijs: '15.00' },
     { omschrijving: 'Kozijnen buiten schilderwerk', hoeveelheid: '', eenheid: 'st', eenheidsprijs: '280.00' },
     { omschrijving: 'Deuren schilderwerk (2 zijden)', hoeveelheid: '', eenheid: 'st', eenheidsprijs: '145.00' },
+    { omschrijving: 'Behangen wanden', hoeveelheid: '', eenheid: 'm²', eenheidsprijs: '25.00' },
+    { omschrijving: 'Houtrot herstel kozijn (inclusief kit)', hoeveelheid: '', eenheid: 'st', eenheidsprijs: '180.00' },
+    { omschrijving: 'Beitswerk hout buiten', hoeveelheid: '', eenheid: 'm²', eenheidsprijs: '22.00' },
+    { omschrijving: 'Grondverf / primer aanbrengen', hoeveelheid: '', eenheid: 'm²', eenheidsprijs: '8.00' },
   ],
+
+  Timmerwerk: [
+    { omschrijving: 'Plinten plaatsen (MDF, lakklaar)', hoeveelheid: '', eenheid: 'm¹', eenheidsprijs: '18.00' },
+    { omschrijving: 'Dorpels plaatsen', hoeveelheid: '', eenheid: 'st', eenheidsprijs: '95.00' },
+    { omschrijving: 'Kozijnen repareren / kitten', hoeveelheid: '', eenheid: 'st', eenheidsprijs: '145.00' },
+    { omschrijving: 'Wandpanelen / lambrisering (MDF)', hoeveelheid: '', eenheid: 'm²', eenheidsprijs: '68.00' },
+    { omschrijving: 'Trapleuning monteren', hoeveelheid: '', eenheid: 'm¹', eenheidsprijs: '85.00' },
+    { omschrijving: 'Houten vliesgevel (incl. regelwerk)', hoeveelheid: '', eenheid: 'm²', eenheidsprijs: '110.00' },
+    { omschrijving: 'Koof / afwerking verborgen leiding', hoeveelheid: '', eenheid: 'm¹', eenheidsprijs: '55.00' },
+    { omschrijving: 'Maatwerk kastruimte / berging', hoeveelheid: '', eenheid: 'ls', eenheidsprijs: '2500.00' },
+  ],
+
+  // ── Installaties ─────────────────────────────────────────────────────────────
   Elektra: [
     { omschrijving: 'Groep (incl. leiding, buis, aansluiting)', hoeveelheid: '', eenheid: 'st', eenheidsprijs: '380.00' },
     { omschrijving: 'Wandcontactdoos enkel', hoeveelheid: '', eenheid: 'st', eenheidsprijs: '85.00' },
     { omschrijving: 'Wandcontactdoos dubbel', hoeveelheid: '', eenheid: 'st', eenheidsprijs: '115.00' },
     { omschrijving: 'LED-inbouwarmatuur', hoeveelheid: '', eenheid: 'st', eenheidsprijs: '145.00' },
     { omschrijving: 'Meterkast vernieuwen (16-groepen)', hoeveelheid: '', eenheid: 'st', eenheidsprijs: '1250.00' },
+    { omschrijving: 'Meterkast uitbreiden (per groep)', hoeveelheid: '', eenheid: 'st', eenheidsprijs: '195.00' },
+    { omschrijving: 'Laadpaal EV thuis (incl. groep + aansluiting)', hoeveelheid: '', eenheid: 'st', eenheidsprijs: '1850.00' },
+    { omschrijving: 'TV/data-aansluiting CAT6', hoeveelheid: '', eenheid: 'st', eenheidsprijs: '125.00' },
+    { omschrijving: 'Buitenlamp / buitenstopcontact', hoeveelheid: '', eenheid: 'st', eenheidsprijs: '165.00' },
+    { omschrijving: 'Domotica schakelaar / dimmer', hoeveelheid: '', eenheid: 'st', eenheidsprijs: '285.00' },
+    { omschrijving: 'Rookmelder plaatsen', hoeveelheid: '', eenheid: 'st', eenheidsprijs: '85.00' },
   ],
+
   Loodgieterij: [
     { omschrijving: 'Aansluitpunt warm- en koudwaterleiding', hoeveelheid: '', eenheid: 'st', eenheidsprijs: '245.00' },
     { omschrijving: 'Inloopdouche compleet (incl. kraan)', hoeveelheid: '', eenheid: 'st', eenheidsprijs: '1850.00' },
     { omschrijving: 'Toilet compleet (incl. reservoir en zitting)', hoeveelheid: '', eenheid: 'st', eenheidsprijs: '680.00' },
     { omschrijving: 'Wastafel incl. kraan en sifon', hoeveelheid: '', eenheid: 'st', eenheidsprijs: '520.00' },
+    { omschrijving: 'Ligbad incl. kraan (ingebouwd)', hoeveelheid: '', eenheid: 'st', eenheidsprijs: '2850.00' },
     { omschrijving: 'Radiator aansluiten (incl. thermostaatknop)', hoeveelheid: '', eenheid: 'st', eenheidsprijs: '320.00' },
     { omschrijving: 'Vloerverwarming (incl. verdeler)', hoeveelheid: '', eenheid: 'm²', eenheidsprijs: '55.00' },
+    { omschrijving: 'Buitenkraan aansluiten', hoeveelheid: '', eenheid: 'st', eenheidsprijs: '185.00' },
+    { omschrijving: 'Wasmachineaansluiting (warm, koud, afvoer)', hoeveelheid: '', eenheid: 'st', eenheidsprijs: '245.00' },
+    { omschrijving: 'Waterleiding doortrekken (per m¹)', hoeveelheid: '', eenheid: 'm¹', eenheidsprijs: '42.00' },
   ],
-  'Kozijnen & Deuren': [
-    { omschrijving: 'Kunststof raamkozijn HR++ glas', hoeveelheid: '', eenheid: 'st', eenheidsprijs: '1200.00' },
-    { omschrijving: 'Voordeur compleet (incl. hang- en sluitwerk)', hoeveelheid: '', eenheid: 'st', eenheidsprijs: '2800.00' },
-    { omschrijving: 'Binnendeur (incl. kozijn, hang- en sluitwerk)', hoeveelheid: '', eenheid: 'st', eenheidsprijs: '480.00' },
-    { omschrijving: 'Schuifpui 2-delig aluminium', hoeveelheid: '', eenheid: 'st', eenheidsprijs: '3500.00' },
+
+  'CV-installatie': [
+    { omschrijving: 'CV-ketel vervangen (combiketel, incl. montage)', hoeveelheid: '', eenheid: 'st', eenheidsprijs: '3200.00' },
+    { omschrijving: 'Warmtepomp lucht/water aansluiten', hoeveelheid: '', eenheid: 'st', eenheidsprijs: '8500.00' },
+    { omschrijving: 'Hybride warmtepomp (incl. ketel)', hoeveelheid: '', eenheid: 'st', eenheidsprijs: '6800.00' },
+    { omschrijving: 'Radiator vervangen (incl. ontluchten)', hoeveelheid: '', eenheid: 'st', eenheidsprijs: '385.00' },
+    { omschrijving: 'CV-leiding aanleggen (per m¹, inbouw)', hoeveelheid: '', eenheid: 'm¹', eenheidsprijs: '48.00' },
+    { omschrijving: 'Thermostaatventiel vervangen', hoeveelheid: '', eenheid: 'st', eenheidsprijs: '95.00' },
+    { omschrijving: 'Cv-installatie onderhoud / service', hoeveelheid: '', eenheid: 'ls', eenheidsprijs: '285.00' },
+    { omschrijving: 'Expansievat vervangen', hoeveelheid: '', eenheid: 'st', eenheidsprijs: '280.00' },
   ],
-  Vloerwerk: [
-    { omschrijving: 'Laminaatvloer leggen (incl. ondervloer)', hoeveelheid: '', eenheid: 'm²', eenheidsprijs: '28.00' },
-    { omschrijving: 'PVC-vloer leggen (incl. ondervloer)', hoeveelheid: '', eenheid: 'm²', eenheidsprijs: '32.00' },
-    { omschrijving: 'Parketvloer leggen (incl. schuren en lakken)', hoeveelheid: '', eenheid: 'm²', eenheidsprijs: '65.00' },
-    { omschrijving: 'Houten vloer schuren en lakken (bestaand)', hoeveelheid: '', eenheid: 'm²', eenheidsprijs: '28.00' },
+
+  'Ventilatie & WTW': [
+    { omschrijving: 'Mechanische ventilatie-unit (badkamer/toilet)', hoeveelheid: '', eenheid: 'st', eenheidsprijs: '380.00' },
+    { omschrijving: 'WTW-unit plaatsen (incl. aansluiting)', hoeveelheid: '', eenheid: 'st', eenheidsprijs: '2850.00' },
+    { omschrijving: 'WTW-systeem compleet (unit + kanalen + roosters)', hoeveelheid: '', eenheid: 'ls', eenheidsprijs: '5800.00' },
+    { omschrijving: 'Kanaalwerk ventilatiesysteem (per m¹)', hoeveelheid: '', eenheid: 'm¹', eenheidsprijs: '38.00' },
+    { omschrijving: 'Ventilatieroosters plaatsen', hoeveelheid: '', eenheid: 'st', eenheidsprijs: '95.00' },
+    { omschrijving: 'Dakdoorvoer ventilatie', hoeveelheid: '', eenheid: 'st', eenheidsprijs: '285.00' },
+    { omschrijving: 'Balansventilatie filter vervangen', hoeveelheid: '', eenheid: 'ls', eenheidsprijs: '85.00' },
   ],
-  Dakwerk: [
-    { omschrijving: 'Dakpannen vervangen (incl. tengels)', hoeveelheid: '', eenheid: 'm²', eenheidsprijs: '95.00' },
-    { omschrijving: 'Bitumen dakbedekking plat dak', hoeveelheid: '', eenheid: 'm²', eenheidsprijs: '85.00' },
-    { omschrijving: 'Dakgoot vervangen (zink)', hoeveelheid: '', eenheid: 'm¹', eenheidsprijs: '68.00' },
-    { omschrijving: 'Dakrenovatie inclusief ondervloer', hoeveelheid: '', eenheid: 'm²', eenheidsprijs: '145.00' },
+
+  Zonnepanelen: [
+    { omschrijving: 'Zonnepaneel 400-430 Wp (incl. montage op dak)', hoeveelheid: '', eenheid: 'st', eenheidsprijs: '580.00' },
+    { omschrijving: 'Zonnepaneel 450-500 Wp premium', hoeveelheid: '', eenheid: 'st', eenheidsprijs: '720.00' },
+    { omschrijving: 'Micro-omvormer per paneel', hoeveelheid: '', eenheid: 'st', eenheidsprijs: '185.00' },
+    { omschrijving: 'String-omvormer 3-fase (incl. installatie)', hoeveelheid: '', eenheid: 'st', eenheidsprijs: '1850.00' },
+    { omschrijving: 'DC-bekabeling en kabelgoten', hoeveelheid: '', eenheid: 'ls', eenheidsprijs: '380.00' },
+    { omschrijving: 'Thuisbatterij 5 kWh (incl. installatie)', hoeveelheid: '', eenheid: 'st', eenheidsprijs: '5800.00' },
+    { omschrijving: 'Steiger dagwerk (voor paneelmontage)', hoeveelheid: '', eenheid: 'dag', eenheidsprijs: '450.00' },
   ],
-  Isolatie: [
-    { omschrijving: 'Spouwmuurisolatie (ingeblazen)', hoeveelheid: '', eenheid: 'm²', eenheidsprijs: '28.00' },
-    { omschrijving: 'Dakisolatie (PIR 12 cm)', hoeveelheid: '', eenheid: 'm²', eenheidsprijs: '42.00' },
-    { omschrijving: 'Vloerisolatie (EPS onder dekvloer)', hoeveelheid: '', eenheid: 'm²', eenheidsprijs: '35.00' },
-    { omschrijving: 'Gevelisolatie buitenzijde (composiet)', hoeveelheid: '', eenheid: 'm²', eenheidsprijs: '120.00' },
+
+  // ── Complete verbouw ──────────────────────────────────────────────────────────
+  'Badkamer compleet': [
+    { omschrijving: 'Sloop badkamer compleet', hoeveelheid: '1', eenheid: 'ls', eenheidsprijs: '850.00' },
+    { omschrijving: 'Wandtegels badkamer', hoeveelheid: '', eenheid: 'm²', eenheidsprijs: '85.00' },
+    { omschrijving: 'Vloertegels badkamer', hoeveelheid: '', eenheid: 'm²', eenheidsprijs: '78.00' },
+    { omschrijving: 'Inloopdouche compleet (incl. kraan)', hoeveelheid: '1', eenheid: 'st', eenheidsprijs: '1850.00' },
+    { omschrijving: 'Toilet compleet (incl. reservoir)', hoeveelheid: '1', eenheid: 'st', eenheidsprijs: '680.00' },
+    { omschrijving: 'Wastafel incl. kraan en sifon', hoeveelheid: '1', eenheid: 'st', eenheidsprijs: '520.00' },
+    { omschrijving: 'Loodgieterij aansluitpunten', hoeveelheid: '', eenheid: 'st', eenheidsprijs: '245.00' },
+    { omschrijving: 'Glad stucwerk resterende wanden', hoeveelheid: '', eenheid: 'm²', eenheidsprijs: '22.00' },
+    { omschrijving: 'Elektrische groep badkamer', hoeveelheid: '1', eenheid: 'st', eenheidsprijs: '380.00' },
+  ],
+
+  Keukenplaatsing: [
+    { omschrijving: 'Demonteren bestaande keuken (incl. afvoer)', hoeveelheid: '1', eenheid: 'ls', eenheidsprijs: '580.00' },
+    { omschrijving: 'Monteren nieuwe keukenblokken (incl. stellage)', hoeveelheid: '', eenheid: 'm¹', eenheidsprijs: '185.00' },
+    { omschrijving: 'Aanrechtblad opmeten en monteren', hoeveelheid: '', eenheid: 'm¹', eenheidsprijs: '145.00' },
+    { omschrijving: 'Inbouwapparatuur aansluiten (elektra)', hoeveelheid: '', eenheid: 'st', eenheidsprijs: '145.00' },
+    { omschrijving: 'Gootsteen / kraan aansluiten', hoeveelheid: '1', eenheid: 'st', eenheidsprijs: '245.00' },
+    { omschrijving: 'Keuken kitten (achter- en bovenzijde)', hoeveelheid: '1', eenheid: 'ls', eenheidsprijs: '185.00' },
+    { omschrijving: 'Spatwand tegels', hoeveelheid: '', eenheid: 'm²', eenheidsprijs: '85.00' },
+    { omschrijving: 'Afzuigkap aansluiten (incl. kanaal)', hoeveelheid: '1', eenheid: 'st', eenheidsprijs: '320.00' },
+  ],
+
+  'Trap & Balustrade': [
+    { omschrijving: 'Houten rechte trap compleet (incl. plaatsing)', hoeveelheid: '', eenheid: 'st', eenheidsprijs: '3800.00' },
+    { omschrijving: 'Kwartslag trap hout compleet', hoeveelheid: '', eenheid: 'st', eenheidsprijs: '5500.00' },
+    { omschrijving: 'Trap renoveren (nieuwe bekleding op bestaand)', hoeveelheid: '', eenheid: 'ls', eenheidsprijs: '1850.00' },
+    { omschrijving: 'Stalen leuning / balustrade (incl. montage)', hoeveelheid: '', eenheid: 'm¹', eenheidsprijs: '320.00' },
+    { omschrijving: 'RVS spijlenbalustrade', hoeveelheid: '', eenheid: 'm¹', eenheidsprijs: '485.00' },
+    { omschrijving: 'Houten trapleuning', hoeveelheid: '', eenheid: 'm¹', eenheidsprijs: '95.00' },
+    { omschrijving: 'Glazen balustrade (incl. profielen)', hoeveelheid: '', eenheid: 'm¹', eenheidsprijs: '650.00' },
+  ],
+
+  // ── Buiten ────────────────────────────────────────────────────────────────────
+  'Bestrating & Terras': [
+    { omschrijving: 'Betonstraatstenen 21×10 (incl. zandbed)', hoeveelheid: '', eenheid: 'm²', eenheidsprijs: '42.00' },
+    { omschrijving: 'Betontegels 50×50 cm (incl. zandbed)', hoeveelheid: '', eenheid: 'm²', eenheidsprijs: '48.00' },
+    { omschrijving: 'Klinkers roodbruin (incl. zandbed)', hoeveelheid: '', eenheid: 'm²', eenheidsprijs: '55.00' },
+    { omschrijving: 'Oprit gravel / steenslag', hoeveelheid: '', eenheid: 'm²', eenheidsprijs: '28.00' },
+    { omschrijving: 'Terrasplaten 60×60 (incl. tegelvoeters)', hoeveelheid: '', eenheid: 'm²', eenheidsprijs: '75.00' },
+    { omschrijving: 'Houten vlonder terras (bangkirai)', hoeveelheid: '', eenheid: 'm²', eenheidsprijs: '95.00' },
+    { omschrijving: 'Drainage goot plaatsen (incl. rooster)', hoeveelheid: '', eenheid: 'm¹', eenheidsprijs: '68.00' },
+    { omschrijving: 'Opsluitband plaatsen', hoeveelheid: '', eenheid: 'm¹', eenheidsprijs: '28.00' },
+    { omschrijving: 'Bestaande bestrating opbreken en afvoeren', hoeveelheid: '', eenheid: 'm²', eenheidsprijs: '18.00' },
+  ],
+
+  Tuinafscheiding: [
+    { omschrijving: 'Betonnen tuinpaal (incl. fundering)', hoeveelheid: '', eenheid: 'st', eenheidsprijs: '65.00' },
+    { omschrijving: 'Schutting hout gedompeld (incl. palen)', hoeveelheid: '', eenheid: 'm¹', eenheidsprijs: '95.00' },
+    { omschrijving: 'Schutting beton (incl. palen)', hoeveelheid: '', eenheid: 'm¹', eenheidsprijs: '120.00' },
+    { omschrijving: 'Hekwerk staal verzinkt', hoeveelheid: '', eenheid: 'm¹', eenheidsprijs: '185.00' },
+    { omschrijving: 'Poort staal (incl. montage)', hoeveelheid: '', eenheid: 'st', eenheidsprijs: '950.00' },
+    { omschrijving: 'Haag planten (carpinus, per m¹)', hoeveelheid: '', eenheid: 'm¹', eenheidsprijs: '48.00' },
   ],
 }
+
+// ─── Combi-groepen voor gegroepeerd menu ──────────────────────────────────────
+
+const COMBI_GROEPEN: { label: string; emoji: string; items: string[] }[] = [
+  {
+    label: 'Ruwbouw',
+    emoji: '🏗',
+    items: ['Sloopwerk', 'Fundering & Grondwerk', 'Metselwerk', 'Betonwerk', 'Riolering', 'Asbestsanering'],
+  },
+  {
+    label: 'Dak',
+    emoji: '🏠',
+    items: ['Dakwerk', 'Dakkapel & Dakraam', 'Isolatie'],
+  },
+  {
+    label: 'Gevel & Kozijnen',
+    emoji: '🪟',
+    items: ['Gevelrenovatie', 'Kozijnen & Deuren'],
+  },
+  {
+    label: 'Afbouw',
+    emoji: '🛁',
+    items: ['Stucwerk & Plafonds', 'Tegelwerk', 'Vloerwerk', 'Schilderwerk', 'Timmerwerk'],
+  },
+  {
+    label: 'Installaties',
+    emoji: '⚡',
+    items: ['Elektra', 'Loodgieterij', 'CV-installatie', 'Ventilatie & WTW', 'Zonnepanelen'],
+  },
+  {
+    label: 'Complete verbouw',
+    emoji: '🔧',
+    items: ['Badkamer compleet', 'Keukenplaatsing', 'Trap & Balustrade'],
+  },
+  {
+    label: 'Buiten',
+    emoji: '🌿',
+    items: ['Bestrating & Terras', 'Tuinafscheiding'],
+  },
+]
 
 const EENHEDEN = ['m²', 'm³', 'm¹', 'st', 'uur', 'dag', 'ls', 'kg', 'ton', 'set']
 
@@ -387,18 +643,23 @@ export default function CalculatorPage() {
                     Combi invoegen
                   </button>
                   {combiMenuFor === h.id && (
-                    <div className="absolute right-0 top-9 z-50 bg-zinc-900 border border-white/10 rounded-xl shadow-2xl min-w-52 py-1.5 overflow-hidden">
-                      <p className="text-[9px] text-white/30 uppercase tracking-wider px-3 pt-1 pb-1.5">
-                        Standaard combis
-                      </p>
-                      {Object.keys(COMBIS).map(c => (
-                        <button
-                          key={c}
-                          onClick={() => insertCombi(h.id, c)}
-                          className="w-full text-left px-3 py-1.5 text-xs text-white/60 hover:text-white hover:bg-white/5 transition-colors"
-                        >
-                          {c}
-                        </button>
+                    <div className="absolute right-0 top-9 z-50 bg-zinc-900 border border-white/10 rounded-xl shadow-2xl w-64 py-2 overflow-y-auto max-h-[70vh]">
+                      {COMBI_GROEPEN.map(groep => (
+                        <div key={groep.label}>
+                          <p className="text-[9px] text-white/30 uppercase tracking-wider px-3 pt-2.5 pb-1 flex items-center gap-1.5">
+                            <span>{groep.emoji}</span>
+                            {groep.label}
+                          </p>
+                          {groep.items.map(c => (
+                            <button
+                              key={c}
+                              onClick={() => insertCombi(h.id, c)}
+                              className="w-full text-left px-4 py-1.5 text-xs text-white/60 hover:text-white hover:bg-white/5 transition-colors"
+                            >
+                              {c}
+                            </button>
+                          ))}
+                        </div>
                       ))}
                     </div>
                   )}
