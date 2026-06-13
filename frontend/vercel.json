@@ -1,6 +1,10 @@
 {
   "crons": [
     {
+      "path": "/api/media-holding/affiliate-engine/sync",
+      "schedule": "15 6 * * *"
+    },
+    {
       "path": "/api/youtube/cron/refresh-tokens",
       "schedule": "0 5 * * *"
     },
