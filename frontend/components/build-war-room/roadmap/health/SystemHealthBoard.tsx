@@ -4,6 +4,7 @@ type Sys = {
   system: string; status: string; autonomy_live: boolean | null
   needs_attention: number; checks_total: number; checks_ok: number
   worst_severity: string | null; last_run: string | null; open_incidents: number
+  attention_items: number
 }
 
 const STATUS: Record<string, { c: string; dot: string }> = {
@@ -12,7 +13,7 @@ const STATUS: Record<string, { c: string; dot: string }> = {
 }
 
 export default function SystemHealthBoard({ data }: { data: Sys[] }) {
-  const sorted = [...data].sort((a, b) => b.needs_attention - a.needs_attention)
+  const sorted = [...data].sort((a, b) => (b.attention_items ?? 0) - (a.attention_items ?? 0))
   return (
     <div className="rounded-lg border border-white/5 bg-[#0e1525]">
       <div className="flex items-center justify-between border-b border-white/5 px-3 py-2">
@@ -46,8 +47,10 @@ export default function SystemHealthBoard({ data }: { data: Sys[] }) {
                     : <span className="text-white/40">handmatig</span>}
                 </td>
                 <td className="px-3 py-1.5">
-                  {s.needs_attention > 0
-                    ? <span className="font-semibold text-amber-400">{s.needs_attention}</span>
+                  {(s.attention_items ?? 0) > 0
+                    ? <span className="font-semibold text-amber-400"
+                        title={`${s.needs_attention} falende check(s) · ${s.open_incidents} open incident(en)${(s.attention_items - s.needs_attention - s.open_incidents) > 0 ? ` · ${s.attention_items - s.needs_attention - s.open_incidents} upload-review(s)` : ''}`}>
+                        {s.attention_items}</span>
                     : <span className="text-white/30">—</span>}
                 </td>
                 <td className="px-3 py-1.5">{s.open_incidents > 0 ? <span className="text-red-400">{s.open_incidents} open</span> : <span className="text-white/30">—</span>}</td>
