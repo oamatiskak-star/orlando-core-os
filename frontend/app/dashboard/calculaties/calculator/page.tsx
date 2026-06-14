@@ -367,6 +367,39 @@ const COMBI_META: Record<string, CombiMeta> = {
   'Tuinafscheiding':      { stabu: '82.10', icon: Layers,        bg: 'bg-emerald-600/10 border-emerald-600/20',iconColor: 'text-emerald-300', beschrijving: 'Schuttingen, hekken en poorten' },
 }
 
+// ─── Combi-foto's ─────────────────────────────────────────────────────────────
+// Bestandsnaam per combi. Plaats royalty-vrije foto's in /public/combis/.
+// Ontbreekt een bestand, dan valt de kaart automatisch terug op het gekleurde icoon.
+
+const COMBI_FOTO: Record<string, string> = {
+  'Sloopwerk':             'sloopwerk.jpg',
+  'Fundering & Grondwerk': 'fundering.jpg',
+  'Metselwerk':            'metselwerk.jpg',
+  'Betonwerk':             'betonwerk.jpg',
+  'Riolering':             'riolering.jpg',
+  'Asbestsanering':        'asbestsanering.jpg',
+  'Dakwerk':               'dakwerk.jpg',
+  'Dakkapel & Dakraam':    'dakkapel.jpg',
+  'Isolatie':              'isolatie.jpg',
+  'Gevelrenovatie':        'gevelrenovatie.jpg',
+  'Kozijnen & Deuren':     'kozijnen.jpg',
+  'Stucwerk & Plafonds':   'stucwerk.jpg',
+  'Tegelwerk':             'tegelwerk.jpg',
+  'Vloerwerk':             'vloerwerk.jpg',
+  'Schilderwerk':          'schilderwerk.jpg',
+  'Timmerwerk':            'timmerwerk.jpg',
+  'Elektra':               'elektra.jpg',
+  'Loodgieterij':          'loodgieterij.jpg',
+  'CV-installatie':        'cv-installatie.jpg',
+  'Ventilatie & WTW':      'ventilatie.jpg',
+  'Zonnepanelen':          'zonnepanelen.jpg',
+  'Badkamer compleet':     'badkamer.jpg',
+  'Keukenplaatsing':       'keuken.jpg',
+  'Trap & Balustrade':     'trap.jpg',
+  'Bestrating & Terras':   'bestrating.jpg',
+  'Tuinafscheiding':       'tuinafscheiding.jpg',
+}
+
 const EENHEDEN = ['m²', 'm³', 'm¹', 'st', 'uur', 'dag', 'ls', 'kg', 'ton', 'set']
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -522,6 +555,46 @@ function InlineInput({
   )
 }
 
+// ─── CombiFoto (foto met fallback naar icoon) ─────────────────────────────────
+
+function CombiFoto({
+  naam,
+  className,
+  iconSize = 28,
+}: {
+  naam: string
+  className?: string
+  iconSize?: number
+}) {
+  const [fout, setFout] = useState(false)
+  const meta = COMBI_META[naam]
+  const Icon = meta?.icon ?? Box
+  const bestand = COMBI_FOTO[naam]
+
+  if (bestand && !fout) {
+    return (
+      <div className={clsx('relative overflow-hidden bg-zinc-900', className)}>
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={`/combis/${bestand}`}
+          alt={naam}
+          loading="lazy"
+          onError={() => setFout(true)}
+          className="w-full h-full object-cover"
+        />
+        <div className="absolute inset-0 bg-gradient-to-t from-black/55 via-transparent to-transparent" />
+      </div>
+    )
+  }
+
+  // Fallback: gekleurd icoonvlak
+  return (
+    <div className={clsx('flex items-center justify-center', meta?.bg ?? 'bg-white/5', className)}>
+      <Icon size={iconSize} className={clsx('opacity-80', meta?.iconColor ?? 'text-white/40')} />
+    </div>
+  )
+}
+
 // ─── CombiCatalogusModal ──────────────────────────────────────────────────────
 
 function CombiCatalogusModal({
@@ -630,25 +703,23 @@ function CombiCatalogusModal({
             {/* Combi preview */}
             {activeCombi ? (
               <div>
-                <div className="flex items-start gap-3 mb-5">
+                {/* Foto-banner */}
+                <div className="relative h-32 rounded-xl overflow-hidden mb-4">
+                  <CombiFoto naam={activeCombi} className="absolute inset-0" iconSize={48} />
                   <button
                     onClick={() => setActiveCombi(null)}
-                    className="mt-0.5 text-white/30 hover:text-white transition-colors shrink-0"
+                    className="absolute top-2.5 left-2.5 flex items-center gap-1 text-[10px] text-white bg-black/45 backdrop-blur-sm px-2 py-1 rounded-lg hover:bg-black/65 transition-colors"
                   >
-                    <ChevronLeft size={16} />
+                    <ChevronLeft size={12} />
+                    Terug
                   </button>
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2 mb-0.5">
-                      {(() => {
-                        const m = COMBI_META[activeCombi]
-                        if (!m) return null
-                        const Icon = m.icon
-                        return <Icon size={14} className={m.iconColor} />
-                      })()}
-                      <p className="text-sm font-semibold text-white">{activeCombi}</p>
-                    </div>
-                    <p className="text-[10px] text-white/35">
-                      STABU {COMBI_META[activeCombi]?.stabu} · {COMBIS[activeCombi]?.length} regels · {COMBI_META[activeCombi]?.beschrijving}
+                  <span className="absolute top-2.5 right-2.5 text-[9px] font-mono text-white/85 bg-black/45 backdrop-blur-sm px-1.5 py-0.5 rounded">
+                    STABU {COMBI_META[activeCombi]?.stabu}
+                  </span>
+                  <div className="absolute bottom-0 left-0 right-0 p-3">
+                    <p className="text-base font-bold text-white drop-shadow">{activeCombi}</p>
+                    <p className="text-[10px] text-white/80 drop-shadow">
+                      {COMBIS[activeCombi]?.length} regels · {COMBI_META[activeCombi]?.beschrijving}
                     </p>
                   </div>
                 </div>
@@ -707,23 +778,25 @@ function CombiCatalogusModal({
                   <div className="grid grid-cols-3 gap-3">
                     {toonItems.map(naam => {
                       const meta = COMBI_META[naam]
-                      const Icon = meta?.icon ?? Box
                       return (
                         <button
                           key={naam}
                           onClick={() => setActiveCombi(naam)}
-                          className={clsx(
-                            'text-left p-4 rounded-xl border transition-all duration-150 hover:scale-[1.02] active:scale-[0.98] hover:brightness-125',
-                            meta?.bg ?? 'bg-white/5 border-white/10',
-                          )}
+                          className="text-left rounded-xl border border-white/[0.08] bg-white/[0.03] overflow-hidden transition-all duration-150 hover:scale-[1.02] active:scale-[0.98] hover:border-white/20 hover:bg-white/[0.06]"
                         >
-                          <div className="flex items-center justify-between mb-2.5">
-                            <Icon size={20} className={clsx('opacity-80', meta?.iconColor ?? 'text-white/40')} />
-                            <span className="text-[9px] font-mono text-white/25">{meta?.stabu}</span>
+                          {/* Foto */}
+                          <div className="relative h-24">
+                            <CombiFoto naam={naam} className="absolute inset-0" iconSize={30} />
+                            <span className="absolute top-2 right-2 text-[9px] font-mono text-white/80 bg-black/45 backdrop-blur-sm px-1.5 py-0.5 rounded">
+                              {meta?.stabu}
+                            </span>
                           </div>
-                          <p className="text-[11px] font-semibold text-white leading-tight mb-1">{naam}</p>
-                          <p className="text-[10px] text-white/35 leading-relaxed line-clamp-2">{meta?.beschrijving}</p>
-                          <p className="text-[9px] text-white/20 mt-2">{COMBIS[naam]?.length} regels</p>
+                          {/* Tekst */}
+                          <div className="p-3">
+                            <p className="text-[11px] font-semibold text-white leading-tight mb-1">{naam}</p>
+                            <p className="text-[10px] text-white/35 leading-relaxed line-clamp-2">{meta?.beschrijving}</p>
+                            <p className="text-[9px] text-white/20 mt-2">{COMBIS[naam]?.length} regels</p>
+                          </div>
                         </button>
                       )
                     })}
