@@ -4,7 +4,7 @@ import { useState, useRef, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import {
   Calculator, ChevronDown, ChevronRight, Plus, Trash2,
-  Printer, ArrowLeft, Pencil, Check, Copy, ChevronUp,
+  Printer, ArrowLeft, Pencil, Check, Copy, ChevronUp, Download,
 } from 'lucide-react'
 import clsx from 'clsx'
 
@@ -392,6 +392,113 @@ function fmtNum(n: number): string {
   return new Intl.NumberFormat('nl-NL', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n)
 }
 
+// ─── CUF export ───────────────────────────────────────────────────────────────
+
+function exporteerAlsCUF(
+  projectNaam: string,
+  projectNummer: string,
+  klant: string,
+  datum: string,
+  hoofdstukken: Hoofdstuk[],
+  opslag: string,
+  btwPct: string,
+): string {
+  const esc = (s: string) =>
+    s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
+
+  const subtotaal = hoofdstukken.reduce((s, h) => s + hoofdstukTotaal(h), 0)
+  const opslagBedrag = subtotaal * (parseNum(opslag) / 100)
+  const exclBtw = subtotaal + opslagBedrag
+  const btwBedrag = exclBtw * (parseNum(btwPct) / 100)
+  const totaal = exclBtw + btwBedrag
+  const nu = new Date().toISOString().replace('Z', '').slice(0, 19)
+
+  const bundelingen = hoofdstukken.map((h, hIdx) => {
+    const ht = hoofdstukTotaal(h)
+    const regels = h.posten
+      .filter(p => p.omschrijving)
+      .map((p, pIdx) =>
+        `      <BEGROTINGSREGEL CODE="${hIdx + 1}.${pIdx + 1}" OMSCHRIJVING="${esc(p.omschrijving)}" HOEVEELHEID_EENHEID="${esc(p.eenheid)}" HOEVEELHEID="${parseNum(p.hoeveelheid)}" INZET="1" HOEVEELHEID_FACTOR="1" MATERIAALPRIJS="${parseNum(p.eenheidsprijs)}" BTW="" />`
+      ).join('\n')
+    return `    <BUNDELING CODE="${hIdx + 1}" OMSCHRIJVING="${esc(h.naam)}" EENHEID="PST" TERUGDEEL_HOEVEELHEID="1" UREN="0" LOONKOSTEN="0" MATERIAALKOSTEN="${ht.toFixed(5)}" MATERIEELKOSTEN="0" ONDERAANNEMING="0">
+${regels}
+    </BUNDELING>`
+  }).join('\n')
+
+  return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<CUF xmlns="x-schema:CufSchema.xml" AANMAAKDATUMTIJD="${nu}">
+  <PROJECTGEGEVENS CUF_VERSIE="4.003" SYSTEEMHUIS="Orlando" AANMAAKDATUM="${datum}" PROJECTNUMMER="${esc(projectNummer)}" PROJECTNAAM="${esc(projectNaam)}" CALCULATOR="Orlando Core OS" OPDRACHTGEVER="${esc(klant)}" VALUTA="EUR" EURO_KOERS="1" OPSLAG_PCT="${opslag}" BTW_PCT="${btwPct}" />
+  <BEGROTING UREN="0" LOONKOSTEN="0" MATERIAALKOSTEN="${subtotaal.toFixed(5)}" MATERIEELKOSTEN="0" ONDERAANNEMING="0" OVERIGE_KOSTEN="0">
+${bundelingen}
+  </BEGROTING>
+  <STAARTGEGEVENS AANNEEMSOM="${totaal.toFixed(5)}">
+    <VRIJE_GROOTHEID OMSCHRIJVING="Subtotaal excl. opslag" BEDRAG="${subtotaal.toFixed(2)}" />
+    <VRIJE_GROOTHEID OMSCHRIJVING="Opslag (${opslag}%)" BEDRAG="${opslagBedrag.toFixed(2)}" />
+    <VRIJE_GROOTHEID OMSCHRIJVING="Subtotaal excl. BTW" BEDRAG="${exclBtw.toFixed(2)}" />
+    <VRIJE_GROOTHEID OMSCHRIJVING="BTW (${btwPct}%)" BEDRAG="${btwBedrag.toFixed(2)}" />
+  </STAARTGEGEVENS>
+</CUF>`
+}
+
+// ─── CUF import ───────────────────────────────────────────────────────────────
+
+interface CUFData {
+  projectNaam: string
+  projectNummer: string
+  klant: string
+  opslag: string
+  btwPct: string
+  hoofdstukken: Hoofdstuk[]
+}
+
+function parseerdCUF(xmlText: string): CUFData | null {
+  try {
+    const parser = new DOMParser()
+    const doc = parser.parseFromString(xmlText, 'text/xml')
+    if (doc.querySelector('parsererror')) return null
+
+    const pg = doc.querySelector('PROJECTGEGEVENS')
+    const projectNaam = pg?.getAttribute('PROJECTNAAM') ?? 'Geïmporteerde calculatie'
+    const projectNummer = pg?.getAttribute('PROJECTNUMMER') ?? ''
+    const klant = pg?.getAttribute('OPDRACHTGEVER') ?? ''
+    const opslag = pg?.getAttribute('OPSLAG_PCT') ?? '10'
+    const btwPct = pg?.getAttribute('BTW_PCT') ?? '21'
+
+    const bundelingen = Array.from(doc.querySelectorAll('BEGROTING > BUNDELING'))
+    const hoofdstukken: Hoofdstuk[] = bundelingen.map(b => {
+      const naam = b.getAttribute('OMSCHRIJVING') ?? 'Hoofdstuk'
+      const posten: Post[] = Array.from(b.querySelectorAll(':scope > BEGROTINGSREGEL'))
+        .map(r => ({
+          id: genId(),
+          omschrijving: r.getAttribute('OMSCHRIJVING') ?? '',
+          hoeveelheid: r.getAttribute('HOEVEELHEID') ?? '',
+          eenheid: r.getAttribute('HOEVEELHEID_EENHEID') ?? 'm²',
+          eenheidsprijs: (
+            r.getAttribute('MATERIAALPRIJS') ||
+            r.getAttribute('ONDERAANNEMINGSPRIJS') ||
+            r.getAttribute('UUR_TARIEF') ||
+            ''
+          ),
+        }))
+        .filter(p => p.omschrijving)
+      return { id: genId(), naam, posten: posten.length ? posten : [legePost()], open: true }
+    })
+
+    return {
+      projectNaam,
+      projectNummer,
+      klant,
+      opslag,
+      btwPct,
+      hoofdstukken: hoofdstukken.length
+        ? hoofdstukken
+        : [{ id: genId(), naam: 'Hoofdstuk 1', posten: [legePost()], open: true }],
+    }
+  } catch {
+    return null
+  }
+}
+
 // ─── Inline edit input ────────────────────────────────────────────────────────
 
 function InlineInput({
@@ -444,7 +551,9 @@ export default function CalculatorPage() {
   const [opslag, setOpslag] = useState('10')
   const [btwPct, setBtwPct] = useState('21')
   const [combiMenuFor, setCombiMenuFor] = useState<string | null>(null)
+  const [importFout, setImportFout] = useState<string | null>(null)
   const combiRef = useRef<HTMLDivElement>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   // Close combi menu on outside click
   useEffect(() => {
@@ -504,6 +613,42 @@ export default function CalculatorPage() {
         ? { ...h, posten: h.posten.map(p => p.id === pId ? { ...p, ...patch } : p) }
         : h
     ))
+
+  // ── CUF export ──
+  const downloadCUF = () => {
+    const xml = exporteerAlsCUF(projectNaam, projectNummer, klant, datum, hoofdstukken, opslag, btwPct)
+    const blob = new Blob([xml], { type: 'application/xml;charset=utf-8' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `${projectNummer || projectNaam}.xml`
+    a.click()
+    URL.revokeObjectURL(url)
+  }
+
+  // ── CUF import ──
+  const laadCUFBestand = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    const reader = new FileReader()
+    reader.onload = (evt) => {
+      const text = evt.target?.result as string
+      const data = parseerdCUF(text)
+      if (!data) {
+        setImportFout('Ongeldig CUF-bestand. Controleer het bestand en probeer opnieuw.')
+        return
+      }
+      setProjectNaam(data.projectNaam)
+      setProjectNummer(data.projectNummer)
+      setKlant(data.klant)
+      setOpslag(data.opslag)
+      setBtwPct(data.btwPct)
+      setHoofdstukken(data.hoofdstukken)
+      setImportFout(null)
+    }
+    reader.readAsText(file, 'UTF-8')
+    e.target.value = ''
+  }
 
   // ── Combi insert ──
   const insertCombi = (hId: string, naam: string) => {
@@ -573,6 +718,20 @@ export default function CalculatorPage() {
         </div>
         <div className="flex items-center gap-2">
           <button
+            onClick={() => fileInputRef.current?.click()}
+            className="flex items-center gap-2 border border-white/10 text-white/50 hover:text-white hover:border-white/20 text-xs font-medium px-3 py-2 rounded-lg transition-colors"
+          >
+            <Plus size={12} />
+            CUF inladen
+          </button>
+          <button
+            onClick={downloadCUF}
+            className="flex items-center gap-2 border border-indigo-500/30 text-indigo-400 hover:text-indigo-300 hover:border-indigo-400/50 text-xs font-medium px-3 py-2 rounded-lg transition-colors"
+          >
+            <Download size={12} />
+            Exporteren als CUF
+          </button>
+          <button
             onClick={() => window.print()}
             className="flex items-center gap-2 border border-white/10 text-white/50 hover:text-white hover:border-white/20 text-xs font-medium px-3 py-2 rounded-lg transition-colors"
           >
@@ -581,6 +740,25 @@ export default function CalculatorPage() {
           </button>
         </div>
       </div>
+
+      {/* Hidden file input for CUF import */}
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept=".xml,.cuf"
+        onChange={laadCUFBestand}
+        className="hidden"
+      />
+
+      {/* Import error */}
+      {importFout && (
+        <div className="bg-red-500/10 border border-red-500/20 rounded-lg px-4 py-3 flex items-center justify-between">
+          <p className="text-xs text-red-400">{importFout}</p>
+          <button onClick={() => setImportFout(null)} className="text-red-400/60 hover:text-red-400 ml-4">
+            <Trash2 size={12} />
+          </button>
+        </div>
+      )}
 
       {/* ── Print header (only visible when printing) ── */}
       <div className="hidden print:block mb-6">
