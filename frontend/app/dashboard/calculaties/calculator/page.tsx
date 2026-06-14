@@ -1,10 +1,12 @@
 'use client'
 
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import {
-  Calculator, ChevronDown, ChevronRight, Plus, Trash2,
+  Calculator, ChevronDown, ChevronRight, ChevronLeft, Plus, Trash2,
   Printer, ArrowLeft, Pencil, Check, Copy, ChevronUp, Download,
+  X, Search, Hammer, Home, Zap, Droplet, Flame, Wind, Sun, Wrench,
+  Layers, AlertTriangle, Paintbrush, Box, Thermometer,
 } from 'lucide-react'
 import clsx from 'clsx'
 
@@ -25,11 +27,10 @@ interface Hoofdstuk {
   open: boolean
 }
 
-// ─── Pre-built combis (2Jours-stijl, uitgebreid) ─────────────────────────────
+// ─── Pre-built combis ─────────────────────────────────────────────────────────
 
 const COMBIS: Record<string, Omit<Post, 'id'>[]> = {
 
-  // ── Ruwbouw ──────────────────────────────────────────────────────────────────
   Sloopwerk: [
     { omschrijving: 'Sloop bestaande vloer (incl. afvoer)', hoeveelheid: '', eenheid: 'm²', eenheidsprijs: '12.00' },
     { omschrijving: 'Sloop binnenwanden (incl. afvoer)', hoeveelheid: '', eenheid: 'm²', eenheidsprijs: '18.00' },
@@ -71,7 +72,7 @@ const COMBIS: Record<string, Omit<Post, 'id'>[]> = {
   ],
 
   Riolering: [
-    { omschrijving: 'PVC-rioolbuis ø110 binnenriolering (incl. bochtstukken)', hoeveelheid: '', eenheid: 'm¹', eenheidsprijs: '48.00' },
+    { omschrijving: 'PVC-rioolbuis ø110 binnenriolering', hoeveelheid: '', eenheid: 'm¹', eenheidsprijs: '48.00' },
     { omschrijving: 'PVC-rioolbuis ø160 buitenriolering', hoeveelheid: '', eenheid: 'm¹', eenheidsprijs: '68.00' },
     { omschrijving: 'PVC-rioolbuis ø200 hoofdriool', hoeveelheid: '', eenheid: 'm¹', eenheidsprijs: '95.00' },
     { omschrijving: 'Kolkput plaatsen (incl. rooster)', hoeveelheid: '', eenheid: 'st', eenheidsprijs: '420.00' },
@@ -90,7 +91,6 @@ const COMBIS: Record<string, Omit<Post, 'id'>[]> = {
     { omschrijving: 'Afvoer en verwerking asbest (gecertificeerd)', hoeveelheid: '', eenheid: 'ton', eenheidsprijs: '980.00' },
   ],
 
-  // ── Dak ──────────────────────────────────────────────────────────────────────
   Dakwerk: [
     { omschrijving: 'Dakpannen vervangen (incl. tengels, lat)', hoeveelheid: '', eenheid: 'm²', eenheidsprijs: '95.00' },
     { omschrijving: 'Bitumen dakbedekking plat dak (2-laags)', hoeveelheid: '', eenheid: 'm²', eenheidsprijs: '85.00' },
@@ -125,7 +125,6 @@ const COMBIS: Record<string, Omit<Post, 'id'>[]> = {
     { omschrijving: 'Kruipruimte isolatie (folie + EPS)', hoeveelheid: '', eenheid: 'm²', eenheidsprijs: '42.00' },
   ],
 
-  // ── Gevel & Kozijnen ──────────────────────────────────────────────────────────
   Gevelrenovatie: [
     { omschrijving: 'Gevel reinigen (hogedrukreiniger)', hoeveelheid: '', eenheid: 'm²', eenheidsprijs: '12.00' },
     { omschrijving: 'Gevelvoegen bijwerken', hoeveelheid: '', eenheid: 'm²', eenheidsprijs: '38.00' },
@@ -148,7 +147,6 @@ const COMBIS: Record<string, Omit<Post, 'id'>[]> = {
     { omschrijving: 'Kozijnen kitten (buiten)', hoeveelheid: '', eenheid: 'st', eenheidsprijs: '65.00' },
   ],
 
-  // ── Afbouw ────────────────────────────────────────────────────────────────────
   'Stucwerk & Plafonds': [
     { omschrijving: 'Glad stucwerk wanden (2-laags)', hoeveelheid: '', eenheid: 'm²', eenheidsprijs: '22.00' },
     { omschrijving: 'Glad stucwerk plafond', hoeveelheid: '', eenheid: 'm²', eenheidsprijs: '28.00' },
@@ -205,7 +203,6 @@ const COMBIS: Record<string, Omit<Post, 'id'>[]> = {
     { omschrijving: 'Maatwerk kastruimte / berging', hoeveelheid: '', eenheid: 'ls', eenheidsprijs: '2500.00' },
   ],
 
-  // ── Installaties ─────────────────────────────────────────────────────────────
   Elektra: [
     { omschrijving: 'Groep (incl. leiding, buis, aansluiting)', hoeveelheid: '', eenheid: 'st', eenheidsprijs: '380.00' },
     { omschrijving: 'Wandcontactdoos enkel', hoeveelheid: '', eenheid: 'st', eenheidsprijs: '85.00' },
@@ -240,7 +237,7 @@ const COMBIS: Record<string, Omit<Post, 'id'>[]> = {
     { omschrijving: 'Radiator vervangen (incl. ontluchten)', hoeveelheid: '', eenheid: 'st', eenheidsprijs: '385.00' },
     { omschrijving: 'CV-leiding aanleggen (per m¹, inbouw)', hoeveelheid: '', eenheid: 'm¹', eenheidsprijs: '48.00' },
     { omschrijving: 'Thermostaatventiel vervangen', hoeveelheid: '', eenheid: 'st', eenheidsprijs: '95.00' },
-    { omschrijving: 'Cv-installatie onderhoud / service', hoeveelheid: '', eenheid: 'ls', eenheidsprijs: '285.00' },
+    { omschrijving: 'CV-installatie onderhoud / service', hoeveelheid: '', eenheid: 'ls', eenheidsprijs: '285.00' },
     { omschrijving: 'Expansievat vervangen', hoeveelheid: '', eenheid: 'st', eenheidsprijs: '280.00' },
   ],
 
@@ -264,7 +261,6 @@ const COMBIS: Record<string, Omit<Post, 'id'>[]> = {
     { omschrijving: 'Steiger dagwerk (voor paneelmontage)', hoeveelheid: '', eenheid: 'dag', eenheidsprijs: '450.00' },
   ],
 
-  // ── Complete verbouw ──────────────────────────────────────────────────────────
   'Badkamer compleet': [
     { omschrijving: 'Sloop badkamer compleet', hoeveelheid: '1', eenheid: 'ls', eenheidsprijs: '850.00' },
     { omschrijving: 'Wandtegels badkamer', hoeveelheid: '', eenheid: 'm²', eenheidsprijs: '85.00' },
@@ -298,7 +294,6 @@ const COMBIS: Record<string, Omit<Post, 'id'>[]> = {
     { omschrijving: 'Glazen balustrade (incl. profielen)', hoeveelheid: '', eenheid: 'm¹', eenheidsprijs: '650.00' },
   ],
 
-  // ── Buiten ────────────────────────────────────────────────────────────────────
   'Bestrating & Terras': [
     { omschrijving: 'Betonstraatstenen 21×10 (incl. zandbed)', hoeveelheid: '', eenheid: 'm²', eenheidsprijs: '42.00' },
     { omschrijving: 'Betontegels 50×50 cm (incl. zandbed)', hoeveelheid: '', eenheid: 'm²', eenheidsprijs: '48.00' },
@@ -321,45 +316,56 @@ const COMBIS: Record<string, Omit<Post, 'id'>[]> = {
   ],
 }
 
-// ─── Combi-groepen voor gegroepeerd menu ──────────────────────────────────────
+// ─── Combi-groepen ────────────────────────────────────────────────────────────
 
 const COMBI_GROEPEN: { label: string; emoji: string; items: string[] }[] = [
-  {
-    label: 'Ruwbouw',
-    emoji: '🏗',
-    items: ['Sloopwerk', 'Fundering & Grondwerk', 'Metselwerk', 'Betonwerk', 'Riolering', 'Asbestsanering'],
-  },
-  {
-    label: 'Dak',
-    emoji: '🏠',
-    items: ['Dakwerk', 'Dakkapel & Dakraam', 'Isolatie'],
-  },
-  {
-    label: 'Gevel & Kozijnen',
-    emoji: '🪟',
-    items: ['Gevelrenovatie', 'Kozijnen & Deuren'],
-  },
-  {
-    label: 'Afbouw',
-    emoji: '🛁',
-    items: ['Stucwerk & Plafonds', 'Tegelwerk', 'Vloerwerk', 'Schilderwerk', 'Timmerwerk'],
-  },
-  {
-    label: 'Installaties',
-    emoji: '⚡',
-    items: ['Elektra', 'Loodgieterij', 'CV-installatie', 'Ventilatie & WTW', 'Zonnepanelen'],
-  },
-  {
-    label: 'Complete verbouw',
-    emoji: '🔧',
-    items: ['Badkamer compleet', 'Keukenplaatsing', 'Trap & Balustrade'],
-  },
-  {
-    label: 'Buiten',
-    emoji: '🌿',
-    items: ['Bestrating & Terras', 'Tuinafscheiding'],
-  },
+  { label: 'Ruwbouw',           emoji: '🏗', items: ['Sloopwerk', 'Fundering & Grondwerk', 'Metselwerk', 'Betonwerk', 'Riolering', 'Asbestsanering'] },
+  { label: 'Dak',               emoji: '🏠', items: ['Dakwerk', 'Dakkapel & Dakraam', 'Isolatie'] },
+  { label: 'Gevel & Kozijnen',  emoji: '🪟', items: ['Gevelrenovatie', 'Kozijnen & Deuren'] },
+  { label: 'Afbouw',            emoji: '🛁', items: ['Stucwerk & Plafonds', 'Tegelwerk', 'Vloerwerk', 'Schilderwerk', 'Timmerwerk'] },
+  { label: 'Installaties',      emoji: '⚡', items: ['Elektra', 'Loodgieterij', 'CV-installatie', 'Ventilatie & WTW', 'Zonnepanelen'] },
+  { label: 'Complete verbouw',  emoji: '🔧', items: ['Badkamer compleet', 'Keukenplaatsing', 'Trap & Balustrade'] },
+  { label: 'Buiten',            emoji: '🌿', items: ['Bestrating & Terras', 'Tuinafscheiding'] },
 ]
+
+// ─── Combi metadata (STABU-codes + icons + kleur) ─────────────────────────────
+
+interface CombiMeta {
+  stabu: string
+  icon: React.ElementType
+  bg: string
+  iconColor: string
+  beschrijving: string
+}
+
+const COMBI_META: Record<string, CombiMeta> = {
+  'Sloopwerk':            { stabu: '02.10', icon: Hammer,        bg: 'bg-red-500/10 border-red-500/20',       iconColor: 'text-red-400',     beschrijving: 'Sloop, afbraak en puinafvoer' },
+  'Fundering & Grondwerk':{ stabu: '08.10', icon: Layers,        bg: 'bg-amber-500/10 border-amber-500/20',   iconColor: 'text-amber-400',   beschrijving: 'Ontgraving, fundering en drainage' },
+  'Metselwerk':           { stabu: '21.10', icon: Box,           bg: 'bg-orange-500/10 border-orange-500/20', iconColor: 'text-orange-400',  beschrijving: 'Binnen- en gevelmuur metselwerk' },
+  'Betonwerk':            { stabu: '11.10', icon: Box,           bg: 'bg-stone-500/10 border-stone-500/20',   iconColor: 'text-stone-300',   beschrijving: 'Gestort beton, wanden en vloeren' },
+  'Riolering':            { stabu: '52.10', icon: Droplet,       bg: 'bg-blue-500/10 border-blue-500/20',     iconColor: 'text-blue-400',    beschrijving: 'PVC-leidingen en rioolaansluiting' },
+  'Asbestsanering':       { stabu: '02.50', icon: AlertTriangle, bg: 'bg-yellow-500/10 border-yellow-500/20', iconColor: 'text-yellow-400',  beschrijving: 'Gecertificeerde asbestverwijdering' },
+  'Dakwerk':              { stabu: '33.10', icon: Home,          bg: 'bg-sky-500/10 border-sky-500/20',       iconColor: 'text-sky-400',     beschrijving: 'Pannendak, platdak en goten' },
+  'Dakkapel & Dakraam':   { stabu: '33.50', icon: Sun,           bg: 'bg-cyan-500/10 border-cyan-500/20',     iconColor: 'text-cyan-400',    beschrijving: 'Dakkapellen en Velux dakramen' },
+  'Isolatie':             { stabu: '09.10', icon: Thermometer,   bg: 'bg-teal-500/10 border-teal-500/20',     iconColor: 'text-teal-400',    beschrijving: 'Dak, vloer, spouw en gevelisolatie' },
+  'Gevelrenovatie':       { stabu: '37.10', icon: Paintbrush,    bg: 'bg-teal-600/10 border-teal-600/20',     iconColor: 'text-teal-300',    beschrijving: 'Reinigen, voegen en bekleding' },
+  'Kozijnen & Deuren':    { stabu: '31.10', icon: Box,           bg: 'bg-cyan-600/10 border-cyan-600/20',     iconColor: 'text-cyan-300',    beschrijving: 'Kozijnen, deuren en schuifpuien' },
+  'Stucwerk & Plafonds':  { stabu: '94.10', icon: Layers,        bg: 'bg-purple-500/10 border-purple-500/20', iconColor: 'text-purple-400',  beschrijving: 'Glad stuc, dekvloer en gipskarton' },
+  'Tegelwerk':            { stabu: '93.10', icon: Box,           bg: 'bg-violet-500/10 border-violet-500/20', iconColor: 'text-violet-400',  beschrijving: 'Wand- en vloertegels leggen' },
+  'Vloerwerk':            { stabu: '91.10', icon: Layers,        bg: 'bg-fuchsia-500/10 border-fuchsia-500/20',iconColor: 'text-fuchsia-400', beschrijving: 'Laminaat, PVC, parket en gietvloer' },
+  'Schilderwerk':         { stabu: '97.10', icon: Paintbrush,    bg: 'bg-pink-500/10 border-pink-500/20',     iconColor: 'text-pink-400',    beschrijving: 'Wanden, plafonds en kozijnen schilderen' },
+  'Timmerwerk':           { stabu: '31.50', icon: Wrench,        bg: 'bg-rose-500/10 border-rose-500/20',     iconColor: 'text-rose-400',    beschrijving: 'Plinten, panelen en maatwerk hout' },
+  'Elektra':              { stabu: '65.10', icon: Zap,           bg: 'bg-indigo-500/10 border-indigo-500/20', iconColor: 'text-indigo-400',  beschrijving: 'Groepen, armaturen en meterkast' },
+  'Loodgieterij':         { stabu: '52.50', icon: Droplet,       bg: 'bg-blue-600/10 border-blue-600/20',     iconColor: 'text-blue-300',    beschrijving: 'Water- en afvoerleidingen, sanitair' },
+  'CV-installatie':       { stabu: '55.10', icon: Flame,         bg: 'bg-orange-600/10 border-orange-600/20', iconColor: 'text-orange-300',  beschrijving: 'CV-ketel, warmtepomp en radiatoren' },
+  'Ventilatie & WTW':     { stabu: '56.10', icon: Wind,          bg: 'bg-sky-600/10 border-sky-600/20',       iconColor: 'text-sky-300',     beschrijving: 'WTW-units, kanalen en roosters' },
+  'Zonnepanelen':         { stabu: '67.10', icon: Sun,           bg: 'bg-yellow-600/10 border-yellow-600/20', iconColor: 'text-yellow-300',  beschrijving: 'Panelen, omvormers en batterij' },
+  'Badkamer compleet':    { stabu: '90.01', icon: Droplet,       bg: 'bg-emerald-500/10 border-emerald-500/20',iconColor: 'text-emerald-400', beschrijving: 'Volledig badkamerpakket turnkey' },
+  'Keukenplaatsing':      { stabu: '90.02', icon: Wrench,        bg: 'bg-green-500/10 border-green-500/20',   iconColor: 'text-green-400',   beschrijving: 'Demontage en plaatsing keuken' },
+  'Trap & Balustrade':    { stabu: '94.50', icon: ChevronUp,     bg: 'bg-lime-500/10 border-lime-500/20',     iconColor: 'text-lime-400',    beschrijving: 'Houten trap, leuning en balustrade' },
+  'Bestrating & Terras':  { stabu: '80.10', icon: Layers,        bg: 'bg-green-600/10 border-green-600/20',   iconColor: 'text-green-300',   beschrijving: 'Tegels, klinkers en houten vlonder' },
+  'Tuinafscheiding':      { stabu: '82.10', icon: Layers,        bg: 'bg-emerald-600/10 border-emerald-600/20',iconColor: 'text-emerald-300', beschrijving: 'Schuttingen, hekken en poorten' },
+}
 
 const EENHEDEN = ['m²', 'm³', 'm¹', 'st', 'uur', 'dag', 'ls', 'kg', 'ton', 'set']
 
@@ -385,11 +391,6 @@ function hoofdstukTotaal(h: Hoofdstuk): number {
 
 function fmtEur(n: number): string {
   return new Intl.NumberFormat('nl-NL', { style: 'currency', currency: 'EUR' }).format(n)
-}
-
-function fmtNum(n: number): string {
-  if (n === 0) return '—'
-  return new Intl.NumberFormat('nl-NL', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n)
 }
 
 // ─── CUF export ───────────────────────────────────────────────────────────────
@@ -485,11 +486,7 @@ function parseerdCUF(xmlText: string): CUFData | null {
     })
 
     return {
-      projectNaam,
-      projectNummer,
-      klant,
-      opslag,
-      btwPct,
+      projectNaam, projectNummer, klant, opslag, btwPct,
       hoofdstukken: hoofdstukken.length
         ? hoofdstukken
         : [{ id: genId(), naam: 'Hoofdstuk 1', posten: [legePost()], open: true }],
@@ -499,21 +496,20 @@ function parseerdCUF(xmlText: string): CUFData | null {
   }
 }
 
-// ─── Inline edit input ────────────────────────────────────────────────────────
+// ─── InlineInput ─────────────────────────────────────────────────────────────
 
 function InlineInput({
-  value, onChange, placeholder, className, align = 'left', type = 'text',
+  value, onChange, placeholder, className, align = 'left',
 }: {
   value: string
   onChange: (v: string) => void
   placeholder?: string
   className?: string
   align?: 'left' | 'right'
-  type?: string
 }) {
   return (
     <input
-      type={type}
+      type="text"
       value={value}
       onChange={e => onChange(e.target.value)}
       placeholder={placeholder}
@@ -526,6 +522,222 @@ function InlineInput({
   )
 }
 
+// ─── CombiCatalogusModal ──────────────────────────────────────────────────────
+
+function CombiCatalogusModal({
+  isOpen,
+  onClose,
+  onInsert,
+}: {
+  isOpen: boolean
+  onClose: () => void
+  onInsert: (naam: string) => void
+}) {
+  const [activeCat, setActiveCat] = useState(COMBI_GROEPEN[0].label)
+  const [activeCombi, setActiveCombi] = useState<string | null>(null)
+  const [zoek, setZoek] = useState('')
+
+  useEffect(() => {
+    if (isOpen) { setZoek(''); setActiveCombi(null); setActiveCat(COMBI_GROEPEN[0].label) }
+  }, [isOpen])
+
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
+    if (isOpen) document.addEventListener('keydown', handler)
+    return () => document.removeEventListener('keydown', handler)
+  }, [isOpen, onClose])
+
+  const zoekResultaten = useMemo(() => {
+    const q = zoek.trim().toLowerCase()
+    if (!q) return null
+    const results: { groep: string; naam: string }[] = []
+    for (const groep of COMBI_GROEPEN) {
+      for (const naam of groep.items) {
+        if (
+          naam.toLowerCase().includes(q) ||
+          (COMBI_META[naam]?.beschrijving ?? '').toLowerCase().includes(q) ||
+          (COMBI_META[naam]?.stabu ?? '').includes(q)
+        ) {
+          results.push({ groep: groep.label, naam })
+        }
+      }
+    }
+    return results
+  }, [zoek])
+
+  const huidigGroep = COMBI_GROEPEN.find(g => g.label === activeCat)
+  const toonItems: string[] = zoekResultaten ? zoekResultaten.map(r => r.naam) : (huidigGroep?.items ?? [])
+
+  if (!isOpen) return null
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 print:hidden">
+      {/* Overlay */}
+      <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={onClose} />
+
+      {/* Panel */}
+      <div className="relative w-full max-w-4xl bg-zinc-950 border border-white/10 rounded-2xl shadow-2xl flex flex-col overflow-hidden"
+        style={{ height: 'min(85vh, 680px)' }}>
+
+        {/* Header — search */}
+        <div className="flex items-center gap-3 px-5 py-3.5 border-b border-white/[0.08] shrink-0">
+          <Search size={15} className="text-white/25 shrink-0" />
+          <input
+            autoFocus
+            value={zoek}
+            onChange={e => { setZoek(e.target.value); setActiveCombi(null) }}
+            placeholder="Zoek combi... bijv. metselwerk, elektra, vloerverwarming"
+            className="flex-1 bg-transparent text-sm text-white placeholder:text-white/20 focus:outline-none"
+          />
+          {zoek && (
+            <button onClick={() => setZoek('')} className="text-white/30 hover:text-white/70 transition-colors">
+              <X size={13} />
+            </button>
+          )}
+          <div className="w-px h-4 bg-white/10 mx-1" />
+          <button onClick={onClose} className="text-white/30 hover:text-white transition-colors">
+            <X size={16} />
+          </button>
+        </div>
+
+        {/* Body */}
+        <div className="flex flex-1 overflow-hidden">
+
+          {/* Left — category sidebar (hidden when zoeken) */}
+          {!zoek && (
+            <div className="w-44 shrink-0 border-r border-white/[0.06] overflow-y-auto py-2 bg-white/[0.01]">
+              {COMBI_GROEPEN.map(g => (
+                <button
+                  key={g.label}
+                  onClick={() => { setActiveCat(g.label); setActiveCombi(null) }}
+                  className={clsx(
+                    'w-full text-left px-4 py-2.5 text-[11px] font-medium transition-colors flex items-center gap-2.5',
+                    activeCat === g.label
+                      ? 'bg-indigo-600/15 text-indigo-300 border-r-2 border-indigo-500'
+                      : 'text-white/45 hover:text-white/80 hover:bg-white/[0.04]',
+                  )}
+                >
+                  <span className="text-sm">{g.emoji}</span>
+                  <span>{g.label}</span>
+                </button>
+              ))}
+            </div>
+          )}
+
+          {/* Right — content */}
+          <div className="flex-1 overflow-y-auto p-5">
+
+            {/* Combi preview */}
+            {activeCombi ? (
+              <div>
+                <div className="flex items-start gap-3 mb-5">
+                  <button
+                    onClick={() => setActiveCombi(null)}
+                    className="mt-0.5 text-white/30 hover:text-white transition-colors shrink-0"
+                  >
+                    <ChevronLeft size={16} />
+                  </button>
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2 mb-0.5">
+                      {(() => {
+                        const m = COMBI_META[activeCombi]
+                        if (!m) return null
+                        const Icon = m.icon
+                        return <Icon size={14} className={m.iconColor} />
+                      })()}
+                      <p className="text-sm font-semibold text-white">{activeCombi}</p>
+                    </div>
+                    <p className="text-[10px] text-white/35">
+                      STABU {COMBI_META[activeCombi]?.stabu} · {COMBIS[activeCombi]?.length} regels · {COMBI_META[activeCombi]?.beschrijving}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Line items preview */}
+                <div className="bg-white/[0.03] border border-white/[0.06] rounded-xl overflow-hidden mb-4">
+                  <div
+                    className="grid text-[9px] text-white/25 uppercase tracking-widest px-4 py-2 border-b border-white/[0.05]"
+                    style={{ gridTemplateColumns: '1fr 72px 52px 88px' }}
+                  >
+                    <span>Omschrijving</span>
+                    <span className="text-right">Hoeveelheid</span>
+                    <span className="pl-1.5">Eenh.</span>
+                    <span className="text-right">Prijs/eenh.</span>
+                  </div>
+                  {COMBIS[activeCombi]?.map((p, i) => (
+                    <div
+                      key={i}
+                      className="grid items-center px-4 py-2 border-b border-white/[0.03] last:border-0"
+                      style={{ gridTemplateColumns: '1fr 72px 52px 88px' }}
+                    >
+                      <span className="text-xs text-white/65 truncate pr-2">{p.omschrijving}</span>
+                      <span className="text-xs text-right text-white/30 tabular-nums">{p.hoeveelheid || '—'}</span>
+                      <span className="text-xs text-white/35 pl-1.5">{p.eenheid}</span>
+                      <span className="text-xs text-right text-white/55 tabular-nums">
+                        € {parseFloat(p.eenheidsprijs).toFixed(2)}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+
+                <button
+                  onClick={() => { onInsert(activeCombi); onClose() }}
+                  className="w-full bg-indigo-600 hover:bg-indigo-500 active:bg-indigo-700 text-white text-sm font-semibold py-3 rounded-xl transition-colors flex items-center justify-center gap-2"
+                >
+                  <Plus size={14} />
+                  Combi invoegen in hoofdstuk
+                </button>
+              </div>
+
+            ) : (
+              // Grid of combi cards
+              <div>
+                <p className="text-[10px] text-white/25 uppercase tracking-wider mb-4">
+                  {zoek
+                    ? `${toonItems.length} resultaten voor "${zoek}"`
+                    : `${huidigGroep?.emoji} ${activeCat} — ${toonItems.length} combis`}
+                </p>
+
+                {toonItems.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center py-16 gap-2">
+                    <Search size={24} className="text-white/15" />
+                    <p className="text-sm text-white/30">Geen combis gevonden</p>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-3 gap-3">
+                    {toonItems.map(naam => {
+                      const meta = COMBI_META[naam]
+                      const Icon = meta?.icon ?? Box
+                      return (
+                        <button
+                          key={naam}
+                          onClick={() => setActiveCombi(naam)}
+                          className={clsx(
+                            'text-left p-4 rounded-xl border transition-all duration-150 hover:scale-[1.02] active:scale-[0.98] hover:brightness-125',
+                            meta?.bg ?? 'bg-white/5 border-white/10',
+                          )}
+                        >
+                          <div className="flex items-center justify-between mb-2.5">
+                            <Icon size={20} className={clsx('opacity-80', meta?.iconColor ?? 'text-white/40')} />
+                            <span className="text-[9px] font-mono text-white/25">{meta?.stabu}</span>
+                          </div>
+                          <p className="text-[11px] font-semibold text-white leading-tight mb-1">{naam}</p>
+                          <p className="text-[10px] text-white/35 leading-relaxed line-clamp-2">{meta?.beschrijving}</p>
+                          <p className="text-[9px] text-white/20 mt-2">{COMBIS[naam]?.length} regels</p>
+                        </button>
+                      )
+                    })}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ─── Main component ───────────────────────────────────────────────────────────
 
 export default function CalculatorPage() {
@@ -533,47 +745,30 @@ export default function CalculatorPage() {
 
   const [projectNaam, setProjectNaam] = useState('Nieuwe calculatie')
   const [editingNaam, setEditingNaam] = useState(false)
-  const [projectNummer, setProjectNummer] = useState(
-    `CAL-${new Date().getFullYear()}-${String(Math.floor(Math.random() * 900) + 100)}`
-  )
   const [klant, setKlant] = useState('')
   const [datum] = useState(
     new Date().toLocaleDateString('nl-NL', { day: '2-digit', month: '2-digit', year: 'numeric' })
   )
   const [hoofdstukken, setHoofdstukken] = useState<Hoofdstuk[]>([
-    {
-      id: genId(),
-      naam: 'Hoofdstuk 1',
-      open: true,
-      posten: [legePost()],
-    },
+    { id: genId(), naam: 'Hoofdstuk 1', open: true, posten: [legePost()] },
   ])
   const [opslag, setOpslag] = useState('10')
   const [btwPct, setBtwPct] = useState('21')
-  const [combiMenuFor, setCombiMenuFor] = useState<string | null>(null)
+  const [combiModalFor, setCombiModalFor] = useState<string | null>(null)
   const [importFout, setImportFout] = useState<string | null>(null)
-  const combiRef = useRef<HTMLDivElement>(null)
+  const [projectNummerState, setProjectNummerState] = useState(
+    `CAL-${new Date().getFullYear()}-${String(Math.floor(Math.random() * 900) + 100)}`
+  )
   const fileInputRef = useRef<HTMLInputElement>(null)
 
-  // Close combi menu on outside click
-  useEffect(() => {
-    function handle(e: MouseEvent) {
-      if (combiRef.current && !combiRef.current.contains(e.target as Node)) {
-        setCombiMenuFor(null)
-      }
-    }
-    document.addEventListener('mousedown', handle)
-    return () => document.removeEventListener('mousedown', handle)
-  }, [])
-
-  // ── Totals ──
+  // Totals
   const subtotaal = hoofdstukken.reduce((s, h) => s + hoofdstukTotaal(h), 0)
   const opslagBedrag = subtotaal * (parseNum(opslag) / 100)
   const exclBtw = subtotaal + opslagBedrag
   const btwBedrag = exclBtw * (parseNum(btwPct) / 100)
   const totaalInclBtw = exclBtw + btwBedrag
 
-  // ── Hoofdstuk handlers ──
+  // Hoofdstuk handlers
   const addHoofdstuk = () =>
     setHoofdstukken(prev => [
       ...prev,
@@ -596,7 +791,7 @@ export default function CalculatorPage() {
       return next
     })
 
-  // ── Post handlers ──
+  // Post handlers
   const addPost = (hId: string) =>
     setHoofdstukken(prev => prev.map(h =>
       h.id === hId ? { ...h, posten: [...h.posten, legePost()] } : h
@@ -614,19 +809,19 @@ export default function CalculatorPage() {
         : h
     ))
 
-  // ── CUF export ──
+  // CUF export
   const downloadCUF = () => {
-    const xml = exporteerAlsCUF(projectNaam, projectNummer, klant, datum, hoofdstukken, opslag, btwPct)
+    const xml = exporteerAlsCUF(projectNaam, projectNummerState, klant, datum, hoofdstukken, opslag, btwPct)
     const blob = new Blob([xml], { type: 'application/xml;charset=utf-8' })
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url
-    a.download = `${projectNummer || projectNaam}.xml`
+    a.download = `${projectNummerState || projectNaam}.xml`
     a.click()
     URL.revokeObjectURL(url)
   }
 
-  // ── CUF import ──
+  // CUF import
   const laadCUFBestand = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
@@ -639,7 +834,7 @@ export default function CalculatorPage() {
         return
       }
       setProjectNaam(data.projectNaam)
-      setProjectNummer(data.projectNummer)
+      setProjectNummerState(data.projectNummer)
       setKlant(data.klant)
       setOpslag(data.opslag)
       setBtwPct(data.btwPct)
@@ -650,14 +845,14 @@ export default function CalculatorPage() {
     e.target.value = ''
   }
 
-  // ── Combi insert ──
-  const insertCombi = (hId: string, naam: string) => {
+  // Combi insert
+  const insertCombi = (naam: string) => {
+    if (!combiModalFor) return
     const posten = COMBIS[naam].map(c => ({ id: genId(), ...c }))
-    updateHoofdstuk(hId, { naam, posten })
-    setCombiMenuFor(null)
+    updateHoofdstuk(combiModalFor, { naam, posten })
   }
 
-  // ── Duplicate chapter ──
+  // Duplicate chapter
   const duplicateHoofdstuk = (h: Hoofdstuk) =>
     setHoofdstukken(prev => {
       const idx = prev.findIndex(x => x.id === h.id)
@@ -675,7 +870,14 @@ export default function CalculatorPage() {
   return (
     <div className="space-y-4 pb-12 print:pb-0">
 
-      {/* ── Header ── */}
+      {/* Combi catalogus modal */}
+      <CombiCatalogusModal
+        isOpen={combiModalFor !== null}
+        onClose={() => setCombiModalFor(null)}
+        onInsert={insertCombi}
+      />
+
+      {/* Header */}
       <div className="flex items-start justify-between gap-4 print:hidden">
         <div className="flex items-center gap-3">
           <button
@@ -703,17 +905,14 @@ export default function CalculatorPage() {
                 </button>
               </div>
             ) : (
-              <button
-                onClick={() => setEditingNaam(true)}
-                className="flex items-center gap-1.5 group"
-              >
+              <button onClick={() => setEditingNaam(true)} className="flex items-center gap-1.5 group">
                 <h1 className="text-base font-semibold text-white group-hover:text-white/80 transition-colors">
                   {projectNaam}
                 </h1>
                 <Pencil size={11} className="text-white/20 group-hover:text-white/50 transition-colors" />
               </button>
             )}
-            <p className="text-xs text-white/40">{projectNummer} · {datum}</p>
+            <p className="text-xs text-white/40">{projectNummerState} · {datum}</p>
           </div>
         </div>
         <div className="flex items-center gap-2">
@@ -741,36 +940,30 @@ export default function CalculatorPage() {
         </div>
       </div>
 
-      {/* Hidden file input for CUF import */}
-      <input
-        ref={fileInputRef}
-        type="file"
-        accept=".xml,.cuf"
-        onChange={laadCUFBestand}
-        className="hidden"
-      />
+      {/* Hidden file input */}
+      <input ref={fileInputRef} type="file" accept=".xml,.cuf" onChange={laadCUFBestand} className="hidden" />
 
       {/* Import error */}
       {importFout && (
         <div className="bg-red-500/10 border border-red-500/20 rounded-lg px-4 py-3 flex items-center justify-between">
           <p className="text-xs text-red-400">{importFout}</p>
           <button onClick={() => setImportFout(null)} className="text-red-400/60 hover:text-red-400 ml-4">
-            <Trash2 size={12} />
+            <X size={12} />
           </button>
         </div>
       )}
 
-      {/* ── Print header (only visible when printing) ── */}
+      {/* Print header */}
       <div className="hidden print:block mb-6">
         <h1 className="text-2xl font-bold text-black">{projectNaam}</h1>
-        <p className="text-sm text-gray-500">{projectNummer} · {datum}{klant ? ` · ${klant}` : ''}</p>
+        <p className="text-sm text-gray-500">{projectNummerState} · {datum}{klant ? ` · ${klant}` : ''}</p>
       </div>
 
-      {/* ── Meta row ── */}
+      {/* Meta row */}
       <div className="grid grid-cols-2 gap-3 print:hidden">
         <div className="bg-white/[0.04] border border-white/5 rounded-lg px-3 py-2">
           <p className="text-[10px] text-white/30 uppercase tracking-wider mb-1">Projectnummer</p>
-          <InlineInput value={projectNummer} onChange={setProjectNummer} placeholder="CAL-2025-001" />
+          <InlineInput value={projectNummerState} onChange={setProjectNummerState} placeholder="CAL-2025-001" />
         </div>
         <div className="bg-white/[0.04] border border-white/5 rounded-lg px-3 py-2">
           <p className="text-[10px] text-white/30 uppercase tracking-wider mb-1">Klant / opdrachtgever</p>
@@ -778,7 +971,7 @@ export default function CalculatorPage() {
         </div>
       </div>
 
-      {/* ── Chapters ── */}
+      {/* Chapters */}
       <div className="space-y-3">
         {hoofdstukken.map((h, hIdx) => {
           const htotaal = hoofdstukTotaal(h)
@@ -807,41 +1000,13 @@ export default function CalculatorPage() {
                   </span>
                 )}
 
-                {/* Combi button */}
-                <div className="relative print:hidden" ref={combiMenuFor === h.id ? combiRef : undefined}>
-                  <button
-                    onClick={() => setCombiMenuFor(combiMenuFor === h.id ? null : h.id)}
-                    className={clsx(
-                      'text-[10px] border px-2 py-1 rounded transition-all',
-                      combiMenuFor === h.id
-                        ? 'text-indigo-300 border-indigo-500/50 bg-indigo-500/10'
-                        : 'text-indigo-400/60 border-indigo-500/20 opacity-0 group-hover/hdr:opacity-100 hover:text-indigo-300 hover:border-indigo-500/50',
-                    )}
-                  >
-                    Combi invoegen
-                  </button>
-                  {combiMenuFor === h.id && (
-                    <div className="absolute right-0 top-9 z-50 bg-zinc-900 border border-white/10 rounded-xl shadow-2xl w-64 py-2 overflow-y-auto max-h-[70vh]">
-                      {COMBI_GROEPEN.map(groep => (
-                        <div key={groep.label}>
-                          <p className="text-[9px] text-white/30 uppercase tracking-wider px-3 pt-2.5 pb-1 flex items-center gap-1.5">
-                            <span>{groep.emoji}</span>
-                            {groep.label}
-                          </p>
-                          {groep.items.map(c => (
-                            <button
-                              key={c}
-                              onClick={() => insertCombi(h.id, c)}
-                              className="w-full text-left px-4 py-1.5 text-xs text-white/60 hover:text-white hover:bg-white/5 transition-colors"
-                            >
-                              {c}
-                            </button>
-                          ))}
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
+                {/* Combi button — opens modal */}
+                <button
+                  onClick={() => setCombiModalFor(h.id)}
+                  className="text-[10px] border px-2 py-1 rounded transition-all text-indigo-400/60 border-indigo-500/20 opacity-0 group-hover/hdr:opacity-100 hover:text-indigo-300 hover:border-indigo-500/50 hover:bg-indigo-500/5 print:hidden shrink-0"
+                >
+                  Combi invoegen
+                </button>
 
                 {/* Chapter actions */}
                 <div className="flex items-center gap-0.5 opacity-0 group-hover/hdr:opacity-100 transition-opacity print:hidden">
@@ -880,7 +1045,8 @@ export default function CalculatorPage() {
               {h.open && (
                 <>
                   {/* Column headers */}
-                  <div className="grid items-center gap-2 px-4 py-2 text-[9px] text-white/25 uppercase tracking-widest border-b border-white/[0.03] print:text-gray-400 print:border-gray-100"
+                  <div
+                    className="grid items-center gap-2 px-4 py-2 text-[9px] text-white/25 uppercase tracking-widest border-b border-white/[0.03] print:text-gray-400 print:border-gray-100"
                     style={{ gridTemplateColumns: '1fr 72px 68px 100px 90px 24px' }}
                   >
                     <span>Omschrijving</span>
@@ -973,11 +1139,10 @@ export default function CalculatorPage() {
         </button>
       </div>
 
-      {/* ── Totaaloverzicht ── */}
+      {/* Totaaloverzicht */}
       <div className="bg-white/[0.06] border border-white/5 rounded-xl p-5 print:border print:border-gray-200">
         <h2 className="text-sm font-semibold text-white mb-4 print:text-black">Totaaloverzicht</h2>
 
-        {/* Per-chapter breakdown */}
         <div className="space-y-1 mb-4">
           {hoofdstukken.map((h, i) => {
             const ht = hoofdstukTotaal(h)
@@ -992,7 +1157,6 @@ export default function CalculatorPage() {
           })}
         </div>
 
-        {/* Calculations */}
         <div className="border-t border-white/10 pt-4 space-y-2 print:border-gray-200">
           <div className="flex justify-between text-xs text-white/60 print:text-black">
             <span>Subtotaal (excl. opslag en BTW)</span>
@@ -1047,7 +1211,6 @@ export default function CalculatorPage() {
         </div>
       </div>
 
-      {/* ── Print styles ── */}
       <style>{`
         @media print {
           body { background: white !important; color: black !important; }
