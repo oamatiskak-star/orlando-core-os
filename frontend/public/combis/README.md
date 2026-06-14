@@ -5,6 +5,12 @@ Plaats hier de foto's voor de combi-catalogus van de Bouw Calculator
 de bijbehorende foto zodra het bestand bestaat; ontbreekt het bestand,
 dan valt de kaart terug op een gekleurd icoon.
 
+> **Twee lagen foto's:**
+> - **Deze map** (`/combis/`) = foto per **combi-categorie** (25 stuks, tabel onderaan).
+> - **`/combis/elementen/`** = foto per **element/regel** binnen een combi — de
+>   tussenlaag met raamkozijnen, deuren, platte/hellende daken enz.
+>   (203 stuks). Zie `elementen/README.md` voor alle bestandsnamen.
+
 ## Vereisten
 - **Formaat:** JPG (of WebP — pas dan ook `COMBI_FOTO` in `page.tsx` aan).
 - **Aanbevolen afmeting:** ca. 600×400 px, liggend (4:3 / 3:2).
