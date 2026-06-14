@@ -1525,7 +1525,7 @@ function InlineInput({
   )
 }
 
-// ─── CombiFoto (foto met fallback naar icoon) ─────────────────────────────────
+// ─── CombiFoto (foto met fallback: statisch jpg → API-svg → icoon) ────────────
 
 function CombiFoto({
   naam,
@@ -1536,20 +1536,34 @@ function CombiFoto({
   className?: string
   iconSize?: number
 }) {
+  const apiUrl = `/api/combi-foto?naam=${encodeURIComponent(naam)}`
+  const bestand = COMBI_FOTO[naam]
+  const initSrc = bestand ? `/combis/${bestand}` : apiUrl
+  const [src, setSrc] = useState(initSrc)
   const [fout, setFout] = useState(false)
   const meta = COMBI_META[naam]
   const Icon = meta?.icon ?? Box
-  const bestand = COMBI_FOTO[naam]
 
-  if (bestand && !fout) {
+  useEffect(() => {
+    const b = COMBI_FOTO[naam]
+    setSrc(b ? `/combis/${b}` : `/api/combi-foto?naam=${encodeURIComponent(naam)}`)
+    setFout(false)
+  }, [naam])
+
+  function handleError() {
+    if (src.startsWith('/combis/')) setSrc(apiUrl)
+    else setFout(true)
+  }
+
+  if (!fout) {
     return (
       <div className={clsx('relative overflow-hidden bg-zinc-900', className)}>
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
-          src={`/combis/${bestand}`}
+          src={src}
           alt={naam}
           loading="lazy"
-          onError={() => setFout(true)}
+          onError={handleError}
           className="w-full h-full object-cover"
         />
         <div className="absolute inset-0 bg-gradient-to-t from-black/55 via-transparent to-transparent" />
@@ -1564,8 +1578,7 @@ function CombiFoto({
   )
 }
 
-// ─── ElementFoto (foto per regel/element in de tussenlaag) ────────────────────
-// Probeert /public/combis/elementen/<slug>.jpg, valt terug op het combi-icoon.
+// ─── ElementFoto (foto per regel/element: statisch jpg → API-svg → icoon) ─────
 
 function ElementFoto({
   combiNaam,
@@ -1578,22 +1591,32 @@ function ElementFoto({
   className?: string
   iconSize?: number
 }) {
+  const elementSlug = slug(omschrijving)
+  const apiUrl = `/api/element-foto?slug=${elementSlug}&combi=${encodeURIComponent(combiNaam ?? '')}`
+  const [src, setSrc] = useState(`/combis/elementen/${elementSlug}.jpg`)
   const [fout, setFout] = useState(false)
   const meta = combiNaam ? COMBI_META[combiNaam] : undefined
   const Icon = meta?.icon ?? Box
-  const naam = slug(omschrijving)
 
-  useEffect(() => { setFout(false) }, [naam])
+  useEffect(() => {
+    setSrc(`/combis/elementen/${slug(omschrijving)}.jpg`)
+    setFout(false)
+  }, [omschrijving])
 
-  if (naam && !fout) {
+  function handleError() {
+    if (src.startsWith('/combis/')) setSrc(apiUrl)
+    else setFout(true)
+  }
+
+  if (!fout) {
     return (
       <div className={clsx('relative overflow-hidden bg-zinc-900', className)}>
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
-          src={`/combis/elementen/${naam}.jpg`}
+          src={src}
           alt={omschrijving}
           loading="lazy"
-          onError={() => setFout(true)}
+          onError={handleError}
           className="w-full h-full object-cover"
         />
       </div>
