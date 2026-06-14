@@ -6,18 +6,31 @@ import {
   Calculator, ChevronDown, ChevronRight, ChevronLeft, Plus, Trash2,
   Printer, ArrowLeft, Pencil, Check, Copy, ChevronUp, Download,
   X, Search, Hammer, Home, Zap, Droplet, Flame, Wind, Sun, Wrench,
-  Layers, AlertTriangle, Paintbrush, Box, Thermometer,
+  Layers, AlertTriangle, Paintbrush, Box, Thermometer, Sigma,
 } from 'lucide-react'
 import clsx from 'clsx'
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
+type Soort = 'materiaal' | 'arbeid' | 'materieel' | 'onderaanneming'
+
+interface Onderdeel {
+  id: string
+  soort: Soort
+  omschrijving: string
+  norm: string      // hoeveelheid per eenheid van het element
+  eenheid: string   // eenheid van het onderdeel (kg, st, uur, ...)
+  prijs: string     // tarief per onderdeel-eenheid
+}
+
 interface Post {
   id: string
   omschrijving: string
-  hoeveelheid: string
-  eenheid: string
-  eenheidsprijs: string
+  hoeveelheid: string   // hoeveelheid van het element (bijv. 50 m²)
+  eenheid: string       // eenheid van het element (m², m³, st)
+  eenheidsprijs: string // directe prijs/eenheid — gebruikt als opbouw leeg is
+  opbouw: Onderdeel[]   // receptuur (samengesteld element)
+  open: boolean         // opbouw uitgeklapt?
 }
 
 interface Hoofdstuk {
@@ -27,9 +40,29 @@ interface Hoofdstuk {
   open: boolean
 }
 
+// MAMO-soorten met label + kleur
+const SOORTEN: { key: Soort; label: string; kort: string; cls: string }[] = [
+  { key: 'materiaal',      label: 'Materiaal',      kort: 'MAT', cls: 'text-sky-300 bg-sky-500/15 border-sky-500/25' },
+  { key: 'arbeid',         label: 'Arbeid',         kort: 'ARB', cls: 'text-amber-300 bg-amber-500/15 border-amber-500/25' },
+  { key: 'materieel',      label: 'Materieel',      kort: 'MTL', cls: 'text-violet-300 bg-violet-500/15 border-violet-500/25' },
+  { key: 'onderaanneming', label: 'Onderaanneming', kort: 'OA',  cls: 'text-emerald-300 bg-emerald-500/15 border-emerald-500/25' },
+]
+const soortInfo = (s: Soort) => SOORTEN.find(x => x.key === s) ?? SOORTEN[0]
+
+// ─── Combi-seed types ─────────────────────────────────────────────────────────
+
+interface OnderdeelSeed { soort: Soort; omschrijving: string; norm: string; eenheid: string; prijs: string }
+interface CombiRegel {
+  omschrijving: string
+  hoeveelheid: string
+  eenheid: string
+  eenheidsprijs: string
+  opbouw?: OnderdeelSeed[]
+}
+
 // ─── Pre-built combis ─────────────────────────────────────────────────────────
 
-const COMBIS: Record<string, Omit<Post, 'id'>[]> = {
+const COMBIS: Record<string, CombiRegel[]> = {
 
   Sloopwerk: [
     { omschrijving: 'Sloop bestaande vloer (incl. afvoer)', hoeveelheid: '', eenheid: 'm²', eenheidsprijs: '12.00' },
@@ -52,13 +85,49 @@ const COMBIS: Record<string, Omit<Post, 'id'>[]> = {
     { omschrijving: 'Zandbed / aanvulzand', hoeveelheid: '', eenheid: 'm³', eenheidsprijs: '38.00' },
   ],
 
+  // Metselwerk — showcase combi mét volledige receptuur (samengestelde elementen)
   Metselwerk: [
-    { omschrijving: 'Binnenwand metselwerk 10 cm', hoeveelheid: '', eenheid: 'm²', eenheidsprijs: '95.00' },
-    { omschrijving: 'Buitengevel metselwerk 21 cm (spouw)', hoeveelheid: '', eenheid: 'm²', eenheidsprijs: '165.00' },
-    { omschrijving: 'Borstwering / latei metselwerk', hoeveelheid: '', eenheid: 'm¹', eenheidsprijs: '120.00' },
+    {
+      omschrijving: 'Binnenwand metselwerk 10 cm', hoeveelheid: '', eenheid: 'm²', eenheidsprijs: '95.00',
+      opbouw: [
+        { soort: 'materiaal', omschrijving: 'Kalkzandsteen lijmblok 100 mm', norm: '1',    eenheid: 'm²',  prijs: '24.00' },
+        { soort: 'materiaal', omschrijving: 'Lijmmortel kalkzandsteen',       norm: '0.012', eenheid: 'm³', prijs: '210.00' },
+        { soort: 'arbeid',    omschrijving: 'Metselaar',                      norm: '0.85', eenheid: 'uur', prijs: '48.00' },
+        { soort: 'arbeid',    omschrijving: 'Opperman',                       norm: '0.35', eenheid: 'uur', prijs: '38.00' },
+        { soort: 'materieel', omschrijving: 'Klein gereedschap / mengkuip',   norm: '1',    eenheid: 'm²',  prijs: '2.50' },
+      ],
+    },
+    {
+      omschrijving: 'Buitengevel metselwerk 21 cm (spouw)', hoeveelheid: '', eenheid: 'm²', eenheidsprijs: '165.00',
+      opbouw: [
+        { soort: 'materiaal', omschrijving: 'Gevelsteen waalformaat',          norm: '100',  eenheid: 'st',  prijs: '0.55' },
+        { soort: 'materiaal', omschrijving: 'Metselmortel',                     norm: '0.04', eenheid: 'm³',  prijs: '180.00' },
+        { soort: 'materiaal', omschrijving: 'Spouwanker RVS',                   norm: '5',    eenheid: 'st',  prijs: '0.85' },
+        { soort: 'materiaal', omschrijving: 'Spouwisolatie minerale wol 100 mm', norm: '1',  eenheid: 'm²',  prijs: '14.00' },
+        { soort: 'arbeid',    omschrijving: 'Metselaar',                        norm: '1.15', eenheid: 'uur', prijs: '48.00' },
+        { soort: 'arbeid',    omschrijving: 'Opperman',                         norm: '0.50', eenheid: 'uur', prijs: '38.00' },
+        { soort: 'materieel', omschrijving: 'Steiger (toeslag per m²)',         norm: '1',    eenheid: 'm²',  prijs: '6.00' },
+      ],
+    },
+    {
+      omschrijving: 'Borstwering / latei metselwerk', hoeveelheid: '', eenheid: 'm¹', eenheidsprijs: '120.00',
+      opbouw: [
+        { soort: 'materiaal', omschrijving: 'Gevelsteen waalformaat', norm: '60',   eenheid: 'st',  prijs: '0.55' },
+        { soort: 'materiaal', omschrijving: 'Metselmortel',           norm: '0.025', eenheid: 'm³', prijs: '180.00' },
+        { soort: 'arbeid',    omschrijving: 'Metselaar',              norm: '1.4',  eenheid: 'uur', prijs: '48.00' },
+        { soort: 'arbeid',    omschrijving: 'Opperman',               norm: '0.6',  eenheid: 'uur', prijs: '38.00' },
+      ],
+    },
     { omschrijving: 'Schoorsteenkanaal metselwerk', hoeveelheid: '', eenheid: 'm¹', eenheidsprijs: '320.00' },
     { omschrijving: 'Koppelstenen / ankers spouwmuur', hoeveelheid: '', eenheid: 'st', eenheidsprijs: '4.50' },
-    { omschrijving: 'Gevelvoegen bijwerken', hoeveelheid: '', eenheid: 'm²', eenheidsprijs: '38.00' },
+    {
+      omschrijving: 'Gevelvoegen bijwerken', hoeveelheid: '', eenheid: 'm²', eenheidsprijs: '38.00',
+      opbouw: [
+        { soort: 'materiaal', omschrijving: 'Voegmortel',     norm: '0.008', eenheid: 'm³', prijs: '220.00' },
+        { soort: 'arbeid',    omschrijving: 'Voeger',         norm: '0.55',  eenheid: 'uur', prijs: '46.00' },
+        { soort: 'materieel', omschrijving: 'Steiger toeslag', norm: '1',    eenheid: 'm²',  prijs: '6.00' },
+      ],
+    },
     { omschrijving: 'Betonnen lateibalk plaatsen', hoeveelheid: '', eenheid: 'st', eenheidsprijs: '280.00' },
   ],
 
@@ -158,8 +227,17 @@ const COMBIS: Record<string, Omit<Post, 'id'>[]> = {
     { omschrijving: 'Corniche / plafondlijst stucwerk', hoeveelheid: '', eenheid: 'm¹', eenheidsprijs: '32.00' },
   ],
 
+  // Tegelwerk — showcase regel mét receptuur
   Tegelwerk: [
-    { omschrijving: 'Wandtegels badkamer (incl. tegellijm en voeg)', hoeveelheid: '', eenheid: 'm²', eenheidsprijs: '85.00' },
+    {
+      omschrijving: 'Wandtegels badkamer (incl. tegellijm en voeg)', hoeveelheid: '', eenheid: 'm²', eenheidsprijs: '85.00',
+      opbouw: [
+        { soort: 'materiaal', omschrijving: 'Wandtegel keramisch',     norm: '1.05', eenheid: 'm²',  prijs: '32.00' },
+        { soort: 'materiaal', omschrijving: 'Tegellijm',               norm: '4',    eenheid: 'kg',   prijs: '1.20' },
+        { soort: 'materiaal', omschrijving: 'Voegmortel',              norm: '0.5',  eenheid: 'kg',   prijs: '2.40' },
+        { soort: 'arbeid',    omschrijving: 'Tegelzetter',             norm: '0.85', eenheid: 'uur',  prijs: '46.00' },
+      ],
+    },
     { omschrijving: 'Vloertegels badkamer / toilet', hoeveelheid: '', eenheid: 'm²', eenheidsprijs: '78.00' },
     { omschrijving: 'Vloertegels keuken / woonkamer', hoeveelheid: '', eenheid: 'm²', eenheidsprijs: '65.00' },
     { omschrijving: 'Grote formaat tegel ≥60×60 cm', hoeveelheid: '', eenheid: 'm²', eenheidsprijs: '110.00' },
@@ -203,8 +281,17 @@ const COMBIS: Record<string, Omit<Post, 'id'>[]> = {
     { omschrijving: 'Maatwerk kastruimte / berging', hoeveelheid: '', eenheid: 'ls', eenheidsprijs: '2500.00' },
   ],
 
+  // Elektra — showcase regel mét receptuur
   Elektra: [
-    { omschrijving: 'Groep (incl. leiding, buis, aansluiting)', hoeveelheid: '', eenheid: 'st', eenheidsprijs: '380.00' },
+    {
+      omschrijving: 'Groep (incl. leiding, buis, aansluiting)', hoeveelheid: '', eenheid: 'st', eenheidsprijs: '380.00',
+      opbouw: [
+        { soort: 'materiaal', omschrijving: 'Installatieautomaat 16A',  norm: '1',  eenheid: 'st',  prijs: '18.00' },
+        { soort: 'materiaal', omschrijving: 'Installatiedraad 3×2,5 mm²', norm: '18', eenheid: 'm¹', prijs: '1.10' },
+        { soort: 'materiaal', omschrijving: 'Installatiebuis + montage',  norm: '15', eenheid: 'm¹', prijs: '0.90' },
+        { soort: 'arbeid',    omschrijving: 'Elektromonteur',            norm: '4',  eenheid: 'uur', prijs: '52.00' },
+      ],
+    },
     { omschrijving: 'Wandcontactdoos enkel', hoeveelheid: '', eenheid: 'st', eenheidsprijs: '85.00' },
     { omschrijving: 'Wandcontactdoos dubbel', hoeveelheid: '', eenheid: 'st', eenheidsprijs: '115.00' },
     { omschrijving: 'LED-inbouwarmatuur', hoeveelheid: '', eenheid: 'st', eenheidsprijs: '145.00' },
@@ -406,20 +493,69 @@ const EENHEDEN = ['m²', 'm³', 'm¹', 'st', 'uur', 'dag', 'ls', 'kg', 'ton', 's
 
 const genId = () => Math.random().toString(36).slice(2, 9)
 
+function legeOnderdeel(soort: Soort = 'materiaal'): Onderdeel {
+  return { id: genId(), soort, omschrijving: '', norm: '1', eenheid: 'st', prijs: '' }
+}
+
 function legePost(): Post {
-  return { id: genId(), omschrijving: '', hoeveelheid: '', eenheid: 'm²', eenheidsprijs: '' }
+  return { id: genId(), omschrijving: '', hoeveelheid: '', eenheid: 'm²', eenheidsprijs: '', opbouw: [], open: false }
 }
 
 function parseNum(v: string): number {
   return parseFloat(v.replace(',', '.')) || 0
 }
 
+function onderdeelKostprijs(o: Onderdeel): number {
+  return parseNum(o.norm) * parseNum(o.prijs)
+}
+
+function opbouwKostprijs(p: Post): number {
+  return p.opbouw.reduce((s, o) => s + onderdeelKostprijs(o), 0)
+}
+
+// Kostprijs per eenheid: uit receptuur indien aanwezig, anders directe prijs
+function postEenheidsprijs(p: Post): number {
+  return p.opbouw.length ? opbouwKostprijs(p) : parseNum(p.eenheidsprijs)
+}
+
 function postTotaal(p: Post): number {
-  return parseNum(p.hoeveelheid) * parseNum(p.eenheidsprijs)
+  return parseNum(p.hoeveelheid) * postEenheidsprijs(p)
 }
 
 function hoofdstukTotaal(h: Hoofdstuk): number {
   return h.posten.reduce((s, p) => s + postTotaal(p), 0)
+}
+
+type Mamo = { materiaal: number; arbeid: number; materieel: number; onderaanneming: number }
+
+function postMamo(p: Post): Mamo {
+  const qty = parseNum(p.hoeveelheid)
+  const out: Mamo = { materiaal: 0, arbeid: 0, materieel: 0, onderaanneming: 0 }
+  if (p.opbouw.length) {
+    for (const o of p.opbouw) out[o.soort] += qty * onderdeelKostprijs(o)
+  } else {
+    // Vrije regel zonder opbouw → naar onderaanneming-bucket
+    out.onderaanneming += qty * parseNum(p.eenheidsprijs)
+  }
+  return out
+}
+
+function begrotingMamo(hoofdstukken: Hoofdstuk[]): Mamo {
+  const out: Mamo = { materiaal: 0, arbeid: 0, materieel: 0, onderaanneming: 0 }
+  for (const h of hoofdstukken) for (const p of h.posten) {
+    const m = postMamo(p)
+    out.materiaal += m.materiaal
+    out.arbeid += m.arbeid
+    out.materieel += m.materieel
+    out.onderaanneming += m.onderaanneming
+  }
+  return out
+}
+
+function postUren(p: Post): number {
+  if (!p.opbouw.length) return 0
+  const qty = parseNum(p.hoeveelheid)
+  return p.opbouw.filter(o => o.soort === 'arbeid').reduce((s, o) => s + qty * parseNum(o.norm), 0)
 }
 
 function fmtEur(n: number): string {
@@ -446,15 +582,30 @@ function exporteerAlsCUF(
   const btwBedrag = exclBtw * (parseNum(btwPct) / 100)
   const totaal = exclBtw + btwBedrag
   const nu = new Date().toISOString().replace('Z', '').slice(0, 19)
+  const bm = begrotingMamo(hoofdstukken)
+  const totUren = hoofdstukken.reduce((s, h) => s + h.posten.reduce((t, p) => t + postUren(p), 0), 0)
 
   const bundelingen = hoofdstukken.map((h, hIdx) => {
-    const ht = hoofdstukTotaal(h)
+    const hUren = h.posten.reduce((t, p) => t + postUren(p), 0)
+    const hm = h.posten.reduce<Mamo>((acc, p) => {
+      const m = postMamo(p)
+      acc.materiaal += m.materiaal; acc.arbeid += m.arbeid; acc.materieel += m.materieel; acc.onderaanneming += m.onderaanneming
+      return acc
+    }, { materiaal: 0, arbeid: 0, materieel: 0, onderaanneming: 0 })
+
     const regels = h.posten
       .filter(p => p.omschrijving)
-      .map((p, pIdx) =>
-        `      <BEGROTINGSREGEL CODE="${hIdx + 1}.${pIdx + 1}" OMSCHRIJVING="${esc(p.omschrijving)}" HOEVEELHEID_EENHEID="${esc(p.eenheid)}" HOEVEELHEID="${parseNum(p.hoeveelheid)}" INZET="1" HOEVEELHEID_FACTOR="1" MATERIAALPRIJS="${parseNum(p.eenheidsprijs)}" BTW="" />`
-      ).join('\n')
-    return `    <BUNDELING CODE="${hIdx + 1}" OMSCHRIJVING="${esc(h.naam)}" EENHEID="PST" TERUGDEEL_HOEVEELHEID="1" UREN="0" LOONKOSTEN="0" MATERIAALKOSTEN="${ht.toFixed(5)}" MATERIEELKOSTEN="0" ONDERAANNEMING="0">
+      .map((p, pIdx) => {
+        const ep = postEenheidsprijs(p)
+        const recept = p.opbouw
+          .map(o =>
+            `        <RECEPTREGEL SOORT="${o.soort}" OMSCHRIJVING="${esc(o.omschrijving)}" NORM="${parseNum(o.norm)}" EENHEID="${esc(o.eenheid)}" PRIJS="${parseNum(o.prijs)}" />`
+          ).join('\n')
+        const open = `      <BEGROTINGSREGEL CODE="${hIdx + 1}.${pIdx + 1}" OMSCHRIJVING="${esc(p.omschrijving)}" HOEVEELHEID_EENHEID="${esc(p.eenheid)}" HOEVEELHEID="${parseNum(p.hoeveelheid)}" INZET="1" HOEVEELHEID_FACTOR="1" KOSTPRIJS="${ep.toFixed(5)}" BTW=""`
+        return recept ? `${open}>\n${recept}\n      </BEGROTINGSREGEL>` : `${open} />`
+      }).join('\n')
+
+    return `    <BUNDELING CODE="${hIdx + 1}" OMSCHRIJVING="${esc(h.naam)}" EENHEID="PST" TERUGDEEL_HOEVEELHEID="1" UREN="${hUren.toFixed(2)}" LOONKOSTEN="${hm.arbeid.toFixed(5)}" MATERIAALKOSTEN="${hm.materiaal.toFixed(5)}" MATERIEELKOSTEN="${hm.materieel.toFixed(5)}" ONDERAANNEMING="${hm.onderaanneming.toFixed(5)}">
 ${regels}
     </BUNDELING>`
   }).join('\n')
@@ -462,7 +613,7 @@ ${regels}
   return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <CUF xmlns="x-schema:CufSchema.xml" AANMAAKDATUMTIJD="${nu}">
   <PROJECTGEGEVENS CUF_VERSIE="4.003" SYSTEEMHUIS="Orlando" AANMAAKDATUM="${datum}" PROJECTNUMMER="${esc(projectNummer)}" PROJECTNAAM="${esc(projectNaam)}" CALCULATOR="Orlando Core OS" OPDRACHTGEVER="${esc(klant)}" VALUTA="EUR" EURO_KOERS="1" OPSLAG_PCT="${opslag}" BTW_PCT="${btwPct}" />
-  <BEGROTING UREN="0" LOONKOSTEN="0" MATERIAALKOSTEN="${subtotaal.toFixed(5)}" MATERIEELKOSTEN="0" ONDERAANNEMING="0" OVERIGE_KOSTEN="0">
+  <BEGROTING UREN="${totUren.toFixed(2)}" LOONKOSTEN="${bm.arbeid.toFixed(5)}" MATERIAALKOSTEN="${bm.materiaal.toFixed(5)}" MATERIEELKOSTEN="${bm.materieel.toFixed(5)}" ONDERAANNEMING="${bm.onderaanneming.toFixed(5)}" OVERIGE_KOSTEN="0">
 ${bundelingen}
   </BEGROTING>
   <STAARTGEGEVENS AANNEEMSOM="${totaal.toFixed(5)}">
@@ -498,22 +649,38 @@ function parseerdCUF(xmlText: string): CUFData | null {
     const opslag = pg?.getAttribute('OPSLAG_PCT') ?? '10'
     const btwPct = pg?.getAttribute('BTW_PCT') ?? '21'
 
+    const geldigeSoort = (s: string | null): Soort =>
+      (['materiaal', 'arbeid', 'materieel', 'onderaanneming'].includes(s ?? '') ? s : 'materiaal') as Soort
+
     const bundelingen = Array.from(doc.querySelectorAll('BEGROTING > BUNDELING'))
     const hoofdstukken: Hoofdstuk[] = bundelingen.map(b => {
       const naam = b.getAttribute('OMSCHRIJVING') ?? 'Hoofdstuk'
       const posten: Post[] = Array.from(b.querySelectorAll(':scope > BEGROTINGSREGEL'))
-        .map(r => ({
-          id: genId(),
-          omschrijving: r.getAttribute('OMSCHRIJVING') ?? '',
-          hoeveelheid: r.getAttribute('HOEVEELHEID') ?? '',
-          eenheid: r.getAttribute('HOEVEELHEID_EENHEID') ?? 'm²',
-          eenheidsprijs: (
-            r.getAttribute('MATERIAALPRIJS') ||
-            r.getAttribute('ONDERAANNEMINGSPRIJS') ||
-            r.getAttribute('UUR_TARIEF') ||
-            ''
-          ),
-        }))
+        .map(r => {
+          const opbouw: Onderdeel[] = Array.from(r.querySelectorAll(':scope > RECEPTREGEL')).map(rr => ({
+            id: genId(),
+            soort: geldigeSoort(rr.getAttribute('SOORT')),
+            omschrijving: rr.getAttribute('OMSCHRIJVING') ?? '',
+            norm: rr.getAttribute('NORM') ?? '1',
+            eenheid: rr.getAttribute('EENHEID') ?? 'st',
+            prijs: rr.getAttribute('PRIJS') ?? '',
+          }))
+          return {
+            id: genId(),
+            omschrijving: r.getAttribute('OMSCHRIJVING') ?? '',
+            hoeveelheid: r.getAttribute('HOEVEELHEID') ?? '',
+            eenheid: r.getAttribute('HOEVEELHEID_EENHEID') ?? 'm²',
+            eenheidsprijs: opbouw.length ? '' : (
+              r.getAttribute('KOSTPRIJS') ||
+              r.getAttribute('MATERIAALPRIJS') ||
+              r.getAttribute('ONDERAANNEMINGSPRIJS') ||
+              r.getAttribute('UUR_TARIEF') ||
+              ''
+            ),
+            opbouw,
+            open: false,
+          }
+        })
         .filter(p => p.omschrijving)
       return { id: genId(), naam, posten: posten.length ? posten : [legePost()], open: true }
     })
@@ -587,7 +754,6 @@ function CombiFoto({
     )
   }
 
-  // Fallback: gekleurd icoonvlak
   return (
     <div className={clsx('flex items-center justify-center', meta?.bg ?? 'bg-white/5', className)}>
       <Icon size={iconSize} className={clsx('opacity-80', meta?.iconColor ?? 'text-white/40')} />
@@ -623,7 +789,7 @@ function CombiCatalogusModal({
   const zoekResultaten = useMemo(() => {
     const q = zoek.trim().toLowerCase()
     if (!q) return null
-    const results: { groep: string; naam: string }[] = []
+    const results: string[] = []
     for (const groep of COMBI_GROEPEN) {
       for (const naam of groep.items) {
         if (
@@ -631,7 +797,7 @@ function CombiCatalogusModal({
           (COMBI_META[naam]?.beschrijving ?? '').toLowerCase().includes(q) ||
           (COMBI_META[naam]?.stabu ?? '').includes(q)
         ) {
-          results.push({ groep: groep.label, naam })
+          results.push(naam)
         }
       }
     }
@@ -639,18 +805,18 @@ function CombiCatalogusModal({
   }, [zoek])
 
   const huidigGroep = COMBI_GROEPEN.find(g => g.label === activeCat)
-  const toonItems: string[] = zoekResultaten ? zoekResultaten.map(r => r.naam) : (huidigGroep?.items ?? [])
+  const toonItems: string[] = zoekResultaten ?? (huidigGroep?.items ?? [])
+
+  const aantalMetOpbouw = (naam: string) => COMBIS[naam]?.filter(r => r.opbouw && r.opbouw.length).length ?? 0
 
   if (!isOpen) return null
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 print:hidden">
-      {/* Overlay */}
       <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={onClose} />
 
-      {/* Panel */}
       <div className="relative w-full max-w-4xl bg-zinc-950 border border-white/10 rounded-2xl shadow-2xl flex flex-col overflow-hidden"
-        style={{ height: 'min(85vh, 680px)' }}>
+        style={{ height: 'min(85vh, 700px)' }}>
 
         {/* Header — search */}
         <div className="flex items-center gap-3 px-5 py-3.5 border-b border-white/[0.08] shrink-0">
@@ -676,7 +842,7 @@ function CombiCatalogusModal({
         {/* Body */}
         <div className="flex flex-1 overflow-hidden">
 
-          {/* Left — category sidebar (hidden when zoeken) */}
+          {/* Left — category sidebar */}
           {!zoek && (
             <div className="w-44 shrink-0 border-r border-white/[0.06] overflow-y-auto py-2 bg-white/[0.01]">
               {COMBI_GROEPEN.map(g => (
@@ -700,7 +866,6 @@ function CombiCatalogusModal({
           {/* Right — content */}
           <div className="flex-1 overflow-y-auto p-5">
 
-            {/* Combi preview */}
             {activeCombi ? (
               <div>
                 {/* Foto-banner */}
@@ -728,28 +893,45 @@ function CombiCatalogusModal({
                 <div className="bg-white/[0.03] border border-white/[0.06] rounded-xl overflow-hidden mb-4">
                   <div
                     className="grid text-[9px] text-white/25 uppercase tracking-widest px-4 py-2 border-b border-white/[0.05]"
-                    style={{ gridTemplateColumns: '1fr 72px 52px 88px' }}
+                    style={{ gridTemplateColumns: '1fr 64px 52px 88px' }}
                   >
-                    <span>Omschrijving</span>
-                    <span className="text-right">Hoeveelheid</span>
+                    <span>Element / regel</span>
+                    <span className="text-right">Hoev.</span>
                     <span className="pl-1.5">Eenh.</span>
-                    <span className="text-right">Prijs/eenh.</span>
+                    <span className="text-right">Kostprijs</span>
                   </div>
-                  {COMBIS[activeCombi]?.map((p, i) => (
-                    <div
-                      key={i}
-                      className="grid items-center px-4 py-2 border-b border-white/[0.03] last:border-0"
-                      style={{ gridTemplateColumns: '1fr 72px 52px 88px' }}
-                    >
-                      <span className="text-xs text-white/65 truncate pr-2">{p.omschrijving}</span>
-                      <span className="text-xs text-right text-white/30 tabular-nums">{p.hoeveelheid || '—'}</span>
-                      <span className="text-xs text-white/35 pl-1.5">{p.eenheid}</span>
-                      <span className="text-xs text-right text-white/55 tabular-nums">
-                        € {parseFloat(p.eenheidsprijs).toFixed(2)}
-                      </span>
-                    </div>
-                  ))}
+                  {COMBIS[activeCombi]?.map((r, i) => {
+                    const ep = r.opbouw && r.opbouw.length
+                      ? r.opbouw.reduce((s, o) => s + parseNum(o.norm) * parseNum(o.prijs), 0)
+                      : parseNum(r.eenheidsprijs)
+                    return (
+                      <div
+                        key={i}
+                        className="grid items-center px-4 py-2 border-b border-white/[0.03] last:border-0"
+                        style={{ gridTemplateColumns: '1fr 64px 52px 88px' }}
+                      >
+                        <span className="text-xs text-white/65 truncate pr-2 flex items-center gap-1.5">
+                          {r.omschrijving}
+                          {r.opbouw && r.opbouw.length > 0 && (
+                            <span className="text-[8px] font-medium text-indigo-300 bg-indigo-500/15 border border-indigo-500/25 px-1 py-0.5 rounded leading-none shrink-0">
+                              {r.opbouw.length}-delig
+                            </span>
+                          )}
+                        </span>
+                        <span className="text-xs text-right text-white/30 tabular-nums">{r.hoeveelheid || '—'}</span>
+                        <span className="text-xs text-white/35 pl-1.5">{r.eenheid}</span>
+                        <span className="text-xs text-right text-white/55 tabular-nums">€ {ep.toFixed(2)}</span>
+                      </div>
+                    )
+                  })}
                 </div>
+
+                {aantalMetOpbouw(activeCombi) > 0 && (
+                  <p className="text-[10px] text-white/40 mb-3 flex items-center gap-1.5">
+                    <Sigma size={11} className="text-indigo-400" />
+                    {aantalMetOpbouw(activeCombi)} regels zijn samengestelde elementen — klap ze na invoegen open voor de opbouw (materiaal · arbeid · materieel).
+                  </p>
+                )}
 
                 <button
                   onClick={() => { onInsert(activeCombi); onClose() }}
@@ -761,7 +943,6 @@ function CombiCatalogusModal({
               </div>
 
             ) : (
-              // Grid of combi cards
               <div>
                 <p className="text-[10px] text-white/25 uppercase tracking-wider mb-4">
                   {zoek
@@ -778,20 +959,24 @@ function CombiCatalogusModal({
                   <div className="grid grid-cols-3 gap-3">
                     {toonItems.map(naam => {
                       const meta = COMBI_META[naam]
+                      const metOpbouw = aantalMetOpbouw(naam)
                       return (
                         <button
                           key={naam}
                           onClick={() => setActiveCombi(naam)}
                           className="text-left rounded-xl border border-white/[0.08] bg-white/[0.03] overflow-hidden transition-all duration-150 hover:scale-[1.02] active:scale-[0.98] hover:border-white/20 hover:bg-white/[0.06]"
                         >
-                          {/* Foto */}
                           <div className="relative h-24">
                             <CombiFoto naam={naam} className="absolute inset-0" iconSize={30} />
                             <span className="absolute top-2 right-2 text-[9px] font-mono text-white/80 bg-black/45 backdrop-blur-sm px-1.5 py-0.5 rounded">
                               {meta?.stabu}
                             </span>
+                            {metOpbouw > 0 && (
+                              <span className="absolute top-2 left-2 flex items-center gap-0.5 text-[8px] font-medium text-indigo-200 bg-indigo-600/70 backdrop-blur-sm px-1.5 py-0.5 rounded">
+                                <Sigma size={8} /> opbouw
+                              </span>
+                            )}
                           </div>
-                          {/* Tekst */}
                           <div className="p-3">
                             <p className="text-[11px] font-semibold text-white leading-tight mb-1">{naam}</p>
                             <p className="text-[10px] text-white/35 leading-relaxed line-clamp-2">{meta?.beschrijving}</p>
@@ -806,6 +991,137 @@ function CombiCatalogusModal({
             )}
           </div>
         </div>
+      </div>
+    </div>
+  )
+}
+
+// ─── Opbouw-editor (de tussenlaag) ────────────────────────────────────────────
+
+function OpbouwEditor({
+  post,
+  onAdd,
+  onUpdate,
+  onRemove,
+}: {
+  post: Post
+  onAdd: (soort: Soort) => void
+  onUpdate: (oId: string, patch: Partial<Onderdeel>) => void
+  onRemove: (oId: string) => void
+}) {
+  const kostprijs = opbouwKostprijs(post)
+
+  return (
+    <div className="bg-black/25 border-t border-white/[0.05] px-4 py-3 print:bg-transparent">
+      <div className="flex items-center gap-1.5 mb-2">
+        <Sigma size={11} className="text-indigo-400" />
+        <p className="text-[10px] text-white/40 uppercase tracking-wider">
+          Opbouw — kostprijs per {post.eenheid}
+        </p>
+      </div>
+
+      {post.opbouw.length > 0 ? (
+        <div className="rounded-lg border border-white/[0.06] overflow-hidden">
+          {/* Column headers */}
+          <div
+            className="grid items-center gap-2 px-3 py-1.5 text-[8px] text-white/25 uppercase tracking-widest bg-white/[0.02] border-b border-white/[0.04]"
+            style={{ gridTemplateColumns: '92px 1fr 60px 56px 84px 84px 20px' }}
+          >
+            <span>Soort</span>
+            <span>Omschrijving</span>
+            <span className="text-right">Norm/eenh.</span>
+            <span className="pl-1">Eenheid</span>
+            <span className="text-right">Tarief</span>
+            <span className="text-right">Kostprijs</span>
+            <span />
+          </div>
+
+          {post.opbouw.map(o => {
+            const info = soortInfo(o.soort)
+            const sub = onderdeelKostprijs(o)
+            return (
+              <div
+                key={o.id}
+                className="grid items-center gap-2 px-3 py-1.5 border-b border-white/[0.03] last:border-0 hover:bg-white/[0.02] transition-colors group/od"
+                style={{ gridTemplateColumns: '92px 1fr 60px 56px 84px 84px 20px' }}
+              >
+                <select
+                  value={o.soort}
+                  onChange={e => onUpdate(o.id, { soort: e.target.value as Soort })}
+                  className={clsx('text-[9px] font-medium rounded border px-1 py-0.5 focus:outline-none cursor-pointer', info.cls)}
+                >
+                  {SOORTEN.map(s => (
+                    <option key={s.key} value={s.key} className="bg-zinc-900 text-white">{s.label}</option>
+                  ))}
+                </select>
+                <InlineInput
+                  value={o.omschrijving}
+                  onChange={v => onUpdate(o.id, { omschrijving: v })}
+                  placeholder="Onderdeel..."
+                />
+                <InlineInput
+                  value={o.norm}
+                  onChange={v => onUpdate(o.id, { norm: v })}
+                  placeholder="1"
+                  align="right"
+                />
+                <select
+                  value={o.eenheid}
+                  onChange={e => onUpdate(o.id, { eenheid: e.target.value })}
+                  className="bg-transparent text-[11px] text-white/50 focus:outline-none focus:text-white transition-colors pl-1"
+                >
+                  {EENHEDEN.map(e => (
+                    <option key={e} value={e} className="bg-zinc-900 text-white">{e}</option>
+                  ))}
+                </select>
+                <div className="flex items-center gap-0.5 justify-end">
+                  <span className="text-[10px] text-white/30">€</span>
+                  <InlineInput
+                    value={o.prijs}
+                    onChange={v => onUpdate(o.id, { prijs: v })}
+                    placeholder="0,00"
+                    align="right"
+                  />
+                </div>
+                <span className="text-[11px] text-right text-white/60 tabular-nums">{fmtEur(sub)}</span>
+                <button
+                  onClick={() => onRemove(o.id)}
+                  className="text-white/15 hover:text-red-400 opacity-0 group-hover/od:opacity-100 transition-all"
+                >
+                  <Trash2 size={10} />
+                </button>
+              </div>
+            )
+          })}
+
+          {/* Kostprijs-footer */}
+          <div
+            className="grid items-center gap-2 px-3 py-1.5 bg-indigo-500/[0.06] border-t border-indigo-500/15"
+            style={{ gridTemplateColumns: '1fr 84px 20px' }}
+          >
+            <span className="text-[10px] font-medium text-indigo-300">Kostprijs per {post.eenheid}</span>
+            <span className="text-[11px] text-right font-semibold text-indigo-200 tabular-nums">{fmtEur(kostprijs)}</span>
+            <span />
+          </div>
+        </div>
+      ) : (
+        <p className="text-[10px] text-white/30 italic mb-2">
+          Nog geen opbouw. Voeg onderdelen toe (materiaal · arbeid · materieel · onderaanneming) of laat leeg voor een directe eenheidsprijs.
+        </p>
+      )}
+
+      {/* Add onderdeel buttons */}
+      <div className="flex flex-wrap items-center gap-1.5 mt-2 print:hidden">
+        {SOORTEN.map(s => (
+          <button
+            key={s.key}
+            onClick={() => onAdd(s.key)}
+            className={clsx('flex items-center gap-1 text-[9px] font-medium border px-2 py-1 rounded transition-all hover:brightness-125', s.cls)}
+          >
+            <Plus size={9} />
+            {s.label}
+          </button>
+        ))}
       </div>
     </div>
   )
@@ -829,7 +1145,7 @@ export default function CalculatorPage() {
   const [btwPct, setBtwPct] = useState('21')
   const [combiModalFor, setCombiModalFor] = useState<string | null>(null)
   const [importFout, setImportFout] = useState<string | null>(null)
-  const [projectNummerState, setProjectNummerState] = useState(
+  const [projectNummer, setProjectNummer] = useState(
     `CAL-${new Date().getFullYear()}-${String(Math.floor(Math.random() * 900) + 100)}`
   )
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -840,6 +1156,8 @@ export default function CalculatorPage() {
   const exclBtw = subtotaal + opslagBedrag
   const btwBedrag = exclBtw * (parseNum(btwPct) / 100)
   const totaalInclBtw = exclBtw + btwBedrag
+  const mamo = begrotingMamo(hoofdstukken)
+  const mamoTotaal = mamo.materiaal + mamo.arbeid + mamo.materieel + mamo.onderaanneming
 
   // Hoofdstuk handlers
   const addHoofdstuk = () =>
@@ -882,14 +1200,60 @@ export default function CalculatorPage() {
         : h
     ))
 
+  const togglePostOpen = (hId: string, pId: string) =>
+    setHoofdstukken(prev => prev.map(h =>
+      h.id === hId
+        ? { ...h, posten: h.posten.map(p => p.id === pId ? { ...p, open: !p.open } : p) }
+        : h
+    ))
+
+  // Onderdeel (opbouw) handlers
+  const addOnderdeel = (hId: string, pId: string, soort: Soort) =>
+    setHoofdstukken(prev => prev.map(h =>
+      h.id === hId
+        ? {
+            ...h,
+            posten: h.posten.map(p =>
+              p.id === pId ? { ...p, open: true, opbouw: [...p.opbouw, legeOnderdeel(soort)] } : p
+            ),
+          }
+        : h
+    ))
+
+  const updateOnderdeel = (hId: string, pId: string, oId: string, patch: Partial<Onderdeel>) =>
+    setHoofdstukken(prev => prev.map(h =>
+      h.id === hId
+        ? {
+            ...h,
+            posten: h.posten.map(p =>
+              p.id === pId
+                ? { ...p, opbouw: p.opbouw.map(o => o.id === oId ? { ...o, ...patch } : o) }
+                : p
+            ),
+          }
+        : h
+    ))
+
+  const removeOnderdeel = (hId: string, pId: string, oId: string) =>
+    setHoofdstukken(prev => prev.map(h =>
+      h.id === hId
+        ? {
+            ...h,
+            posten: h.posten.map(p =>
+              p.id === pId ? { ...p, opbouw: p.opbouw.filter(o => o.id !== oId) } : p
+            ),
+          }
+        : h
+    ))
+
   // CUF export
   const downloadCUF = () => {
-    const xml = exporteerAlsCUF(projectNaam, projectNummerState, klant, datum, hoofdstukken, opslag, btwPct)
+    const xml = exporteerAlsCUF(projectNaam, projectNummer, klant, datum, hoofdstukken, opslag, btwPct)
     const blob = new Blob([xml], { type: 'application/xml;charset=utf-8' })
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url
-    a.download = `${projectNummerState || projectNaam}.xml`
+    a.download = `${projectNummer || projectNaam}.xml`
     a.click()
     URL.revokeObjectURL(url)
   }
@@ -907,7 +1271,7 @@ export default function CalculatorPage() {
         return
       }
       setProjectNaam(data.projectNaam)
-      setProjectNummerState(data.projectNummer)
+      setProjectNummer(data.projectNummer)
       setKlant(data.klant)
       setOpslag(data.opslag)
       setBtwPct(data.btwPct)
@@ -921,7 +1285,15 @@ export default function CalculatorPage() {
   // Combi insert
   const insertCombi = (naam: string) => {
     if (!combiModalFor) return
-    const posten = COMBIS[naam].map(c => ({ id: genId(), ...c }))
+    const posten: Post[] = COMBIS[naam].map(r => ({
+      id: genId(),
+      omschrijving: r.omschrijving,
+      hoeveelheid: r.hoeveelheid,
+      eenheid: r.eenheid,
+      eenheidsprijs: r.eenheidsprijs,
+      opbouw: (r.opbouw ?? []).map(o => ({ id: genId(), ...o })),
+      open: false,
+    }))
     updateHoofdstuk(combiModalFor, { naam, posten })
   }
 
@@ -933,7 +1305,7 @@ export default function CalculatorPage() {
         ...h,
         id: genId(),
         naam: `${h.naam} (kopie)`,
-        posten: h.posten.map(p => ({ ...p, id: genId() })),
+        posten: h.posten.map(p => ({ ...p, id: genId(), opbouw: p.opbouw.map(o => ({ ...o, id: genId() })) })),
       }
       const next = [...prev]
       next.splice(idx + 1, 0, copy)
@@ -943,7 +1315,6 @@ export default function CalculatorPage() {
   return (
     <div className="space-y-4 pb-12 print:pb-0">
 
-      {/* Combi catalogus modal */}
       <CombiCatalogusModal
         isOpen={combiModalFor !== null}
         onClose={() => setCombiModalFor(null)}
@@ -985,7 +1356,7 @@ export default function CalculatorPage() {
                 <Pencil size={11} className="text-white/20 group-hover:text-white/50 transition-colors" />
               </button>
             )}
-            <p className="text-xs text-white/40">{projectNummerState} · {datum}</p>
+            <p className="text-xs text-white/40">{projectNummer} · {datum}</p>
           </div>
         </div>
         <div className="flex items-center gap-2">
@@ -1013,10 +1384,8 @@ export default function CalculatorPage() {
         </div>
       </div>
 
-      {/* Hidden file input */}
       <input ref={fileInputRef} type="file" accept=".xml,.cuf" onChange={laadCUFBestand} className="hidden" />
 
-      {/* Import error */}
       {importFout && (
         <div className="bg-red-500/10 border border-red-500/20 rounded-lg px-4 py-3 flex items-center justify-between">
           <p className="text-xs text-red-400">{importFout}</p>
@@ -1029,14 +1398,14 @@ export default function CalculatorPage() {
       {/* Print header */}
       <div className="hidden print:block mb-6">
         <h1 className="text-2xl font-bold text-black">{projectNaam}</h1>
-        <p className="text-sm text-gray-500">{projectNummerState} · {datum}{klant ? ` · ${klant}` : ''}</p>
+        <p className="text-sm text-gray-500">{projectNummer} · {datum}{klant ? ` · ${klant}` : ''}</p>
       </div>
 
       {/* Meta row */}
       <div className="grid grid-cols-2 gap-3 print:hidden">
         <div className="bg-white/[0.04] border border-white/5 rounded-lg px-3 py-2">
           <p className="text-[10px] text-white/30 uppercase tracking-wider mb-1">Projectnummer</p>
-          <InlineInput value={projectNummerState} onChange={setProjectNummerState} placeholder="CAL-2025-001" />
+          <InlineInput value={projectNummer} onChange={setProjectNummer} placeholder="CAL-2025-001" />
         </div>
         <div className="bg-white/[0.04] border border-white/5 rounded-lg px-3 py-2">
           <p className="text-[10px] text-white/30 uppercase tracking-wider mb-1">Klant / opdrachtgever</p>
@@ -1073,7 +1442,6 @@ export default function CalculatorPage() {
                   </span>
                 )}
 
-                {/* Combi button — opens modal */}
                 <button
                   onClick={() => setCombiModalFor(h.id)}
                   className="text-[10px] border px-2 py-1 rounded transition-all text-indigo-400/60 border-indigo-500/20 opacity-0 group-hover/hdr:opacity-100 hover:text-indigo-300 hover:border-indigo-500/50 hover:bg-indigo-500/5 print:hidden shrink-0"
@@ -1081,34 +1449,17 @@ export default function CalculatorPage() {
                   Combi invoegen
                 </button>
 
-                {/* Chapter actions */}
                 <div className="flex items-center gap-0.5 opacity-0 group-hover/hdr:opacity-100 transition-opacity print:hidden">
-                  <button
-                    onClick={() => moveHoofdstuk(h.id, -1)}
-                    className="p-1 text-white/20 hover:text-white/60 transition-colors"
-                    title="Omhoog"
-                  >
+                  <button onClick={() => moveHoofdstuk(h.id, -1)} className="p-1 text-white/20 hover:text-white/60 transition-colors" title="Omhoog">
                     <ChevronUp size={12} />
                   </button>
-                  <button
-                    onClick={() => moveHoofdstuk(h.id, 1)}
-                    className="p-1 text-white/20 hover:text-white/60 transition-colors"
-                    title="Omlaag"
-                  >
+                  <button onClick={() => moveHoofdstuk(h.id, 1)} className="p-1 text-white/20 hover:text-white/60 transition-colors" title="Omlaag">
                     <ChevronDown size={12} />
                   </button>
-                  <button
-                    onClick={() => duplicateHoofdstuk(h)}
-                    className="p-1 text-white/20 hover:text-white/60 transition-colors"
-                    title="Dupliceren"
-                  >
+                  <button onClick={() => duplicateHoofdstuk(h)} className="p-1 text-white/20 hover:text-white/60 transition-colors" title="Dupliceren">
                     <Copy size={12} />
                   </button>
-                  <button
-                    onClick={() => removeHoofdstuk(h.id)}
-                    className="p-1 text-white/20 hover:text-red-400 transition-colors"
-                    title="Verwijderen"
-                  >
+                  <button onClick={() => removeHoofdstuk(h.id)} className="p-1 text-white/20 hover:text-red-400 transition-colors" title="Verwijderen">
                     <Trash2 size={12} />
                   </button>
                 </div>
@@ -1120,70 +1471,118 @@ export default function CalculatorPage() {
                   {/* Column headers */}
                   <div
                     className="grid items-center gap-2 px-4 py-2 text-[9px] text-white/25 uppercase tracking-widest border-b border-white/[0.03] print:text-gray-400 print:border-gray-100"
-                    style={{ gridTemplateColumns: '1fr 72px 68px 100px 90px 24px' }}
+                    style={{ gridTemplateColumns: '20px 1fr 72px 68px 110px 90px 24px' }}
                   >
+                    <span />
                     <span>Omschrijving</span>
                     <span className="text-right">Hoeveelheid</span>
                     <span className="pl-1">Eenheid</span>
-                    <span className="text-right">Prijs / eenheid</span>
+                    <span className="text-right">Kostprijs / eenheid</span>
                     <span className="text-right">Totaal</span>
                     <span />
                   </div>
 
                   {h.posten.map((p, pIdx) => {
                     const pt = postTotaal(p)
+                    const heeftOpbouw = p.opbouw.length > 0
+                    const ep = postEenheidsprijs(p)
                     return (
-                      <div
-                        key={p.id}
-                        className="grid items-center gap-2 px-4 py-1.5 border-b border-white/[0.03] hover:bg-white/[0.02] transition-colors group/post print:border-b print:border-gray-50"
-                        style={{ gridTemplateColumns: '1fr 72px 68px 100px 90px 24px' }}
-                      >
-                        <div className="flex items-center gap-2">
-                          <span className="text-[9px] text-white/20 font-mono w-4 shrink-0 print:text-gray-400">
-                            {hIdx + 1}.{pIdx + 1}
-                          </span>
-                          <InlineInput
-                            value={p.omschrijving}
-                            onChange={v => updatePost(h.id, p.id, { omschrijving: v })}
-                            placeholder="Omschrijving werk..."
-                          />
-                        </div>
-                        <InlineInput
-                          value={p.hoeveelheid}
-                          onChange={v => updatePost(h.id, p.id, { hoeveelheid: v })}
-                          placeholder="0"
-                          align="right"
-                        />
-                        <select
-                          value={p.eenheid}
-                          onChange={e => updatePost(h.id, p.id, { eenheid: e.target.value })}
-                          className="bg-transparent text-xs text-white/50 focus:outline-none focus:text-white transition-colors pl-1 print:text-black"
+                      <div key={p.id} className="border-b border-white/[0.03] print:border-gray-50">
+                        {/* Element row */}
+                        <div
+                          className="grid items-center gap-2 px-4 py-1.5 hover:bg-white/[0.02] transition-colors group/post"
+                          style={{ gridTemplateColumns: '20px 1fr 72px 68px 110px 90px 24px' }}
                         >
-                          {EENHEDEN.map(e => (
-                            <option key={e} value={e} className="bg-zinc-900 text-white">{e}</option>
-                          ))}
-                        </select>
-                        <div className="flex items-center gap-0.5 justify-end">
-                          <span className="text-xs text-white/30 print:hidden">€</span>
+                          {/* Expand toggle */}
+                          <button
+                            onClick={() => togglePostOpen(h.id, p.id)}
+                            className={clsx(
+                              'flex items-center justify-center transition-colors print:hidden',
+                              p.open ? 'text-indigo-400' : 'text-white/25 hover:text-white/60',
+                            )}
+                            title={p.open ? 'Opbouw inklappen' : 'Opbouw tonen / toevoegen'}
+                          >
+                            {p.open ? <ChevronDown size={13} /> : <ChevronRight size={13} />}
+                          </button>
+
+                          <div className="flex items-center gap-2 min-w-0">
+                            <span className="text-[9px] text-white/20 font-mono w-7 shrink-0 print:text-gray-400">
+                              {hIdx + 1}.{pIdx + 1}
+                            </span>
+                            <InlineInput
+                              value={p.omschrijving}
+                              onChange={v => updatePost(h.id, p.id, { omschrijving: v })}
+                              placeholder="Omschrijving element / werk..."
+                            />
+                            {heeftOpbouw && (
+                              <span className="flex items-center gap-0.5 text-[8px] font-medium text-indigo-300 bg-indigo-500/15 border border-indigo-500/25 px-1 py-0.5 rounded leading-none shrink-0 print:hidden">
+                                <Sigma size={8} />
+                                {p.opbouw.length}
+                              </span>
+                            )}
+                          </div>
+
                           <InlineInput
-                            value={p.eenheidsprijs}
-                            onChange={v => updatePost(h.id, p.id, { eenheidsprijs: v })}
-                            placeholder="0,00"
+                            value={p.hoeveelheid}
+                            onChange={v => updatePost(h.id, p.id, { hoeveelheid: v })}
+                            placeholder="0"
                             align="right"
                           />
+                          <select
+                            value={p.eenheid}
+                            onChange={e => updatePost(h.id, p.id, { eenheid: e.target.value })}
+                            className="bg-transparent text-xs text-white/50 focus:outline-none focus:text-white transition-colors pl-1 print:text-black"
+                          >
+                            {EENHEDEN.map(e => (
+                              <option key={e} value={e} className="bg-zinc-900 text-white">{e}</option>
+                            ))}
+                          </select>
+
+                          {/* Kostprijs / eenheid — berekend (opbouw) of vrij invulbaar */}
+                          {heeftOpbouw ? (
+                            <button
+                              onClick={() => togglePostOpen(h.id, p.id)}
+                              className="flex items-center gap-1 justify-end text-xs text-indigo-200/90 hover:text-indigo-200 transition-colors"
+                              title="Berekend uit opbouw — klik om te bewerken"
+                            >
+                              <Sigma size={9} className="text-indigo-400/70" />
+                              <span className="tabular-nums">{fmtEur(ep)}</span>
+                            </button>
+                          ) : (
+                            <div className="flex items-center gap-0.5 justify-end">
+                              <span className="text-xs text-white/30 print:hidden">€</span>
+                              <InlineInput
+                                value={p.eenheidsprijs}
+                                onChange={v => updatePost(h.id, p.id, { eenheidsprijs: v })}
+                                placeholder="0,00"
+                                align="right"
+                              />
+                            </div>
+                          )}
+
+                          <span className={clsx(
+                            'text-xs text-right tabular-nums',
+                            pt > 0 ? 'text-white/80 print:text-black' : 'text-white/20',
+                          )}>
+                            {pt > 0 ? fmtEur(pt) : '—'}
+                          </span>
+                          <button
+                            onClick={() => removePost(h.id, p.id)}
+                            className="text-white/15 hover:text-red-400 opacity-0 group-hover/post:opacity-100 transition-all print:hidden"
+                          >
+                            <Trash2 size={11} />
+                          </button>
                         </div>
-                        <span className={clsx(
-                          'text-xs text-right tabular-nums',
-                          pt > 0 ? 'text-white/80 print:text-black' : 'text-white/20',
-                        )}>
-                          {pt > 0 ? fmtEur(pt) : '—'}
-                        </span>
-                        <button
-                          onClick={() => removePost(h.id, p.id)}
-                          className="text-white/15 hover:text-red-400 opacity-0 group-hover/post:opacity-100 transition-all print:hidden"
-                        >
-                          <Trash2 size={11} />
-                        </button>
+
+                        {/* Opbouw (tussenlaag) */}
+                        {p.open && (
+                          <OpbouwEditor
+                            post={p}
+                            onAdd={soort => addOnderdeel(h.id, p.id, soort)}
+                            onUpdate={(oId, patch) => updateOnderdeel(h.id, p.id, oId, patch)}
+                            onRemove={oId => removeOnderdeel(h.id, p.id, oId)}
+                          />
+                        )}
                       </div>
                     )
                   })}
@@ -1215,6 +1614,23 @@ export default function CalculatorPage() {
       {/* Totaaloverzicht */}
       <div className="bg-white/[0.06] border border-white/5 rounded-xl p-5 print:border print:border-gray-200">
         <h2 className="text-sm font-semibold text-white mb-4 print:text-black">Totaaloverzicht</h2>
+
+        {/* MAMO-verdeling */}
+        {mamoTotaal > 0 && (
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mb-5">
+            {SOORTEN.map(s => {
+              const bedrag = mamo[s.key]
+              const pct = mamoTotaal > 0 ? (bedrag / mamoTotaal) * 100 : 0
+              return (
+                <div key={s.key} className={clsx('rounded-lg border px-3 py-2', s.cls)}>
+                  <p className="text-[9px] uppercase tracking-wider opacity-80">{s.label}</p>
+                  <p className="text-sm font-semibold tabular-nums">{fmtEur(bedrag)}</p>
+                  <p className="text-[9px] opacity-60">{pct.toFixed(0)}%</p>
+                </div>
+              )
+            })}
+          </div>
+        )}
 
         <div className="space-y-1 mb-4">
           {hoofdstukken.map((h, i) => {
