@@ -82,14 +82,14 @@ export class GmailClient {
     return newAccessToken
   }
 
-  async fetchMessages(account: MailAccount, maxResults = 50): Promise<GmailMessage[]> {
+  async fetchMessages(account: MailAccount, maxResults = 50, query = 'in:inbox'): Promise<GmailMessage[]> {
     const auth = await this.getAuthClient(account)
     const gmail = google.gmail({ version: 'v1', auth })
 
     const listRes = await gmail.users.messages.list({
       userId: 'me',
       maxResults,
-      q: 'in:inbox',
+      q: query,
     })
 
     const messages = listRes.data.messages ?? []
