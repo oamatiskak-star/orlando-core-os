@@ -181,6 +181,33 @@ function clampScene(s: any, idx: number, fallbackDuration: number): SceneSpec {
  * van de doelduur (≈ 1 scene per 5s, min 3, max 40) en valt bij parse-fouten
  * terug op Ollama (zoals ai.ts). Gooit alleen als beide modellen falen.
  */
+// Deterministische scene-split: garandeert geldige scenes uit het script wanneer een (zwak)
+// lokaal model geen bruikbare JSON levert. Geen verzonnen content — splitst de échte narratie;
+// data-beat scenes worden in chart-intelligence alsnog door FMP-charts overschreven.
+function buildDeterministicScenes(input: PlanScenesInput, sceneCount: number, secPerScene: number): SceneSpec[] {
+  const sentences = (input.full_script || '').replace(/\s+/g, ' ').match(/[^.!?]+[.!?]+|\S[^.!?]*$/g) ?? [input.full_script || input.title]
+  const per = Math.max(1, Math.ceil(sentences.length / sceneCount))
+  const QUERIES = ['stock market chart', 'wall street trading floor', 'financial data screen', 'stock ticker board',
+    'finance newspaper closeup', 'city financial district skyline', 'rising investment graph', 'economic dashboard data']
+  const scenes: SceneSpec[] = []
+  for (let i = 0; i < sentences.length && scenes.length < sceneCount; i += per) {
+    const chunk = sentences.slice(i, i + per).join(' ').trim()
+    if (!chunk) continue
+    const q = QUERIES[scenes.length % QUERIES.length]
+    scenes.push({
+      idx: scenes.length + 1, voice_text: chunk, visual_intent: q, search_query: q,
+      shot_type: 'b-roll', emotion: 'neutral', pacing: 'medium', music_intensity: 'low',
+      caption_text: chunk.split(/\s+/).slice(0, 6).join(' '), expected_duration: secPerScene,
+    })
+  }
+  if (scenes.length === 0) {
+    scenes.push({ idx: 1, voice_text: input.title || 'Finance update', visual_intent: QUERIES[0], search_query: QUERIES[0],
+      shot_type: 'b-roll', emotion: 'neutral', pacing: 'medium', music_intensity: 'low',
+      caption_text: (input.title || 'Finance').split(/\s+/).slice(0, 6).join(' '), expected_duration: secPerScene })
+  }
+  return scenes
+}
+
 export async function planScenes(input: PlanScenesInput): Promise<SceneSpec[]> {
   const secPerScene = input.format === '9:16' ? 4 : 5
   // Long-form (16:9 data-explainer) heeft meer scenes nodig dan de Shorts-cap van 40
@@ -210,7 +237,10 @@ export async function planScenes(input: PlanScenesInput): Promise<SceneSpec[]> {
   }
 
   const arr: any[] = Array.isArray(parsed?.scenes) ? parsed.scenes : Array.isArray(parsed) ? parsed : []
-  if (arr.length === 0) throw new Error('scene-planner: lege scenes-array')
+  const planned = arr.map((s, i) => clampScene(s, i + 1, secPerScene)).filter((s) => s.voice_text.length > 0)
+  if (planned.length > 0) return planned
 
-  return arr.map((s, i) => clampScene(s, i + 1, secPerScene)).filter((s) => s.voice_text.length > 0)
+  // Zwak/leeg LLM-resultaat → deterministische split i.p.v. hard falen (long-form-veilig).
+  console.warn(`scene-planner: LLM gaf ${arr.length} scenes (0 bruikbaar) → deterministische script-split`)
+  return buildDeterministicScenes(input, sceneCount, secPerScene)
 }
