@@ -28,11 +28,19 @@
 - `ai.ts` data-explainer-prompt + FMP-injectie + anti-slop; `shadow-core` haalt databundel; `cf2-producer.resolveChannelFormat()` schakelt om op `content_rules.format_profile='us_finance_longform'`. Bestaande Shorts-kanalen ONGEWIJZIGD.
 - **Activatie-gates (Orlando):** (a) `FMP_API_KEY` in local-agent env; (b) pilotkanaal `content_rules` zetten: `{"format_profile":"us_finance_longform","target_seconds":840,"data_symbols":[...]}`.
 
-**🔴 HERSTEL HIER / RESTERENDE BUILDS (volgorde):**
-1. Format-engine afmaken: chart-generator routen in `visual-intelligence` (charts als scene-visual) + render-pacing (zoom/cuts in `render.ts`) + premium TTS (`audio.ts` mode finance) — alles gegate op format_profile.
-2. ⚠️ A3 thumbnail-gate (voorzichtig: blokkeert anders alle uploads).
-3. US-finance competitor-intel seeden → 4. Monetisatie (broker-affiliate + YPP) → 5. Hermes-intent.
-Specs: `PRODUCTIE_SPEC_US_FINANCE_FACELESS.md`, `ANALYSE_11_KANALEN_60K_2026-06-16.md`.
+**✅ FORMAT-ENGINE AF + A3 + #3 (commits `94e88bcbc`, `c2db09d74`, `0e22fa8bd`, alle tsc exit 0):**
+- Charts-as-visual (`chart-intelligence.ts`, FMP→QuickChart→scene-asset, no-op zonder key) + render-pacing (per-scene punch-in, gegate op profiel) + premium TTS (mode 'premium' voor finance).
+- A3: tekst-overlay op thumbnail-frame-grab (CTR), fail-safe naar platte frame.
+- #3: 8 faceless US-finance referentiekanalen in scanner-volglijst (`seed-channels.ts`, niche us_finance) → winner-DNA-targets.
+
+**STAND:** 9 commits op `feat/measurement-loop`, niet gepusht. Meetlus + dedup + volledige format-engine + thumbnail + US-intel klaar & getypecheckt.
+
+**🔴 HERSTEL HIER / RESTERENDE BUILDS:**
+1. Monetisatie-executielaag: US-broker-affiliate-injectie (Robinhood/Webull/Moomoo) in beschrijvingen + klik/conversie-tracking + YPP-pad.
+2. Hermes-intent "maak €60k-kanaal" als één instructie bovenop alles.
+3. Winner-DNA-lus sluiten (winner_extraction_jobs vullen) + horizon-planner aan.
+
+**ACTIVATIE-GATES (Orlando):** (a) `FMP_API_KEY` in local-agent env; (b) pilotkanaal `content_rules`={format_profile:us_finance_longform,...}; (c) mig 215 op prod + `pm2 restart` CLI-R; (d) PR/merge branch. Specs: `PRODUCTIE_SPEC_US_FINANCE_FACELESS.md`.
 3. **US-finance competitor-intel** (mitigeert NL-intel-gat) → scanner seeden.
 4. Content-format-engine: long-form (12–25min) script + FMP-data + grafieken + hook + retentie-pacing + premium TTS.
 5. Monetisatie: US-broker-affiliate + YPP-pad. 6. Hermes-intent "maak €60k-kanaal".
