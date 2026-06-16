@@ -50,11 +50,16 @@ function processScene(inputPath: string, outputPath: string, durationSec: number
     )
   }
   fs.mkdirSync(path.dirname(outputPath), { recursive: true })
+  const dur = Math.max(1, durationSec)
+  // Stilstaande beelden (charts/foto's) → -loop 1 zodat het een clip van `dur` sec wordt
+  // i.p.v. één frame (de chart-render bug). Video's krijgen alleen -t.
+  const isImage = /\.(png|jpe?g|webp|bmp|gif)$/i.test(inputPath)
+  const inOpts = isImage ? ['-loop 1', `-t ${dur}`] : [`-t ${dur}`]
   return new Promise((resolve, reject) => {
     ffmpeg(inputPath)
-      .inputOptions([`-t ${Math.max(1, durationSec)}`])
+      .inputOptions(inOpts)
       .videoFilter(filters)
-      .outputOptions(['-an', '-c:v libx264', '-preset fast', '-crf 23', '-pix_fmt yuv420p', '-r 30', '-movflags +faststart'])
+      .outputOptions(['-an', '-c:v libx264', '-preset fast', '-crf 23', '-pix_fmt yuv420p', '-r 30', `-t ${dur}`, '-movflags +faststart'])
       .output(outputPath)
       .on('end', () => resolve())
       .on('error', (e) => reject(new Error(`scene-render: ${e.message}`)))

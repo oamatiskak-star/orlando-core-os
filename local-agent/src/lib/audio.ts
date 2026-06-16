@@ -22,7 +22,7 @@ export const VOICE_GATE_NO_PROVIDER = 'blocked_no_voice_provider'    // geen enk
 
 const LOCAL_ORDER:   VoiceProvider[] = ['local_xtts', 'piper', 'edge_tts']
 // OpenAI-TTS eerst (gefund + betrouwbaar); ElevenLabs secundair (betere kwaliteit zodra opgewaardeerd).
-const PREMIUM_ORDER: VoiceProvider[] = ['openai_tts', 'elevenlabs']
+const PREMIUM_ORDER: VoiceProvider[] = ['elevenlabs', 'openai_tts']
 
 // edge-tts vereist een geldige stemnaam ('default' → ValueError). Map per taal naar
 // een echte neural-stem (ook espeak-vriendelijk: leidt 'nl'/'en'-prefix af).
