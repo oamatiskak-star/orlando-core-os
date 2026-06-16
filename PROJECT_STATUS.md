@@ -7,7 +7,31 @@
 
 ---
 
-## 🎯 HUIDIGE FOCUS (2026-06-11 — CLI-L: Media Factory End-to-End Closure)
+## 🎯 HUIDIGE FOCUS (2026-06-16 — Autonome "€60k/maand-kanaal"-machine)
+**Opdracht Orlando:** pak alles op wat mist/niet werkt zodat instructie *"maak €60k/maand-kanaal"* autonoom beantwoord kan worden. Plan: `docs/PLAN_60K_CHANNEL_AUTONOMY_2026-06-16.md`.
+**Scope-akkoord:** klaar = autonome machine die €60k *najaagt* (geen knop); stage alles + Orlando keurt per prod-gate; organisch + Shorts-blitz €0 budget; content-kwaliteit in scope.
+**FASE A DIAGNOSE = KLAAR (live 16-6):** bindende constraint = **tractie/content-kwaliteit**, niet de meet-/geldplumbing. Bewijs: 1.142 video's live, SUM 60.914 views ooit (≈58/video), best-ooit 2.422, `views_30d`=0, 0 YPP-kanalen (hoogste 11 subs). Concurrent-mediaan 2.033 / max 714k. Revenue=€0 & CTR=0 zijn symptomen. → traction-first.
+**RE-SEQUENCE:** 1 meetlus → 2 content-kwaliteit(CQI-gate) → 5 distributie → 3 learning → 4 winner-DNA → 6 affiliate → 7 director/strategy → 8 Hermes-intent. Elke fase: branch→PR→gate.
+**🔴 OPEN GATES:** mig 185 prod + `mf_classify_dead_queue(true)`; `CF2_PUBLISH=1`; per-fase gates (zie plan).
+**GEDAAN 16-6:** branch `feat/measurement-loop`; migratie `215_measurement_loop_schedule.sql` (engine_schedule-rijen analytics-feedback + learning-loop, janitor-blok). Diagnose Fase 1: analytics draait maar one-shot (geen dagelijkse her-poll). Diagnose Fase 2: content krijgt 0 views door belofte≠payoff + geen pacing + blinde thumbnail + late dedup.
+**✅ BESLIST 16-6 (Orlando):** pilot = **Engels/US-finance faceless long-form data-explainer**. Bewijs: `docs/ANALYSE_11_KANALEN_60K_2026-06-16.md` (finance = enige kwadrant hoog-RPM × faceless-maakbaar; €60k ≈ 4–7M views/mnd vs 30–200M voor satisfying). US gekozen om plafond (RPM €15–40), risico = brute concurrentie + onze intel is NL.
+**✅ TRACK B — MEETLUS COMPLEET & GEVERIFIEERD (branch `feat/measurement-loop`, beide tsc exit 0):**
+- B1: `supabase/migrations/215_measurement_loop_schedule.sql` — engine_schedule-rijen (janitor-blok).
+- B2: **kernbug gefixt** — `enqueueAnalytics` jobId was `analytics_${videoId}` → botste met actieve job → 24u-herplanning stil gedropt → elke video 1× gemeten bij 0 views. Nu dag-gebucketde jobId. + nieuwe `youtube-engine/src/workers/analytics-sweep.ts` (window-gated dagelijkse her-poll van álle verified_live video's) + gewired in `index.ts` (+ shutdown).
+- B3: `local-agent/src/learning-loop-scheduler.ts` (window-gated, 1×/dag, spiegelt cf2-loop) + PM2-entry in `ecosystem.cli-r.config.js`.
+- **Niet gecommit** (wacht op Orlando's commit/PR-OK). **Gate:** mig 215 op prod + `pm2 restart` CLI-R.
+
+**🔴 HERSTEL HIER / VOLGENDE BUILDS (volgorde):**
+1. A1 pre-publish dedup-gate (logica bestaat in `frontend/app/api/youtube/dedup/route.ts`, ombouwen naar pre-publish in upload-orchestrator).
+2. A3 thumbnail-gate afdwingen (geen blinde frame-grab).
+3. **US-finance competitor-intel** (mitigeert NL-intel-gat) → scanner seeden.
+4. Content-format-engine: long-form (12–25min) script + FMP-data + grafieken + hook + retentie-pacing + premium TTS.
+5. Monetisatie: US-broker-affiliate + YPP-pad. 6. Hermes-intent "maak €60k-kanaal".
+Backlog: `docs/PLAN_60K_CHANNEL_AUTONOMY_2026-06-16.md`. Specs: `ANALYSE_11_KANALEN_60K_2026-06-16.md`, `PRODUCTIE_SPEC_US_FINANCE_FACELESS.md`.
+
+---
+
+## 🎯 VORIGE FOCUS (2026-06-11 — CLI-L: Media Factory End-to-End Closure)
 **Doel:** Media Factory autonoom (CEO Minutes/Day < 20) + één Command Center. Plan: `~/.claude/plans/glittery-swimming-sparkle.md`; audit live bewezen (geheugen `project_media_factory_closure`).
 **Beslissingen:** CF2 = enige pipeline of record (oude `youtube_upload_queue` uitfaseren); volautomatisch publiek met CQI/QC-gate als poortwachter.
 **Branch:** `feat/media-factory-command-center` (vanaf origin/main).

@@ -13,6 +13,7 @@ import { startAnalyticsFeedbackWorker } from './workers/analytics-feedback-worke
 import { startSlotFillerWorker } from './workers/slot-filler-worker'
 import { startAutoPlanner } from './workers/auto-planner-worker'
 import { startFileCleanupWorker } from './workers/file-cleanup-worker'
+import { startAnalyticsSweep } from './workers/analytics-sweep'
 
 const startTime = Date.now()
 let lastErrorTime: number | null = null
@@ -40,6 +41,9 @@ async function main() {
   startAutoPlanner()
   startSlotFillerWorker()
   startFileCleanupWorker()
+
+  // Meetlus: dagelijkse window-gated her-poll van alle live video's (Engine Planner: content:analytics-feedback)
+  const analyticsSweepTimer = startAnalyticsSweep()
 
   logger.info(`${workers.length} workers running`)
   logger.info('Engine is live — watching for upload jobs')
@@ -79,6 +83,7 @@ async function main() {
 
   async function gracefulShutdown(signal: string) {
     logger.info(`Received ${signal} — graceful shutdown`)
+    clearInterval(analyticsSweepTimer)
     for (const worker of workers) {
       await worker.close()
     }
