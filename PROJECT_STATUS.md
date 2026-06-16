@@ -45,7 +45,17 @@ Keten: meten (sweep) → kwaliteit (dedup/anti-slop) → content (long-form fina
 **▶ "MAAK EEN €60k-KANAAL" (na gates) = één commando:**
 `select set_channel_objective('186af826-cfad-41a9-a093-5baf74d3c9c3', 60000, '2026-12-31');` (VermogenTv; media_holding_channels.id).
 
-**🔴 RESTEREND (optimalisatie, niet-blokkerend):** winner-DNA-lus sluiten (`winner_extraction_jobs` vullen) + horizon-planner aan + click/conversie-webhook-ingestie (postback) + dashboard-tile op `v_channel_objective_progress`.
+**✅ OPTIMALISATIES + PROD-GATES (16-6):**
+- Optim gebouwd (commit `6d36574cd`): migratie 217 (winner-detector+horizon-planner → 'content'-blok) + `GET /api/media-holding/objectives`. Conversie-postback (`affiliate-engine/webhook/[network]`) + click-tracking (`/r/[code]`) bleken AL te bestaan → geldlus compleet (op echte broker-links na).
+- **TOEGEPAST OP PROD (via Supabase-MCP):** migratie **215** (analytics/learning engine_schedule) + **216** (channel_objectives + set_channel_objective + v_channel_objective_progress). Inert tot branch-deploy op CLI-R; breken niets.
+- **Gate #3 UITGEVOERD:** `set_channel_objective('186af826…',60000,'2026-12-31')` → VermogenTv doel €60k actief + content_rules.format_profile=us_finance_longform live geverifieerd.
+- **217 NIET op prod** (live-effect, niet in originele gate-lijst) — klaar voor jouw OK.
+
+**🔴 GATES DIE OP JOU WACHTEN (secret/remote — niet vanuit sandbox uitvoerbaar):**
+- #1 `FMP_API_KEY` in local-agent env (CLI-R). Zonder = data-explainer draait in graceful-degrade (geen echte cijfers/charts).
+- #4 echte broker-`affiliate_links` (Robinhood/Webull/Moomoo) voor VermogenTv — jouw broker-accounts.
+- #5 **code-deploy CLI-R** (git pull branch + build + `pm2 restart`) — pas dán leest de draaiende code het profiel + draaien analytics-sweep/learning-loop. PR/merge.
+- (optioneel) 217 op prod aanzetten.
 
 **ACTIVATIE-GATES (Orlando):** (a) `FMP_API_KEY` in local-agent env; (b) `set_channel_objective(...)` draaien (zet profiel + doel); (c) migraties **215 + 216** op prod; (d) `pm2 restart` CLI-R (analytics-sweep + learning-loop-scheduler) + nieuwe broker-affiliate_links rijen voor het kanaal; (e) PR/merge branch. Specs: `PRODUCTIE_SPEC_US_FINANCE_FACELESS.md`.
 3. **US-finance competitor-intel** (mitigeert NL-intel-gat) → scanner seeden.
