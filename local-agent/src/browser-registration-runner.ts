@@ -313,13 +313,21 @@ async function executeRun(run: RunRow): Promise<void> {
 
     const fieldMap = await loadFieldMap(db, program.id)
     if (!fieldMap) {
+      // Geen robotische field-map (bv. broker/Impact-signups met login + KYC + CAPTCHA die
+      // niet betrouwbaar geautomatiseerd kunnen worden). Géén hard falen: maak een NETTE,
+      // actionable handmatige taak met de directe signup-link en pauzeer de run.
+      const signupUrl = (program as { url?: string | null }).url ?? null
       await db.from('account_setup_human_actions').insert({
-        program_id: program.id, run_id: run.id, action_kind: 'manual_review',
-        title: `Geen field-map voor ${program.name}`,
-        description: 'Voeg een rij toe aan account_setup_field_maps (signup_url + velden) om automatisch invullen te activeren.',
+        program_id: program.id, run_id: run.id, action_kind: 'manual_signup',
+        title: `Rond aanmelding af: ${program.name}`,
+        description: signupUrl
+          ? `Deze aanmelding vereist handmatige stappen (login/KYC/CAPTCHA). Open en voltooi de aanmelding: ${signupUrl}`
+          : `Voeg een signup-URL (affiliate_programs.url) of field-map toe om dit te kunnen verwerken.`,
         status: 'open',
       })
-      throw new Error(`Geen field-map voor programma ${program.name}`)
+      await db.from('account_setup_runs').update({ status: 'awaiting_approval' }).eq('id', run.id)
+      log(`Geen field-map voor ${program.name} → handmatige actie aangemaakt (${signupUrl ?? 'geen url'})`)
+      return
     }
 
     const bp = program.company_id ? await loadBusinessProfile(program.company_id) : null
