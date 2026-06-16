@@ -2,6 +2,7 @@ import { Worker, Job } from 'bullmq'
 import { getRedis, QUEUE_NAMES, UploadJobData, enqueueVerification, enqueueNormalize } from '../lib/redis-queue'
 import { getSupabase, updateQueueStatus, addLog, recordFailure } from '../lib/supabase'
 import { buildOAuthClient, uploadVideo, uploadThumbnail } from '../lib/youtube-api'
+import { buildAffiliateFooter } from '../lib/affiliate-injection'
 import { notifyUploadFailure } from '../lib/notifications'
 import { workerLogger } from '../lib/logger'
 import { v4 as uuidv4 } from 'uuid'
@@ -147,11 +148,14 @@ export function startYouTubeUploadWorker(): Worker {
 
       const startTime = Date.now()
 
+      // Monetisatie: affiliate-links van dit kanaal in de beschrijving (fail-open → '')
+      const affiliateFooter = await buildAffiliateFooter(db, channelId)
+
       let lastProgressLog = 0
       const result = await uploadVideo(auth, {
         filePath,
         title: video.title,
-        description: video.description ?? '',
+        description: (video.description ?? '') + affiliateFooter,
         tags: video.tags ?? [],
         categoryId: video.category_id ?? '22',
         privacyStatus: effectivePrivacy,
