@@ -93,6 +93,23 @@ module.exports = {
       time:          true,
     },
 
+    // ── Meetlus: learning-loop scheduler (window-gated, Engine Planner content:learning-loop) ──
+    {
+      name:         'learning-loop-scheduler',
+      cwd:          `${BASE}/local-agent`,
+      script:       'node',
+      args:         'dist/learning-loop-scheduler.js',
+      interpreter:  'none',
+      watch:         false,
+      autorestart:   true,
+      max_restarts:  999,
+      restart_delay: 5000,
+      env: { NODE_ENV: 'production' },
+      log_file:      '/tmp/pm2-learning-loop-scheduler.log',
+      error_file:    '/tmp/pm2-learning-loop-scheduler-err.log',
+      time:          true,
+    },
+
     // ── 5. YouTube Engine — slot-filler + upload + verificatie ────────────
     {
       name:         'youtube-engine',

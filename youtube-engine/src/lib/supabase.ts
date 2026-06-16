@@ -18,6 +18,7 @@ export type QueueStatus =
   | 'queued' | 'preparing' | 'normalizing' | 'uploading'
   | 'uploaded_pending_processing' | 'processing' | 'verifying'
   | 'verified_live' | 'failed' | 'retrying' | 'manual_review_required'
+  | 'duplicate_skipped'
 
 export interface QueueEntry {
   id: string

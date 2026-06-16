@@ -34,12 +34,15 @@ function esc(s: string): string {
   return s.replace(/\\/g, '\\\\').replace(/:/g, '\\:').replace(/'/g, "’").replace(/%/g, '\\%')
 }
 
-/** Eén scene-clip: trim → scale/crop naar formaat → optionele caption-overlay. */
-function processScene(inputPath: string, outputPath: string, durationSec: number, format: '16:9' | '9:16' | '1:1', caption: string): Promise<void> {
+/** Eén scene-clip: trim → scale/crop naar formaat → optionele caption-overlay.
+ *  zoom = 1 → ongewijzigd (legacy). zoom > 1 → center punch-in voor retentie-pacing
+ *  (per-scene variatie geeft een 'cut'-ritme; statische lange scenes = retentie-cliff). */
+function processScene(inputPath: string, outputPath: string, durationSec: number, format: '16:9' | '9:16' | '1:1', caption: string, zoom = 1): Promise<void> {
   const { w, h } = dims(format)
-  // force_original_aspect_ratio=increase → bron dekt altijd w×h (ook 2160x4096 / afwijkende
-  // aspect), dan center-crop. Voorkomt 'crop groter dan bron' (ffmpeg code 234).
-  const filters = [`scale=${w}:${h}:force_original_aspect_ratio=increase`, `crop=${w}:${h}`]
+  const zw = Math.round(w * zoom), zh = Math.round(h * zoom)
+  // force_original_aspect_ratio=increase → bron dekt altijd zw×zh (ook 2160x4096 / afwijkende
+  // aspect), dan center-crop naar w×h. Voorkomt 'crop groter dan bron' (ffmpeg code 234).
+  const filters = [`scale=${zw}:${zh}:force_original_aspect_ratio=increase`, `crop=${w}:${h}`]
   if (caption && fs.existsSync(CAPTION_FONT) && hasDrawtext()) {
     filters.push(
       `drawtext=fontfile='${CAPTION_FONT}':text='${esc(caption)}':fontcolor=white:fontsize=48:` +
@@ -112,6 +115,7 @@ export interface RenderInput {
   voicePath: string
   musicPath?: string | null
   brandingLogo?: string | null
+  pacing?: boolean   // retentie-pacing (per-scene punch-in). Default false = legacy ongewijzigd.
 }
 export interface RenderResult {
   outputPath: string
@@ -142,9 +146,12 @@ export async function renderProject(input: RenderInput): Promise<RenderResult> {
     const src = asset?.local_asset_url
     if (!src || !fs.existsSync(src)) continue   // geen asset → scene overslaan, NOOIT fake invullen
     const clip = path.join(work, `scene-${sc.idx}.mp4`)
+    // Retentie-pacing: per-scene punch-in (1.06/1.10/1.14) geeft een cut-ritme. Alleen als
+    // input.pacing aan staat (format-profiel); anders zoom=1 → identiek aan legacy.
+    const zoom = input.pacing ? 1.06 + ((Number(sc.idx) || 0) % 3) * 0.04 : 1
     // één kapotte bron mag de hele render niet doden — sla die scene over (geen fake-invulling).
     try {
-      await processScene(src, clip, Number(sc.expected_duration) || 5, input.format, sc.caption_text || '')
+      await processScene(src, clip, Number(sc.expected_duration) || 5, input.format, sc.caption_text || '', zoom)
       if (fs.existsSync(clip)) clips.push(clip)
     } catch (e: any) {
       console.warn(`scene ${sc.idx} overgeslagen (clip-fout): ${(e?.message ?? e).toString().slice(0, 160)}`)

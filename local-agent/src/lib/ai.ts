@@ -88,12 +88,15 @@ export async function generateContent(payload: {
   target_seconds: number
   ollama_model:  string
   lm_studio_model: string
-  channel_topics?:  string[]   // CF2-repair: kanaal-niche-topics (niche-conform genereren)
-  own_cta_options?: string[]   // CF2-repair: kanaal-eigen CTA's (verplicht i.p.v. generiek)
+  format_profile?: string | null   // bv. 'us_finance_longform' → data-explainer-script
+  data_bundle?:    string | null   // echte FMP-cijfers om in het script te injecteren
+  channel_topics?:  string[]       // CF2-repair: kanaal-niche-topics (niche-conform genereren)
+  own_cta_options?: string[]       // CF2-repair: kanaal-eigen CTA's (verplicht i.p.v. generiek)
 }): Promise<ContentResult> {
   const isShort   = payload.video_type === 'short'
   const words     = Math.round(payload.target_seconds * 2.5)
   const isEnglish = payload.language !== 'nl'
+  const isFinanceLongform = payload.format_profile === 'us_finance_longform'
 
   // CF2 content-engine repair: niche- en CTA-context uit channel_strategy in de prompt vouwen.
   const topics = (payload.channel_topics ?? []).filter(Boolean)
@@ -113,7 +116,39 @@ export async function generateContent(payload: {
     ? `You are an expert YouTube content creator for ${payload.channel_name}.${nicheInstr}${ctaInstr}`
     : `Je bent een expert YouTube contentmaker voor ${payload.channel_name}.${nicheInstr}${ctaInstr}`
 
-  const prompt = isEnglish ? `
+  // Faceless US-finance data-explainer (de €60k-pivot). Stijl: Wall Street Millennial /
+  // How Money Works — data-gedreven, sceptisch, verhaal-geleid. Anti-slop conform YouTube's
+  // 2025 inauthentic-content-beleid: echte cijfers, bronnen, disclaimer, geen vage AI-vulling.
+  const financePrompt = `
+You are a sharp, credible FACELESS finance YouTube narrator for ${payload.channel_name},
+in the style of Wall Street Millennial and How Money Works: data-driven, skeptical, story-led.
+Write in English ONLY. Do NOT use Dutch or any other language.
+
+Create a ~${Math.round(payload.target_seconds / 60)}-minute long-form finance explainer about: "${payload.topic}"
+
+${payload.data_bundle
+    ? `${payload.data_bundle}\nUse these REAL numbers verbatim and refer to them naturally; frame as "as of the latest close".`
+    : 'Use concrete, realistic figures; clearly frame any estimate AS an estimate.'}
+
+HARD RULES (YouTube 2025 inauthentic-content policy — avoid demonetization):
+- Real, specific, verifiable claims; anchor every key point to a number; no vague AI filler.
+- Include the exact line "This is not financial advice." near the end.
+- Structure the script as: (1) 0-20s HOOK with a concrete stake/number, (2) context,
+  (3) 3-6 DATA BEATS, each anchored to a number/chart, (4) a counterintuitive twist,
+  (5) conclusion + CTA. Pace tight; no fluff.
+
+Return ONLY valid JSON (no markdown, no code blocks):
+{
+  "title": "catchy SEO title max 70 chars, contains a number or tension, English",
+  "description": "SEO description 300-500 chars with keywords, English",
+  "tags": ["tag1","tag2",...20 tags],
+  "hook": "first 15 seconds hook with a concrete number, English",
+  "full_script": "complete word-for-word script ~${words} words following the 5-part structure, English",
+  "cta": "call to action closing sentence, English",
+  "thumbnail_concept": "visual: bold number/chart + 3-4 word overlay, high contrast"
+}`
+
+  const prompt = isFinanceLongform ? financePrompt : isEnglish ? `
 ${systemContext}
 IMPORTANT: Write ALL content in English only. Do NOT use Dutch or any other language.
 

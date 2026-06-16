@@ -2,6 +2,8 @@ import './ws-shim'   // MOET eerst — zet global WebSocket vóór elke @supabas
 import path from 'path'
 import os from 'os'
 import { generateContent } from './lib/ai'
+import { buildDataBundle } from './lib/financial-data-fetch'
+import { attachChartsToProject } from './lib/chart-intelligence'
 import { planScenes } from './lib/scene-planner'
 import { synthVoice } from './lib/audio'
 import { sourceVisualsForProject } from './lib/visual-intelligence'
@@ -32,6 +34,8 @@ export interface ShadowOpts {
   targetSeconds: number
   lmStudioModel: string
   ollamaModel:   string
+  formatProfile?: string | null   // bv. 'us_finance_longform' → data-explainer + FMP-data
+  dataSymbols?:   string[]         // tickers voor de FMP-databundel (bv. ['^GSPC','AAPL'])
 }
 
 export interface ShadowResult {
@@ -51,11 +55,15 @@ export interface ShadowResult {
 }
 
 export async function runShadowTopic(o: ShadowOpts): Promise<ShadowResult> {
-  // CF2-repair: kanaal-strategie laden (niche/topics/own_cta) zodat de generatie niche-conform
-  // is en de eigen CTA injecteert. Fail-open: geen strategy → gedraagt zich als voorheen.
+  // 0. Echte marktdata ophalen voor het data-explainer-profiel (graceful: null zonder FMP-key)
+  const dataBundle = o.formatProfile === 'us_finance_longform'
+    ? await buildDataBundle(o.dataSymbols ?? [])
+    : null
+
+  // CF2-repair: kanaal-strategie laden (niche/topics/own_cta) zodat de generatie niche-conform is.
   const strategy = await loadChannelStrategy(o.channelId)
 
-  // 1. Script (lokale LLM, ai.ts)
+  // 1. Script (lokale LLM, ai.ts) — data-explainer-tak bij format-profiel + niche-strategy
   const content = await generateContent({
     channel_name:    strategy?.niche ?? o.niche ?? 'Aquier',
     topic:           o.topic,
@@ -65,6 +73,8 @@ export async function runShadowTopic(o: ShadowOpts): Promise<ShadowResult> {
     target_seconds:  o.targetSeconds,
     ollama_model:    o.ollamaModel,
     lm_studio_model: o.lmStudioModel,
+    format_profile:  o.formatProfile ?? null,
+    data_bundle:     dataBundle,
     channel_topics:  strategy?.topics ?? [],
     own_cta_options: strategy?.own_cta ?? [],
   })
@@ -94,11 +104,13 @@ export async function runShadowTopic(o: ShadowOpts): Promise<ShadowResult> {
   const sceneCount = await spine.writeScenes(projectId, scenes)
   await spine.setStatus(projectId, 'production_ready')
 
-  // 4. Voice (router): shadow = lokaal/gratis; bij publicatie (CF2_PUBLISH=1) = premium
-  //    (OpenAI/ElevenLabs) zodat voice_score>=95 de QC-gate haalt — anders blokkeert edge_tts.
+  // 4. Voice — premium bij finance-profiel OF bij publicatie (CF2_PUBLISH=1): credibele stem
+  //    die de QC voice-gate (>=95) haalt. Anders shadow (lokaal/gratis). Premium escaleert
+  //    naar OpenAI/ElevenLabs; zonder premium-key valt het terug op lokaal (gemarkeerd).
   const audioPath = path.join(os.tmpdir(), `cf2-voice-${projectId}.mp3`)
+  const voiceMode = (o.formatProfile === 'us_finance_longform' || process.env.CF2_PUBLISH === '1') ? 'premium' : 'shadow'
   const voiceRes = await synthVoice(content.full_script, audioPath, {
-    voice: o.voice, mode: (process.env.CF2_PUBLISH === '1' ? 'premium' : 'shadow'), language: o.language,
+    voice: o.voice, mode: voiceMode, language: o.language,
   })
   await spine.writeVoiceAsset(projectId, {
     provider: voiceRes.provider ?? 'none',
@@ -111,6 +123,12 @@ export async function runShadowTopic(o: ShadowOpts): Promise<ShadowResult> {
   // 6. Visual Intelligence (FASE A) — echte Pexels/Pixabay; geen key → blocked, geen fakes
   const vis = await sourceVisualsForProject(projectId, o.format)
 
+  // 6b. Chart Intelligence — finance-profiel: echte FMP-data-charts als scene-visual
+  //     (no-op zonder FMP-key). Overschrijft generieke stock op data-beat scenes.
+  const charts = o.formatProfile === 'us_finance_longform'
+    ? await attachChartsToProject(projectId, o.format, o.dataSymbols ?? [])
+    : { chartsAttached: 0, reason: null as string | null }
+
   // 7. Music Intelligence (FASE F) — licensed catalogus; geen bron → blocked_missing_music_source
   const mus = await selectMusic(projectId)
 
@@ -120,13 +138,14 @@ export async function runShadowTopic(o: ShadowOpts): Promise<ShadowResult> {
   // 9. Render (FASE B) — alleen met echte assets; anders blocked (geen fake render)
   let renderUrl: string | null = null
   let renderBlocked: string | null = null
-  if (vis.assetsSelected > 0 && voiceRes.outputPath) {
+  const renderableAssets = vis.assetsSelected + charts.chartsAttached
+  if (renderableAssets > 0 && voiceRes.outputPath) {
     try {
-      const r = await renderProject({ projectId, format: o.format, voicePath: voiceRes.outputPath, musicPath: null })
+      const r = await renderProject({ projectId, format: o.format, voicePath: voiceRes.outputPath, musicPath: null, pacing: !!o.formatProfile })
       renderUrl = r.outputPath
     } catch (e: any) { renderBlocked = `blocked_render_failed: ${(e?.message ?? e).toString().slice(0, 220)}` }
   } else {
-    renderBlocked = vis.assetsSelected === 0 ? 'blocked_no_visual_assets' : 'blocked_no_voice'
+    renderBlocked = renderableAssets === 0 ? 'blocked_no_visual_assets' : 'blocked_no_voice'
   }
 
   // 10. QC (FASE C/G) — canonieke frontend-route schrijft youtube_quality_scores + gate

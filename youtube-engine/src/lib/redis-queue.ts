@@ -137,9 +137,15 @@ export async function enqueueThumbnail(data: ThumbnailJobData): Promise<Job> {
 }
 
 export async function enqueueAnalytics(data: AnalyticsJobData, delayMs = 0): Promise<Job> {
+  // Day-bucket the jobId on the SCHEDULED run time so each day's poll is a distinct job.
+  // Bug fixed: a fixed `analytics_${videoId}` collided with the still-active job, so the
+  // worker's 24h self-reschedule was silently deduped by BullMQ and every video was polled
+  // exactly once (right after upload, at ~0 views). Day-bucketing also makes the daily
+  // analytics-sweep idempotent: same video + same day = same jobId = no duplicate work.
+  const dayBucket = Math.floor((Date.now() + delayMs) / 86_400_000)
   return getQueue(QUEUE_NAMES.ANALYTICS).add('analytics', data, {
     delay: delayMs,
-    jobId: `analytics_${data.videoId}`,
+    jobId: `analytics_${data.videoId}_${dayBucket}`,
   })
 }
 
