@@ -8,7 +8,8 @@ import axios from 'axios'
 // pijplijn niet breekt — de data-injectie wordt dan simpelweg overgeslagen. De key toevoegen
 // (FMP_API_KEY in local-agent env) is een config-gate voor Orlando.
 
-const FMP_BASE = 'https://financialmodelingprep.com/api/v3'
+// FMP stable-API (de v3-endpoints zijn uitgefaseerd → 403 Legacy). Free tier = single-symbol quotes.
+const FMP_BASE = 'https://financialmodelingprep.com/stable'
 const KEY = () => process.env.FMP_API_KEY ?? ''
 export function fmpAvailable(): boolean { return KEY().length > 0 }
 
@@ -34,32 +35,39 @@ async function fmpGet<T>(path: string): Promise<T | null> {
   }
 }
 
-/** Live quotes voor een set tickers (bv. ['AAPL','MSFT','^GSPC']). */
+/** Live quotes voor een set tickers (bv. ['AAPL','MSFT','^GSPC']). Stable free tier = 1 symbool
+ *  per call (multi = premium/402), dus we halen ze sequentieel op. */
 export async function getQuotes(symbols: string[]): Promise<Quote[]> {
   if (symbols.length === 0) return []
-  const raw = await fmpGet<any[]>(`/quote/${symbols.map(encodeURIComponent).join(',')}`)
-  if (!raw) return []
-  return raw.map((q) => ({
-    symbol: q.symbol,
-    name: q.name ?? null,
-    price: q.price ?? null,
-    changesPercentage: q.changesPercentage ?? null,
-    marketCap: q.marketCap ?? null,
-    pe: q.pe ?? null,
-    yearHigh: q.yearHigh ?? null,
-    yearLow: q.yearLow ?? null,
-  }))
+  const out: Quote[] = []
+  for (const sym of symbols) {
+    const raw = await fmpGet<any[]>(`/quote?symbol=${encodeURIComponent(sym)}`)
+    const q = Array.isArray(raw) ? raw[0] : null
+    if (!q) continue
+    out.push({
+      symbol: q.symbol ?? sym,
+      name: q.name ?? null,
+      price: q.price ?? null,
+      changesPercentage: q.changePercentage ?? null,  // stable: changePercentage
+      marketCap: q.marketCap ?? null,
+      pe: q.pe ?? null,                                 // stable quote heeft geen pe → null
+      yearHigh: q.yearHigh ?? null,
+      yearLow: q.yearLow ?? null,
+    })
+  }
+  return out
 }
 
-/** Historische dagkoersen (laatste N) — voedt charts. */
+/** Historische dagkoersen (laatste N) — voedt charts. Stable: /historical-price-eod/full (flat array). */
 export async function getDailyCloses(symbol: string, limit = 60): Promise<{ date: string; close: number }[]> {
-  const raw = await fmpGet<{ historical?: { date: string; close: number }[] }>(
-    `/historical-price-full/${encodeURIComponent(symbol)}?serietype=line&timeseries=${limit}`,
+  const raw = await fmpGet<{ date: string; close: number }[]>(
+    `/historical-price-eod/full?symbol=${encodeURIComponent(symbol)}`,
   )
-  if (!raw?.historical) return []
-  return raw.historical
+  if (!Array.isArray(raw)) return []
+  return raw
+    .slice(0, limit)                                    // API geeft nieuwste eerst
     .map((h) => ({ date: h.date, close: h.close }))
-    .reverse() // oudste -> nieuwste voor een leesbare grafiek
+    .reverse()                                          // oudste -> nieuwste voor een leesbare grafiek
 }
 
 /** Compacte, mensleesbare data-bundel voor één topic → in de script-prompt te injecteren. */
