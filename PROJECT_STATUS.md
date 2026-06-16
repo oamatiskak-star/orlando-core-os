@@ -35,12 +35,19 @@
 
 **STAND:** 9 commits op `feat/measurement-loop`, niet gepusht. Meetlus + dedup + volledige format-engine + thumbnail + US-intel klaar & getypecheckt.
 
-**🔴 HERSTEL HIER / RESTERENDE BUILDS:**
-1. Monetisatie-executielaag: US-broker-affiliate-injectie (Robinhood/Webull/Moomoo) in beschrijvingen + klik/conversie-tracking + YPP-pad.
-2. Hermes-intent "maak €60k-kanaal" als één instructie bovenop alles.
-3. Winner-DNA-lus sluiten (winner_extraction_jobs vullen) + horizon-planner aan.
+**✅ MONETISATIE + HERMES-INTENT (commits `0c37b4d1d`, `4bbbca4a1`, tsc exit 0):**
+- `affiliate-injection.ts`: affiliate-links van het kanaal worden bij publicatie in de beschrijving geïnjecteerd (eerste euro's; was de ontbrekende schakel — links kwamen nooit vóór de kijker).
+- migratie 216: `channel_objectives` + `set_channel_objective()` (executor: doel + format_profile aan) + `v_channel_objective_progress` (echte 30d-omzet vs doel). FIX sleutelbug: channel_strategy.channel_id = media_holding_channels.id (resolveChannelFormat + objective gebruiken nu de juiste sleutel; live geverifieerd).
 
-**ACTIVATIE-GATES (Orlando):** (a) `FMP_API_KEY` in local-agent env; (b) pilotkanaal `content_rules`={format_profile:us_finance_longform,...}; (c) mig 215 op prod + `pm2 restart` CLI-R; (d) PR/merge branch. Specs: `PRODUCTIE_SPEC_US_FINANCE_FACELESS.md`.
+**STAND: machine end-to-end. 12 commits op `feat/measurement-loop`, niet gepusht. Alles tsc exit 0.**
+Keten: meten (sweep) → kwaliteit (dedup/anti-slop) → content (long-form finance data-explainer + FMP-data + charts + pacing + premium TTS) → CTR (thumbnail-overlay) → intel (US-finance targets) → monetiseren (affiliate-injectie) → sturen (channel_objectives + voortgang-view).
+
+**▶ "MAAK EEN €60k-KANAAL" (na gates) = één commando:**
+`select set_channel_objective('186af826-cfad-41a9-a093-5baf74d3c9c3', 60000, '2026-12-31');` (VermogenTv; media_holding_channels.id).
+
+**🔴 RESTEREND (optimalisatie, niet-blokkerend):** winner-DNA-lus sluiten (`winner_extraction_jobs` vullen) + horizon-planner aan + click/conversie-webhook-ingestie (postback) + dashboard-tile op `v_channel_objective_progress`.
+
+**ACTIVATIE-GATES (Orlando):** (a) `FMP_API_KEY` in local-agent env; (b) `set_channel_objective(...)` draaien (zet profiel + doel); (c) migraties **215 + 216** op prod; (d) `pm2 restart` CLI-R (analytics-sweep + learning-loop-scheduler) + nieuwe broker-affiliate_links rijen voor het kanaal; (e) PR/merge branch. Specs: `PRODUCTIE_SPEC_US_FINANCE_FACELESS.md`.
 3. **US-finance competitor-intel** (mitigeert NL-intel-gat) → scanner seeden.
 4. Content-format-engine: long-form (12–25min) script + FMP-data + grafieken + hook + retentie-pacing + premium TTS.
 5. Monetisatie: US-broker-affiliate + YPP-pad. 6. Hermes-intent "maak €60k-kanaal".
