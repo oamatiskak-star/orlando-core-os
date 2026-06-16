@@ -23,10 +23,16 @@
 
 **✅ A1 — PRE-PUBLISH DEDUP COMMIT `ec4c17c9c`:** `youtube-engine/src/lib/title-dedup.ts` + gate in upload-orchestrator (near-duplicate titels → `duplicate_skipped` vóór upload, fail-open). tsc exit 0. 2 commits op branch, niet gepusht.
 
-**🔴 HERSTEL HIER / VOLGENDE BUILDS (volgorde):**
-1. ⚠️ A3 thumbnail-gate afdwingen — VOORZICHTIG: blind afdwingen blokkeert ALLE uploads (gescoorde variant ontbreekt meestal). Eerst fallback-pad hardenen.
-2. **Format-engine (HET grote stuk, meer-sessies):** long-form (12–18min) script + FMP-data + grafieken + retentie-pacing (cuts/zoom) + premium TTS. Spec: `PRODUCTIE_SPEC_US_FINANCE_FACELESS.md`.
-3. US-finance competitor-intel seeden.
+**✅ FORMAT-ENGINE KERN GEWIRED (commits `6933fe547` + `4036ee09a`, local-agent tsc exit 0):**
+- `financial-data-fetch.ts` (FMP-client, graceful degrade), `chart-generator.ts` (QuickChart→PNG), scene-cap 16:9 40→150.
+- `ai.ts` data-explainer-prompt + FMP-injectie + anti-slop; `shadow-core` haalt databundel; `cf2-producer.resolveChannelFormat()` schakelt om op `content_rules.format_profile='us_finance_longform'`. Bestaande Shorts-kanalen ONGEWIJZIGD.
+- **Activatie-gates (Orlando):** (a) `FMP_API_KEY` in local-agent env; (b) pilotkanaal `content_rules` zetten: `{"format_profile":"us_finance_longform","target_seconds":840,"data_symbols":[...]}`.
+
+**🔴 HERSTEL HIER / RESTERENDE BUILDS (volgorde):**
+1. Format-engine afmaken: chart-generator routen in `visual-intelligence` (charts als scene-visual) + render-pacing (zoom/cuts in `render.ts`) + premium TTS (`audio.ts` mode finance) — alles gegate op format_profile.
+2. ⚠️ A3 thumbnail-gate (voorzichtig: blokkeert anders alle uploads).
+3. US-finance competitor-intel seeden → 4. Monetisatie (broker-affiliate + YPP) → 5. Hermes-intent.
+Specs: `PRODUCTIE_SPEC_US_FINANCE_FACELESS.md`, `ANALYSE_11_KANALEN_60K_2026-06-16.md`.
 3. **US-finance competitor-intel** (mitigeert NL-intel-gat) → scanner seeden.
 4. Content-format-engine: long-form (12–25min) script + FMP-data + grafieken + hook + retentie-pacing + premium TTS.
 5. Monetisatie: US-broker-affiliate + YPP-pad. 6. Hermes-intent "maak €60k-kanaal".
