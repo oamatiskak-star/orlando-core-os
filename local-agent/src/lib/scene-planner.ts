@@ -1,4 +1,5 @@
 import axios from 'axios'
+import { openaiAvailable, openaiChat } from './cloud-llm'
 
 /**
  * SCENE-PLANNER (Content Factory 2.0 — FASE 2).
@@ -209,9 +210,9 @@ function buildDeterministicScenes(input: PlanScenesInput, sceneCount: number, se
 }
 
 export async function planScenes(input: PlanScenesInput): Promise<SceneSpec[]> {
-  const secPerScene = input.format === '9:16' ? 4 : 5
-  // Long-form (16:9 data-explainer) heeft meer scenes nodig dan de Shorts-cap van 40
-  // (40×5s = max 200s). Shorts (9:16) blijven ongewijzigd op cap 40.
+  // Shorts: 4s/scene. Long-form (16:9 data-explainer): 8s/scene → minder scenes, kleinere
+  // JSON (geen token-truncatie) en kortere render. Cap 40 (Shorts) / 150 (long-form).
+  const secPerScene = input.format === '9:16' ? 4 : 8
   const maxScenes = input.format === '9:16' ? 40 : 150
   const sceneCount = Math.min(maxScenes, Math.max(3, Math.round(input.target_seconds / secPerScene)))
   const prompt = buildPrompt(input, sceneCount, secPerScene)
@@ -219,21 +220,15 @@ export async function planScenes(input: PlanScenesInput): Promise<SceneSpec[]> {
   const lmModel = input.lm_studio_model || LM_STUDIO_MODEL
   const olModel = input.ollama_model    || OLLAMA_MODEL
 
-  let raw: string
-  try {
-    raw = USE_LM_STUDIO ? await callLMStudio(prompt, lmModel) : await callOllama(prompt, olModel)
-  } catch {
-    // Spiegelt ai.ts: bij falen van de primaire backend → de andere proberen.
-    raw = USE_LM_STUDIO ? await callOllama(prompt, olModel) : await callLMStudio(prompt, lmModel)
+  // Primaire bron: OpenAI (indien geconfigureerd) met ruime tokens voor de scene-array,
+  // anders lokaal. NOOIT terugvallen op een dode LM Studio wanneer die niet primair is.
+  const fetchRaw = async (): Promise<string> => {
+    if (openaiAvailable()) return openaiChat(prompt, { json: true, maxTokens: 8000 })
+    return USE_LM_STUDIO ? callLMStudio(prompt, lmModel) : callOllama(prompt, olModel)
   }
-
-  let parsed: any
-  try {
-    parsed = extractJson(raw)
-  } catch {
-    // Eén harde retry op de fallback-backend met dezelfde prompt.
-    const retryRaw = USE_LM_STUDIO ? await callOllama(prompt, olModel) : await callLMStudio(prompt, lmModel)
-    parsed = extractJson(retryRaw)
+  let parsed: any = null
+  for (let attempt = 0; attempt < 2 && !parsed; attempt++) {
+    try { parsed = extractJson(await fetchRaw()) } catch { parsed = null }
   }
 
   const arr: any[] = Array.isArray(parsed?.scenes) ? parsed.scenes : Array.isArray(parsed) ? parsed : []

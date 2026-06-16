@@ -1,4 +1,5 @@
 import axios from 'axios'
+import { openaiAvailable, openaiChat } from './cloud-llm'
 
 const USE_LM_STUDIO  = process.env.USE_LM_STUDIO !== 'false'
 const LM_STUDIO_URL  = process.env.LM_STUDIO_URL  || 'http://localhost:1234'
@@ -202,7 +203,9 @@ Geef ALLEEN geldige JSON terug (geen markdown, geen code blocks):
 
     let raw: string
     try {
-      if (USE_CLAUDE) {
+      if (openaiAvailable()) {
+        raw = await openaiChat(finalPrompt, { json: true })
+      } else if (USE_CLAUDE) {
         raw = await callClaude(finalPrompt)
       } else if (USE_LM_STUDIO) {
         raw = await callLMStudio(finalPrompt, payload.lm_studio_model)

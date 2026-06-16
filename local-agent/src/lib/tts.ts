@@ -47,7 +47,7 @@ export function chunkText(text: string, maxLen = 2200): string[] {
 }
 
 /** Concat meerdere mp3-chunks tot één bestand (ffmpeg concat-demuxer, -c copy). */
-function concatAudio(parts: string[], outputPath: string): boolean {
+export function concatAudio(parts: string[], outputPath: string): boolean {
   const ffmpeg = resolveBin('ffmpeg', 'FFMPEG_BIN') || 'ffmpeg'
   const listFile = outputPath + '.concat.txt'
   fs.writeFileSync(listFile, parts.map(p => `file '${p.replace(/'/g, "'\\''")}'`).join('\n'))
