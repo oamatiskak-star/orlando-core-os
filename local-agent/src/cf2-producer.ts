@@ -95,10 +95,12 @@ interface FormatConfig {
 // + FMP-data). Fail-safe naar default bij ontbrekende strategy of DB-fout.
 const DEFAULT_FORMAT: FormatConfig = { format: '9:16', targetSeconds: 50, formatProfile: null, dataSymbols: [] }
 
-async function resolveChannelFormat(client: SupabaseClient, channelId: string | null): Promise<FormatConfig> {
-  if (!channelId) return DEFAULT_FORMAT
+// LET OP sleutels: channel_strategy.channel_id = media_holding_channels.id (NIET youtube_channels.id).
+// Daarom resolven we op de media-channel-id (job.bron_channel_id), niet op de youtube-channel-id.
+async function resolveChannelFormat(client: SupabaseClient, mediaChannelId: string | null): Promise<FormatConfig> {
+  if (!mediaChannelId) return DEFAULT_FORMAT
   try {
-    const { data } = await client.from('channel_strategy').select('content_rules').eq('channel_id', channelId).maybeSingle()
+    const { data } = await client.from('channel_strategy').select('content_rules').eq('channel_id', mediaChannelId).maybeSingle()
     const rules = (data?.content_rules ?? {}) as Record<string, unknown>
     if (rules.format_profile === 'us_finance_longform') {
       const sym = Array.isArray(rules.data_symbols) ? (rules.data_symbols as string[]) : []
@@ -146,7 +148,7 @@ async function produceJobLive(client: SupabaseClient, job: Cf2Job): Promise<void
   await setStep(client, job.id, 'creative', { status: 'running', started_at: nowIso() })
   log(`  creative/render bezig… (lokaal model + visual + tts + ffmpeg — kan minuten duren)`)
   try {
-    const fmt = await resolveChannelFormat(client, ctx.channelId)
+    const fmt = await resolveChannelFormat(client, job.bron_channel_id)
     const r = await runShadowTopic({
       channelId: ctx.channelId,
       niche: job.bron_niche,
