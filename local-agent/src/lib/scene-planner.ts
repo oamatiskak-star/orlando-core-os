@@ -183,7 +183,10 @@ function clampScene(s: any, idx: number, fallbackDuration: number): SceneSpec {
  */
 export async function planScenes(input: PlanScenesInput): Promise<SceneSpec[]> {
   const secPerScene = input.format === '9:16' ? 4 : 5
-  const sceneCount = Math.min(40, Math.max(3, Math.round(input.target_seconds / secPerScene)))
+  // Long-form (16:9 data-explainer) heeft meer scenes nodig dan de Shorts-cap van 40
+  // (40×5s = max 200s). Shorts (9:16) blijven ongewijzigd op cap 40.
+  const maxScenes = input.format === '9:16' ? 40 : 150
+  const sceneCount = Math.min(maxScenes, Math.max(3, Math.round(input.target_seconds / secPerScene)))
   const prompt = buildPrompt(input, sceneCount, secPerScene)
 
   const lmModel = input.lm_studio_model || LM_STUDIO_MODEL
