@@ -21,9 +21,12 @@
 - B3: `local-agent/src/learning-loop-scheduler.ts` (window-gated, 1×/dag, spiegelt cf2-loop) + PM2-entry in `ecosystem.cli-r.config.js`.
 - **Niet gecommit** (wacht op Orlando's commit/PR-OK). **Gate:** mig 215 op prod + `pm2 restart` CLI-R.
 
+**✅ A1 — PRE-PUBLISH DEDUP COMMIT `ec4c17c9c`:** `youtube-engine/src/lib/title-dedup.ts` + gate in upload-orchestrator (near-duplicate titels → `duplicate_skipped` vóór upload, fail-open). tsc exit 0. 2 commits op branch, niet gepusht.
+
 **🔴 HERSTEL HIER / VOLGENDE BUILDS (volgorde):**
-1. A1 pre-publish dedup-gate (logica bestaat in `frontend/app/api/youtube/dedup/route.ts`, ombouwen naar pre-publish in upload-orchestrator).
-2. A3 thumbnail-gate afdwingen (geen blinde frame-grab).
+1. ⚠️ A3 thumbnail-gate afdwingen — VOORZICHTIG: blind afdwingen blokkeert ALLE uploads (gescoorde variant ontbreekt meestal). Eerst fallback-pad hardenen.
+2. **Format-engine (HET grote stuk, meer-sessies):** long-form (12–18min) script + FMP-data + grafieken + retentie-pacing (cuts/zoom) + premium TTS. Spec: `PRODUCTIE_SPEC_US_FINANCE_FACELESS.md`.
+3. US-finance competitor-intel seeden.
 3. **US-finance competitor-intel** (mitigeert NL-intel-gat) → scanner seeden.
 4. Content-format-engine: long-form (12–25min) script + FMP-data + grafieken + hook + retentie-pacing + premium TTS.
 5. Monetisatie: US-broker-affiliate + YPP-pad. 6. Hermes-intent "maak €60k-kanaal".
