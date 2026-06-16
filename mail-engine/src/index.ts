@@ -7,6 +7,7 @@ import { UniversalMailConnector } from './connectors/universal'
 import { MailtrapClient } from './mailtrap/client'
 import { IntakeProcessor } from './intake/processor'
 import { syncAffiliateLabels } from './labels/affiliate-labels'
+import { watchAffiliateApprovals } from './intake/affiliate-approval-watcher'
 import { logger } from './lib/logger'
 
 const app = express()
@@ -313,6 +314,12 @@ setInterval(() => {
 setInterval(() => {
   syncAffiliateLabels().catch(err => logger.error('Affiliate-label sync failed', { err }))
 }, 60 * 1000)
+
+// Affiliate approval-watcher: scant broker-/Impact-mails op goedkeuring/afwijzing en
+// zet account_status='active' (→ go-live + link) of approval_status='rejected'. Elke 5 min.
+setInterval(() => {
+  watchAffiliateApprovals().catch(err => logger.error('Affiliate approval-watcher failed', { err }))
+}, 5 * 60 * 1000)
 
 app.listen(PORT, () => {
   logger.info(`Mail Engine running on port ${PORT}`)
