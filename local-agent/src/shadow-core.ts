@@ -120,8 +120,12 @@ export async function runShadowTopic(o: ShadowOpts): Promise<ShadowResult> {
     final_score: null,
   })
 
-  // 6. Visual Intelligence (FASE A) — echte Pexels/Pixabay; geen key → blocked, geen fakes
-  const vis = await sourceVisualsForProject(projectId, o.format)
+  // 6. Visual Intelligence (FASE A) — echte Pexels/Pixabay; geen key → blocked, geen fakes.
+  //    Defensief: een API-fout (400/rate-limit) mag de productie niet killen; charts (6b)
+  //    kunnen dan alsnog beeld leveren voor de data-explainer.
+  let vis: Awaited<ReturnType<typeof sourceVisualsForProject>>
+  try { vis = await sourceVisualsForProject(projectId, o.format) }
+  catch (e: any) { vis = { blockedReason: `visual_error: ${(e?.message ?? e).toString().slice(0, 120)}`, sceneCount: 0, assetsSelected: 0, belowThreshold: 0, lowConfidence: 0 } }
 
   // 6b. Chart Intelligence — finance-profiel: echte FMP-data-charts als scene-visual
   //     (no-op zonder FMP-key). Overschrijft generieke stock op data-beat scenes.
