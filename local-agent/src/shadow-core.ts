@@ -3,6 +3,7 @@ import path from 'path'
 import os from 'os'
 import { generateContent } from './lib/ai'
 import { buildDataBundle } from './lib/financial-data-fetch'
+import { attachChartsToProject } from './lib/chart-intelligence'
 import { planScenes } from './lib/scene-planner'
 import { synthVoice } from './lib/audio'
 import { sourceVisualsForProject } from './lib/visual-intelligence'
@@ -97,10 +98,13 @@ export async function runShadowTopic(o: ShadowOpts): Promise<ShadowResult> {
   const sceneCount = await spine.writeScenes(projectId, scenes)
   await spine.setStatus(projectId, 'production_ready')
 
-  // 4. Voice (router, shadow = lokaal/gratis)
+  // 4. Voice — finance-profiel = premium (credibele stem; anti-slop + autoriteit).
+  //    Overige kanalen blijven shadow (lokaal/gratis). Premium escaleert naar
+  //    elevenlabs/openai; zonder premium-key valt het terug op lokaal (gemarkeerd).
   const audioPath = path.join(os.tmpdir(), `cf2-voice-${projectId}.mp3`)
+  const voiceMode = o.formatProfile === 'us_finance_longform' ? 'premium' : 'shadow'
   const voiceRes = await synthVoice(content.full_script, audioPath, {
-    voice: o.voice, mode: 'shadow', language: o.language,
+    voice: o.voice, mode: voiceMode, language: o.language,
   })
   await spine.writeVoiceAsset(projectId, {
     provider: voiceRes.provider ?? 'none',
@@ -113,6 +117,12 @@ export async function runShadowTopic(o: ShadowOpts): Promise<ShadowResult> {
   // 6. Visual Intelligence (FASE A) — echte Pexels/Pixabay; geen key → blocked, geen fakes
   const vis = await sourceVisualsForProject(projectId, o.format)
 
+  // 6b. Chart Intelligence — finance-profiel: echte FMP-data-charts als scene-visual
+  //     (no-op zonder FMP-key). Overschrijft generieke stock op data-beat scenes.
+  const charts = o.formatProfile === 'us_finance_longform'
+    ? await attachChartsToProject(projectId, o.format, o.dataSymbols ?? [])
+    : { chartsAttached: 0, reason: null as string | null }
+
   // 7. Music Intelligence (FASE F) — licensed catalogus; geen bron → blocked_missing_music_source
   const mus = await selectMusic(projectId)
 
@@ -122,13 +132,14 @@ export async function runShadowTopic(o: ShadowOpts): Promise<ShadowResult> {
   // 9. Render (FASE B) — alleen met echte assets; anders blocked (geen fake render)
   let renderUrl: string | null = null
   let renderBlocked: string | null = null
-  if (vis.assetsSelected > 0 && voiceRes.outputPath) {
+  const renderableAssets = vis.assetsSelected + charts.chartsAttached
+  if (renderableAssets > 0 && voiceRes.outputPath) {
     try {
-      const r = await renderProject({ projectId, format: o.format, voicePath: voiceRes.outputPath, musicPath: null })
+      const r = await renderProject({ projectId, format: o.format, voicePath: voiceRes.outputPath, musicPath: null, pacing: !!o.formatProfile })
       renderUrl = r.outputPath
     } catch (e: any) { renderBlocked = `blocked_render_failed: ${(e?.message ?? e).toString().slice(0, 220)}` }
   } else {
-    renderBlocked = vis.assetsSelected === 0 ? 'blocked_no_visual_assets' : 'blocked_no_voice'
+    renderBlocked = renderableAssets === 0 ? 'blocked_no_visual_assets' : 'blocked_no_voice'
   }
 
   // 10. QC (FASE C/G) — canonieke frontend-route schrijft youtube_quality_scores + gate
