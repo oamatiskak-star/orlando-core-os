@@ -34,13 +34,21 @@ function extractJson(raw: string): any {
 
 /** Vraag het lokale model om JSON; fallback naar de andere backend; één retry. */
 export async function localLlmJson(prompt: string): Promise<any> {
-  let raw: string
+  // Robuust: een hik in één LLM (timeout/resource/dood LM Studio-fallback) mag een
+  // langlopende productie (100+ score-calls) NOOIT killen. Beide bronnen falen → {} (neutrale
+  // score), zodat de caller doordraait i.p.v. crasht. Geen verzonnen waarden, alleen leeg.
+  let raw = ''
   try { raw = USE_LM_STUDIO ? await callLMStudio(prompt) : await callOllama(prompt) }
-  catch { raw = USE_LM_STUDIO ? await callOllama(prompt) : await callLMStudio(prompt) }
+  catch {
+    try { raw = USE_LM_STUDIO ? await callOllama(prompt) : await callLMStudio(prompt) }
+    catch { return {} }
+  }
   try { return extractJson(raw) }
   catch {
-    const retry = USE_LM_STUDIO ? await callOllama(prompt) : await callLMStudio(prompt)
-    return extractJson(retry)
+    try {
+      const retry = USE_LM_STUDIO ? await callOllama(prompt) : await callLMStudio(prompt)
+      return extractJson(retry)
+    } catch { return {} }
   }
 }
 

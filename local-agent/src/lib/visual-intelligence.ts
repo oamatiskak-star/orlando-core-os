@@ -78,9 +78,12 @@ async function searchPexels(query: string, orientation: Orientation): Promise<Ca
   const apiKey = process.env.PEXELS_API_KEY
   if (!apiKey) return []
   const page = Math.floor(Math.random() * 5) + 1
-  const res = await axios.get('https://api.pexels.com/videos/search', {
-    headers: { Authorization: apiKey }, params: { query, per_page: 15, orientation, page }, timeout: 15_000,
-  })
+  let res
+  try {
+    res = await axios.get('https://api.pexels.com/videos/search', {
+      headers: { Authorization: apiKey }, params: { query: query.slice(0, 100), per_page: 15, orientation, page }, timeout: 15_000,
+    })
+  } catch (e: any) { console.warn(`pexels-video faalde ("${query.slice(0, 40)}"): ${e?.response?.status ?? e?.message}`); return [] }
   const vids: any[] = res.data?.videos ?? []
   return vids.map((v, rank): Candidate | null => {
     const files = (v.video_files ?? []).filter((f: any) => f.link && f.file_type === 'video/mp4').sort((a: any, b: any) => (b.width ?? 0) - (a.width ?? 0))
@@ -93,7 +96,10 @@ async function searchPexels(query: string, orientation: Orientation): Promise<Ca
 async function searchPixabay(query: string, orientation: Orientation): Promise<Candidate[]> {
   const apiKey = process.env.PIXABAY_API_KEY
   if (!apiKey) return []
-  const res = await axios.get('https://pixabay.com/api/videos/', { params: { key: apiKey, q: query, per_page: 15, safesearch: true }, timeout: 15_000 })
+  let res
+  try {
+    res = await axios.get('https://pixabay.com/api/videos/', { params: { key: apiKey, q: query.slice(0, 100), per_page: 15, safesearch: true }, timeout: 15_000 })
+  } catch (e: any) { console.warn(`pixabay faalde ("${query.slice(0, 40)}"): ${e?.response?.status ?? e?.message}`); return [] }
   const hits: any[] = res.data?.hits ?? []
   return hits.map((h, rank): Candidate | null => {
     const f = h.videos?.large ?? h.videos?.medium
@@ -107,7 +113,10 @@ async function searchPixabay(query: string, orientation: Orientation): Promise<C
 async function searchPexelsPhotos(query: string, orientation: Orientation): Promise<Candidate[]> {
   const apiKey = process.env.PEXELS_API_KEY
   if (!apiKey) return []
-  const res = await axios.get('https://api.pexels.com/v1/search', { headers: { Authorization: apiKey }, params: { query, per_page: 15, orientation }, timeout: 15_000 })
+  let res
+  try {
+    res = await axios.get('https://api.pexels.com/v1/search', { headers: { Authorization: apiKey }, params: { query: query.slice(0, 100), per_page: 15, orientation }, timeout: 15_000 })
+  } catch (e: any) { console.warn(`pexels-foto faalde ("${query.slice(0, 40)}"): ${e?.response?.status ?? e?.message}`); return [] }
   const photos: any[] = res.data?.photos ?? []
   return photos.map((p, rank): Candidate | null => {
     const url = p.src?.large2x || p.src?.large || p.src?.original
