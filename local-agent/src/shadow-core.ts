@@ -11,6 +11,7 @@ import { selectMusic } from './lib/music-intelligence'
 import { generateThumbnails } from './lib/thumbnail-intelligence'
 import { renderProject } from './lib/render'
 import { assessQuality } from './quality-assess'
+import { loadChannelStrategy } from './lib/channel-strategy'
 import * as spine from './lib/video-projects'
 
 /**
@@ -59,9 +60,12 @@ export async function runShadowTopic(o: ShadowOpts): Promise<ShadowResult> {
     ? await buildDataBundle(o.dataSymbols ?? [])
     : null
 
-  // 1. Script (lokale LLM, ai.ts) — data-explainer-tak bij format-profiel
+  // CF2-repair: kanaal-strategie laden (niche/topics/own_cta) zodat de generatie niche-conform is.
+  const strategy = await loadChannelStrategy(o.channelId)
+
+  // 1. Script (lokale LLM, ai.ts) — data-explainer-tak bij format-profiel + niche-strategy
   const content = await generateContent({
-    channel_name:    o.niche ?? 'Aquier',
+    channel_name:    strategy?.niche ?? o.niche ?? 'Aquier',
     topic:           o.topic,
     video_type:      o.format === '9:16' ? 'short' : 'longform',
     language:        o.language,
@@ -71,6 +75,8 @@ export async function runShadowTopic(o: ShadowOpts): Promise<ShadowResult> {
     lm_studio_model: o.lmStudioModel,
     format_profile:  o.formatProfile ?? null,
     data_bundle:     dataBundle,
+    channel_topics:  strategy?.topics ?? [],
+    own_cta_options: strategy?.own_cta ?? [],
   })
 
   // 2. Spine: project (status 'draft')
@@ -98,11 +104,11 @@ export async function runShadowTopic(o: ShadowOpts): Promise<ShadowResult> {
   const sceneCount = await spine.writeScenes(projectId, scenes)
   await spine.setStatus(projectId, 'production_ready')
 
-  // 4. Voice — finance-profiel = premium (credibele stem; anti-slop + autoriteit).
-  //    Overige kanalen blijven shadow (lokaal/gratis). Premium escaleert naar
-  //    elevenlabs/openai; zonder premium-key valt het terug op lokaal (gemarkeerd).
+  // 4. Voice — premium bij finance-profiel OF bij publicatie (CF2_PUBLISH=1): credibele stem
+  //    die de QC voice-gate (>=95) haalt. Anders shadow (lokaal/gratis). Premium escaleert
+  //    naar OpenAI/ElevenLabs; zonder premium-key valt het terug op lokaal (gemarkeerd).
   const audioPath = path.join(os.tmpdir(), `cf2-voice-${projectId}.mp3`)
-  const voiceMode = o.formatProfile === 'us_finance_longform' ? 'premium' : 'shadow'
+  const voiceMode = (o.formatProfile === 'us_finance_longform' || process.env.CF2_PUBLISH === '1') ? 'premium' : 'shadow'
   const voiceRes = await synthVoice(content.full_script, audioPath, {
     voice: o.voice, mode: voiceMode, language: o.language,
   })

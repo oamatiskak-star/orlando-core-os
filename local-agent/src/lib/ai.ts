@@ -37,6 +37,41 @@ async function callOllama(prompt: string, model: string): Promise<string> {
   return res.data.response as string
 }
 
+// Cloud-route (publish-grade): claude.sonnet via Anthropic API. Zelfde model als de QC →
+// content geoptimaliseerd voor de QC-criteria. Gebruikt bij CONTENT_MODEL=claude.
+const USE_CLAUDE = process.env.CONTENT_MODEL === 'claude' && !!process.env.ANTHROPIC_API_KEY
+async function callClaude(prompt: string): Promise<string> {
+  const res = await axios.post('https://api.anthropic.com/v1/messages', {
+    model: process.env.CONTENT_CLAUDE_MODEL || 'claude-sonnet-4-6',
+    max_tokens: 4096,
+    messages: [{ role: 'user', content: prompt }],
+  }, {
+    headers: { 'x-api-key': process.env.ANTHROPIC_API_KEY!, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },
+    timeout: 120_000,
+  })
+  return (res.data?.content?.[0]?.text ?? '') as string
+}
+
+/**
+ * Claude (sonnet) beschikbaar als JSON-judge? Alleen op ANTHROPIC_API_KEY — onafhankelijk van
+ * CONTENT_MODEL (content-generatie kan lokaal blijven terwijl scoring via Claude loopt).
+ */
+export const CLAUDE_AVAILABLE = !!process.env.ANTHROPIC_API_KEY
+
+/**
+ * JSON-judge via claude.sonnet (dezelfde Anthropic-laag als generateContent). Parseert de JSON
+ * uit de respons. GOOIT bij ontbrekende key/onbereikbaar/ongeldige JSON — de caller valt dan
+ * expliciet terug op de lokale scorer (geen verzonnen score).
+ */
+export async function claudeJson(prompt: string): Promise<any> {
+  if (!CLAUDE_AVAILABLE) throw new Error('ANTHROPIC_API_KEY ontbreekt')
+  const raw = await callClaude(prompt)
+  const stripped = raw.replace(/```(?:json)?/g, '').replace(/```/g, '')
+  const m = stripped.match(/\{[\s\S]*\}/)
+  if (!m) throw new Error('claudeJson: geen JSON in respons')
+  return JSON.parse(m[0])
+}
+
 // Dutch words that virtually never appear in English text
 const DUTCH_PATTERN = /\b(voor|naar|van|bij|zijn|wordt|worden|hebben|maar|ook|dan|als|met|aan|wat|hoe|dit|dat|zo|jouw|mijn|ons|onze|beste|welke|werd|waren|zou|zal|kan|mag|moet|geen|wel|nog|toch|door|over|onder|boven|naast|tussen|buiten|binnen|tijdens|hierbij|hierdoor|hiervan|hierin|hiermee|daarmee|daarin|daarvoor|daarna|waarmee|waarbij|wanneer|terwijl|omdat|indien|hoewel|echter|tevens|namelijk|immers)\b/gi
 
@@ -55,15 +90,31 @@ export async function generateContent(payload: {
   lm_studio_model: string
   format_profile?: string | null   // bv. 'us_finance_longform' → data-explainer-script
   data_bundle?:    string | null   // echte FMP-cijfers om in het script te injecteren
+  channel_topics?:  string[]       // CF2-repair: kanaal-niche-topics (niche-conform genereren)
+  own_cta_options?: string[]       // CF2-repair: kanaal-eigen CTA's (verplicht i.p.v. generiek)
 }): Promise<ContentResult> {
   const isShort   = payload.video_type === 'short'
   const words     = Math.round(payload.target_seconds * 2.5)
   const isEnglish = payload.language !== 'nl'
   const isFinanceLongform = payload.format_profile === 'us_finance_longform'
 
+  // CF2 content-engine repair: niche- en CTA-context uit channel_strategy in de prompt vouwen.
+  const topics = (payload.channel_topics ?? []).filter(Boolean)
+  const ownCta = (payload.own_cta_options ?? []).filter(Boolean)
+  const nicheInstr = topics.length
+    ? (isEnglish
+        ? ` Stay STRICTLY within the channel niche topics [${topics.join(', ')}]; never produce off-niche (gaming/music/entertainment) content.`
+        : ` Blijf STRIKT binnen de kanaal-niche-topics [${topics.join(', ')}]; nooit off-niche (gaming/muziek/entertainment) content.`)
+    : ''
+  const ctaInstr = ownCta.length
+    ? (isEnglish
+        ? ` MANDATORY CTA: end with EXACTLY one of these channel CTAs (never "like & subscribe"): ${ownCta.join(' | ')}.`
+        : ` VERPLICHTE CTA: sluit af met EXACT één van deze kanaal-CTA's (nooit "like & subscribe"): ${ownCta.join(' | ')}.`)
+    : ''
+
   const systemContext = isEnglish
-    ? `You are an expert YouTube content creator for ${payload.channel_name}.`
-    : `Je bent een expert YouTube contentmaker voor ${payload.channel_name}.`
+    ? `You are an expert YouTube content creator for ${payload.channel_name}.${nicheInstr}${ctaInstr}`
+    : `Je bent een expert YouTube contentmaker voor ${payload.channel_name}.${nicheInstr}${ctaInstr}`
 
   // Faceless US-finance data-explainer (de €60k-pivot). Stijl: Wall Street Millennial /
   // How Money Works — data-gedreven, sceptisch, verhaal-geleid. Anti-slop conform YouTube's
@@ -124,6 +175,13 @@ Stijl: ${payload.style}
 Kanaal: ${payload.channel_name}
 Taal: Nederlands
 
+KWALITEITSEISEN (verplicht — anders wordt de video afgekeurd door de QC):
+- HOOK: GEEN cliché/versleten fear-zin ("inflatie vernietigt je spaargeld", "wist je dat..."). Open met een CONCREET getal/percentage/bedrag of een controversiële/verrassende stelling die een curiosity-gap opent.
+- RETENTIE: onthul NOOIT het antwoord/de opties in de eerste 15s. Bouw een open loop ("3 opties — de derde verbaast 9 van de 10 beleggers") en los pas later op.
+- CONCREETHEID: gebruik echte cijfers, rendementen, jaartallen of cases — geen vage generieke uitspraken die op elke finance-video passen.
+- CTA: stuur naar een concrete Aquier-stap (dealcheck / adresscan / financieringsscan / rapport / Mandaat) — NOOIT "like & subscribe".
+- TITEL: concreet getal + spanning + differentiatie. GEEN generieke validatie-taal ("die echt werken", "die je moet kennen").
+
 Geef ALLEEN geldige JSON terug (geen markdown, geen code blocks):
 {
   "title": "pakkende SEO-titel max 70 tekens",
@@ -144,18 +202,18 @@ Geef ALLEEN geldige JSON terug (geen markdown, geen code blocks):
 
     let raw: string
     try {
-      if (USE_LM_STUDIO) {
+      if (USE_CLAUDE) {
+        raw = await callClaude(finalPrompt)
+      } else if (USE_LM_STUDIO) {
         raw = await callLMStudio(finalPrompt, payload.lm_studio_model)
       } else {
         raw = await callOllama(finalPrompt, payload.ollama_model)
       }
     } catch (primaryErr) {
-      console.warn('Primaire AI mislukt, fallback naar andere:', (primaryErr as Error).message)
-      if (USE_LM_STUDIO) {
-        raw = await callOllama(finalPrompt, payload.ollama_model)
-      } else {
-        raw = await callLMStudio(finalPrompt, payload.lm_studio_model)
-      }
+      console.warn('Primaire AI mislukt, fallback naar lokaal:', (primaryErr as Error).message)
+      raw = USE_LM_STUDIO
+        ? await callLMStudio(finalPrompt, payload.lm_studio_model)
+        : await callOllama(finalPrompt, payload.ollama_model)
     }
 
     // Extract JSON — strip markdown code blocks first
@@ -176,6 +234,14 @@ Geef ALLEEN geldige JSON terug (geen markdown, geen code blocks):
     result.cta               = asStr(result.cta)
     result.thumbnail_concept = asStr(result.thumbnail_concept)
     if (!Array.isArray(result.tags)) result.tags = []
+
+    // CF2-repair: forceer een kanaal-eigen CTA (geen generieke "abonneer/subscribe/like").
+    if (ownCta.length) {
+      const c = (result.cta ?? '').toLowerCase()
+      const generic = !c || c.includes('abonneer') || c.includes('subscribe') || c.includes('like &') || c.includes('like en')
+      const hasOwn = ownCta.some(o => c.includes(o.toLowerCase()))
+      if (generic || !hasOwn) result.cta = ownCta[0]
+    }
 
     // Language guard: English channels must not contain Dutch output
     if (isEnglish) {

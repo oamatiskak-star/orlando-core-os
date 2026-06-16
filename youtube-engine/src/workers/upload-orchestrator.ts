@@ -67,24 +67,30 @@ async function getOverQuotaChannelIds(limits: Record<string, number>): Promise<s
 }
 
 // CF2 upload-protection chokepoint (canonieke spine 153, NIET de verboden #149-scoring/view/RPC).
-// Blokkeert queue-items die gekoppeld zijn aan een NIET-goedgekeurd CF2 video_project.
-// Legacy/non-CF2 uploads (geen video_projects.queue_id-link) passeren ongemoeid.
+// Blokkeert queue-items die gekoppeld zijn aan een CF2 video_project dat de OBJECTIEVE QC-gate
+// niet heeft gehaald. Legacy/non-CF2 uploads (geen video_projects.queue_id-link) passeren ongemoeid.
 // Fail-open op lookup-fouten: de live legacy-pijplijn mag nooit gehalt worden door een DB-hiccup.
-// Approval-bron = uitsluitend video_projects.approved (boolean) uit de canonieke spine.
+//
+// AUTONOME GOEDKEURING (cert-sprint): de gate blokkeert uitsluitend op een OBJECTIEVE gate
+// (QC/CQI niet geslaagd), niet op menselijke afwezigheid. quality_passed=true (de QC-gate uit
+// /api/youtube/quality/assess: CQI + alle drempels) volstaat om door te laten — er is geen
+// handmatige approve meer vereist. Een expliciete human approved=true blijft als override gelden.
+// QC/CQI-gates, privacy=private en incident/recovery blijven volledig actief en ongemoeid.
 async function cf2ApprovalBlocked(queueId: string): Promise<string | null> {
   const db = getSupabase()
   const { data, error } = await db
     .from('video_projects')
-    .select('approved, status')
+    .select('approved, quality_passed, status')
     .eq('queue_id', queueId)
     .maybeSingle()
   if (error) {
-    log.warn('CF2-gate: approval-lookup faalde — item doorgelaten (fail-open)', { queueId, error: error.message })
+    log.warn('CF2-gate: QC-lookup faalde — item doorgelaten (fail-open)', { queueId, error: error.message })
     return null
   }
-  if (!data) return null                       // geen CF2-koppeling → legacy upload, doorlaten
-  if (data.approved === true) return null       // expliciet goedgekeurd → doorlaten
-  return `cf2_not_approved (status=${data.status ?? 'onbekend'})`
+  if (!data) return null                        // geen CF2-koppeling → legacy upload, doorlaten
+  if (data.approved === true) return null        // expliciete human-override → doorlaten
+  if (data.quality_passed === true) return null  // objectieve QC-gate geslaagd → autonoom doorlaten
+  return `qc_gate_not_passed (status=${data.status ?? 'onbekend'})`  // objectieve gate, geen menselijke afwezigheid
 }
 
 async function pollQueuedItems(): Promise<void> {
@@ -144,9 +150,9 @@ async function pollQueuedItems(): Promise<void> {
     // CF2 upload-protection chokepoint — blokkeer niet-goedgekeurde CF2-content vóór dispatch
     const cf2Block = await cf2ApprovalBlocked(item.id)
     if (cf2Block) {
-      log.warn('CF2 upload-gate: niet-goedgekeurd project geblokkeerd', { queueId: item.id, reason: cf2Block })
+      log.warn('CF2 upload-gate: project zonder geslaagde QC-gate geblokkeerd', { queueId: item.id, reason: cf2Block })
       await updateQueueStatus(item.id, 'manual_review_required', { last_error: cf2Block })
-      await addLog(item.id, item.video_id, 'warn', 'CF2 upload-gate: upload geblokkeerd tot goedkeuring', { reason: cf2Block })
+      await addLog(item.id, item.video_id, 'warn', 'CF2 upload-gate: upload geblokkeerd op objectieve QC-gate', { reason: cf2Block })
       continue
     }
 

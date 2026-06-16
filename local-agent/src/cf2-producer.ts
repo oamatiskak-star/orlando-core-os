@@ -21,6 +21,7 @@ import 'dotenv/config'   // MOET als eerste: laadt .env vóór elke transitieve 
 import { createClient, SupabaseClient } from '@supabase/supabase-js'
 import axios from 'axios'
 import { runShadowTopic } from './shadow-core'
+import { loadChannelStrategy, topicMatchesNiche } from './lib/channel-strategy'
 import { uploadVideoToStorage } from './lib/storage'
 
 type Mode = 'prepared' | 'live'
@@ -145,6 +146,19 @@ async function produceJobLive(client: SupabaseClient, job: Cf2Job): Promise<void
   const ctx = await jobContext(client, job)
   const short = job.id.slice(0, 8)
   log(`job ${short} → "${ctx.topic}" (niche=${job.bron_niche ?? '?'}, kanaal=${ctx.channelId ?? 'geen'})`)
+
+  // CF2-repair: HARDE niche-gate VÓÓR generatie. Topic moet binnen de kanaal-niche-topics vallen,
+  // anders REJECT — geen script, geen render, geen QC, geen upload (bespaart productie + houdt
+  // off-niche content (gaming/K-pop) van finance/vastgoed-kanalen). Fail-open zonder strategy/topics.
+  const gateStrategy = await loadChannelStrategy(ctx.channelId)
+  if (gateStrategy && gateStrategy.topics.length && !topicMatchesNiche(ctx.topic, gateStrategy.topics)) {
+    const reason = `niche_gate_fail: topic "${ctx.topic}" valt buiten kanaal-topics [${gateStrategy.topics.join(', ')}]`
+    log(`  ❌ NICHE-GATE: ${reason} — job afgewezen vóór generatie`)
+    await client.from('cf2_jobs').update({ status: 'failed', updated_at: nowIso() }).eq('id', job.id)
+    await setStep(client, job.id, 'creative', { status: 'failed', failed_at: nowIso(), failure_reason: reason })
+    return
+  }
+
   await setStep(client, job.id, 'creative', { status: 'running', started_at: nowIso() })
   log(`  creative/render bezig… (lokaal model + visual + tts + ffmpeg — kan minuten duren)`)
   try {

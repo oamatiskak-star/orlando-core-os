@@ -97,7 +97,7 @@ Scoor 0-100 per dimensie:
 {"hook_score":<n>,"retention_prediction":<n>,"cta_score":<n>,"title_score":<n>,"content_reject":{"reject":<bool>,"reasons":[<string>]}}`
 
   try {
-    const { text } = await generateText({ model: claude.sonnet, maxOutputTokens: 500, messages: [{ role: 'user', content: prompt }] })
+    const { text } = await generateText({ model: claude.sonnet, maxOutputTokens: 1500, messages: [{ role: 'user', content: prompt }] })
     const raw = text.trim().replace(/^```json\s*/i, '').replace(/^```\s*/i, '').replace(/\s*```$/i, '').trim()
     const p = JSON.parse(raw)
     llm = {
@@ -106,7 +106,8 @@ Scoor 0-100 per dimensie:
       content_reject: { reject: !!p?.content_reject?.reject, reasons: Array.isArray(p?.content_reject?.reasons) ? p.content_reject.reasons : [] },
     }
   } catch (e) {
-    return NextResponse.json({ error: 'QC-assessment faalde (LLM)' }, { status: 502 })
+    console.error('QC LLM error:', (e as any)?.message ?? e, (e as any)?.responseBody ?? (e as any)?.cause ?? '')
+    return NextResponse.json({ error: 'QC-assessment faalde (LLM)', detail: String((e as any)?.message ?? e).slice(0, 300) }, { status: 502 })
   }
 
   // ── CQI (aggregaat over beschikbare dimensies) ──
