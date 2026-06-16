@@ -124,7 +124,7 @@ async function claimNextRun(): Promise<RunRow | null> {
 // ── data laden ──────────────────────────────────────────────────────────────
 async function loadProgram(programId: string): Promise<ProgramRow | null> {
   const { data } = await db.from('affiliate_programs')
-    .select('id, name, company_id, account_status, notes').eq('id', programId).maybeSingle()
+    .select('id, name, company_id, account_status, notes, url').eq('id', programId).maybeSingle()
   return (data as ProgramRow) ?? null
 }
 async function loadBusinessProfile(companyId: string): Promise<BusinessProfile | null> {
@@ -317,14 +317,15 @@ async function executeRun(run: RunRow): Promise<void> {
       // niet betrouwbaar geautomatiseerd kunnen worden). Géén hard falen: maak een NETTE,
       // actionable handmatige taak met de directe signup-link en pauzeer de run.
       const signupUrl = (program as { url?: string | null }).url ?? null
-      await db.from('account_setup_human_actions').insert({
-        program_id: program.id, run_id: run.id, action_kind: 'manual_signup',
+      const { error: haErr } = await db.from('account_setup_human_actions').insert({
+        program_id: program.id, run_id: run.id, action_kind: 'manual_review',
         title: `Rond aanmelding af: ${program.name}`,
         description: signupUrl
           ? `Deze aanmelding vereist handmatige stappen (login/KYC/CAPTCHA). Open en voltooi de aanmelding: ${signupUrl}`
           : `Voeg een signup-URL (affiliate_programs.url) of field-map toe om dit te kunnen verwerken.`,
         status: 'open',
       })
+      if (haErr) log(`human-action insert fout: ${haErr.message}`)
       await db.from('account_setup_runs').update({ status: 'awaiting_approval' }).eq('id', run.id)
       log(`Geen field-map voor ${program.name} → handmatige actie aangemaakt (${signupUrl ?? 'geen url'})`)
       return
