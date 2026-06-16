@@ -83,6 +83,38 @@ function langForNiche(niche: string | null): string {
   return 'en'
 }
 
+interface FormatConfig {
+  format: '16:9' | '9:16'
+  targetSeconds: number
+  formatProfile: string | null
+  dataSymbols: string[]
+}
+
+// Default = Shorts (bestaand gedrag). Alleen een kanaal met content_rules.format_profile
+// = 'us_finance_longform' schakelt om naar de faceless finance data-explainer (16:9, long-form
+// + FMP-data). Fail-safe naar default bij ontbrekende strategy of DB-fout.
+const DEFAULT_FORMAT: FormatConfig = { format: '9:16', targetSeconds: 50, formatProfile: null, dataSymbols: [] }
+
+async function resolveChannelFormat(client: SupabaseClient, channelId: string | null): Promise<FormatConfig> {
+  if (!channelId) return DEFAULT_FORMAT
+  try {
+    const { data } = await client.from('channel_strategy').select('content_rules').eq('channel_id', channelId).maybeSingle()
+    const rules = (data?.content_rules ?? {}) as Record<string, unknown>
+    if (rules.format_profile === 'us_finance_longform') {
+      const sym = Array.isArray(rules.data_symbols) ? (rules.data_symbols as string[]) : []
+      return {
+        format: '16:9',
+        targetSeconds: typeof rules.target_seconds === 'number' ? rules.target_seconds : 840,
+        formatProfile: 'us_finance_longform',
+        dataSymbols: sym.length ? sym : ['^GSPC', '^IXIC', '^DJI'],
+      }
+    }
+    return DEFAULT_FORMAT
+  } catch {
+    return DEFAULT_FORMAT
+  }
+}
+
 /** Resolveer onderwerp + youtube-kanaal voor een job (bron-winner / horizon-plan). */
 async function jobContext(client: SupabaseClient, job: Cf2Job): Promise<{ topic: string; channelId: string | null }> {
   let topic = job.reason ?? `${job.bron_niche ?? 'content'} video`
@@ -114,16 +146,19 @@ async function produceJobLive(client: SupabaseClient, job: Cf2Job): Promise<void
   await setStep(client, job.id, 'creative', { status: 'running', started_at: nowIso() })
   log(`  creative/render bezig… (lokaal model + visual + tts + ffmpeg — kan minuten duren)`)
   try {
+    const fmt = await resolveChannelFormat(client, ctx.channelId)
     const r = await runShadowTopic({
       channelId: ctx.channelId,
       niche: job.bron_niche,
       topic: ctx.topic,
-      language: langForNiche(job.bron_niche),
-      format: '9:16',             // shorts-first (kanaalregel)
+      language: fmt.formatProfile === 'us_finance_longform' ? 'en' : langForNiche(job.bron_niche),
+      format: fmt.format,         // default 9:16 (shorts); 16:9 voor finance-longform-profiel
       voice: 'default',
-      targetSeconds: 50,
+      targetSeconds: fmt.targetSeconds,
       lmStudioModel: LM_STUDIO_MODEL,
       ollamaModel: OLLAMA_MODEL,
+      formatProfile: fmt.formatProfile,
+      dataSymbols: fmt.dataSymbols,
     })
 
     await setStep(client, job.id, 'creative', { status: 'done', completed_at: nowIso(), meta: { project_id: r.projectId, title: r.title, scenes: r.sceneCount } })

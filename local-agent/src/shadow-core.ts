@@ -2,6 +2,7 @@ import './ws-shim'   // MOET eerst — zet global WebSocket vóór elke @supabas
 import path from 'path'
 import os from 'os'
 import { generateContent } from './lib/ai'
+import { buildDataBundle } from './lib/financial-data-fetch'
 import { planScenes } from './lib/scene-planner'
 import { synthVoice } from './lib/audio'
 import { sourceVisualsForProject } from './lib/visual-intelligence'
@@ -31,6 +32,8 @@ export interface ShadowOpts {
   targetSeconds: number
   lmStudioModel: string
   ollamaModel:   string
+  formatProfile?: string | null   // bv. 'us_finance_longform' → data-explainer + FMP-data
+  dataSymbols?:   string[]         // tickers voor de FMP-databundel (bv. ['^GSPC','AAPL'])
 }
 
 export interface ShadowResult {
@@ -50,7 +53,12 @@ export interface ShadowResult {
 }
 
 export async function runShadowTopic(o: ShadowOpts): Promise<ShadowResult> {
-  // 1. Script (lokale LLM, ai.ts)
+  // 0. Echte marktdata ophalen voor het data-explainer-profiel (graceful: null zonder FMP-key)
+  const dataBundle = o.formatProfile === 'us_finance_longform'
+    ? await buildDataBundle(o.dataSymbols ?? [])
+    : null
+
+  // 1. Script (lokale LLM, ai.ts) — data-explainer-tak bij format-profiel
   const content = await generateContent({
     channel_name:    o.niche ?? 'Aquier',
     topic:           o.topic,
@@ -60,6 +68,8 @@ export async function runShadowTopic(o: ShadowOpts): Promise<ShadowResult> {
     target_seconds:  o.targetSeconds,
     ollama_model:    o.ollamaModel,
     lm_studio_model: o.lmStudioModel,
+    format_profile:  o.formatProfile ?? null,
+    data_bundle:     dataBundle,
   })
 
   // 2. Spine: project (status 'draft')
