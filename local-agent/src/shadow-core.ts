@@ -119,7 +119,8 @@ export async function runShadowTopic(o: ShadowOpts): Promise<ShadowResult> {
   //    die de QC voice-gate (>=95) haalt. Anders shadow (lokaal/gratis). Premium escaleert
   //    naar OpenAI/ElevenLabs; zonder premium-key valt het terug op lokaal (gemarkeerd).
   const audioPath = path.join(os.tmpdir(), `cf2-voice-${projectId}.mp3`)
-  const voiceMode = (o.formatProfile === 'us_finance_longform' || process.env.CF2_PUBLISH === '1') ? 'premium' : 'shadow'
+  const premiumProfile = o.formatProfile === 'us_finance_longform' || o.formatProfile === 'aquier_promo'
+  const voiceMode = (premiumProfile || process.env.CF2_PUBLISH === '1') ? 'premium' : 'shadow'
   const voiceRes = await synthVoice(cleanScript, audioPath, {
     voice: o.voice, mode: voiceMode, language: o.language,
   })

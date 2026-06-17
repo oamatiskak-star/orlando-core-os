@@ -54,8 +54,10 @@ export async function assessQuality(videoProjectId: string): Promise<QcResult> {
   // 'Protection Bypass for Automation'-secret komt de engine er server-to-server door
   // zonder de dashboard publiek te maken. Geen secret → call gaat gewoon (werkt als
   // protection uit staat). Secret zet je in Vercel + als VERCEL_AUTOMATION_BYPASS_SECRET.
+  // Alleen de bypass-header (server-to-server). GEEN set-bypass-cookie → die triggert een
+  // 307-cookie-redirect die axios in een redirect-loop duwt ("Maximum redirects exceeded").
   const bypass = process.env.VERCEL_AUTOMATION_BYPASS_SECRET
-  const headers = bypass ? { 'x-vercel-protection-bypass': bypass, 'x-vercel-set-bypass-cookie': 'true' } : undefined
+  const headers = bypass ? { 'x-vercel-protection-bypass': bypass } : undefined
 
   let lastStatus: number | null = null
   let lastError: string | null = null
