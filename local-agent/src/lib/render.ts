@@ -347,19 +347,22 @@ export async function renderProject(input: RenderInput): Promise<RenderResult> {
   const concatPath = path.join(work, 'concat.mp4')
   await concatScenes(clips, concatPath)
 
+  // Muziek-asset (door selectMusic gezet) ophalen als er geen expliciet musicPath is. Voor
+  // narrated wordt het onder de voice geduckt (betere retentie + fixt de music<90 QC-gate);
+  // voor loops is het de hoofd-audio.
+  let musicPath = input.musicPath ?? null
+  if (!musicPath) {
+    const { data: m } = await db.from('audio_assets').select('url')
+      .eq('project_id', input.projectId).eq('kind', 'music')
+      .order('created_at', { ascending: false }).limit(1).maybeSingle()
+    if (m?.url && fs.existsSync(m.url)) musicPath = m.url
+  }
+
   const outputPath = path.join(work, `final-${input.format.replace(':', 'x')}.mp4`)
   if (input.voicePath) {
-    await muxAudio(concatPath, input.voicePath, input.musicPath ?? null, input.brandingLogo ?? null, outputPath, input.format, useSubs ? input.subtitlePath! : null)
+    await muxAudio(concatPath, input.voicePath, musicPath, input.brandingLogo ?? null, outputPath, input.format, useSubs ? input.subtitlePath! : null)
   } else {
-    // Loop-short: muziek is de audio (geen voice/ondertiteling). Haal het muziek-asset op
-    // (door selectMusic gezet) als er geen expliciet musicPath is; anders silent loop.
-    let musicPath = input.musicPath ?? null
-    if (!musicPath) {
-      const { data: m } = await db.from('audio_assets').select('url')
-        .eq('project_id', input.projectId).eq('kind', 'music')
-        .order('created_at', { ascending: false }).limit(1).maybeSingle()
-      if (m?.url && fs.existsSync(m.url)) musicPath = m.url
-    }
+    // Loop-short: muziek is de audio (geen voice/ondertiteling).
     await muxLoops(concatPath, musicPath, input.brandingLogo ?? null, outputPath)
   }
 
