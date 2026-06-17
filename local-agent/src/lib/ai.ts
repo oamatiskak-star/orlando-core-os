@@ -161,36 +161,40 @@ ${payload.data_bundle ?? 'OVER AQUIER: AI-gedreven acquisitie-intelligentie voor
 Create a ${Math.max(45, Math.round(payload.target_seconds))}-second promotional/explainer video for: "${payload.topic}"
 GOAL: explain clearly what Aquier is and does for the target audience, then drive them to the featured product via the WORKING link.
 
-HARD RULES:
-- Explain Aquier concretely (what it analyzes: development potential, permitting odds, construction cost, financing viability). No vague hype.
-- DATA IS PER COUNTRY: Aquier connects to each market's OWN official public data. Use the "DATA SOURCES (this market)" line from the bundle above and make clear Aquier works in the VIEWER'S OWN country (say "in your market / in your country", or name the local sources from the bundle). Do NOT imply it only works in one foreign country.
-- Speak directly to the target audience's pain (finding/scoring deals, avoiding bad acquisitions).
-- End with ONE clear call to action to the featured product. Put the EXACT working link in BOTH the "cta" and "description" fields. Never invent another URL.
-- In the spoken "full_script", do NOT read the URL aloud — refer to "the link in the description". The URL lives only in cta/description fields.
-- Honest, credible, no false claims. Keep it punchy.
+HARD RULES (geoptimaliseerd voor de QC-gate ≥90):
+- HOOK (0-3s): open met een PATTERN-INTERRUPT met een CONCREET getal/verlies-stat (bv. "Dit pand scoorde 34/100 — daarom kochten we het NIET"). Geen "stop met gokken"-clichés, geen empathie-opening ("we kennen het gevoel"); meteen stakes.
+- INVESTEERDERSTAAL: gebruik vak-taal van de doelgroep (deal flow, underwriting, red flags, off-market, cap rate, kasstroom) — NIET generiek "AI scoring".
+- Explain Aquier concretely (development potential, permitting odds, construction cost, financing viability). No vague hype.
+- DATA PER COUNTRY: gebruik de "DATA SOURCES (this market)"-regel uit de bundel; maak duidelijk dat Aquier in HET EIGEN LAND van de kijker werkt. ${payload.language === 'nl' ? 'Anker aan NL-marktrealiteit (WOZ, vergunningen, stijgende financieringskosten).' : 'Anchor to a real market reality in the viewer’s country.'}
+- CTA: noem de concrete eerste stap (gratis dealcheck/adresscan/scan) EXPLICIET, zowel vroeg (rond 0-15s) als aan het eind. Zet de EXACTE werkende link in "cta" én "description". Verzin geen andere URL.
+- In de gesproken "full_script": lees de URL NIET voor — verwijs naar "de link in de beschrijving".
+- Eerlijk, geloofwaardig, strak. Voeg 1 sociaal-bewijs/autoriteitsanker toe (bv. "X objecten geanalyseerd").
 
 Return ONLY valid JSON (no markdown, no code blocks):
 {
-  "title": "catchy SEO title max 70 chars in ${promoLang} (mentions the value for the audience)",
-  "description": "SEO description 300-500 chars in ${promoLang}; MUST contain the exact working link once",
+  "title": "max 70 tekens in ${promoLang} MET een concreet getal/uitkomst + spanning (bv. een score, %, of resultaat) — geen generieke clickbait",
+  "description": "SEO 300-500 tekens in ${promoLang}; MUST contain the exact working link once",
   "tags": ["tag1","tag2",...20 tags],
-  "hook": "first 3 seconds hook in ${promoLang} (concrete pain or outcome)",
-  "full_script": "complete word-for-word ad/explainer script ~${Math.round(payload.target_seconds * 2.5)} words in ${promoLang}",
-  "cta": "closing call to action in ${promoLang} that includes the exact working link",
-  "thumbnail_concept": "promo thumbnail: bold benefit + Aquier brand, high contrast"
+  "hook": "eerste 3 seconden in ${promoLang}: concreet getal/verlies-stat, pattern-interrupt",
+  "full_script": "compleet woord-voor-woord ad/explainer script ~${Math.round(payload.target_seconds * 2.5)} woorden in ${promoLang}",
+  "cta": "slot-CTA in ${promoLang} mét de exacte werkende link",
+  "thumbnail_concept": "promo thumbnail: groot getal/score + 3-woord overlay, hoog contrast, Aquier-merk"
 }`
 
   // Loop-short: oddly-satisfying visuele loop, GEEN narratie. Alleen metadata + korte on-screen hook.
   const loopsPrompt = `You write metadata for an oddly-satisfying YouTube Short (a seamless visual LOOP, NO narration/voice-over). Seed/topic: "${payload.topic}". Niche: ${payload.channel_name}. Language: ${isEnglish ? 'English' : 'Nederlands'}.
+OPTIMIZE FOR THE QC GATE ≥90 (scroll-stop in 0-3s + loopability/rewatch):
+- HOOK = 0-3s scroll-stopper, MAX 4 words, pure curiosity-gap or "you can't look away" tension (e.g. "Wait for it…", "It never stops").
+- TITLE = curiosity + a number or a "can't stop watching" promise; signal the SEAMLESS LOOP (rewatch).
 Return ONLY valid JSON (no markdown):
 {
-  "title": "scroll-stopping Short title max 60 chars, may include 1 emoji",
+  "title": "scroll-stopping Short title max 60 chars, curiosity/number + loop-signal, 1 emoji",
   "description": "short SEO description 150-300 chars ending with #shorts + 5 niche hashtags",
   "tags": ["15 short tags"],
-  "hook": "on-screen hook text, MAX 4 words, punchy curiosity",
+  "hook": "on-screen hook text, MAX 4 words, instant curiosity",
   "full_script": "",
   "cta": "",
-  "thumbnail_concept": "bold 3-word overlay + the satisfying subject, high contrast"
+  "thumbnail_concept": "bold 3-word overlay (curiosity) + the satisfying subject, ultra high contrast"
 }`
 
   const prompt = isLoops ? loopsPrompt : isAquierPromo ? aquierPromoPrompt : isFinanceLongform ? financePrompt : isEnglish ? `
