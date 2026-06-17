@@ -3,6 +3,7 @@ import path from 'path'
 import os from 'os'
 import { generateContent } from './lib/ai'
 import { buildDataBundle } from './lib/financial-data-fetch'
+import { buildAquierPromoBundle } from './lib/aquier-promo'
 import { attachChartsToProject } from './lib/chart-intelligence'
 import { planScenes } from './lib/scene-planner'
 import { synthVoice } from './lib/audio'
@@ -57,10 +58,12 @@ export interface ShadowResult {
 }
 
 export async function runShadowTopic(o: ShadowOpts): Promise<ShadowResult> {
-  // 0. Echte marktdata ophalen voor het data-explainer-profiel (graceful: null zonder FMP-key)
+  // 0. Databundel voor het profiel: finance → FMP-marktdata; aquier_promo → Aquier-productbundel
+  //    (wat Aquier doet + uitgelicht product + WERKENDE Stripe-link). Anders null.
+  const promo = o.formatProfile === 'aquier_promo' ? await buildAquierPromoBundle(null, 0) : null
   const dataBundle = o.formatProfile === 'us_finance_longform'
     ? await buildDataBundle(o.dataSymbols ?? [])
-    : null
+    : (promo ? promo.bundleText : null)
 
   // CF2-repair: kanaal-strategie laden (niche/topics/own_cta) zodat de generatie niche-conform is.
   const strategy = await loadChannelStrategy(o.channelId)

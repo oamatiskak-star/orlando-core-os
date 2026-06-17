@@ -112,6 +112,15 @@ async function resolveChannelFormat(client: SupabaseClient, mediaChannelId: stri
         dataSymbols: sym.length ? sym : ['^GSPC', '^IXIC', '^DJI'],
       }
     }
+    if (rules.format_profile === 'aquier_promo') {
+      // Aquier-promo: korte advertentie/explainer (16:9), product + werkende link uit aquier_products.
+      return {
+        format: '16:9',
+        targetSeconds: typeof rules.target_seconds === 'number' ? rules.target_seconds : 90,
+        formatProfile: 'aquier_promo',
+        dataSymbols: [],
+      }
+    }
     return DEFAULT_FORMAT
   } catch {
     return DEFAULT_FORMAT
