@@ -71,6 +71,8 @@ Keten: meten (sweep) → kwaliteit (dedup/anti-slop) → content (long-form fina
 - **Gate #3 UITGEVOERD:** `set_channel_objective('186af826…',60000,'2026-12-31')` → VermogenTv doel €60k actief + content_rules.format_profile=us_finance_longform live geverifieerd.
 - **217 NIET op prod** (live-effect, niet in originele gate-lijst) — klaar voor jouw OK.
 
+**🔴 OPEN GATE (apify-engine):** `cd apify-engine && npm install`, daarna `pm2 start ecosystem.config.js --only apify-engine` op CLI-R. Vereist: `APIFY_API_TOKEN` in `.env.gh-secrets`. Migratie 218 is al op prod. Ecosysteem-entry staat al klaar in `ecosystem.config.js`.
+
 **🔴 GATES DIE OP JOU WACHTEN (secret/remote — niet vanuit sandbox uitvoerbaar):**
 - #1 `FMP_API_KEY` in local-agent env (CLI-R). Zonder = data-explainer draait in graceful-degrade (geen echte cijfers/charts).
 - #4 echte broker-`affiliate_links` (Robinhood/Webull/Moomoo) voor VermogenTv — jouw broker-accounts.
