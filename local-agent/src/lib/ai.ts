@@ -161,7 +161,8 @@ Create a ${Math.max(45, Math.round(payload.target_seconds))}-second promotional/
 GOAL: explain clearly what Aquier is and does for the target audience, then drive them to the featured product via the WORKING link.
 
 HARD RULES:
-- Explain Aquier concretely (what it analyzes: development potential, permitting, construction cost, financing — from Kadaster/BAG/CBS data). No vague hype.
+- Explain Aquier concretely (what it analyzes: development potential, permitting odds, construction cost, financing viability). No vague hype.
+- DATA IS PER COUNTRY: Aquier connects to each market's OWN official public data. Use the "DATA SOURCES (this market)" line from the bundle above and make clear Aquier works in the VIEWER'S OWN country (say "in your market / in your country", or name the local sources from the bundle). Do NOT imply it only works in one foreign country.
 - Speak directly to the target audience's pain (finding/scoring deals, avoiding bad acquisitions).
 - End with ONE clear call to action to the featured product. Put the EXACT working link in BOTH the "cta" and "description" fields. Never invent another URL.
 - In the spoken "full_script", do NOT read the URL aloud — refer to "the link in the description". The URL lives only in cta/description fields.
