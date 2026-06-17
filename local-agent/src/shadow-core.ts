@@ -5,7 +5,7 @@ import { generateContent } from './lib/ai'
 import { buildDataBundle } from './lib/financial-data-fetch'
 import { buildAquierPromoBundle } from './lib/aquier-promo'
 import { attachChartsToProject } from './lib/chart-intelligence'
-import { planScenes } from './lib/scene-planner'
+import { planScenes, SceneSpec } from './lib/scene-planner'
 import { synthVoice } from './lib/audio'
 import { sourceVisualsForProject } from './lib/visual-intelligence'
 import { selectMusic } from './lib/music-intelligence'
@@ -57,7 +57,73 @@ export interface ShadowResult {
   noQueue:          boolean
 }
 
+/**
+ * LOOP-SHORT (productie-type 'loops_short' — entertainment/satisfying-kanalen).
+ * Eén naadloze, loopende satisfying-clip + muziek + korte on-screen hook. GEEN script/voice/
+ * ondertiteling (dat is de narrated-keten). Eigen flow zodat de narrated-keten ongemoeid blijft.
+ */
+async function runLoopShort(o: ShadowOpts): Promise<ShadowResult> {
+  const strategy = await loadChannelStrategy(o.channelId)
+  // 1. Minimale metadata (titel + korte hook-overlay), geen narratie.
+  const content = await generateContent({
+    channel_name: strategy?.niche ?? o.niche ?? 'Loops',
+    topic: o.topic, video_type: 'short', language: o.language, style: 'satisfying',
+    target_seconds: o.targetSeconds, ollama_model: o.ollamaModel, lm_studio_model: o.lmStudioModel,
+    format_profile: 'loops_short', data_bundle: null,
+    channel_topics: strategy?.topics ?? [], own_cta_options: strategy?.own_cta ?? [],
+  })
+  content.title = cleanTitle(content.title) || o.topic
+
+  const projectId = await spine.createProject({
+    channel_id: o.channelId ?? null, niche: o.niche ?? null, topic: o.topic,
+    title: content.title, script: '', language: o.language, format: o.format,
+  })
+
+  // 2. Eén loopende scene: satisfying-zoekterm uit de kanaal-niche + korte hook-overlay.
+  const topic0 = (strategy?.topics ?? [])[0]
+  const q = topic0 ? `oddly satisfying ${topic0}` : 'oddly satisfying seamless loop'
+  const hook = cleanForSpeech(content.hook || content.title).split(/\s+/).slice(0, 5).join(' ')
+  const scene: SceneSpec = {
+    idx: 1, voice_text: '', visual_intent: q, search_query: q, shot_type: 'loop',
+    emotion: 'satisfying', pacing: 'slow', music_intensity: 'low',
+    caption_text: hook, expected_duration: o.targetSeconds,
+  }
+  const sceneCount = await spine.writeScenes(projectId, [scene])
+  await spine.setStatus(projectId, 'production_ready')
+
+  // 3. Visual (de satisfying clip), muziek, thumbnail. Geen voice.
+  let vis: Awaited<ReturnType<typeof sourceVisualsForProject>>
+  try { vis = await sourceVisualsForProject(projectId, o.format) }
+  catch (e: any) { vis = { blockedReason: `visual_error: ${(e?.message ?? e).toString().slice(0, 120)}`, sceneCount: 0, assetsSelected: 0, belowThreshold: 0, lowConfidence: 0 } }
+  const mus = await selectMusic(projectId)
+  const thumb = await generateThumbnails(projectId, o.format)
+
+  // 4. Render: clip loopen + muziek (renderProject haalt het muziek-asset zelf op), geen voice/subs.
+  let renderUrl: string | null = null
+  let renderBlocked: string | null = null
+  if (vis.assetsSelected > 0) {
+    try { const r = await renderProject({ projectId, format: o.format, voicePath: null, pacing: true }); renderUrl = r.outputPath }
+    catch (e: any) { renderBlocked = `blocked_render_failed: ${(e?.message ?? e).toString().slice(0, 220)}` }
+  } else { renderBlocked = 'blocked_no_visual_assets' }
+
+  // 5. QC (entertainment-rubric). Muziek-gate blokkeert NIET (silent loop is acceptabel).
+  const qc = await assessQuality(projectId)
+  const reasons = [vis.blockedReason, thumb.blockedReason, renderBlocked,
+    qc.ok ? (qc.gate_passed ? null : qc.gate_reason) : qc.blocked].filter(Boolean).join('; ')
+  let status: spine.WriterStatus
+  if (reasons) { status = 'rework_required'; await spine.setStatus(projectId, status, reasons) }
+  else { status = 'awaiting_approval'; await spine.setStatus(projectId, status, null) }
+  const noQueue = await spine.assertNoQueue(projectId)
+  return {
+    projectId, title: content.title, sceneCount, voiceProvider: null,
+    visualsSelected: vis.assetsSelected, musicScore: mus.selectedScore, thumbnailVariants: thumb.variants,
+    renderUrl, cqi: qc.cqi ?? null, gatePassed: qc.gate_passed ?? false, status, reasons: reasons || null, noQueue,
+  }
+}
+
 export async function runShadowTopic(o: ShadowOpts): Promise<ShadowResult> {
+  // Loop-short heeft een eigen, voice-loze flow.
+  if (o.formatProfile === 'loops_short') return runLoopShort(o)
   // 0. Databundel voor het profiel: finance → FMP-marktdata; aquier_promo → Aquier-productbundel
   //    (wat Aquier doet + uitgelicht product + WERKENDE Stripe-link). Anders null.
   const promo = o.formatProfile === 'aquier_promo' ? await buildAquierPromoBundle(null, 0, o.language) : null

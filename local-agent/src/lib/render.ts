@@ -234,10 +234,38 @@ function muxAudio(videoPath: string, voicePath: string, musicPath: string | null
   })
 }
 
+/** Music-only mux voor loop-shorts (geen voice/ondertiteling). Muziek loopt om de short te
+ *  vullen; loudnorm; -shortest. Raakt de bewezen narrated-muxAudio NIET. */
+function muxLoops(videoPath: string, musicPath: string | null, brandingLogo: string | null, outputPath: string): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const cmd = ffmpeg(videoPath)
+    const filters: string[] = []
+    let videoLabel = '0:v'
+    if (musicPath) {
+      cmd.input(musicPath).inputOptions(['-stream_loop -1'])   // muziek loopt om de hele short te vullen
+      filters.push('[1:a]loudnorm=I=-16:TP=-1.5:LRA=11[aout]')
+    }
+    if (brandingLogo && fs.existsSync(brandingLogo)) {
+      const logoIdx = musicPath ? 2 : 1
+      cmd.input(brandingLogo)
+      filters.push(`[${videoLabel}][${logoIdx}:v]overlay=W-w-40:40[vout]`)
+      videoLabel = 'vout'
+    }
+    if (filters.length) cmd.complexFilter(filters)
+    const out: string[] = [`-map ${videoLabel.includes(':') ? videoLabel : '[' + videoLabel + ']'}`]
+    if (musicPath) out.push('-map [aout]', '-c:a aac', '-b:a 192k')
+    out.push('-c:v libx264', '-preset fast', '-crf 23', '-pix_fmt yuv420p', '-r 30', '-shortest', '-movflags +faststart')
+    cmd.outputOptions(out).output(outputPath)
+      .on('end', () => resolve())
+      .on('error', (e) => reject(new Error(`mux-loops: ${e.message}`)))
+      .run()
+  })
+}
+
 export interface RenderInput {
   projectId: string
   format: '16:9' | '9:16' | '1:1'
-  voicePath: string
+  voicePath: string | null   // null → loop-short (muziek-audio, geen voice/ondertiteling)
   musicPath?: string | null
   brandingLogo?: string | null
   pacing?: boolean   // retentie-pacing (per-scene punch-in). Default false = legacy ongewijzigd.
@@ -287,7 +315,7 @@ export async function renderProject(input: RenderInput): Promise<RenderResult> {
   // Beeldduur schalen naar de ÉCHTE voicelengte → -shortest kapt de narratie niet meer af
   // (scene-schattingen ≠ TTS-duur). Elke scene houdt zijn beeld evenredig langer vast; de
   // ondertiteling blijft synchroon want die komt los uit de stem. Clamp tegen extremen.
-  const voiceDur = probeDuration(input.voicePath)
+  const voiceDur = input.voicePath ? probeDuration(input.voicePath) : 0   // loop-short → 0 (geen voice-scaling)
   const expectedTotal = renderable.reduce((a, r) => a + (Number(r.sc.expected_duration) || 5), 0)
   const scale = (voiceDur > 0 && expectedTotal > 0) ? Math.min(4, Math.max(0.5, voiceDur / expectedTotal)) : 1
   const durations = renderable.map((r) => Math.max(1, (Number(r.sc.expected_duration) || 5) * scale))
@@ -320,7 +348,20 @@ export async function renderProject(input: RenderInput): Promise<RenderResult> {
   await concatScenes(clips, concatPath)
 
   const outputPath = path.join(work, `final-${input.format.replace(':', 'x')}.mp4`)
-  await muxAudio(concatPath, input.voicePath, input.musicPath ?? null, input.brandingLogo ?? null, outputPath, input.format, useSubs ? input.subtitlePath! : null)
+  if (input.voicePath) {
+    await muxAudio(concatPath, input.voicePath, input.musicPath ?? null, input.brandingLogo ?? null, outputPath, input.format, useSubs ? input.subtitlePath! : null)
+  } else {
+    // Loop-short: muziek is de audio (geen voice/ondertiteling). Haal het muziek-asset op
+    // (door selectMusic gezet) als er geen expliciet musicPath is; anders silent loop.
+    let musicPath = input.musicPath ?? null
+    if (!musicPath) {
+      const { data: m } = await db.from('audio_assets').select('url')
+        .eq('project_id', input.projectId).eq('kind', 'music')
+        .order('created_at', { ascending: false }).limit(1).maybeSingle()
+      if (m?.url && fs.existsSync(m.url)) musicPath = m.url
+    }
+    await muxLoops(concatPath, musicPath, input.brandingLogo ?? null, outputPath)
+  }
 
   // render-metadata op project (geen status-wijziging → upload blijft onmogelijk)
   await db.from('video_projects').update({ render_url: outputPath }).eq('id', input.projectId)
