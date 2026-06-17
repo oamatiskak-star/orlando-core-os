@@ -1,5 +1,6 @@
 import axios from 'axios'
 import { openaiAvailable, openaiChat } from './cloud-llm'
+import { claudeJson, CLAUDE_AVAILABLE } from './ai'
 import { cleanForSpeech, captionFromText } from './script-clean'
 
 /**
@@ -195,8 +196,16 @@ function buildDeterministicScenes(input: PlanScenesInput, sceneCount: number, se
   const clean = cleanForSpeech(input.full_script || '')
   const sentences = clean.replace(/\s+/g, ' ').match(/[^.!?]+[.!?]+|\S[^.!?]*$/g) ?? [clean || input.title]
   const per = Math.max(1, Math.ceil(sentences.length / sceneCount))
-  const QUERIES = ['stock market chart', 'wall street trading floor', 'financial data screen', 'stock ticker board',
+  // Niche-passende b-roll-zoektermen (fixt 'beeld matcht niet'): vastgoed-set voor Aquier/vastgoed,
+  // anders de finance-set. Deze fallback geldt alleen als het LLM geen scenes leverde.
+  const n = (input.niche || '').toLowerCase()
+  const isRealEstate = /vastgoed|real_estate|aquier|property|woning|makelaar|inmobil/.test(n)
+  const REAL_ESTATE = ['modern apartment building exterior', 'dutch canal houses amsterdam', 'construction site tower crane',
+    'architect reviewing building blueprints', 'real estate agent showing apartment', 'aerial view new housing development',
+    'renovated modern apartment interior', 'house keys handover new home']
+  const FINANCE = ['stock market chart', 'wall street trading floor', 'financial data screen', 'stock ticker board',
     'finance newspaper closeup', 'city financial district skyline', 'rising investment graph', 'economic dashboard data']
+  const QUERIES = isRealEstate ? REAL_ESTATE : FINANCE
   const scenes: SceneSpec[] = []
   for (let i = 0; i < sentences.length && scenes.length < sceneCount; i += per) {
     const chunk = sentences.slice(i, i + per).join(' ').trim()
@@ -228,15 +237,18 @@ export async function planScenes(input: PlanScenesInput): Promise<SceneSpec[]> {
   const lmModel = input.lm_studio_model || LM_STUDIO_MODEL
   const olModel = input.ollama_model    || OLLAMA_MODEL
 
-  // Primaire bron: OpenAI (indien geconfigureerd) met ruime tokens voor de scene-array,
-  // anders lokaal. NOOIT terugvallen op een dode LM Studio wanneer die niet primair is.
-  const fetchRaw = async (): Promise<string> => {
-    if (openaiAvailable()) return openaiChat(prompt, { json: true, maxTokens: 8000 })
-    return USE_LM_STUDIO ? callLMStudio(prompt, lmModel) : callOllama(prompt, olModel)
+  // Bron-prioriteit: Claude (als CONTENT_MODEL=claude) → OpenAI → lokaal. Claude levert per-scene
+  // CONCRETE, narratie-passende visual-queries (fixt 'beeld matcht niet') i.p.v. de zwakke lokale
+  // JSON die naar de deterministische split viel. Claude alleen bij <=30 scenes (past in 4096 tok).
+  const useClaude = process.env.CONTENT_MODEL === 'claude' && CLAUDE_AVAILABLE && sceneCount <= 30
+  const fetchParsed = async (): Promise<any> => {
+    if (useClaude) return claudeJson(prompt)   // reeds geparsed object
+    if (openaiAvailable()) return extractJson(await openaiChat(prompt, { json: true, maxTokens: 8000 }))
+    return extractJson(await (USE_LM_STUDIO ? callLMStudio(prompt, lmModel) : callOllama(prompt, olModel)))
   }
   let parsed: any = null
   for (let attempt = 0; attempt < 2 && !parsed; attempt++) {
-    try { parsed = extractJson(await fetchRaw()) } catch { parsed = null }
+    try { parsed = await fetchParsed() } catch { parsed = null }
   }
 
   const arr: any[] = Array.isArray(parsed?.scenes) ? parsed.scenes : Array.isArray(parsed) ? parsed : []
