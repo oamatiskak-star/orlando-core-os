@@ -1,0 +1,58 @@
+{
+  "mcpServers": {
+    "claude-flow": {
+      "command": "npx",
+      "args": ["ruflo@latest", "mcp", "start"],
+      "env": {
+        "NODE_NO_WARNINGS": "1",
+        "CLAUDE_FLOW_V3_ENABLED": "true",
+        "CLAUDE_FLOW_HOOKS_ENABLED": "true"
+      }
+    }
+  },
+  "env": {
+    "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": "1",
+    "CLAUDE_FLOW_V3_ENABLED": "true",
+    "CLAUDE_FLOW_HOOKS_ENABLED": "true"
+  },
+  "permissions": {
+    "allow": [
+      "Bash(npx ruflo*)",
+      "Bash(npx @claude-flow*)",
+      "Bash(node ruflo/*)",
+      "Bash(npm run*)",
+      "Bash(git status)",
+      "Bash(git diff*)",
+      "Bash(git log*)",
+      "Bash(git add*)",
+      "Bash(git commit*)",
+      "Bash(git push*)",
+      "Bash(git branch*)",
+      "Bash(git checkout*)",
+      "Bash(git stash*)",
+      "Bash(ls*)",
+      "Bash(node*)",
+      "Bash(jq*)",
+      "mcp__claude-flow__*"
+    ],
+    "deny": [
+      "Read(.env)",
+      "Read(.env.*)",
+      "Bash(rm -rf /)"
+    ]
+  },
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit|MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "npx ruflo@latest hooks post-edit 2>/dev/null || true",
+            "timeout": 8000
+          }
+        ]
+      }
+    ]
+  }
+}
