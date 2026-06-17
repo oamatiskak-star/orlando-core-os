@@ -238,6 +238,9 @@ export const NAV_MODULES: Record<string, NavModuleDef> = {
   routines_agents: { key: 'routines_agents', label: 'Routine Agents',     href: '/dashboard/build-tracker/routines/agents',  icon: Bot },
   routines_logs:   { key: 'routines_logs',   label: 'Routine Audit Log',  href: '/dashboard/build-tracker/routines/logs',    icon: Terminal },
 
+  // ── G0DM0D3 — MULTI-MODEL AI CHAT ────────────────────────────────────────
+  godmod3:              { key: 'godmod3',              label: 'G0DM0D3',                 href: '/dashboard/godmod3',               icon: Terminal },
+
   // ── ACQUISITION INTELLIGENCE ─────────────────────────────────────────────
   acq_deal_desk:      { key: 'acq_deal_desk',      label: 'Deal Desk',            href: '/dashboard/acquisition',                     icon: Target },
   acq_deals:          { key: 'acq_deals',          label: 'DealRadar',            href: '/dashboard/acquisition/deals',               icon: Radar },
@@ -283,7 +286,7 @@ export const COMPANY_NAV: Record<string, CompanyNav> = {
       { title: 'Automatisering',     modules: ['ops_workflows', 'ops_automations', 'ops_agents', 'ops_ai_optimizer', 'ops_suggestions', 'ops_manual', 'ops_templates'] },
       { title: 'Operations · Config', modules: ['ops_dil', 'ops_analytics', 'ops_company_settings', 'ops_global_settings', 'infra', 'worktree_manager'] },
       { title: 'Mail Engine', modules: ['mail_dashboard', 'mail_agents', 'mail_workflows', 'mail_rules', 'mail_dossiers', 'mail_inbox'] },
-      { title: 'AI & Workflow', modules: ['agents', 'workflows', 'orchestrator'] },
+      { title: 'AI & Workflow', modules: ['godmod3', 'agents', 'workflows', 'orchestrator'] },
       { title: 'Systeem', modules: ['administratie', 'belasting', 'abonnementen', 'documenten', 'gebruikers'] },
     ],
     globalBottom: ['health', 'meldingen', 'instellingen'],
