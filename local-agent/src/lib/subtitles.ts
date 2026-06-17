@@ -79,18 +79,21 @@ export async function generateSubtitles(voicePath: string, outBase: string, opts
   return { srtPath: srt, reason: null }
 }
 
-// Fonetische whisper-misspellingen van "Aquier" (whole-word, case-insensitive). Geen gewone
-// Engelse woorden → veilig. Het werkwoord "acquire/acquired" staat er bewust NIET in.
-const AQUIER_ALIASES = ['Aquire','Aquir','Aquiere','Aquiera','Aquair','Aquaire','Aqueer','Aquie','Aquia',
-  'Akwier','Ackwier','Akwer','Akhir','Akhier','Akheer','Akeer','Akir','Aqueer','Aquiar']
+// Expliciete fonetische whisper-misspellingen van "Aquier" (whole-word). Geen gewone Engelse
+// woorden → veilig. Het werkwoord "acquire/acquired" staat er bewust NIET in.
+const AQUIER_ALIASES = ['Aquire','Aquir','Aquiere','Aquiera','Aquair','Aquaire','Aqueer','Aquie','Aquia','Aquiar',
+  'Akwier','Ackwier','Akwer','Akhir','Akhier','Akheer','Akeer','Akir','Akuyer','Akuier','Akuya','Aquyer','Acuyer']
+// Fuzzy vangnet voor onbekende varianten: A + k/q/c + u/w/h + paar letters + r/er/re-einde
+// (vangt Akuyer/Akhir/Aquire/Aqueer/Aquier). "acquire" begint met 'acq' → niet gevangen.
+const AQUIER_FUZZY = /\bA[kqc][uwh][a-z]{0,4}(?:er|re|r)\b/gi
 
 /** Corrigeert merknaam-misspellingen in de SRT → "Aquier". Alleen voor Aquier-content (brand). */
 function applyBrandCorrections(srtPath: string, brand?: string): void {
   if (brand !== 'aquier') return
   try {
     let s = fs.readFileSync(srtPath, 'utf8')
-    const re = new RegExp('\\b(?:' + AQUIER_ALIASES.join('|') + ')\\b', 'gi')
-    s = s.replace(re, 'Aquier')
+    s = s.replace(new RegExp('\\b(?:' + AQUIER_ALIASES.join('|') + ')\\b', 'gi'), 'Aquier')
+    s = s.replace(AQUIER_FUZZY, 'Aquier')
     fs.writeFileSync(srtPath, s, 'utf8')
   } catch { /* niet-fataal */ }
 }
