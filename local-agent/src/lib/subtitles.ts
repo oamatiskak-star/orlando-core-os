@@ -85,7 +85,7 @@ const AQUIER_ALIASES = ['Aquire','Aquir','Aquiere','Aquiera','Aquair','Aquaire',
   'Akwier','Ackwier','Akwer','Akhir','Akhier','Akheer','Akeer','Akir','Akuyer','Akuier','Akuya','Aquyer','Acuyer']
 // Fuzzy vangnet voor onbekende varianten: A + k/q/c + u/w/h + paar letters + r/er/re-einde
 // (vangt Akuyer/Akhir/Aquire/Aqueer/Aquier). "acquire" begint met 'acq' → niet gevangen.
-const AQUIER_FUZZY = /\bA[kqc][uwh][a-z]{0,4}(?:er|re|r)\b/gi
+const AQUIER_FUZZY = /\bA[kqc][uwh][a-eg-z]{0,4}(?:er|re|r)\b/gi   // 'f' uitgesloten → "aquifer" blijft intact
 
 /** Corrigeert merknaam-misspellingen in de SRT → "Aquier". Alleen voor Aquier-content (brand). */
 function applyBrandCorrections(srtPath: string, brand?: string): void {
