@@ -17,15 +17,26 @@ import { resolveBin } from './tts'
  * legacy per-scene caption). Verzint NOOIT timings.
  */
 
-const DEFAULT_MODELS = [
+const home = os.homedir()
+// Engels-only modellen (sneller/nauwkeuriger voor EN) en multilingual (vereist voor NL/ES/etc).
+const EN_MODELS = [
   process.env.WHISPER_MODEL || '',
-  path.join(os.homedir(), '.cache/whisper/ggml-base.en.bin'),
-  path.join(os.homedir(), '.cache/whisper/ggml-small.en.bin'),
+  path.join(home, '.cache/whisper/ggml-base.en.bin'),
+  path.join(home, '.cache/whisper/ggml-small.en.bin'),
   '/opt/homebrew/share/whisper-cpp/ggml-base.en.bin',
-].filter(Boolean)
+]
+const MULTI_MODELS = [
+  process.env.WHISPER_MODEL_MULTI || '',
+  path.join(home, '.cache/whisper/ggml-base.bin'),
+  path.join(home, '.cache/whisper/ggml-small.bin'),
+]
 
-function resolveModel(): string | null {
-  for (const m of DEFAULT_MODELS) { if (m && fs.existsSync(m)) return m }
+/** Kiest het model per taal: EN → .en-model (anders multilingual); NL/ES/etc → ALTIJD multilingual
+ *  (een .en-model brabbelt niet-Engelse audio → onleesbare captions). */
+function resolveModel(language?: string): string | null {
+  const isEn = (language || 'en').slice(0, 2).toLowerCase() === 'en'
+  const order = isEn ? [...EN_MODELS, ...MULTI_MODELS] : [...MULTI_MODELS, ...EN_MODELS]
+  for (const m of order) { if (m && fs.existsSync(m)) return m }
   return null
 }
 
@@ -48,7 +59,7 @@ export interface SubtitleResult {
 export async function generateSubtitles(voicePath: string, outBase: string, opts: { language?: string; maxLen?: number; brand?: string } = {}): Promise<SubtitleResult> {
   const whisper = resolveBin('whisper-cli', 'WHISPER_BIN') || resolveBin('whisper-cpp', 'WHISPER_BIN')
   if (!whisper) return { srtPath: null, reason: 'blocked_no_whisper_cli' }
-  const model = resolveModel()
+  const model = resolveModel(opts.language)
   if (!model) return { srtPath: null, reason: 'blocked_no_whisper_model' }
   const ffmpeg = resolveBin('ffmpeg', 'FFMPEG_BIN') || 'ffmpeg'
 
@@ -67,7 +78,9 @@ export async function generateSubtitles(voicePath: string, outBase: string, opts
   // Aquier-content: geef whisper de merknaam vooraf mee → het transcribeert de brand consistent
   // als "Aquier" i.p.v. fonetische gokjes ("Aquire"/"Akhir"). Alleen voor de Aquier-promo.
   if (opts.brand === 'aquier') {
-    args.push('--prompt', 'Aquier is an AI real estate acquisition platform. Aquier. Aquier.', '--carry-initial-prompt')
+    // Taal-neutrale brand-bias (alleen de naam) → stuurt de spelling zonder de transcriptie-taal
+    // te verstoren (een Engelse prompt brabbelde NL/ES-audio).
+    args.push('--prompt', 'Aquier. Aquier. Aquier.', '--carry-initial-prompt')
   }
   const r = spawnSync(whisper, args, { timeout: 600_000, encoding: 'utf8' })
   try { fs.unlinkSync(wav) } catch { /* */ }
