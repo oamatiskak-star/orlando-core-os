@@ -183,5 +183,26 @@ module.exports = {
       error_file:  '/tmp/pm2-competitor-intel-engine-err.log',
       time:        true,
     },
+
+    // ── Ruflo Dispatcher — AI-orchestratie in 'ai' tijdblok (04:00-06:00 NL) ──
+    // Checkt engine_window_open('ai:ruflo-coordinator') elke 5 minuten.
+    // Spawnt ruflo CLI voor dagcontext-opslag (AgentDB) + viral-patterns-analyse
+    // vóór de YouTube-pipeline start. Raakt NOOIT productiedata of upload-queues.
+    // Migratie 220 registreert dit in de Engine Planner.
+    {
+      name:        'ruflo-dispatcher',
+      cwd:         `${BASE}/local-agent`,
+      script:      'npx',
+      args:        'ts-node --transpile-only src/ruflo-dispatcher.ts',
+      interpreter: 'none',
+      watch:       false,
+      autorestart: true,
+      max_restarts: 999,
+      restart_delay: 10000,
+      env: { NODE_ENV: 'production' },
+      log_file:    '/tmp/pm2-ruflo-dispatcher.log',
+      error_file:  '/tmp/pm2-ruflo-dispatcher-err.log',
+      time:        true,
+    },
   ],
 }
