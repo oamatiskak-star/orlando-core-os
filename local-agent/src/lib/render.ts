@@ -69,11 +69,12 @@ function styleFor(format: '16:9' | '9:16' | '1:1') {
  *  FontSize/MarginV format-afhankelijk; box (BorderStyle=3) verschijnt alleen bij tekst. */
 function subtitleForceStyle(format: '16:9' | '9:16' | '1:1'): string {
   const fontName = (process.env.CAPTION_FONT_NAME || 'Arial').replace(/[,']/g, '')
+  // Iets kleiner → het laatste woord van een cue past op één regel (kwam anders te laat/krap).
   const s = format === '9:16'
-    ? { fs: 15, mv: 230 }
+    ? { fs: 13, mv: 235 }
     : format === '1:1'
-      ? { fs: 18, mv: 70 }
-      : { fs: 22, mv: 60 }
+      ? { fs: 16, mv: 70 }
+      : { fs: 18, mv: 64 }
   // Kleuren in libass-formaat &HAABBGGRR. Box = halftransparant zwart, tekst wit.
   return [
     `FontName=${fontName}`,
