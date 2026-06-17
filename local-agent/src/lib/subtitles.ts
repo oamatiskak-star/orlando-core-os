@@ -56,7 +56,7 @@ export async function generateSubtitles(voicePath: string, outBase: string, opts
   if (!toWav16k(ffmpeg, voicePath, wav)) return { srtPath: null, reason: 'blocked_wav_convert_failed' }
 
   const lang = (opts.language || 'en').slice(0, 2)
-  const maxLen = opts.maxLen ?? 42
+  const maxLen = opts.maxLen ?? 34   // kortere cues → laatste woord past op één regel
   const args = [
     '-m', model, '-f', wav,
     '-osrt', '-of', outBase,
@@ -70,5 +70,18 @@ export async function generateSubtitles(voicePath: string, outBase: string, opts
   if (r.status !== 0 || !fs.existsSync(srt)) {
     return { srtPath: null, reason: `blocked_whisper_failed: ${(r.stderr || r.error?.message || ('status=' + r.status)).toString().slice(0, 160)}` }
   }
+  applyBrandCorrections(srt)
   return { srtPath: srt, reason: null }
+}
+
+/** Corrigeert merknaam-misspellingen die whisper produceert (bv. "Aquire" → "Aquier") in de SRT.
+ *  Raakt het echte werkwoord "acquire" NIET (dat begint met 'acqu', de merk-misspellingen met 'Aqu'). */
+function applyBrandCorrections(srtPath: string): void {
+  try {
+    let s = fs.readFileSync(srtPath, 'utf8')
+    // merk-varianten zonder 'c' na de A → Aquier; "acquire/acquired" blijft ongemoeid
+    s = s.replace(/\bAqu(?:ire|ir|iere|iera|air|aire|eer|ier)\b/gi, 'Aquier')
+    s = s.replace(/\bA[ck]wier\b/gi, 'Aquier')
+    fs.writeFileSync(srtPath, s, 'utf8')
+  } catch { /* niet-fataal */ }
 }

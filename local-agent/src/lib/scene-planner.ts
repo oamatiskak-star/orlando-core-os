@@ -1,5 +1,6 @@
 import axios from 'axios'
 import { openaiAvailable, openaiChat } from './cloud-llm'
+import { claudeJson, CLAUDE_AVAILABLE } from './ai'
 import { cleanForSpeech, captionFromText } from './script-clean'
 
 /**
@@ -49,13 +50,22 @@ export interface PlanScenesInput {
  * "person doing X". Upstream-fix voor lage topic_relevance (CF2.9-bevinding).
  */
 function searchQueryInstruction(niche: string | null | undefined): string {
-  if (process.env.CF2_SCENE_QUERY_V2 !== '1') {
-    return 'English stock-video search term (2-5 words) for this scene'
+  const n = (niche || '').toLowerCase()
+  const isRealEstate = /vastgoed|real_estate|aquier|property|woning|makelaar|inmobil/.test(n)
+  const base = 'CONCRETE, filmable b-roll search term in ENGLISH (2-5 words). Name the actual visual SUBJECT + setting — NOT a generic action ("person standing", "someone thinking", "intro screen").'
+  if (isRealEstate) {
+    // Vastgoed/Aquier: ALLEEN vastgoedbeeld; expliciet beurs-/trading-stock verbieden (fixte
+    // 'beeld matcht niet': generieke "data/investment"-queries trokken candlestick-charts).
+    return base + ' Subjects MUST be REAL ESTATE / property: apartment & office buildings, houses, ' +
+      'construction sites & cranes, Dutch city streets/canals, modern interiors, blueprints, ' +
+      'an agent/investor at a building, aerial views of neighbourhoods. ' +
+      'NEVER use stock-market charts, trading screens, candlesticks, crypto, tickers or finance dashboards.'
   }
-  return `CONCRETE filmable stock-footage subject in ENGLISH (2-5 words). Name the actual visual SUBJECT + setting${niche ? ` for the niche "${niche}"` : ''} — NOT a generic action. ` +
-    `Prefer specific objects/places/scenes over "person doing X". ` +
-    `GOOD: "stock market trading floor", "modern apartment interior", "construction crane skyline", "server room data center", "gold bars vault". ` +
-    `BAD (never use): "person standing", "someone thinking", "man looking", "thing happening", "intro screen"`
+  if (process.env.CF2_SCENE_QUERY_V2 !== '1') {
+    return 'English b-roll search term (2-5 words) for this scene'
+  }
+  return base + (niche ? ` Anchor to the niche "${niche}".` : '') +
+    ` GOOD: "stock market trading floor", "modern apartment interior", "construction crane skyline", "server room data center".`
 }
 
 async function callLMStudio(prompt: string, model: string): Promise<string> {
@@ -195,8 +205,16 @@ function buildDeterministicScenes(input: PlanScenesInput, sceneCount: number, se
   const clean = cleanForSpeech(input.full_script || '')
   const sentences = clean.replace(/\s+/g, ' ').match(/[^.!?]+[.!?]+|\S[^.!?]*$/g) ?? [clean || input.title]
   const per = Math.max(1, Math.ceil(sentences.length / sceneCount))
-  const QUERIES = ['stock market chart', 'wall street trading floor', 'financial data screen', 'stock ticker board',
+  // Niche-passende b-roll-zoektermen (fixt 'beeld matcht niet'): vastgoed-set voor Aquier/vastgoed,
+  // anders de finance-set. Deze fallback geldt alleen als het LLM geen scenes leverde.
+  const n = (input.niche || '').toLowerCase()
+  const isRealEstate = /vastgoed|real_estate|aquier|property|woning|makelaar|inmobil/.test(n)
+  const REAL_ESTATE = ['modern apartment building exterior', 'dutch canal houses amsterdam', 'construction site tower crane',
+    'architect reviewing building blueprints', 'real estate agent showing apartment', 'aerial view new housing development',
+    'renovated modern apartment interior', 'house keys handover new home']
+  const FINANCE = ['stock market chart', 'wall street trading floor', 'financial data screen', 'stock ticker board',
     'finance newspaper closeup', 'city financial district skyline', 'rising investment graph', 'economic dashboard data']
+  const QUERIES = isRealEstate ? REAL_ESTATE : FINANCE
   const scenes: SceneSpec[] = []
   for (let i = 0; i < sentences.length && scenes.length < sceneCount; i += per) {
     const chunk = sentences.slice(i, i + per).join(' ').trim()
@@ -228,15 +246,18 @@ export async function planScenes(input: PlanScenesInput): Promise<SceneSpec[]> {
   const lmModel = input.lm_studio_model || LM_STUDIO_MODEL
   const olModel = input.ollama_model    || OLLAMA_MODEL
 
-  // Primaire bron: OpenAI (indien geconfigureerd) met ruime tokens voor de scene-array,
-  // anders lokaal. NOOIT terugvallen op een dode LM Studio wanneer die niet primair is.
-  const fetchRaw = async (): Promise<string> => {
-    if (openaiAvailable()) return openaiChat(prompt, { json: true, maxTokens: 8000 })
-    return USE_LM_STUDIO ? callLMStudio(prompt, lmModel) : callOllama(prompt, olModel)
+  // Bron-prioriteit: Claude (als CONTENT_MODEL=claude) → OpenAI → lokaal. Claude levert per-scene
+  // CONCRETE, narratie-passende visual-queries (fixt 'beeld matcht niet') i.p.v. de zwakke lokale
+  // JSON die naar de deterministische split viel. Claude alleen bij <=30 scenes (past in 4096 tok).
+  const useClaude = process.env.CONTENT_MODEL === 'claude' && CLAUDE_AVAILABLE && sceneCount <= 30
+  const fetchParsed = async (): Promise<any> => {
+    if (useClaude) return claudeJson(prompt)   // reeds geparsed object
+    if (openaiAvailable()) return extractJson(await openaiChat(prompt, { json: true, maxTokens: 8000 }))
+    return extractJson(await (USE_LM_STUDIO ? callLMStudio(prompt, lmModel) : callOllama(prompt, olModel)))
   }
   let parsed: any = null
   for (let attempt = 0; attempt < 2 && !parsed; attempt++) {
-    try { parsed = extractJson(await fetchRaw()) } catch { parsed = null }
+    try { parsed = await fetchParsed() } catch { parsed = null }
   }
 
   const arr: any[] = Array.isArray(parsed?.scenes) ? parsed.scenes : Array.isArray(parsed) ? parsed : []

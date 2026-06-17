@@ -8,19 +8,18 @@ export const runtime = 'nodejs'
 /**
  * QUALITY CONTROL — CQI ASSESS (Content Factory 2.0 — FASE C).
  *
- * Eén orchestrator die de 9 QC-agenten als dimensies draait voor één
- * video_project en de uitkomst naar `youtube_quality_scores` schrijft:
- *  1 Hook · 2 Thumbnail · 3 Retention · 4 Visual · 5 Voice · 6 Music · 7 CTA
- *  8 Content-Reject · 9 CQI (aggregaat).
+ * Eén orchestrator die de QC-dimensies draait voor één video_project en de uitkomst
+ * naar `youtube_quality_scores` schrijft (hook/thumbnail/retention/visual/voice/music/cta/CQI).
  *
- * - Tekst-dimensies (hook/retention/cta/title + content-reject) → claude.sonnet.
- * - Visual = deterministische score uit visual_assets (FASE A).
- * - Voice  = provider-tier uit audio_assets (local <95 → gate).
- * - Thumbnail/Music = nog geen engine → 'pending' (blokkeert de gate bewust).
+ * PER-KANAAL RUBRIC: de tekst-dimensies worden beoordeeld TEGEN de strategie van het
+ * kanaal (channel_strategy: niche/topics/own_cta/content_rules.qc_profile/taal), NIET
+ * hardcoded vastgoed. Profielen: 'vastgoed' (Aquier-conversie), 'finance' (autoriteit+data
+ * → broker/nieuwsbrief), 'entertainment' (satisfying/loops → retentie/loopability/YPP),
+ * 'generic'. Geen qc_profile → afgeleid uit de niche. Zo zakt een entertainment- of
+ * finance-kanaal niet meer op de vastgoed-bril.
  *
  * Drempels: hook/thumbnail/retention/music/cta ≥90, voice ≥95, visual ≥85, CQI ≥90.
- * Schrijft NOOIT approved/upload_ready en raakt youtube_upload_queue NIET aan —
- * upload blijft onmogelijk. Status hooguit → 'quality_checked'.
+ * Schrijft NOOIT approved/upload_ready en raakt youtube_upload_queue NIET aan.
  */
 
 const THRESHOLDS = { hook: 90, thumbnail: 90, retention: 90, visual: 85, voice: 95, music: 90, cta: 90, cqi: 90 }
@@ -35,6 +34,93 @@ type LlmScores = {
 
 function clamp(n: unknown): number { const v = Number(n); return Number.isFinite(v) ? Math.min(100, Math.max(0, Math.round(v))) : 0 }
 
+/** Bepaalt het QC-profiel: expliciet (content_rules.qc_profile) of afgeleid uit de niche. */
+function resolveProfile(qcProfile: string, niche: string): 'vastgoed' | 'finance' | 'entertainment' | 'generic' {
+  const p = (qcProfile || '').toLowerCase()
+  if (p === 'vastgoed' || p === 'finance' || p === 'entertainment' || p === 'generic') return p
+  const n = (niche || '').toLowerCase()
+  if (/vastgoed|woning|huur|hypothe|real ?estate|property/.test(n)) return 'vastgoed'
+  if (/finance|beleg|crypto|spaar|vermogen|invest|stock|aandel|money|dividend/.test(n)) return 'finance'
+  if (/satisf|loop|asmr|brick|cutting|mini-?world|oddly/.test(n)) return 'entertainment'
+  return 'generic'
+}
+
+/** Bouwt de per-profiel QC-prompt. Alle profielen geven dezelfde JSON-vorm terug. */
+function buildPrompt(opts: {
+  profile: 'vastgoed' | 'finance' | 'entertainment' | 'generic'
+  channelName: string; niche: string; language: string; ownCtas: string[]
+  title: string; opening: string; sceneCount: number
+}): string {
+  const { profile, channelName, niche, language, ownCtas, title, opening, sceneCount } = opts
+  const ctaList = ownCtas.length ? ownCtas.join(' | ') : ''
+  const head = `TITEL: "${title}"\nKANAAL: "${channelName}"  NICHE: "${niche}"  TAAL: ${language}\nOPENING (eerste ~15s voice-over): "${opening || '(geen)'}"\nAANTAL SCENES: ${sceneCount}`
+  const jsonSpec = `{"hook_score":<n>,"retention_prediction":<n>,"cta_score":<n>,"title_score":<n>,"content_reject":{"reject":<bool>,"reasons":[<string>]}}`
+
+  if (profile === 'vastgoed') {
+    return `Je bent een panel van YouTube-kwaliteitsexperts voor een Nederlands financieel/vastgoed-netwerk. Optimaliseer voor OMZET (kijker → Aquier), niet enkel views. Geef ALLEEN geldige JSON terug.
+
+${head}
+
+Scoor 0-100 per dimensie:
+- hook_score: kracht eerste 3/10/30s (curiosity/urgency/authority/controversy/greed/fear/surprise/exclusivity)
+- retention_prediction: vasthoudkracht 0-3s/3-7s/7-15s (geen saaie AI-opening)
+- cta_score: eindigt het met een logische stap naar Aquier (${ctaList || 'dealcheck/adresscan/financieringsscan/rapport/Mandaat'}) i.p.v. "like&subscribe"
+- title_score: concreet/getal/spanning/persoonlijk
+- content_reject: reject=true bij generieke/AI-klinkende/herhalende/lage-nieuwsgierigheid content; geef reasons[]
+
+${jsonSpec}`
+  }
+
+  if (profile === 'entertainment') {
+    return `Je bent een panel van YouTube Shorts-kwaliteitsexperts voor het kanaal "${channelName}" — niche: ${niche} (satisfying/loops/ASMR/mini-world), taal: ${language}.
+Doel van dit kanaal: maximale scroll-stop (0-3s), kijktijd + herhaalkijk (loopability) en deelbaarheid richting YouTube-monetisatie (YPP). Conversie/affiliate is NIET het doel.
+Beoordeel STRIKT tegen dit doel en deze niche — NIET tegen vastgoed of finance. Geef ALLEEN geldige JSON terug.
+
+${head}
+
+Scoor 0-100 per dimensie:
+- hook_score: stopt het scrollen in 0-3s (visuele intrige / satisfying-belofte / "wtf"-moment)
+- retention_prediction: vasthoudkracht + naadloze loop (lokt herhaalkijk uit?)
+- cta_score: een simpele "follow/subscribe for more" OF een sterke loop die herhaalkijk uitlokt telt als VOLDOENDE (geef ≥90 als er een passende end-card/loop is); straf NIET af voor het ontbreken van een verkoop-/conversie-CTA${ctaList ? ` (kanaal-CTA's: ${ctaList})` : ''}
+- title_score: kort, intrigerend, past bij de satisfying-niche
+- content_reject: reject=true ALLEEN bij echt generieke/lage-kwaliteit/off-niche content; NIET om taal of om ontbrekende conversie. geef reasons[]
+
+${jsonSpec}`
+  }
+
+  if (profile === 'finance') {
+    return `Je bent een panel van YouTube-kwaliteitsexperts voor het kanaal "${channelName}" — niche: ${niche}, taal: ${language}.
+Doel van dit kanaal: autoriteit + concrete cijfers/data, hoge kijktijd, en doorklik naar ${ctaList || 'broker-link/nieuwsbrief'} → YouTube-monetisatie (YPP) + affiliate.
+Beoordeel STRIKT tegen deze niche/taal/doel — NIET tegen vastgoed. Geef ALLEEN geldige JSON terug.
+
+${head}
+
+Scoor 0-100 per dimensie:
+- hook_score: kracht eerste 3/10/30s met een concreet getal/cijfer/spanning (geen saaie AI-opening)
+- retention_prediction: vasthoudkracht 0-3s/3-7s/7-15s; bouwt het een open loop?
+- cta_score: eindigt met een passende stap voor DIT kanaal (een van: ${ctaList || 'broker-link/nieuwsbrief/rapport'}); straf NIET af voor het ontbreken van vastgoed-conversie
+- title_score: concreet/getal/spanning/niche-relevant (geen generieke clickbait)
+- content_reject: reject=true bij generieke/AI-klinkende content, off-niche t.o.v. "${niche}", of verkeerde taal (verwacht ${language}); geef reasons[]
+
+${jsonSpec}`
+  }
+
+  // generic — niche/doel-gedreven, neutraal
+  return `Je bent een panel van YouTube-kwaliteitsexperts voor het kanaal "${channelName}" — niche: ${niche}, taal: ${language}.
+Beoordeel de video TEGEN deze niche en taal (NIET tegen vastgoed/finance tenzij dat de niche is). Geef ALLEEN geldige JSON terug.
+
+${head}
+
+Scoor 0-100 per dimensie:
+- hook_score: kracht eerste 3/10/30s voor dit niche-publiek
+- retention_prediction: vasthoudkracht (geen saaie AI-opening)
+- cta_score: eindigt met een passende stap/end-card voor dit kanaal${ctaList ? ` (${ctaList})` : ''}; straf NIET af voor het ontbreken van een verkoop-CTA als de niche dat niet vraagt
+- title_score: concreet/intrigerend/niche-relevant
+- content_reject: reject=true bij generieke/AI-klinkende/off-niche content of verkeerde taal (verwacht ${language}); geef reasons[]
+
+${jsonSpec}`
+}
+
 export async function POST(req: NextRequest) {
   const { video_project_id } = await req.json()
   if (!video_project_id) return NextResponse.json({ error: 'video_project_id required' }, { status: 400 })
@@ -44,6 +130,33 @@ export async function POST(req: NextRequest) {
   const { data: project } = await admin.from('video_projects')
     .select('id, channel_id, title, topic, script, niche, language, format').eq('id', video_project_id).single()
   if (!project) return NextResponse.json({ error: 'project niet gevonden' }, { status: 404 })
+
+  // ── Kanaal-strategie resolven (channel_strategy keyt op media_holding_channels.id;
+  //    project.channel_id = youtube_channels.id → map via youtube_channel_id). ──
+  let stratNiche = (project.niche ?? '') as string
+  let stratLang = (project.language ?? 'en') as string
+  let ownCtas: string[] = []
+  let qcProfile = ''
+  let channelName = ''
+  if (project.channel_id) {
+    const { data: mhc } = await admin.from('media_holding_channels')
+      .select('id, name, niche, language').eq('youtube_channel_id', project.channel_id).maybeSingle()
+    if (mhc) {
+      channelName = (mhc.name as string) ?? ''
+      stratNiche = (mhc.niche as string) ?? stratNiche
+      stratLang = (mhc.language as string) ?? stratLang
+      const { data: s } = await admin.from('channel_strategy')
+        .select('niche, own_cta, content_rules').eq('channel_id', mhc.id).maybeSingle()
+      if (s) {
+        stratNiche = (s.niche as string) ?? stratNiche
+        ownCtas = Array.isArray(s.own_cta) ? (s.own_cta as string[]) : []
+        const rules = (s.content_rules ?? {}) as Record<string, unknown>
+        qcProfile = (rules.qc_profile as string) ?? ''
+        if (typeof rules.language === 'string') stratLang = rules.language
+      }
+    }
+  }
+  const profile = resolveProfile(qcProfile, stratNiche)
 
   const { data: scenes } = await admin.from('video_scenes')
     .select('idx, voice_text, visual_intent, caption_text').eq('project_id', video_project_id).order('idx')
@@ -78,23 +191,12 @@ export async function POST(req: NextRequest) {
   const musicPending = !music
   const music_score = music ? clamp(music.final_score) : 0
 
-  // ── LLM-dimensies (tekst) ──
+  // ── LLM-dimensies (tekst) — per-kanaal rubric ──
   let llm: LlmScores = { hook_score: 0, retention_prediction: 0, cta_score: 0, title_score: 0, content_reject: { reject: true, reasons: ['llm_unavailable'] } }
-  const prompt = `Je bent een panel van YouTube-kwaliteitsexperts voor een Nederlands financieel/vastgoed-netwerk. Optimaliseer voor OMZET (kijker → Aquier), niet enkel views. Geef ALLEEN geldige JSON terug.
-
-TITEL: "${project.title ?? project.topic}"
-NICHE: "${project.niche ?? ''}"  TAAL: ${project.language}
-OPENING (eerste ~15s voice-over): "${openingScript || '(geen)'}"
-AANTAL SCENES: ${(scenes ?? []).length}
-
-Scoor 0-100 per dimensie:
-- hook_score: kracht eerste 3/10/30s (curiosity/urgency/authority/controversy/greed/fear/surprise/exclusivity)
-- retention_prediction: vasthoudkracht 0-3s/3-7s/7-15s (geen saaie AI-opening)
-- cta_score: eindigt het met een logische stap naar Aquier (dealcheck/adresscan/financieringsscan/rapport/Mandaat) i.p.v. "like&subscribe"
-- title_score: concreet/getal/spanning/persoonlijk
-- content_reject: reject=true bij generieke/AI-klinkende/herhalende/lage-nieuwsgierigheid content; geef reasons[]
-
-{"hook_score":<n>,"retention_prediction":<n>,"cta_score":<n>,"title_score":<n>,"content_reject":{"reject":<bool>,"reasons":[<string>]}}`
+  const prompt = buildPrompt({
+    profile, channelName: channelName || (project.niche ?? 'kanaal'), niche: stratNiche, language: stratLang,
+    ownCtas, title: (project.title ?? project.topic) as string, opening: openingScript, sceneCount: (scenes ?? []).length,
+  })
 
   try {
     const { text } = await generateText({ model: claude.sonnet, maxOutputTokens: 1500, messages: [{ role: 'user', content: prompt }] })
@@ -136,7 +238,7 @@ Scoor 0-100 per dimensie:
     cta_score: llm.cta_score, content_quality_index: cqi, total_score: cqi,
     verdict: gate_passed ? 'publish' : (cqi >= 50 ? 'improve' : 'reject'),
     dimension_verdicts: dims, gate_passed, gate_reason,
-    feedback: { content_reject: llm.content_reject },
+    feedback: { content_reject: llm.content_reject, qc_profile: profile },
   })
 
   // Status hooguit → quality_checked. NOOIT approved/upload_ready. Queue ongemoeid.
@@ -145,5 +247,5 @@ Scoor 0-100 per dimensie:
     rework_reason: gate_passed ? null : gate_reason,
   }).eq('id', video_project_id)
 
-  return NextResponse.json({ ok: true, video_project_id, cqi, gate_passed, gate_reason, dimensions: dims })
+  return NextResponse.json({ ok: true, video_project_id, cqi, gate_passed, gate_reason, dimensions: dims, qc_profile: profile })
 }

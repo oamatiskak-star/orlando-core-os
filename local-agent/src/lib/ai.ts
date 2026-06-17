@@ -98,6 +98,7 @@ export async function generateContent(payload: {
   const words     = Math.round(payload.target_seconds * 2.5)
   const isEnglish = payload.language !== 'nl'
   const isFinanceLongform = payload.format_profile === 'us_finance_longform'
+  const isAquierPromo = payload.format_profile === 'aquier_promo'
 
   // CF2 content-engine repair: niche- en CTA-context uit channel_strategy in de prompt vouwen.
   const topics = (payload.channel_topics ?? []).filter(Boolean)
@@ -149,7 +150,35 @@ Return ONLY valid JSON (no markdown, no code blocks):
   "thumbnail_concept": "visual: bold number/chart + 3-4 word overlay, high contrast"
 }`
 
-  const prompt = isFinanceLongform ? financePrompt : isEnglish ? `
+  // Aquier-promo: advertentie/explainer die Aquier uitlegt + naar het product leidt met de
+  // WERKENDE betaallink. data_bundle bevat het Aquier-bundelblok (about + product + link).
+  const promoLang = payload.language === 'es' ? 'Spaans' : payload.language === 'nl' ? 'Nederlands' : 'Engels'
+  const aquierPromoPrompt = `You are an elite direct-response video ad writer for Aquier. Write ENTIRELY in ${promoLang}.
+
+${payload.data_bundle ?? 'OVER AQUIER: AI-gedreven acquisitie-intelligentie voor vastgoedprofessionals (Kadaster/BAG/CBS).'}
+
+Create a ${Math.max(45, Math.round(payload.target_seconds))}-second promotional/explainer video for: "${payload.topic}"
+GOAL: explain clearly what Aquier is and does for the target audience, then drive them to the featured product via the WORKING link.
+
+HARD RULES:
+- Explain Aquier concretely (what it analyzes: development potential, permitting, construction cost, financing — from Kadaster/BAG/CBS data). No vague hype.
+- Speak directly to the target audience's pain (finding/scoring deals, avoiding bad acquisitions).
+- End with ONE clear call to action to the featured product. Put the EXACT working link in BOTH the "cta" and "description" fields. Never invent another URL.
+- In the spoken "full_script", do NOT read the URL aloud — refer to "the link in the description". The URL lives only in cta/description fields.
+- Honest, credible, no false claims. Keep it punchy.
+
+Return ONLY valid JSON (no markdown, no code blocks):
+{
+  "title": "catchy SEO title max 70 chars in ${promoLang} (mentions the value for the audience)",
+  "description": "SEO description 300-500 chars in ${promoLang}; MUST contain the exact working link once",
+  "tags": ["tag1","tag2",...20 tags],
+  "hook": "first 3 seconds hook in ${promoLang} (concrete pain or outcome)",
+  "full_script": "complete word-for-word ad/explainer script ~${Math.round(payload.target_seconds * 2.5)} words in ${promoLang}",
+  "cta": "closing call to action in ${promoLang} that includes the exact working link",
+  "thumbnail_concept": "promo thumbnail: bold benefit + Aquier brand, high contrast"
+}`
+
+  const prompt = isAquierPromo ? aquierPromoPrompt : isFinanceLongform ? financePrompt : isEnglish ? `
 ${systemContext}
 IMPORTANT: Write ALL content in English only. Do NOT use Dutch or any other language.
 
