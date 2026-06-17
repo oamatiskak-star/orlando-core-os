@@ -156,7 +156,10 @@ export async function runShadowTopic(o: ShadowOpts): Promise<ShadowResult> {
   let subtitlePath: string | null = null
   if (voiceRes.outputPath) {
     const subBase = path.join(os.tmpdir(), `cf2-subs-${projectId}`)
-    const sub = await generateSubtitles(voiceRes.outputPath, subBase, { language: o.language })
+    const sub = await generateSubtitles(voiceRes.outputPath, subBase, {
+      language: o.language,
+      brand: o.formatProfile === 'aquier_promo' ? 'aquier' : undefined,
+    })
     subtitlePath = sub.srtPath
     if (!sub.srtPath) console.warn(`subtitles: ${sub.reason} → legacy per-scene caption`)
   }
