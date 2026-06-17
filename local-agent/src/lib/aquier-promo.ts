@@ -15,11 +15,15 @@ const db = createClient(
   { auth: { persistSession: false } },
 )
 
-// Wat Aquier IS — vaste, feitelijke positionering (NL-vastgoed-acquisitie-intelligence).
+// Wat Aquier IS — positionering PER LAND (EN/ES-kanalen richten zich op US/UK/ES enz., niet NL).
+// Geen NL-specifieke bronnen (Kadaster/BAG/CBS) noemen: Aquier koppelt aan de officiële
+// databronnen van ELKE markt afzonderlijk.
 export const AQUIER_ABOUT =
-  'Aquier is AI-gedreven acquisitie-intelligentie voor vastgoedprofessionals: het scoort en analyseert ' +
-  'objecten op ontwikkelpotentieel, vergunningskans, bouwkosten en financierbaarheid op basis van publieke ' +
-  'data (Kadaster, BAG, CBS). Doelgroepen: ontwikkelaars, beleggers, makelaars, financiers en family offices.'
+  'Aquier is AI-driven real estate acquisition intelligence. It works PER COUNTRY: for each market it ' +
+  'connects to that country\'s own authoritative public data — the national land registry / cadastre, ' +
+  'zoning & permitting records and the statistics bureau — to score and analyze any property on ' +
+  'development potential, permitting odds, construction cost and financing viability. ' +
+  'Audiences: developers, investors, agents, financiers and family offices.'
 
 export interface AquierProduct {
   sku: string
@@ -39,6 +43,15 @@ export interface AquierPromoBundle {
   link: string            // werkende checkout/landing-link voor in CTA + beschrijving
   audience: string        // primaire doelgroep voor deze video
   bundleText: string      // kant-en-klaar blok voor de AI-prompt
+}
+
+/** Officiële databronnen PER MARKT. NL noemt de echte NL-bronnen; andere markten generiek
+ *  (elk land z'n eigen kadaster/registry) zodat EN/ES-publiek zich aangesproken voelt. */
+function marketDataSources(language?: string | null): string {
+  const l = (language || 'en').slice(0, 2).toLowerCase()
+  if (l === 'nl') return 'de officiële Nederlandse bronnen: het Kadaster, de BAG (adressen/gebouwen) en het CBS (statistiek)'
+  if (l === 'es') return 'las fuentes públicas oficiales de tu país: el registro de la propiedad / catastro, los registros de urbanismo y la oficina de estadística'
+  return "your own country's official public sources: the national land registry / cadastre, zoning & permitting records and the statistics bureau"
 }
 
 /** Haalt actieve Aquier-producten op (optioneel gefilterd op doelgroep). */
@@ -73,14 +86,17 @@ export async function pickAquierProduct(audience?: string | null, idx = 0): Prom
   return pool[idx % pool.length]
 }
 
-/** Bouwt de promo-bundel + prompt-blok rond een gekozen product. */
-export async function buildAquierPromoBundle(audience?: string | null, idx = 0): Promise<AquierPromoBundle | null> {
+/** Bouwt de promo-bundel + prompt-blok rond een gekozen product. `language` bepaalt de
+ *  markt-specifieke databronnen (NL=Kadaster/BAG/CBS, anders generiek per land). */
+export async function buildAquierPromoBundle(audience?: string | null, idx = 0, language?: string | null): Promise<AquierPromoBundle | null> {
   const product = await pickAquierProduct(audience, idx)
   if (!product) return null
   const link = product.payment_link || product.url || 'https://aquier.com'
   const aud = audience || (product.audiences?.[0] ?? 'investor')
+  const sources = marketDataSources(language)
   const bundleText =
     `OVER AQUIER: ${AQUIER_ABOUT}\n` +
+    `DATA SOURCES (this market): ${sources}\n` +
     `UITGELICHT PRODUCT: "${product.name}" — ${product.description ?? ''} Prijs: ${product.price ?? 'op aanvraag'}.\n` +
     `DOELGROEP: ${aud}.\n` +
     `WERKENDE LINK (gebruik EXACT in CTA + beschrijving, verzin geen andere URL): ${link}`

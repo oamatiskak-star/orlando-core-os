@@ -60,7 +60,7 @@ export interface ShadowResult {
 export async function runShadowTopic(o: ShadowOpts): Promise<ShadowResult> {
   // 0. Databundel voor het profiel: finance → FMP-marktdata; aquier_promo → Aquier-productbundel
   //    (wat Aquier doet + uitgelicht product + WERKENDE Stripe-link). Anders null.
-  const promo = o.formatProfile === 'aquier_promo' ? await buildAquierPromoBundle(null, 0) : null
+  const promo = o.formatProfile === 'aquier_promo' ? await buildAquierPromoBundle(null, 0, o.language) : null
   const dataBundle = o.formatProfile === 'us_finance_longform'
     ? await buildDataBundle(o.dataSymbols ?? [])
     : (promo ? promo.bundleText : null)
@@ -156,7 +156,10 @@ export async function runShadowTopic(o: ShadowOpts): Promise<ShadowResult> {
   let subtitlePath: string | null = null
   if (voiceRes.outputPath) {
     const subBase = path.join(os.tmpdir(), `cf2-subs-${projectId}`)
-    const sub = await generateSubtitles(voiceRes.outputPath, subBase, { language: o.language })
+    const sub = await generateSubtitles(voiceRes.outputPath, subBase, {
+      language: o.language,
+      brand: o.formatProfile === 'aquier_promo' ? 'aquier' : undefined,
+    })
     subtitlePath = sub.srtPath
     if (!sub.srtPath) console.warn(`subtitles: ${sub.reason} → legacy per-scene caption`)
   }

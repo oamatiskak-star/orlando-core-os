@@ -7,6 +7,7 @@ import { createClient } from '@supabase/supabase-js'
 import { localLlmJson, clampScore } from './local-llm'
 import { claudeJson, CLAUDE_AVAILABLE } from './ai'
 import { hasDrawtext } from './ffmpeg-caps'
+import { wrapCaptionLines, softCapWords } from './script-clean'
 
 /**
  * THUMBNAIL INTELLIGENCE ENGINE (Content Factory 2.0 — FASE E).
@@ -76,14 +77,14 @@ Maak de 3 ECHT verschillend. ALLEEN JSON-array:
     for (let i = 0; i < Math.min(3, arr.length); i++) {
       const c = arr[i] ?? {}
       const comp: Composition = ['face', 'object', 'text'].includes(c.composition) ? c.composition : 'text'
-      const overlay = String(c.overlay ?? '').trim().slice(0, 42)
+      const overlay = softCapWords(String(c.overlay ?? '').trim(), 6)   // op woordgrens, geen mid-woord-afkap
       if (!overlay) continue
       out.push({ label: labels[i], overlay, subject: String(c.subject ?? '').slice(0, 120), composition: comp, angle: String(c.angle ?? '').slice(0, 60) })
     }
     if (out.length) return out
   } catch { /* val terug op deterministische concepten */ }
 
-  const short = title.slice(0, 36)
+  const short = softCapWords(title, 6)   // korte overlay op woordgrens (geen "...Prop")
   return [
     { label: 'A', overlay: short, subject: 'hero close-up met emotie', composition: 'face',   angle: 'curiosity' },
     { label: 'B', overlay: short, subject: 'hero-object groot in beeld', composition: 'object', angle: 'authority' },
@@ -122,7 +123,16 @@ function renderVariantImage(assetPath: string, outPath: string, format: '16:9' |
     `vignette=PI/5`,
   ]
   if (overlay && fs.existsSync(CAPTION_FONT) && hasDrawtext()) {
-    filters.push(`drawtext=fontfile='${CAPTION_FONT}':text='${esc(overlay)}':fontcolor=white:fontsize=${st.fontsize}:borderw=${BORDER_W}:bordercolor=black:box=1:boxcolor=black@${BOX_OPACITY}:boxborderw=${BOX_BORDER}:x=(w-text_w)/2:y=${st.yPos}`)
+    // Wrap: één lange regel liep buiten beeld. Splits naar passende regels (op breedte) en
+    // stapel ze gecentreerd rond yPos zodat de hele tekst binnen het frame valt.
+    const maxChars = Math.max(8, Math.floor((w * 0.9) / (st.fontsize * 0.52)))
+    const lines = wrapCaptionLines(overlay, maxChars, 3)
+    const lineH = Math.round(st.fontsize * 1.18)
+    lines.forEach((ln, i) => {
+      const dy = Math.round((i - (lines.length - 1) / 2) * lineH)
+      const y = `(${st.yPos})${dy < 0 ? '-' + Math.abs(dy) : '+' + dy}`
+      filters.push(`drawtext=fontfile='${CAPTION_FONT}':text='${esc(ln)}':fontcolor=white:fontsize=${st.fontsize}:borderw=${BORDER_W}:bordercolor=black:box=1:boxcolor=black@${BOX_OPACITY}:boxborderw=${BOX_BORDER}:x=(w-text_w)/2:y=${y}`)
+    })
   }
   fs.mkdirSync(path.dirname(outPath), { recursive: true })
   return new Promise((resolve, reject) => {
