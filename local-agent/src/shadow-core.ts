@@ -10,6 +10,8 @@ import { sourceVisualsForProject } from './lib/visual-intelligence'
 import { selectMusic } from './lib/music-intelligence'
 import { generateThumbnails } from './lib/thumbnail-intelligence'
 import { renderProject } from './lib/render'
+import { generateSubtitles } from './lib/subtitles'
+import { cleanForSpeech, cleanTitle } from './lib/script-clean'
 import { assessQuality } from './quality-assess'
 import { loadChannelStrategy } from './lib/channel-strategy'
 import * as spine from './lib/video-projects'
@@ -79,20 +81,26 @@ export async function runShadowTopic(o: ShadowOpts): Promise<ShadowResult> {
     own_cta_options: strategy?.own_cta ?? [],
   })
 
+  // 1b. Content-cleanup (kwaliteit-gate): strip regie-aanwijzingen/markdown/timecodes/labels
+  //     uit het script vóór alles. Hetzelfde schone script gaat naar de DB, de scene-planner
+  //     ÉN de TTS — zo lekt er nooit "(0:00-0:20) HOOK" of **vet** in stem of beeld.
+  const cleanScript = cleanForSpeech(content.full_script)
+  content.title = cleanTitle(content.title) || content.title
+
   // 2. Spine: project (status 'draft')
   const projectId = await spine.createProject({
     channel_id: o.channelId ?? null,
     niche:      o.niche ?? null,
     topic:      o.topic,
     title:      content.title,
-    script:     content.full_script,
+    script:     cleanScript,
     language:   o.language,
     format:     o.format,
   })
 
   // 3. Scenes (scene-planner) → video_scenes
   const scenes = await planScenes({
-    full_script:     content.full_script,
+    full_script:     cleanScript,
     title:           content.title,
     language:        o.language,
     format:          o.format,
@@ -109,7 +117,7 @@ export async function runShadowTopic(o: ShadowOpts): Promise<ShadowResult> {
   //    naar OpenAI/ElevenLabs; zonder premium-key valt het terug op lokaal (gemarkeerd).
   const audioPath = path.join(os.tmpdir(), `cf2-voice-${projectId}.mp3`)
   const voiceMode = (o.formatProfile === 'us_finance_longform' || process.env.CF2_PUBLISH === '1') ? 'premium' : 'shadow'
-  const voiceRes = await synthVoice(content.full_script, audioPath, {
+  const voiceRes = await synthVoice(cleanScript, audioPath, {
     voice: o.voice, mode: voiceMode, language: o.language,
   })
   await spine.writeVoiceAsset(projectId, {
@@ -139,13 +147,23 @@ export async function runShadowTopic(o: ShadowOpts): Promise<ShadowResult> {
   // 8. Thumbnail Intelligence (FASE E) — ≥3 echte varianten; geen visuals → blocked
   const thumb = await generateThumbnails(projectId, o.format)
 
+  // 8b. Synchrone ondertiteling — whisper-SRT uit de échte voicetrack (lokaal, geen API).
+  //     Geen whisper/model → null → render valt terug op legacy per-scene caption.
+  let subtitlePath: string | null = null
+  if (voiceRes.outputPath) {
+    const subBase = path.join(os.tmpdir(), `cf2-subs-${projectId}`)
+    const sub = await generateSubtitles(voiceRes.outputPath, subBase, { language: o.language })
+    subtitlePath = sub.srtPath
+    if (!sub.srtPath) console.warn(`subtitles: ${sub.reason} → legacy per-scene caption`)
+  }
+
   // 9. Render (FASE B) — alleen met echte assets; anders blocked (geen fake render)
   let renderUrl: string | null = null
   let renderBlocked: string | null = null
   const renderableAssets = vis.assetsSelected + charts.chartsAttached
   if (renderableAssets > 0 && voiceRes.outputPath) {
     try {
-      const r = await renderProject({ projectId, format: o.format, voicePath: voiceRes.outputPath, musicPath: null, pacing: !!o.formatProfile })
+      const r = await renderProject({ projectId, format: o.format, voicePath: voiceRes.outputPath, musicPath: null, pacing: !!o.formatProfile, subtitlePath })
       renderUrl = r.outputPath
     } catch (e: any) { renderBlocked = `blocked_render_failed: ${(e?.message ?? e).toString().slice(0, 220)}` }
   } else {

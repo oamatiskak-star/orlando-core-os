@@ -1,5 +1,6 @@
 import axios from 'axios'
 import { openaiAvailable, openaiChat } from './cloud-llm'
+import { cleanForSpeech, captionFromText } from './script-clean'
 
 /**
  * SCENE-PLANNER (Content Factory 2.0 — FASE 2).
@@ -163,16 +164,20 @@ function concretizeQuery(q: string): string {
 function clampScene(s: any, idx: number, fallbackDuration: number): SceneSpec {
   const str = (v: unknown, d = ''): string => (typeof v === 'string' && v.trim() ? v.trim() : d)
   const dur = Number(s?.expected_duration)
+  // Voice-over altijd schoongemaakt: geen markdown/timecodes/sectielabels in de gesproken tekst.
+  const voice = cleanForSpeech(str(s?.voice_text))
+  // News-presentator: de caption is WAT DE STEM ZEGT (schoon, leesbaar begrensd),
+  // niet het losse 6-woord-label dat het LLM vaak teruggeeft.
   return {
     idx,
-    voice_text:        str(s?.voice_text),
+    voice_text:        voice,
     visual_intent:     str(s?.visual_intent),
     search_query:      concretizeQuery(str(s?.search_query, str(s?.visual_intent))),
     shot_type:         str(s?.shot_type, 'cinematic'),
     emotion:           str(s?.emotion, 'neutral'),
     pacing:            str(s?.pacing, 'medium'),
     music_intensity:   str(s?.music_intensity, 'building'),
-    caption_text:      str(s?.caption_text),
+    caption_text:      captionFromText(voice || str(s?.caption_text)),
     expected_duration: Number.isFinite(dur) && dur > 0 ? dur : fallbackDuration,
   }
 }
@@ -186,7 +191,9 @@ function clampScene(s: any, idx: number, fallbackDuration: number): SceneSpec {
 // lokaal model geen bruikbare JSON levert. Geen verzonnen content — splitst de échte narratie;
 // data-beat scenes worden in chart-intelligence alsnog door FMP-charts overschreven.
 function buildDeterministicScenes(input: PlanScenesInput, sceneCount: number, secPerScene: number): SceneSpec[] {
-  const sentences = (input.full_script || '').replace(/\s+/g, ' ').match(/[^.!?]+[.!?]+|\S[^.!?]*$/g) ?? [input.full_script || input.title]
+  // Eerst het hele script schoonmaken (markdown/timecodes/labels) → daarna op zinnen splitsen.
+  const clean = cleanForSpeech(input.full_script || '')
+  const sentences = clean.replace(/\s+/g, ' ').match(/[^.!?]+[.!?]+|\S[^.!?]*$/g) ?? [clean || input.title]
   const per = Math.max(1, Math.ceil(sentences.length / sceneCount))
   const QUERIES = ['stock market chart', 'wall street trading floor', 'financial data screen', 'stock ticker board',
     'finance newspaper closeup', 'city financial district skyline', 'rising investment graph', 'economic dashboard data']
@@ -198,13 +205,14 @@ function buildDeterministicScenes(input: PlanScenesInput, sceneCount: number, se
     scenes.push({
       idx: scenes.length + 1, voice_text: chunk, visual_intent: q, search_query: q,
       shot_type: 'b-roll', emotion: 'neutral', pacing: 'medium', music_intensity: 'low',
-      caption_text: chunk.split(/\s+/).slice(0, 6).join(' '), expected_duration: secPerScene,
+      caption_text: captionFromText(chunk), expected_duration: secPerScene,
     })
   }
   if (scenes.length === 0) {
-    scenes.push({ idx: 1, voice_text: input.title || 'Finance update', visual_intent: QUERIES[0], search_query: QUERIES[0],
+    const t = cleanForSpeech(input.title || 'Finance update')
+    scenes.push({ idx: 1, voice_text: t, visual_intent: QUERIES[0], search_query: QUERIES[0],
       shot_type: 'b-roll', emotion: 'neutral', pacing: 'medium', music_intensity: 'low',
-      caption_text: (input.title || 'Finance').split(/\s+/).slice(0, 6).join(' '), expected_duration: secPerScene })
+      caption_text: captionFromText(t), expected_duration: secPerScene })
   }
   return scenes
 }
