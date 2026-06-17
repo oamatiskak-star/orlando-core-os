@@ -73,6 +73,8 @@ Keten: meten (sweep) → kwaliteit (dedup/anti-slop) → content (long-form fina
 
 **🔴 OPEN GATE (apify-engine):** `cd apify-engine && npm install`, daarna `pm2 start ecosystem.config.js --only apify-engine` op CLI-R. Vereist: `APIFY_API_TOKEN` in `.env.gh-secrets`. Migratie 218 is al op prod. Ecosysteem-entry staat al klaar in `ecosystem.config.js`.
 
+**🔴 OPEN GATE (scrapegraph-engine):** `bash scrapegraph-engine/setup.sh` (pip install + playwright chromium), daarna `pm2 start ecosystem.config.js --only scrapegraph-engine` op CLI-R. Vereist: `ANTHROPIC_API_KEY` in `.env.gh-secrets` (al aanwezig). Migratie 219 is al op prod. Bron: `scrapegraph-ai/` (261 Python-bestanden). Node.js-workers roepen aan via `import { sgScrape } from '../lib/scrapegraph.mjs'`.
+
 **🔴 GATES DIE OP JOU WACHTEN (secret/remote — niet vanuit sandbox uitvoerbaar):**
 - #1 `FMP_API_KEY` in local-agent env (CLI-R). Zonder = data-explainer draait in graceful-degrade (geen echte cijfers/charts).
 - #4 echte broker-`affiliate_links` (Robinhood/Webull/Moomoo) voor VermogenTv — jouw broker-accounts.

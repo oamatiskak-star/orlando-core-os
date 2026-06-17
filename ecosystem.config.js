@@ -206,5 +206,27 @@ module.exports = {
       error_file:  '/tmp/pm2-apify-engine-err.log',
       time:        true,
     },
+
+    // ── 8. ScrapeGraph Engine — LLM-gestuurde webscraper (Python/FastAPI) ──
+    //    SmartScraper, SearchGraph, MarkdownifyGraph, BatchScraper via Claude.
+    //    Node.js workers roepen aan via fetch('http://localhost:3013/scrape').
+    //    Setup: cd scrapegraph-engine && pip install -r requirements.txt
+    //           && playwright install chromium
+    //    Vereist: ANTHROPIC_API_KEY in .env.gh-secrets
+    {
+      name:        'scrapegraph-engine',
+      cwd:         `${BASE}/scrapegraph-engine`,
+      script:      'python',
+      args:        '-m uvicorn main:app --host 0.0.0.0 --port 3013',
+      interpreter: 'none',
+      watch:       false,
+      autorestart: true,
+      max_restarts: 999,
+      restart_delay: 10000,
+      env: { NODE_ENV: 'production', SCRAPEGRAPH_PORT: '3013' },
+      log_file:    '/tmp/pm2-scrapegraph-engine.log',
+      error_file:  '/tmp/pm2-scrapegraph-engine-err.log',
+      time:        true,
+    },
   ],
 }
