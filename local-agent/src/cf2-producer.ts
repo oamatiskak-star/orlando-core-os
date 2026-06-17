@@ -150,8 +150,13 @@ async function produceJobLive(client: SupabaseClient, job: Cf2Job): Promise<void
   // CF2-repair: HARDE niche-gate VÓÓR generatie. Topic moet binnen de kanaal-niche-topics vallen,
   // anders REJECT — geen script, geen render, geen QC, geen upload (bespaart productie + houdt
   // off-niche content (gaming/K-pop) van finance/vastgoed-kanalen). Fail-open zonder strategy/topics.
+  // Winnaar-replicatie (source_winner_video_id) = een BEWEZEN winnaar van het kanaal →
+  // per definitie on-niche; de letterlijke keyword-gate zou zo'n titel ("This machine runs
+  // forever 🔄") onterecht afkeuren. Sla de gate over voor winnaar-jobs; speculatieve/auto-
+  // topics (horizon/growth) blijven gegate tegen off-niche.
+  const isWinnerReplica = !!job.source_winner_video_id
   const gateStrategy = await loadChannelStrategy(ctx.channelId)
-  if (gateStrategy && gateStrategy.topics.length && !topicMatchesNiche(ctx.topic, gateStrategy.topics)) {
+  if (!isWinnerReplica && gateStrategy && gateStrategy.topics.length && !topicMatchesNiche(ctx.topic, gateStrategy.topics)) {
     const reason = `niche_gate_fail: topic "${ctx.topic}" valt buiten kanaal-topics [${gateStrategy.topics.join(', ')}]`
     log(`  ❌ NICHE-GATE: ${reason} — job afgewezen vóór generatie`)
     await client.from('cf2_jobs').update({ status: 'failed', updated_at: nowIso() }).eq('id', job.id)
