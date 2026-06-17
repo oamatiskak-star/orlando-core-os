@@ -183,5 +183,28 @@ module.exports = {
       error_file:  '/tmp/pm2-competitor-intel-engine-err.log',
       time:        true,
     },
+
+    // ── 7. Apify Engine — 5 categorieën via Engine Planner ──────────────
+    //    Cat 1: CF2 Intelligence (RSS + YouTube competitor transcripts)
+    //    Cat 2: Vastgoed Apify Scrapers (DE/AE/SG/US/LATAM)
+    //    Cat 3: Hermes MCP Registry (seed van 131 MCP servers)
+    //    Cat 4: Aquier Lead Generation (B2B Leads + YCombinator)
+    //    Cat 5: CF2 Cross-Platform Distributie (LinkedIn posts)
+    //    Vereist: APIFY_API_TOKEN in .env of .env.gh-secrets
+    {
+      name:        'apify-engine',
+      cwd:         `${BASE}/apify-engine`,
+      script:      'node',
+      args:        'src/index.mjs',
+      interpreter: 'none',
+      watch:       false,
+      autorestart: true,
+      max_restarts: 999,
+      restart_delay: 10000,
+      env: { NODE_ENV: 'production', PORT: '3012' },
+      log_file:    '/tmp/pm2-apify-engine.log',
+      error_file:  '/tmp/pm2-apify-engine-err.log',
+      time:        true,
+    },
   ],
 }
