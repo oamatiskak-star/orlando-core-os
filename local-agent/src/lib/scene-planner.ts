@@ -50,13 +50,22 @@ export interface PlanScenesInput {
  * "person doing X". Upstream-fix voor lage topic_relevance (CF2.9-bevinding).
  */
 function searchQueryInstruction(niche: string | null | undefined): string {
-  if (process.env.CF2_SCENE_QUERY_V2 !== '1') {
-    return 'English stock-video search term (2-5 words) for this scene'
+  const n = (niche || '').toLowerCase()
+  const isRealEstate = /vastgoed|real_estate|aquier|property|woning|makelaar|inmobil/.test(n)
+  const base = 'CONCRETE, filmable b-roll search term in ENGLISH (2-5 words). Name the actual visual SUBJECT + setting — NOT a generic action ("person standing", "someone thinking", "intro screen").'
+  if (isRealEstate) {
+    // Vastgoed/Aquier: ALLEEN vastgoedbeeld; expliciet beurs-/trading-stock verbieden (fixte
+    // 'beeld matcht niet': generieke "data/investment"-queries trokken candlestick-charts).
+    return base + ' Subjects MUST be REAL ESTATE / property: apartment & office buildings, houses, ' +
+      'construction sites & cranes, Dutch city streets/canals, modern interiors, blueprints, ' +
+      'an agent/investor at a building, aerial views of neighbourhoods. ' +
+      'NEVER use stock-market charts, trading screens, candlesticks, crypto, tickers or finance dashboards.'
   }
-  return `CONCRETE filmable stock-footage subject in ENGLISH (2-5 words). Name the actual visual SUBJECT + setting${niche ? ` for the niche "${niche}"` : ''} — NOT a generic action. ` +
-    `Prefer specific objects/places/scenes over "person doing X". ` +
-    `GOOD: "stock market trading floor", "modern apartment interior", "construction crane skyline", "server room data center", "gold bars vault". ` +
-    `BAD (never use): "person standing", "someone thinking", "man looking", "thing happening", "intro screen"`
+  if (process.env.CF2_SCENE_QUERY_V2 !== '1') {
+    return 'English b-roll search term (2-5 words) for this scene'
+  }
+  return base + (niche ? ` Anchor to the niche "${niche}".` : '') +
+    ` GOOD: "stock market trading floor", "modern apartment interior", "construction crane skyline", "server room data center".`
 }
 
 async function callLMStudio(prompt: string, model: string): Promise<string> {
