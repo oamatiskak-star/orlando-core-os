@@ -37,6 +37,11 @@ export function cleanForSpeech(raw: string): string {
 
   // markdown koppen + nadruk/code-markers
   s = s.replace(/^[ \t]*#{1,6}[ \t]*/gm, '')
+  // markdown horizontale lijnen (---, ***, ___) → hele regel weg
+  s = s.replace(/^[ \t]*([-_*])\1{2,}[ \t]*$/gm, '')
+  // genummerde sectiekoppen mét scheider ("SECTION 1 — CONTEXT", "PART 2:") → hele regel weg.
+  // Scheider ná het nummer vereist → een zin als "Part 2 of the plan" blijft staan.
+  s = s.replace(/^[ \t]*(?:SECTION|PART|CHAPTER|ACT|DEEL|STAP|SCENE)\s*\d+\s*[—–\-:].*$/gim, '')
   s = s.replace(/[*_`]{1,3}/g, '')
 
   // timecodes: (0:00-0:20), (0:00 - 0:20), losse "0:00 -" aan regelbegin

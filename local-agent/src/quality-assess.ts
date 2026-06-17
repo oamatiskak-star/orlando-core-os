@@ -50,6 +50,13 @@ export async function assessQuality(videoProjectId: string): Promise<QcResult> {
   if (!base) return { ok: false, blocked: 'blocked_missing_frontend_qc_url' }
   const url = `${base.replace(/\/$/, '')}/api/youtube/quality/assess`
 
+  // Vercel Deployment Protection: de prod-frontend staat achter auth (401). Met een
+  // 'Protection Bypass for Automation'-secret komt de engine er server-to-server door
+  // zonder de dashboard publiek te maken. Geen secret → call gaat gewoon (werkt als
+  // protection uit staat). Secret zet je in Vercel + als VERCEL_AUTOMATION_BYPASS_SECRET.
+  const bypass = process.env.VERCEL_AUTOMATION_BYPASS_SECRET
+  const headers = bypass ? { 'x-vercel-protection-bypass': bypass, 'x-vercel-set-bypass-cookie': 'true' } : undefined
+
   let lastStatus: number | null = null
   let lastError: string | null = null
   let lastDuration = 0
@@ -60,7 +67,7 @@ export async function assessQuality(videoProjectId: string): Promise<QcResult> {
 
     const t0 = Date.now()
     try {
-      const res = await axios.post(url, { video_project_id: videoProjectId }, { timeout: TIMEOUT_MS })
+      const res = await axios.post(url, { video_project_id: videoProjectId }, { timeout: TIMEOUT_MS, headers })
       const dur = Date.now() - t0
       console.log(`[qc] assess OK project=${videoProjectId} attempt=${attempt}/${MAX_ATTEMPTS} status=${res.status} dur=${dur}ms`)
       return {
