@@ -45,7 +45,7 @@ async function pg(method, path, { body, prefer, query = '' } = {}) {
 
 async function generate(page, cluster, niche) {
   const prompt = `Je bent SEO-contentspecialist voor Aquier (vastgoed intelligence-, financierings- en besluitvormingsplatform).
-Schrijf een SEO-landingspagina in het Nederlands.
+Schrijf een SEO-landingspagina in het Nederlands, geoptimaliseerd om geciteerd te worden door AI-zoekmachines (Google AI Overviews, ChatGPT, Perplexity, Gemini).
 
 Niche: ${niche?.name ?? niche?.slug ?? '—'}
 Cluster: ${cluster?.cluster ?? '—'}
@@ -56,8 +56,15 @@ Slug: ${page.slug}
 HARDE REGELS:
 - Geen verzonnen cijfers, statistieken, klantnamen of claims. Schrijf kwalitatief; bij twijfel weglaten.
 - Praktisch, autoriteit, conversiegericht. Sluit af met een duidelijke CTA naar een Aquier-analyse.
-- Geef UITSLUITEND geldige JSON terug, geen markdown-fences:
-{"title": "<=60 tekens", "meta_description": "<=155 tekens", "h1": "...", "body_md": "markdown, ~600-900 woorden, H2/H3 + FAQ-sectie"}`;
+
+STRUCTUUR van body_md (markdown, ~600-900 woorden, GEEN H1 — die staat apart in h1):
+1. ANTWOORD-ALINEA EERST: open met precies één alinea van 40-60 woorden die het primaire zoekwoord direct beantwoordt (definitie/kernantwoord, zelfstandig leesbaar zonder context). AI's citeren juist dit blok. Geen kop, geen "in dit artikel", geen omhaal.
+2. Daarna ## H2/### H3-secties die de zoekintentie volledig uitwerken; lijsten waar nuttig.
+3. Waar relevant: precies één markdown-vergelijkingstabel in GFM-format (headerrij + scheidingsrij "| --- | --- |" + datarijen). Tabellen worden het vaakst door AI geciteerd.
+4. Sluit af met "## Veelgestelde vragen" met 3-5 vragen. Zet ELKE vraag op een eigen regel als vetgedrukte zin met vraagteken (exact zo: **Voorbeeldvraag?**), met daaronder 1-3 zinnen antwoord. Houd dit format exact aan — het voedt de FAQ-structured-data.
+
+Geef UITSLUITEND geldige JSON terug, geen markdown-fences:
+{"title": "<=60 tekens", "meta_description": "<=155 tekens", "h1": "...", "body_md": "..."}`;
 
   const res = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
