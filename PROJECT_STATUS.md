@@ -39,6 +39,26 @@
 - `affiliate-injection.ts`: affiliate-links van het kanaal worden bij publicatie in de beschrijving geïnjecteerd (eerste euro's; was de ontbrekende schakel — links kwamen nooit vóór de kijker).
 - migratie 216: `channel_objectives` + `set_channel_objective()` (executor: doel + format_profile aan) + `v_channel_objective_progress` (echte 30d-omzet vs doel). FIX sleutelbug: channel_strategy.channel_id = media_holding_channels.id (resolveChannelFormat + objective gebruiken nu de juiste sleutel; live geverifieerd).
 
+**✅ VISUELE LAAG + CONTENT-CLEANUP (16-6, news-desk anchor — local-agent tsc exit 0, NIET gecommit):**
+Aanleiding Orlando: voice+script goed, maar visueel zwak/los; wil "news-presentator" (wat de stem zegt in beeld). Stap 1+2 gebouwd (stap 3 = OpenAI-billing was al opgelost).
+- **NIEUW `local-agent/src/lib/script-clean.ts`** — één sanitizer: `cleanForSpeech` (strip markdown/`(0:00-0:20)`/HOOK-DATABEAT-labels/bullets/regie-haakjes; bron-brackets weg, inhoud-brackets uitgepakt), `cleanTitle`, `captionFromText`, `wrapCaptionLines`. Functioneel getest op lek-script.
+- **`scene-planner.ts`** — `voice_text` altijd `cleanForSpeech`; `caption_text` = WAT DE STEM ZEGT (schoon, leesbaar begrensd) i.p.v. los 6-woord-label; ook in deterministische split.
+- **`shadow-core.ts`** — script één keer schoongemaakt vóór DB-write, scene-planner ÉN TTS (`cleanScript`); titel via `cleanTitle`. Geen leak meer in stem of beeld.
+- **`render.ts`** — news-desk anchor: titelbalk+accent bovenin (project-titel), grote lower-third caption-band (gesynct per scene, multi-line wrap), accentstreep. Chart-cutaways blijven achtergrond. Optionele audio-waveform onderin (`CF2_WAVEFORM=1`, default uit). Env: `CAPTION_ACCENT` (default news-rood).
+- **✅ GEVERIFIEERD via re-render b1c0c795 (S&P 500, 32 scenes, 94.9 MB):** titelbalk + accent + lower-third captions renderen correct (frames gecheckt). Fix tijdens test: drawtext brak op `%` → `expansion=none` + geen `%`-escaping; en-dash/em-dash bullets toegevoegd aan sanitizer. Runner: `scripts/rerender-news-desk.cjs`.
+- **🔴 PRODUCTIE-BLOCKER ffmpeg:** deze Mac had Homebrew-core ffmpeg 8.1 ZONDER libfreetype → `drawtext` ontbrak → oude renders hadden NOOIT captions. Opgelost: `brew uninstall ffmpeg` + `homebrew-ffmpeg/ffmpeg` tap (mét `--enable-libfreetype`). **Render-host Mac Mini moet dezelfde fix krijgen, anders rendert het news-desk-format live geen tekst.**
+- **Restartefacten (oud script, niet de nieuwe pipeline):** "The Shocking Number" inline-kopje + "$195. 07" spatie zitten in de bestaande voice_text; verdwijnen bij nieuw-gegenereerde content via de schone pipeline.
+
+**✅ SYNCHRONE ONDERTITELING + DUUR-FIX (16-6, na Orlando-feedback "ondertiteling mist stukken + niet synchroon" — tsc exit 0, NIET gecommit):**
+- **Oorzaak:** statische caption-per-scene liep los van de stem (afgekapt + niet synchroon). **OpenAI-transcriptie viel af** (insufficient_quota) → lokaal-first gekozen.
+- **NIEUW `local-agent/src/lib/subtitles.ts`** — whisper.cpp (`brew install whisper-cpp` + model `~/.cache/whisper/ggml-base.en.bin`) transcribeert de échte voicetrack → SRT met accurate tijdstempels, korte cues op woordgrens. Graceful null → legacy per-scene caption.
+- **`render.ts`** — brandt SRT met libass (`subtitles=...:force_style`) over de hele video (news lower-third), los van scene-grenzen; per-scene caption uit zodra SRT actief. + **duur-fix:** `probeDuration` (ffprobe) schaalt totale beeldduur naar voicelengte (b1c0c795: voice 386s vs scenes 256s → scale 1.51) + video-assets `-stream_loop -1` zodat slots vullen → `-shortest` kapt narratie niet meer af. Eerder: video 4:13 vs voice 6:26 (laatste ~2 min weg). Nu 6:26 volledig.
+- **`shadow-core.ts`** + runner — genereren SRT vóór render, geven `subtitlePath` door.
+- **Geverifieerd:** re-render b1c0c795 → captions synchroon (t=8s "As of the latest close, the S&P 500 is"), compleet tot 6:10 ("handful of mega-cap stocks?"), volledige 6:26. Previews via signed links geleverd.
+- **Setup-gates voor Mac Mini render-host:** (1) `homebrew-ffmpeg/ffmpeg` tap (libfreetype+libass — drawtext/subtitles); (2) `brew install whisper-cpp` + ggml-model in `~/.cache/whisper/`.
+
+- **Volgende:** Orlando beoordeelt video → commit op `feat/measurement-loop` → Mac Mini setup-gates → daarna schalen. Niet gecommit (wacht op OK).
+
 **STAND: machine end-to-end. 12 commits op `feat/measurement-loop`, niet gepusht. Alles tsc exit 0.**
 Keten: meten (sweep) → kwaliteit (dedup/anti-slop) → content (long-form finance data-explainer + FMP-data + charts + pacing + premium TTS) → CTR (thumbnail-overlay) → intel (US-finance targets) → monetiseren (affiliate-injectie) → sturen (channel_objectives + voortgang-view).
 
