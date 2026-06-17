@@ -45,7 +45,7 @@ export interface SubtitleResult {
  * Maakt een SRT naast `outBase` (.srt) uit `voicePath`. `language` 'en'|'nl'|'es'.
  * Korte, op-woord-gesplitste cues (max ~`maxLen` tekens) voor een vlotte news-cadans.
  */
-export async function generateSubtitles(voicePath: string, outBase: string, opts: { language?: string; maxLen?: number } = {}): Promise<SubtitleResult> {
+export async function generateSubtitles(voicePath: string, outBase: string, opts: { language?: string; maxLen?: number; brand?: string } = {}): Promise<SubtitleResult> {
   const whisper = resolveBin('whisper-cli', 'WHISPER_BIN') || resolveBin('whisper-cpp', 'WHISPER_BIN')
   if (!whisper) return { srtPath: null, reason: 'blocked_no_whisper_cli' }
   const model = resolveModel()
@@ -64,24 +64,36 @@ export async function generateSubtitles(voicePath: string, outBase: string, opts
     '-l', lang, '-np',                     // taal + geen log-spam
     '-t', String(Math.max(2, Math.min(8, os.cpus().length - 1))),
   ]
+  // Aquier-content: geef whisper de merknaam vooraf mee → het transcribeert de brand consistent
+  // als "Aquier" i.p.v. fonetische gokjes ("Aquire"/"Akhir"). Alleen voor de Aquier-promo.
+  if (opts.brand === 'aquier') {
+    args.push('--prompt', 'Aquier is an AI real estate acquisition platform. Aquier. Aquier.', '--carry-initial-prompt')
+  }
   const r = spawnSync(whisper, args, { timeout: 600_000, encoding: 'utf8' })
   try { fs.unlinkSync(wav) } catch { /* */ }
   const srt = `${outBase}.srt`
   if (r.status !== 0 || !fs.existsSync(srt)) {
     return { srtPath: null, reason: `blocked_whisper_failed: ${(r.stderr || r.error?.message || ('status=' + r.status)).toString().slice(0, 160)}` }
   }
-  applyBrandCorrections(srt)
+  applyBrandCorrections(srt, opts.brand)
   return { srtPath: srt, reason: null }
 }
 
-/** Corrigeert merknaam-misspellingen die whisper produceert (bv. "Aquire" → "Aquier") in de SRT.
- *  Raakt het echte werkwoord "acquire" NIET (dat begint met 'acqu', de merk-misspellingen met 'Aqu'). */
-function applyBrandCorrections(srtPath: string): void {
+// Expliciete fonetische whisper-misspellingen van "Aquier" (whole-word). Geen gewone Engelse
+// woorden → veilig. Het werkwoord "acquire/acquired" staat er bewust NIET in.
+const AQUIER_ALIASES = ['Aquire','Aquir','Aquiere','Aquiera','Aquair','Aquaire','Aqueer','Aquie','Aquia','Aquiar',
+  'Akwier','Ackwier','Akwer','Akhir','Akhier','Akheer','Akeer','Akir','Akuyer','Akuier','Akuya','Aquyer','Acuyer']
+// Fuzzy vangnet voor onbekende varianten: A + k/q/c + u/w/h + paar letters + r/er/re-einde
+// (vangt Akuyer/Akhir/Aquire/Aqueer/Aquier). "acquire" begint met 'acq' → niet gevangen.
+const AQUIER_FUZZY = /\bA[kqc][uwh][a-eg-z]{0,4}(?:er|re|r)\b/gi   // 'f' uitgesloten → "aquifer" blijft intact
+
+/** Corrigeert merknaam-misspellingen in de SRT → "Aquier". Alleen voor Aquier-content (brand). */
+function applyBrandCorrections(srtPath: string, brand?: string): void {
+  if (brand !== 'aquier') return
   try {
     let s = fs.readFileSync(srtPath, 'utf8')
-    // merk-varianten zonder 'c' na de A → Aquier; "acquire/acquired" blijft ongemoeid
-    s = s.replace(/\bAqu(?:ire|ir|iere|iera|air|aire|eer|ier)\b/gi, 'Aquier')
-    s = s.replace(/\bA[ck]wier\b/gi, 'Aquier')
+    s = s.replace(new RegExp('\\b(?:' + AQUIER_ALIASES.join('|') + ')\\b', 'gi'), 'Aquier')
+    s = s.replace(AQUIER_FUZZY, 'Aquier')
     fs.writeFileSync(srtPath, s, 'utf8')
   } catch { /* niet-fataal */ }
 }
