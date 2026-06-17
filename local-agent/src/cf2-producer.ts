@@ -89,12 +89,13 @@ interface FormatConfig {
   targetSeconds: number
   formatProfile: string | null
   dataSymbols: string[]
+  language: string | null   // taal uit de kanaalconfig (nl/en/es); null → afleiden uit niche
 }
 
 // Default = Shorts (bestaand gedrag). Alleen een kanaal met content_rules.format_profile
 // = 'us_finance_longform' schakelt om naar de faceless finance data-explainer (16:9, long-form
 // + FMP-data). Fail-safe naar default bij ontbrekende strategy of DB-fout.
-const DEFAULT_FORMAT: FormatConfig = { format: '9:16', targetSeconds: 50, formatProfile: null, dataSymbols: [] }
+const DEFAULT_FORMAT: FormatConfig = { format: '9:16', targetSeconds: 50, formatProfile: null, dataSymbols: [], language: null }
 
 // LET OP sleutels: channel_strategy.channel_id = media_holding_channels.id (NIET youtube_channels.id).
 // Daarom resolven we op de media-channel-id (job.bron_channel_id), niet op de youtube-channel-id.
@@ -103,6 +104,7 @@ async function resolveChannelFormat(client: SupabaseClient, mediaChannelId: stri
   try {
     const { data } = await client.from('channel_strategy').select('content_rules').eq('channel_id', mediaChannelId).maybeSingle()
     const rules = (data?.content_rules ?? {}) as Record<string, unknown>
+    const lang = typeof rules.language === 'string' ? (rules.language as string) : null
     if (rules.format_profile === 'us_finance_longform') {
       const sym = Array.isArray(rules.data_symbols) ? (rules.data_symbols as string[]) : []
       return {
@@ -110,18 +112,21 @@ async function resolveChannelFormat(client: SupabaseClient, mediaChannelId: stri
         targetSeconds: typeof rules.target_seconds === 'number' ? rules.target_seconds : 840,
         formatProfile: 'us_finance_longform',
         dataSymbols: sym.length ? sym : ['^GSPC', '^IXIC', '^DJI'],
+        language: lang ?? 'en',
       }
     }
     if (rules.format_profile === 'aquier_promo') {
       // Aquier-promo: korte advertentie/explainer (16:9), product + werkende link uit aquier_products.
+      // Taal uit de kanaalconfig (AquierNL=nl, AquierTv=en, AquierTvEs=es).
       return {
         format: '16:9',
         targetSeconds: typeof rules.target_seconds === 'number' ? rules.target_seconds : 90,
         formatProfile: 'aquier_promo',
         dataSymbols: [],
+        language: lang,
       }
     }
-    return DEFAULT_FORMAT
+    return { ...DEFAULT_FORMAT, language: lang }
   } catch {
     return DEFAULT_FORMAT
   }
@@ -181,7 +186,7 @@ async function produceJobLive(client: SupabaseClient, job: Cf2Job): Promise<void
       channelId: ctx.channelId,
       niche: job.bron_niche,
       topic: ctx.topic,
-      language: fmt.formatProfile === 'us_finance_longform' ? 'en' : langForNiche(job.bron_niche),
+      language: fmt.language ?? langForNiche(job.bron_niche),   // kanaalconfig leidt (AquierNL=nl, AquierTv=en, AquierTvEs=es)
       format: fmt.format,         // default 9:16 (shorts); 16:9 voor finance-longform-profiel
       voice: 'default',
       targetSeconds: fmt.targetSeconds,
