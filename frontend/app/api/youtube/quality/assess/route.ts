@@ -212,9 +212,16 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'QC-assessment faalde (LLM)', detail: String((e as any)?.message ?? e).slice(0, 300) }, { status: 502 })
   }
 
-  // ── CQI (aggregaat over beschikbare dimensies) ──
+  // Entertainment/loops: GEEN voice & geen spoken-CTA van toepassing (visuele loop + muziek).
+  // Die dimensies zijn dan niet-blokkerend en tellen niet mee in de CQI.
+  const isEntertainment = profile === 'entertainment'
+
+  // ── CQI (aggregaat over de TOEPASSELIJKE dimensies) ──
   const dims = { hook: llm.hook_score, thumbnail: thumbnail_score, retention: llm.retention_prediction, visual: visual_score, voice: voice_score, music: music_score, cta: llm.cta_score }
-  const cqi = Math.round(Object.values(dims).reduce((s, v) => s + v, 0) / Object.values(dims).length)
+  const cqiDims = isEntertainment
+    ? [llm.hook_score, thumbnail_score, llm.retention_prediction, visual_score, music_score]
+    : Object.values(dims)
+  const cqi = Math.round(cqiDims.reduce((s, v) => s + v, 0) / cqiDims.length)
 
   // ── Gate (Content-Reject Agent) ──
   const reasons: string[] = []
@@ -222,9 +229,10 @@ export async function POST(req: NextRequest) {
   if (thumbPending) reasons.push('thumbnail_pending'); else if (thumbnail_score < THRESHOLDS.thumbnail) reasons.push(`thumbnail<${THRESHOLDS.thumbnail}`)
   if (llm.retention_prediction < THRESHOLDS.retention) reasons.push(`retention<${THRESHOLDS.retention}`)
   if (visual_score < THRESHOLDS.visual) reasons.push(`visual<${THRESHOLDS.visual}`)
-  if (voice_score < THRESHOLDS.voice) reasons.push(voiceGate || `voice<${THRESHOLDS.voice}`)
-  if (musicPending) reasons.push('music_pending'); else if (music_score < THRESHOLDS.music) reasons.push(`music<${THRESHOLDS.music}`)
-  if (llm.cta_score < THRESHOLDS.cta) reasons.push(`cta<${THRESHOLDS.cta}`)
+  if (!isEntertainment && voice_score < THRESHOLDS.voice) reasons.push(voiceGate || `voice<${THRESHOLDS.voice}`)
+  // Muziek: bij entertainment nice-to-have (niet-blokkerend); anders gegate.
+  if (!isEntertainment) { if (musicPending) reasons.push('music_pending'); else if (music_score < THRESHOLDS.music) reasons.push(`music<${THRESHOLDS.music}`) }
+  if (!isEntertainment && llm.cta_score < THRESHOLDS.cta) reasons.push(`cta<${THRESHOLDS.cta}`)
   if (cqi < THRESHOLDS.cqi) reasons.push(`cqi<${THRESHOLDS.cqi}`)
   if (llm.content_reject.reject) reasons.push(...llm.content_reject.reasons.map((r) => `reject:${r}`))
 
