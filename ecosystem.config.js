@@ -204,5 +204,27 @@ module.exports = {
       error_file:  '/tmp/pm2-ruflo-dispatcher-err.log',
       time:        true,
     },
+
+    // ── Ruflo Swarm Orchestrator — hiërarchische multi-swarm coördinator ──────
+    // Beheert 3 sub-swarms op basis van Engine Planner-vensters (fase 3):
+    //   orlando-youtube     → 'youtube' blok (06:00-07:00): trend + SEO + QC
+    //   orlando-acquisition → 'acq_ai' blok (17:00-18:30): deals + affiliate
+    //   orlando-memory      → 'ai' blok     (04:00-06:00): memory consolidatie
+    // Config in local-agent/src/orlando-swarm.json.
+    {
+      name:        'ruflo-swarm-orchestrator',
+      cwd:         `${BASE}/local-agent`,
+      script:      'npx',
+      args:        'ts-node --transpile-only src/ruflo-swarm-orchestrator.ts',
+      interpreter: 'none',
+      watch:       false,
+      autorestart: true,
+      max_restarts: 999,
+      restart_delay: 15000,
+      env: { NODE_ENV: 'production' },
+      log_file:    '/tmp/pm2-ruflo-swarm-orchestrator.log',
+      error_file:  '/tmp/pm2-ruflo-swarm-orchestrator-err.log',
+      time:        true,
+    },
   ],
 }
