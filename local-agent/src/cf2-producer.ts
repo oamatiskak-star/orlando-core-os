@@ -126,6 +126,16 @@ async function resolveChannelFormat(client: SupabaseClient, mediaChannelId: stri
         language: lang,
       }
     }
+    if (rules.format_profile === 'loops_short') {
+      // Satisfying-loop short (9:16): naadloze loop + muziek + hook-overlay, geen narratie.
+      return {
+        format: '9:16',
+        targetSeconds: typeof rules.target_seconds === 'number' ? rules.target_seconds : 24,
+        formatProfile: 'loops_short',
+        dataSymbols: [],
+        language: lang,
+      }
+    }
     return { ...DEFAULT_FORMAT, language: lang }
   } catch {
     return DEFAULT_FORMAT

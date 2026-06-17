@@ -99,6 +99,7 @@ export async function generateContent(payload: {
   const isEnglish = payload.language !== 'nl'
   const isFinanceLongform = payload.format_profile === 'us_finance_longform'
   const isAquierPromo = payload.format_profile === 'aquier_promo'
+  const isLoops = payload.format_profile === 'loops_short'
 
   // CF2 content-engine repair: niche- en CTA-context uit channel_strategy in de prompt vouwen.
   const topics = (payload.channel_topics ?? []).filter(Boolean)
@@ -179,7 +180,20 @@ Return ONLY valid JSON (no markdown, no code blocks):
   "thumbnail_concept": "promo thumbnail: bold benefit + Aquier brand, high contrast"
 }`
 
-  const prompt = isAquierPromo ? aquierPromoPrompt : isFinanceLongform ? financePrompt : isEnglish ? `
+  // Loop-short: oddly-satisfying visuele loop, GEEN narratie. Alleen metadata + korte on-screen hook.
+  const loopsPrompt = `You write metadata for an oddly-satisfying YouTube Short (a seamless visual LOOP, NO narration/voice-over). Seed/topic: "${payload.topic}". Niche: ${payload.channel_name}. Language: ${isEnglish ? 'English' : 'Nederlands'}.
+Return ONLY valid JSON (no markdown):
+{
+  "title": "scroll-stopping Short title max 60 chars, may include 1 emoji",
+  "description": "short SEO description 150-300 chars ending with #shorts + 5 niche hashtags",
+  "tags": ["15 short tags"],
+  "hook": "on-screen hook text, MAX 4 words, punchy curiosity",
+  "full_script": "",
+  "cta": "",
+  "thumbnail_concept": "bold 3-word overlay + the satisfying subject, high contrast"
+}`
+
+  const prompt = isLoops ? loopsPrompt : isAquierPromo ? aquierPromoPrompt : isFinanceLongform ? financePrompt : isEnglish ? `
 ${systemContext}
 IMPORTANT: Write ALL content in English only. Do NOT use Dutch or any other language.
 
