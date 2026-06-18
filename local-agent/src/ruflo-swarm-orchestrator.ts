@@ -3,8 +3,7 @@ import 'dotenv/config'
 import { createClient } from '@supabase/supabase-js'
 import { spawn, ChildProcess } from 'child_process'
 import { readFileSync } from 'fs'
-import { join, dirname } from 'path'
-import { fileURLToPath } from 'url'
+import { join } from 'path'
 
 /**
  * Ruflo Swarm Orchestrator — hiërarchische multi-swarm coördinator.
@@ -40,9 +39,6 @@ if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
 const db = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, { auth: { persistSession: false } })
 
 // ── Config laden ──────────────────────────────────────────────────────────────
-
-const __filename = fileURLToPath(import.meta.url)
-const __dirname  = dirname(__filename)
 
 interface AgentDef {
   name: string
