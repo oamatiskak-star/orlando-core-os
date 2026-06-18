@@ -1,6 +1,7 @@
 import './ws-shim'   // MOET eerst — zet global WebSocket vóór elke @supabase-import
 import 'dotenv/config'
 import { createClient } from '@supabase/supabase-js'
+import { storeTrajectory, storeVerdictPattern, deriveVerdict } from './lib/reasoning-bank'
 
 /**
  * LEARNING-LOOP WORKER (Content Factory 2.0 — FASE 5, STRUCTUUR).
@@ -159,6 +160,17 @@ export async function runLearningLoop(nowMs: number): Promise<LearningRunResult>
       blockers,
     }, { onConflict: 'video_project_id' })
 
+    // ReasoningBank: sla trajectory + verdict op in AgentDB (fire-and-forget via ruflo CLI).
+    // Ruflo niet beschikbaar → silent skip, learning loop stopt hier niet.
+    const verdict = deriveVerdict(learning_status, thumbnail_perf, null)
+    storeTrajectory({
+      project_id: p.id, niche: p.niche ?? null, format: p.format ?? null,
+      channel_id: p.channel_id ?? null, learning_status, verdict,
+      metrics: { avg_ctr: thumbnail_perf, avg_retention: hook_perf, revenue: null },
+      checkpoints_collected: collected.length, recorded_at: new Date(nowMs).toISOString(),
+    })
+    storeVerdictPattern(p.niche ?? null, p.format ?? null, verdict, thumbnail_perf, null)
+
     // OMZET-terugkoppeling: lees canoniek uit video_attribution (niet zelf herberekenen).
     // viral_patterns.revenue_attributed alleen bijwerken met ECHTE canon-omzet, en
     // GESCOPED op kanaal (channel→topic) zodat kanalen elkaars patterns niet vervuilen.
@@ -168,6 +180,10 @@ export async function runLearningLoop(nowMs: number): Promise<LearningRunResult>
       if (p.channel_id) vp = vp.eq('channel_id', p.channel_id)   // kanaal-scoping = geen kruisbestuiving
       await vp
       await db.from('video_projects').update({ revenue_attributed: canon.revenue, leads_attributed: canon.leads ?? 0 }).eq('id', p.id)
+
+      // Herbereken verdict met echte omzet en update ReasoningBank (overschrijft eerder fire-and-forget).
+      const verdictWithRevenue = deriveVerdict(learning_status, thumbnail_perf, canon.revenue)
+      storeVerdictPattern(p.niche ?? null, p.format ?? null, verdictWithRevenue, thumbnail_perf, canon.revenue)
     }
   }
 
