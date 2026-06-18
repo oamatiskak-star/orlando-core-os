@@ -9,7 +9,6 @@ export const RemotionRoot: React.FC = () => {
   return (
     <Composition
       id="Explainer"
-      // @ts-expect-error - props zijn dynamisch (JSON via --props)
       component={Explainer}
       fps={FPS}
       width={1920}
@@ -24,6 +23,7 @@ export const RemotionRoot: React.FC = () => {
         outro: '',
         captions: [],
         dataBeats: [],
+        scenes: [],
       }}
       calculateMetadata={({ props }: any) => ({
         durationInFrames: Math.max(30, Math.round(((props.audioDurationSec || 10) + 1.2) * FPS)),

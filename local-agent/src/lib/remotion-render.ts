@@ -2,7 +2,14 @@ import fs from 'fs'
 import os from 'os'
 import path from 'path'
 import { spawnSync, execFileSync } from 'child_process'
+import { createClient } from '@supabase/supabase-js'
 import { resolveBin } from './tts'
+
+const db = createClient(
+  (process.env.SUPABASE_URL ?? 'http://preflight.invalid'),
+  (process.env.SUPABASE_SERVICE_ROLE_KEY ?? 'preflight'),
+  { auth: { persistSession: false } },
+)
 
 /**
  * REMOTION-RENDER (Route A — high-end code-driven explainer).
@@ -68,8 +75,44 @@ export function remotionAvailable(): boolean {
   return fs.existsSync(path.join(REMO, 'src', 'index.ts')) && fs.existsSync(path.join(REMO, 'node_modules', '.bin', 'remotion'))
 }
 
+const IMG_RE = /\.(png|jpe?g|webp|bmp|gif)$/i
+
+/** Haalt de gesourcete scene-visuals op, schaalt hun duur naar de voicelengte en kopieert ze
+ *  naar public/ → content-achtergrond in de render. Geeft [] als er geen assets zijn. */
+async function buildSceneBackground(projectId: string, voiceDur: number, assetDir: string): Promise<{ src: string; from: number; to: number; isVideo: boolean }[]> {
+  const { data: scenes } = await db.from('video_scenes')
+    .select('idx, expected_duration, selected_asset_id').eq('project_id', projectId).order('idx')
+  const list = scenes ?? []
+  const renderable: { idx: number; src: string; expected: number }[] = []
+  for (const sc of list) {
+    if (!sc.selected_asset_id) continue
+    const { data: asset } = await db.from('visual_assets').select('local_asset_url').eq('id', sc.selected_asset_id).single()
+    const src = asset?.local_asset_url
+    if (src && fs.existsSync(src)) renderable.push({ idx: Number(sc.idx) || renderable.length, src, expected: Number(sc.expected_duration) || 5 })
+  }
+  if (!renderable.length) return []
+
+  const sumExp = renderable.reduce((a, r) => a + r.expected, 0)
+  const scale = sumExp > 0 ? voiceDur / sumExp : 1
+  fs.mkdirSync(assetDir, { recursive: true })
+  const out: { src: string; from: number; to: number; isVideo: boolean }[] = []
+  let cursor = 0
+  for (let i = 0; i < renderable.length; i++) {
+    const r = renderable[i]
+    const dur = Math.max(0.8, r.expected * scale)
+    const ext = path.extname(r.src) || '.mp4'
+    const name = `sc-${projectId}/${i}${ext}`            // staticFile-pad (relatief t.o.v. public/)
+    fs.copyFileSync(r.src, path.join(assetDir, `${i}${ext}`)) // assetDir == public/sc-<pid>
+    out.push({ src: name, from: +cursor.toFixed(2), to: +(cursor + dur).toFixed(2), isVideo: !IMG_RE.test(r.src) })
+    cursor += dur
+  }
+  // laatste scene rekt tot het einde (geen zwart gat door rondingsrest)
+  if (out.length && cursor < voiceDur) out[out.length - 1].to = +voiceDur.toFixed(2)
+  return out
+}
+
 /** Rendert de explainer en geeft het output-mp4-pad terug. Gooit bij fout. */
-export function renderRemotionExplainer(input: RemotionInput): string {
+export async function renderRemotionExplainer(input: RemotionInput): Promise<string> {
   if (!remotionAvailable()) throw new Error('remotion_not_available')
   if (!fs.existsSync(input.voicePath)) throw new Error('voice ontbreekt')
   const captions = input.srtPath && fs.existsSync(input.srtPath) ? srtToCaptions(input.srtPath) : []
@@ -80,6 +123,10 @@ export function renderRemotionExplainer(input: RemotionInput): string {
   fs.copyFileSync(input.voicePath, path.join(publicDir, audioName))
 
   const durSec = probeDur(input.voicePath)
+  const sceneDir = path.join(publicDir, `sc-${input.projectId}`)
+  let scenes: { src: string; from: number; to: number; isVideo: boolean }[] = []
+  try { scenes = await buildSceneBackground(input.projectId, durSec, sceneDir) } catch { scenes = [] }
+
   const props = {
     title: input.title || 'Explainer',
     brand: input.brand || '#0b1f3a',
@@ -89,6 +136,7 @@ export function renderRemotionExplainer(input: RemotionInput): string {
     outro: input.outro || '',
     captions,
     dataBeats: statsToBeats(input.stats || [], durSec),
+    scenes,
   }
   const propsPath = path.join(REMO, `props-${input.projectId}.json`)
   fs.writeFileSync(propsPath, JSON.stringify(props))
@@ -96,11 +144,12 @@ export function renderRemotionExplainer(input: RemotionInput): string {
   const out = path.join(os.tmpdir(), `cf2-remotion-${input.projectId}.mp4`)
   const npx = resolveBin('npx', 'NPX_BIN') || 'npx'
   const r = spawnSync(npx, ['remotion', 'render', 'src/index.ts', 'Explainer', out, `--props=${propsPath}`, '--concurrency=4', '--log=error'],
-    { cwd: REMO, encoding: 'utf8', timeout: 1_200_000 })
+    { cwd: REMO, encoding: 'utf8', timeout: 1_800_000 })
 
   // opruimen (per-project artefacten)
   try { fs.unlinkSync(path.join(publicDir, audioName)) } catch { /* */ }
   try { fs.unlinkSync(propsPath) } catch { /* */ }
+  try { fs.rmSync(sceneDir, { recursive: true, force: true }) } catch { /* */ }
 
   if (r.status !== 0 || !fs.existsSync(out)) {
     throw new Error(`remotion render faalde (status=${r.status}): ${(r.stderr || '').toString().slice(0, 200)}`)
