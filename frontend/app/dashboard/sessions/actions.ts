@@ -31,3 +31,26 @@ export async function resumeSession(host: string, cwd: string) {
   revalidatePath(PATH)
   return { ok: !error, error: error?.message ?? null, id: (data as string) ?? null }
 }
+
+/** Verwijdert één (dode/oude) sessie uit de lijst. Echt-actieve sessies komen
+ *  vanzelf terug zodra ze een volgend event schrijven. */
+export async function deleteSession(host: string, sessionId: string) {
+  const supabase = await createClient()
+  const { error } = await supabase.rpc('hermes_delete_session', {
+    p_host: host,
+    p_session_id: sessionId,
+  })
+  revalidatePath(PATH)
+  return { ok: !error, error: error?.message ?? null }
+}
+
+/** Ruimt in bulk alle sessies op die langer dan idleMinutes geen event hadden
+ *  en niet meer 'working' zijn. Geeft het aantal opgeschoonde sessies terug. */
+export async function clearStaleSessions(idleMinutes = 60) {
+  const supabase = await createClient()
+  const { data, error } = await supabase.rpc('hermes_clear_stale_sessions', {
+    p_idle_minutes: idleMinutes,
+  })
+  revalidatePath(PATH)
+  return { ok: !error, error: error?.message ?? null, count: (data as number) ?? 0 }
+}

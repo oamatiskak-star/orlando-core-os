@@ -1,8 +1,8 @@
 'use client'
 
 import { useState, useTransition } from 'react'
-import { Bot, Play, Monitor, Globe } from 'lucide-react'
-import { setAutopilot, resumeSession } from './actions'
+import { Bot, Play, Monitor, Globe, Trash2, Eraser } from 'lucide-react'
+import { setAutopilot, resumeSession, deleteSession, clearStaleSessions } from './actions'
 
 export type SessionRow = {
   host: string
@@ -78,6 +78,26 @@ export default function SessionsClient({
     })
   }
 
+  const remove = (host: string, sessionId: string, label: string, key: string) => {
+    if (!confirm(`Sessie "${label}" uit de lijst verwijderen?\n\nEen sessie die nog leeft komt vanzelf terug zodra die weer iets doet.`)) return
+    setBusy(key)
+    start(async () => {
+      const r = await deleteSession(host, sessionId)
+      setBusy(null)
+      setMsg(r.ok ? '🗑️ Sessie verwijderd' : r.error)
+    })
+  }
+
+  const clearStale = () => {
+    if (!confirm('Alle sessies opschonen die langer dan 60 min niets deden (en niet meer actief zijn)?')) return
+    setBusy('clear-stale')
+    start(async () => {
+      const r = await clearStaleSessions(60)
+      setBusy(null)
+      setMsg(r.ok ? `🧹 ${r.count} oude sessie(s) opgeschoond` : r.error)
+    })
+  }
+
   return (
     <div className="space-y-4">
       {/* Globale + per-machine schakelaars */}
@@ -111,6 +131,15 @@ export default function SessionsClient({
             })}
           </div>
         )}
+        <div className="pt-1">
+          <button
+            disabled={pending}
+            onClick={clearStale}
+            className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] border bg-rose-500/10 text-rose-300 border-rose-500/20 hover:bg-rose-500/20 ${
+              busy === 'clear-stale' ? 'opacity-50' : ''}`}>
+            <Eraser size={11} /> Ruim oude sessies op (&gt;60 min idle)
+          </button>
+        </div>
       </div>
 
       {msg && <div className="text-xs text-amber-300/90 px-1">{msg}</div>}
@@ -168,6 +197,14 @@ export default function SessionsClient({
                         className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] bg-emerald-500/15 text-emerald-300 border border-emerald-500/20 ${
                           busy === `resume:${r.session_id}` ? 'opacity-50' : ''}`}>
                         <Play size={11} /> Ga verder
+                      </button>
+                      <button
+                        disabled={pending}
+                        title="Verwijder deze sessie uit de lijst"
+                        onClick={() => remove(r.host, r.session_id, r.title || r.project, `del:${r.session_id}`)}
+                        className={`inline-flex items-center gap-1 px-2 py-1 rounded-md text-[11px] bg-white/5 text-white/50 border border-white/10 hover:bg-rose-500/15 hover:text-rose-300 hover:border-rose-500/20 ${
+                          busy === `del:${r.session_id}` ? 'opacity-50' : ''}`}>
+                        <Trash2 size={11} />
                       </button>
                     </div>
                   </td>
