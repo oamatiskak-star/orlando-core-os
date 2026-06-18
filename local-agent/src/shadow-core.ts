@@ -240,7 +240,7 @@ export async function runShadowTopic(o: ShadowOpts): Promise<ShadowResult> {
   const useRemotion = o.renderEngine === 'remotion' && !!voiceRes.outputPath && remotionAvailable()
   if (useRemotion) {
     try {
-      const out = renderRemotionExplainer({
+      const out = await renderRemotionExplainer({
         projectId, voicePath: voiceRes.outputPath!, srtPath: subtitlePath,
         title: content.title, outro: content.cta || strategy?.own_cta?.[0] || '',
         stats: content.stats || [],

@@ -1,8 +1,9 @@
 import React from 'react'
-import { AbsoluteFill, Audio, staticFile, useCurrentFrame, useVideoConfig, interpolate, spring } from 'remotion'
+import { AbsoluteFill, Audio, Img, OffthreadVideo, Sequence, staticFile, useCurrentFrame, useVideoConfig, interpolate, spring } from 'remotion'
 
 type Caption = { text: string; from: number; to: number } // seconden
 type DataBeat = { value: string; label: string; from: number; to: number }
+type Scene = { src: string; from: number; to: number; isVideo: boolean } // src = staticFile-naam
 type Props = {
   title: string
   brand: string
@@ -12,6 +13,36 @@ type Props = {
   outro?: string
   captions: Caption[]
   dataBeats?: DataBeat[]
+  scenes?: Scene[]
+}
+
+/** Achtergrondlaag: de gesourcete content (vastgoed/finance b-roll + charts) per scene-window,
+ *  full-bleed met Ken-Burns op stills. Donkere overlay (apart) houdt captions leesbaar. */
+const SceneBackground: React.FC<{ scenes: Scene[] }> = ({ scenes }) => {
+  const { fps } = useVideoConfig()
+  return (
+    <AbsoluteFill style={{ backgroundColor: '#05080f' }}>
+      {scenes.map((s, i) => {
+        const fromF = Math.round(s.from * fps)
+        const durF = Math.max(1, Math.round((s.to - s.from) * fps))
+        return (
+          <Sequence key={i} from={fromF} durationInFrames={durF} layout="none">
+            {s.isVideo
+              ? <OffthreadVideo src={staticFile(s.src)} muted style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+              : <KenBurns src={s.src} durF={durF} />}
+          </Sequence>
+        )
+      })}
+    </AbsoluteFill>
+  )
+}
+
+const KenBurns: React.FC<{ src: string; durF: number }> = ({ src, durF }) => {
+  const frame = useCurrentFrame()
+  const scale = interpolate(frame, [0, durF], [1.06, 1.14], { extrapolateRight: 'clamp' })
+  return <AbsoluteFill style={{ overflow: 'hidden' }}>
+    <Img src={staticFile(src)} style={{ width: '100%', height: '100%', objectFit: 'cover', transform: `scale(${scale})` }} />
+  </AbsoluteFill>
 }
 
 /** Zachte, bewegende achtergrond-gradient (brand-kleur) — geen statische stock, wel rustig. */
@@ -137,10 +168,13 @@ const OutroCard: React.FC<{ outro: string; accent: string }> = ({ outro, accent 
   )
 }
 
-export const Explainer: React.FC<Props> = ({ title, brand, accent, audioSrc, outro, captions, dataBeats }) => {
+export const Explainer: React.FC<Props> = ({ title, brand, accent, audioSrc, outro, captions, dataBeats, scenes }) => {
+  const hasScenes = Array.isArray(scenes) && scenes.length > 0
   return (
     <AbsoluteFill>
-      <Background brand={brand} accent={accent} />
+      {hasScenes ? <SceneBackground scenes={scenes!} /> : <Background brand={brand} accent={accent} />}
+      {/* leesbaarheids-overlay over de content-achtergrond */}
+      {hasScenes && <AbsoluteFill style={{ background: 'linear-gradient(180deg, #0008 0%, #0002 35%, #0007 100%)' }} />}
       <Audio src={staticFile(audioSrc)} />
       <TitleBar title={title} accent={accent} />
       <StatCards dataBeats={dataBeats || []} accent={accent} />
