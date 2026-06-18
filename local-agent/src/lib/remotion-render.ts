@@ -50,6 +50,17 @@ export interface RemotionInput {
   brand?: string
   accent?: string
   outro?: string
+  stats?: { value: string; label: string }[]   // → tijd-gespreide data-animaties in de body
+}
+
+/** Verdeelt de stats over de body (na de intro, vóór de outro), elk ~3.5s in beeld. */
+function statsToBeats(stats: { value: string; label: string }[], dur: number): { value: string; label: string; from: number; to: number }[] {
+  const list = (stats || []).filter((s) => s && s.value)
+  if (!list.length || dur < 6) return []
+  const start = 2.0, end = Math.max(start + 2, dur - 2.0)
+  const span = (end - start) / list.length
+  const win = Math.min(3.5, span * 0.9)
+  return list.map((s, i) => ({ value: s.value, label: s.label, from: +(start + i * span).toFixed(2), to: +(start + i * span + win).toFixed(2) }))
 }
 
 /** True als het Remotion-project bruikbaar is (project + node_modules aanwezig). */
@@ -68,14 +79,16 @@ export function renderRemotionExplainer(input: RemotionInput): string {
   fs.mkdirSync(publicDir, { recursive: true })
   fs.copyFileSync(input.voicePath, path.join(publicDir, audioName))
 
+  const durSec = probeDur(input.voicePath)
   const props = {
     title: input.title || 'Explainer',
     brand: input.brand || '#0b1f3a',
     accent: input.accent || '#C8102E',
     audioSrc: audioName,
-    audioDurationSec: probeDur(input.voicePath),
+    audioDurationSec: durSec,
     outro: input.outro || '',
     captions,
+    dataBeats: statsToBeats(input.stats || [], durSec),
   }
   const propsPath = path.join(REMO, `props-${input.projectId}.json`)
   fs.writeFileSync(propsPath, JSON.stringify(props))

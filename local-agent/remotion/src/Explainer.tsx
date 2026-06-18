@@ -2,6 +2,7 @@ import React from 'react'
 import { AbsoluteFill, Audio, staticFile, useCurrentFrame, useVideoConfig, interpolate, spring } from 'remotion'
 
 type Caption = { text: string; from: number; to: number } // seconden
+type DataBeat = { value: string; label: string; from: number; to: number }
 type Props = {
   title: string
   brand: string
@@ -10,6 +11,7 @@ type Props = {
   audioDurationSec: number
   outro?: string
   captions: Caption[]
+  dataBeats?: DataBeat[]
 }
 
 /** Zachte, bewegende achtergrond-gradient (brand-kleur) — geen statische stock, wel rustig. */
@@ -69,6 +71,39 @@ const Captions: React.FC<{ captions: Caption[]; accent: string }> = ({ captions,
   )
 }
 
+/** Data-animatie: actieve stat met count-up van het getal-deel + scale-in. Boven de captions. */
+const StatCards: React.FC<{ dataBeats: DataBeat[]; accent: string }> = ({ dataBeats, accent }) => {
+  const frame = useCurrentFrame()
+  const { fps, height } = useVideoConfig()
+  const t = frame / fps
+  const active = (dataBeats || []).find((d) => t >= d.from && t < d.to)
+  if (!active) return null
+  const localFrame = Math.max(0, frame - Math.round(active.from * fps))
+  const enter = spring({ frame: localFrame, fps, config: { damping: 200 }, durationInFrames: 12 })
+  // count-up van het eerste getal in value (bv. "34/100" → 34, "$2.1T" → 2.1, "<20%" → 20)
+  const m = active.value.match(/-?\d+(?:[.,]\d+)?/)
+  let display = active.value
+  if (m) {
+    const target = parseFloat(m[0].replace(',', '.'))
+    const p = interpolate(localFrame, [0, Math.round(0.8 * fps)], [0, 1], { extrapolateLeft: 'clamp', extrapolateRight: 'clamp' })
+    const cur = target * p
+    const shown = Number.isInteger(target) ? String(Math.round(cur)) : cur.toFixed(1)
+    display = active.value.replace(m[0], shown)
+  }
+  return (
+    <div style={{
+      position: 'absolute', left: 0, right: 0, top: Math.round(height * 0.30),
+      display: 'flex', justifyContent: 'center',
+      transform: `scale(${interpolate(enter, [0, 1], [0.8, 1])})`, opacity: enter,
+    }}>
+      <div style={{ textAlign: 'center', background: '#0007', borderRadius: 22, padding: '34px 60px', border: `2px solid ${accent}66` }}>
+        <div style={{ color: '#fff', font: '800 150px Arial, sans-serif', lineHeight: 1, textShadow: '0 4px 24px #0008' }}>{display}</div>
+        <div style={{ color: accent, font: '700 40px Arial, sans-serif', marginTop: 14, letterSpacing: 1, textTransform: 'uppercase' }}>{active.label}</div>
+      </div>
+    </div>
+  )
+}
+
 const IntroCard: React.FC<{ title: string; accent: string }> = ({ title, accent }) => {
   const frame = useCurrentFrame()
   const { fps } = useVideoConfig()
@@ -102,12 +137,13 @@ const OutroCard: React.FC<{ outro: string; accent: string }> = ({ outro, accent 
   )
 }
 
-export const Explainer: React.FC<Props> = ({ title, brand, accent, audioSrc, outro, captions }) => {
+export const Explainer: React.FC<Props> = ({ title, brand, accent, audioSrc, outro, captions, dataBeats }) => {
   return (
     <AbsoluteFill>
       <Background brand={brand} accent={accent} />
       <Audio src={staticFile(audioSrc)} />
       <TitleBar title={title} accent={accent} />
+      <StatCards dataBeats={dataBeats || []} accent={accent} />
       <Captions captions={captions || []} accent={accent} />
       <IntroCard title={title} accent={accent} />
       <OutroCard outro={outro || ''} accent={accent} />

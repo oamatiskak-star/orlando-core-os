@@ -23,6 +23,7 @@ export const RemotionRoot: React.FC = () => {
         audioDurationSec: 10,
         outro: '',
         captions: [],
+        dataBeats: [],
       }}
       calculateMetadata={({ props }: any) => ({
         durationInFrames: Math.max(30, Math.round(((props.audioDurationSec || 10) + 1.2) * FPS)),

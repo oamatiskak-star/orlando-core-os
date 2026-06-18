@@ -15,6 +15,7 @@ export interface ContentResult {
   hook:        string
   cta:         string
   thumbnail_concept: string
+  stats?:      { value: string; label: string }[]   // key-cijfers voor Remotion data-animaties
 }
 
 async function callLMStudio(prompt: string, model: string): Promise<string> {
@@ -148,8 +149,10 @@ Return ONLY valid JSON (no markdown, no code blocks):
   "hook": "first 15 seconds hook with a concrete number, English",
   "full_script": "complete word-for-word script ~${words} words following the 5-part structure, English",
   "cta": "call to action closing sentence, English",
-  "thumbnail_concept": "visual: bold number/chart + 3-4 word overlay, high contrast"
-}`
+  "thumbnail_concept": "visual: bold number/chart + 3-4 word overlay, high contrast",
+  "stats": [{"value":"60%","label":"of the index"},{"value":"$2.1T","label":"market cap"},{"value":"7","label":"companies"}]
+}
+The "stats" are 3-5 REAL key numbers from your script (percent/amount/count) with a short label — for on-screen data animations.`
 
   // Aquier-promo: advertentie/explainer die Aquier uitlegt + naar het product leidt met de
   // WERKENDE betaallink. data_bundle bevat het Aquier-bundelblok (about + product + link).
@@ -178,8 +181,10 @@ Return ONLY valid JSON (no markdown, no code blocks):
   "hook": "eerste 3 seconden in ${promoLang}: concreet getal/verlies-stat, pattern-interrupt",
   "full_script": "compleet woord-voor-woord ad/explainer script ~${Math.round(payload.target_seconds * 2.5)} woorden in ${promoLang}",
   "cta": "slot-CTA in ${promoLang} mét de exacte werkende link",
-  "thumbnail_concept": "promo thumbnail: groot getal/score + 3-woord overlay, hoog contrast, Aquier-merk"
-}`
+  "thumbnail_concept": "promo thumbnail: groot getal/score + 3-woord overlay, hoog contrast, Aquier-merk",
+  "stats": [{"value":"34/100","label":"Deal score"},{"value":"€2.1M","label":"Risico vermeden"},{"value":"<20%","label":"Vergunningskans"}]
+}
+De "stats" zijn 3 ECHTE key-cijfers uit jouw script (score/percentage/bedrag) met kort label — voor on-screen data-animaties.`
 
   // Loop-short: oddly-satisfying visuele loop, GEEN narratie. Alleen metadata + korte on-screen hook.
   const loopsPrompt = `You write metadata for an oddly-satisfying YouTube Short (a seamless visual LOOP, NO narration/voice-over). Seed/topic: "${payload.topic}". Niche: ${payload.channel_name}. Language: ${isEnglish ? 'English' : 'Nederlands'}.
@@ -285,6 +290,11 @@ Geef ALLEEN geldige JSON terug (geen markdown, geen code blocks):
     result.cta               = asStr(result.cta)
     result.thumbnail_concept = asStr(result.thumbnail_concept)
     if (!Array.isArray(result.tags)) result.tags = []
+    // Stats (voor Remotion data-animaties): valideer naar {value,label}; anders weglaten.
+    result.stats = Array.isArray((result as any).stats)
+      ? (result as any).stats.map((s: any) => ({ value: asStr(s?.value).slice(0, 12), label: asStr(s?.label).slice(0, 28) }))
+          .filter((s: any) => s.value).slice(0, 5)
+      : []
 
     // CF2-repair: forceer een kanaal-eigen CTA (geen generieke "abonneer/subscribe/like").
     if (ownCta.length) {
