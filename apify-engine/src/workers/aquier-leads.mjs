@@ -220,20 +220,210 @@ async function fetchApolloLeads(log) {
   return leads
 }
 
+async function fetchCrunchbaseLeads(log) {
+  try {
+    const { items, runId } = await runAndCollect(
+      ACTORS.CRUNCHBASE,
+      { category: 'artificial-intelligence', maxItems: 50, fundingStage: 'seed,series_a' },
+      { timeoutMs: 300_000 },
+    )
+    log(`Crunchbase → ${items.length} bedrijven`)
+    return items.map(item => ({
+      source: 'crunchbase',
+      actor_run_id: runId,
+      company: item.name || item.companyName || null,
+      name: item.founderName || item.ceoName || null,
+      email: item.email || null,
+      linkedin_url: item.linkedinUrl || null,
+      website: item.website || item.homepageUrl || null,
+      description: item.shortDescription || item.description || null,
+      raw: item,
+    }))
+  } catch (err) {
+    log(`⚠️  Crunchbase: ${err.message}`)
+    return []
+  }
+}
+
+async function fetchCareerATS(log) {
+  try {
+    const { items, runId } = await runAndCollect(
+      ACTORS.CAREER_ATS,
+      { query: 'AI startup engineer', location: 'Netherlands', maxResults: 50 },
+      { timeoutMs: 180_000 },
+    )
+    log(`Career ATS → ${items.length} vacatures`)
+    return items
+      .filter(job => job.company || job.companyName)
+      .map(job => ({
+        source: 'career_ats',
+        actor_run_id: runId,
+        company: job.companyName || job.company || null,
+        name: null,
+        email: job.email || null,
+        linkedin_url: job.companyLinkedinUrl || null,
+        website: job.companyWebsite || job.applyUrl || null,
+        description: `Hiring: ${job.title || job.jobTitle || ''} — ${job.location || ''}`,
+        raw: job,
+      }))
+  } catch (err) {
+    log(`⚠️  Career ATS: ${err.message}`)
+    return []
+  }
+}
+
+async function fetchWellfoundLeads(log) {
+  try {
+    const { items, runId } = await runAndCollect(
+      ACTORS.WELLFOUND,
+      { role: 'engineer', location: 'remote', maxJobs: 50 },
+      { timeoutMs: 180_000 },
+    )
+    log(`Wellfound → ${items.length} startups`)
+    return items.map(item => ({
+      source: 'wellfound',
+      actor_run_id: runId,
+      company: item.company?.name || item.companyName || null,
+      name: item.founderName || null,
+      email: item.email || null,
+      linkedin_url: item.company?.linkedinUrl || null,
+      website: item.company?.website || item.companyUrl || null,
+      description: item.company?.tagline || item.description || null,
+      raw: item,
+    }))
+  } catch (err) {
+    log(`⚠️  Wellfound: ${err.message}`)
+    return []
+  }
+}
+
+async function fetchCompanyIntelLeads(log) {
+  const queries = AQUIER_LEAD_QUERIES.slice(0, 2)
+  const leads = []
+  for (const query of queries) {
+    try {
+      const { items, runId } = await runAndCollect(
+        ACTORS.COMPANY_INTEL,
+        { query, maxResults: 30 },
+        { timeoutMs: 180_000 },
+      )
+      log(`Company Intel "${query}" → ${items.length}`)
+      for (const item of items) {
+        leads.push({
+          source: 'company_intel',
+          actor_run_id: runId,
+          company: item.name || item.company || null,
+          name: item.ceoName || item.founderName || null,
+          email: item.email || null,
+          linkedin_url: item.linkedinUrl || null,
+          website: item.website || null,
+          description: item.description || item.industry || null,
+          raw: item,
+        })
+      }
+    } catch (err) {
+      log(`⚠️  Company Intel "${query}": ${err.message}`)
+    }
+  }
+  return leads
+}
+
+async function fetchLinkedInEnrichment(log) {
+  const { data: recentLeads } = await db()
+    .from('aquier_apify_leads')
+    .select('id, linkedin_url')
+    .not('linkedin_url', 'is', null)
+    .is('email', null)
+    .limit(20)
+  if (!recentLeads?.length) return []
+
+  const leads = []
+  const urls = recentLeads.map(l => l.linkedin_url).filter(Boolean).slice(0, 10)
+  if (!urls.length) return []
+
+  try {
+    const { items, runId } = await runAndCollect(
+      ACTORS.LI_ENRICHMENT,
+      { profileUrls: urls },
+      { timeoutMs: 180_000 },
+    )
+    log(`LinkedIn Enrichment → ${items.length} verrijkte profielen`)
+    for (const item of items) {
+      if (!item.email) continue
+      const matchedLead = recentLeads.find(l => l.linkedin_url === item.profileUrl || l.linkedin_url === item.url)
+      if (matchedLead) {
+        await db().from('aquier_apify_leads').update({ email: item.email }).eq('id', matchedLead.id)
+      }
+      leads.push({
+        source: 'li_enrichment',
+        actor_run_id: runId,
+        company: item.company || item.currentCompany || null,
+        name: item.name || item.fullName || null,
+        email: item.email || null,
+        linkedin_url: item.profileUrl || item.url || null,
+        website: null,
+        description: item.headline || item.title || null,
+        raw: item,
+      })
+    }
+  } catch (err) {
+    log(`⚠️  LinkedIn Enrichment: ${err.message}`)
+  }
+  return leads
+}
+
+async function fetchShopifyStores(log) {
+  const queries = AQUIER_LEAD_QUERIES.slice(0, 1)
+  const leads = []
+  for (const query of queries) {
+    try {
+      const { items, runId } = await runAndCollect(
+        ACTORS.SHOPIFY_FINDER,
+        { searchQuery: query, maxResults: 50 },
+        { timeoutMs: 180_000 },
+      )
+      log(`Shopify Finder "${query}" → ${items.length} stores`)
+      for (const item of items) {
+        if (!item.url && !item.website) continue
+        leads.push({
+          source: 'shopify_finder',
+          actor_run_id: runId,
+          company: item.shopName || item.name || null,
+          name: item.ownerName || null,
+          email: item.email || null,
+          linkedin_url: null,
+          website: item.url || item.website || null,
+          description: item.description || item.niche || null,
+          raw: item,
+        })
+      }
+    } catch (err) {
+      log(`⚠️  Shopify Finder "${query}": ${err.message}`)
+    }
+  }
+  return leads
+}
+
 export async function run(log = console.log) {
   log('[aquier-leads] start')
   const started = Date.now()
 
-  const [b2bLeads, ycLeads, gmapsLeads, apolloLeads, linkedinLeads, jobLeads] = await Promise.all([
+  const [b2bLeads, ycLeads, gmapsLeads, apolloLeads, linkedinLeads, jobLeads, crunchbaseLeads, careerLeads, wellfoundLeads, companyIntelLeads, liEnrichLeads, shopifyLeads] = await Promise.all([
     fetchB2BLeads(log),
     fetchYCombinatorLeads(log),
     fetchGoogleMapsLeads(log),
     fetchApolloLeads(log),
     fetchLinkedInLeads(log),
     fetchJobSignals(log),
+    fetchCrunchbaseLeads(log),
+    fetchCareerATS(log),
+    fetchWellfoundLeads(log),
+    fetchCompanyIntelLeads(log),
+    fetchLinkedInEnrichment(log),
+    fetchShopifyStores(log),
   ])
 
-  const allLeads = [...b2bLeads, ...ycLeads, ...gmapsLeads, ...apolloLeads, ...linkedinLeads, ...jobLeads]
+  const allLeads = [...b2bLeads, ...ycLeads, ...gmapsLeads, ...apolloLeads, ...linkedinLeads, ...jobLeads, ...crunchbaseLeads, ...careerLeads, ...wellfoundLeads, ...companyIntelLeads, ...liEnrichLeads, ...shopifyLeads]
   let saved = 0, skipped = 0
 
   for (const lead of allLeads) {
@@ -251,7 +441,7 @@ export async function run(log = console.log) {
   }
 
   const ms = Date.now() - started
-  await heartbeat(ENGINE_KEY, { saved, skipped, b2b: b2bLeads.length, yc: ycLeads.length, gmaps: gmapsLeads.length, apollo: apolloLeads.length, linkedin: linkedinLeads.length, jobs: jobLeads.length, ms })
-  log(`[aquier-leads] klaar in ${ms}ms — ${saved} opgeslagen, ${skipped} duplicaten (B2B:${b2bLeads.length} YC:${ycLeads.length} Maps:${gmapsLeads.length} Apollo:${apolloLeads.length} LI:${linkedinLeads.length} Jobs:${jobLeads.length})`)
+  await heartbeat(ENGINE_KEY, { saved, skipped, b2b: b2bLeads.length, yc: ycLeads.length, gmaps: gmapsLeads.length, apollo: apolloLeads.length, linkedin: linkedinLeads.length, jobs: jobLeads.length, crunchbase: crunchbaseLeads.length, career: careerLeads.length, wellfound: wellfoundLeads.length, company_intel: companyIntelLeads.length, li_enrich: liEnrichLeads.length, shopify: shopifyLeads.length, ms })
+  log(`[aquier-leads] klaar in ${ms}ms — ${saved} opgeslagen, ${skipped} duplicaten (B2B:${b2bLeads.length} YC:${ycLeads.length} Maps:${gmapsLeads.length} Apollo:${apolloLeads.length} LI:${linkedinLeads.length} Jobs:${jobLeads.length} CB:${crunchbaseLeads.length} ATS:${careerLeads.length} WF:${wellfoundLeads.length} CI:${companyIntelLeads.length} LI-E:${liEnrichLeads.length} Shopify:${shopifyLeads.length})`)
   return { saved, skipped }
 }

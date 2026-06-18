@@ -185,6 +185,103 @@ async function generateVideoTranscriptIfMissing(videoId, youtubeUrl, log) {
   }
 }
 
+async function generateVideoScript(videoId, youtubeUrl, transcript, log) {
+  try {
+    const { items, runId } = await runAndCollect(
+      ACTORS.VIDEO_SCRIPT,
+      { transcript: transcript.slice(0, 4000), videoUrl: youtubeUrl, scriptType: 'youtube_short' },
+      { timeoutMs: 120_000 },
+    )
+    return items
+      .map(item => ({ content: item.script || item.content || item.text || '' }))
+      .filter(p => p.content)
+      .map(p => ({
+        video_id: videoId,
+        youtube_url: youtubeUrl,
+        platform: 'video_script',
+        content: p.content,
+        actor_run_id: runId,
+        status: 'draft',
+      }))
+  } catch (err) {
+    log(`⚠️  Video Script ${youtubeUrl}: ${err.message}`)
+    return []
+  }
+}
+
+async function generateTwitterAutoPosts(videoId, youtubeUrl, transcript, log) {
+  try {
+    const { items, runId } = await runAndCollect(
+      ACTORS.TWITTER_AUTO,
+      { transcript: transcript.slice(0, 3000), videoUrl: youtubeUrl, tweetCount: 3 },
+      { timeoutMs: 120_000 },
+    )
+    return items
+      .map(item => ({ content: item.tweet || item.content || item.text || '' }))
+      .filter(p => p.content)
+      .map(p => ({
+        video_id: videoId,
+        youtube_url: youtubeUrl,
+        platform: 'twitter_auto',
+        content: p.content,
+        actor_run_id: runId,
+        status: 'draft',
+      }))
+  } catch (err) {
+    log(`⚠️  Twitter Auto ${youtubeUrl}: ${err.message}`)
+    return []
+  }
+}
+
+async function generateAnswerPublicContent(videoId, youtubeUrl, transcript, log) {
+  try {
+    const keywords = transcript.slice(0, 500).split(/\s+/).slice(0, 5).join(' ')
+    const { items, runId } = await runAndCollect(
+      ACTORS.ANSWER_PUBLIC,
+      { query: keywords, maxResults: 20 },
+      { timeoutMs: 120_000 },
+    )
+    return items
+      .map(item => ({ content: item.question || item.query || item.text || '' }))
+      .filter(p => p.content)
+      .map(p => ({
+        video_id: videoId,
+        youtube_url: youtubeUrl,
+        platform: 'answer_public',
+        content: p.content,
+        actor_run_id: runId,
+        status: 'draft',
+      }))
+  } catch (err) {
+    log(`⚠️  Answer The Public ${youtubeUrl}: ${err.message}`)
+    return []
+  }
+}
+
+async function generateShortVideoRewrite(videoId, youtubeUrl, transcript, log) {
+  try {
+    const { items, runId } = await runAndCollect(
+      ACTORS.SHORT_VIDEO_REWRITER,
+      { transcript: transcript.slice(0, 3000), videoUrl: youtubeUrl, platform: 'tiktok', scriptCount: 2 },
+      { timeoutMs: 120_000 },
+    )
+    return items
+      .map(item => ({ content: item.script || item.rewrite || item.content || item.text || '' }))
+      .filter(p => p.content)
+      .map(p => ({
+        video_id: videoId,
+        youtube_url: youtubeUrl,
+        platform: 'short_video_rewrite',
+        content: p.content,
+        actor_run_id: runId,
+        status: 'draft',
+      }))
+  } catch (err) {
+    log(`⚠️  Short Video Rewrite ${youtubeUrl}: ${err.message}`)
+    return []
+  }
+}
+
 export async function run(log = console.log) {
   log('[cf2-distribution] start')
   const started = Date.now()
@@ -198,21 +295,25 @@ export async function run(log = console.log) {
       || await generateVideoTranscriptIfMissing(video.id, video.youtube_url, log)
     if (!transcript) continue
 
-    const [liPosts, twPosts, multiPosts, fbAdPosts, podcastPosts] = await Promise.all([
+    const [liPosts, twPosts, multiPosts, fbAdPosts, podcastPosts, scriptPosts, twAutoPosts, apPosts, shortPosts] = await Promise.all([
       generateLinkedInPosts(video.id, video.youtube_url, transcript, log),
       generateTwitterThreads(video.id, video.youtube_url, transcript, log),
       generateMultiPlatformPosts(video.id, video.youtube_url, log),
       generateFacebookAdCopy(video.id, video.youtube_url, transcript, log),
       generatePodcastEpisodes(video.id, video.youtube_url, transcript, log),
+      generateVideoScript(video.id, video.youtube_url, transcript, log),
+      generateTwitterAutoPosts(video.id, video.youtube_url, transcript, log),
+      generateAnswerPublicContent(video.id, video.youtube_url, transcript, log),
+      generateShortVideoRewrite(video.id, video.youtube_url, transcript, log),
     ])
 
-    const allPosts = [...liPosts, ...twPosts, ...multiPosts, ...fbAdPosts, ...podcastPosts]
+    const allPosts = [...liPosts, ...twPosts, ...multiPosts, ...fbAdPosts, ...podcastPosts, ...scriptPosts, ...twAutoPosts, ...apPosts, ...shortPosts]
     if (allPosts.length) {
       const { error } = await db().from('cf2_cross_platform_posts').insert(allPosts)
       if (error) log(`⚠️  Posts opslaan ${video.youtube_url}: ${error.message}`)
       else {
         totalPosts += allPosts.length
-        log(`✓ ${allPosts.length} posts draft (LI:${liPosts.length} TW:${twPosts.length} Multi:${multiPosts.length} FB:${fbAdPosts.length} Podcast:${podcastPosts.length}) → ${video.title || video.youtube_url}`)
+        log(`✓ ${allPosts.length} posts draft (LI:${liPosts.length} TW:${twPosts.length} Multi:${multiPosts.length} FB:${fbAdPosts.length} Podcast:${podcastPosts.length} Script:${scriptPosts.length} TWAuto:${twAutoPosts.length} AP:${apPosts.length} Short:${shortPosts.length}) → ${video.title || video.youtube_url}`)
       }
     }
   }
