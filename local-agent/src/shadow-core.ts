@@ -11,6 +11,7 @@ import { sourceVisualsForProject } from './lib/visual-intelligence'
 import { selectMusic } from './lib/music-intelligence'
 import { generateThumbnails } from './lib/thumbnail-intelligence'
 import { renderProject } from './lib/render'
+import { renderRemotionExplainer, remotionAvailable } from './lib/remotion-render'
 import { generateSubtitles } from './lib/subtitles'
 import { cleanForSpeech, cleanTitle } from './lib/script-clean'
 import { assessQuality } from './quality-assess'
@@ -39,6 +40,7 @@ export interface ShadowOpts {
   ollamaModel:   string
   formatProfile?: string | null   // bv. 'us_finance_longform' → data-explainer + FMP-data
   dataSymbols?:   string[]         // tickers voor de FMP-databundel (bv. ['^GSPC','AAPL'])
+  renderEngine?:  string | null   // 'remotion' → high-end motion-graphic render i.p.v. ffmpeg news-desk
 }
 
 export interface ShadowResult {
@@ -230,11 +232,22 @@ export async function runShadowTopic(o: ShadowOpts): Promise<ShadowResult> {
     if (!sub.srtPath) console.warn(`subtitles: ${sub.reason} → legacy per-scene caption`)
   }
 
-  // 9. Render (FASE B) — alleen met echte assets; anders blocked (geen fake render)
+  // 9. Render — Remotion (high-end motion-graphic) als renderEngine='remotion', anders de
+  //    ffmpeg news-desk. Remotion heeft GEEN stock-assets nodig (captions op bewegende gradient).
   let renderUrl: string | null = null
   let renderBlocked: string | null = null
   const renderableAssets = vis.assetsSelected + charts.chartsAttached
-  if (renderableAssets > 0 && voiceRes.outputPath) {
+  const useRemotion = o.renderEngine === 'remotion' && !!voiceRes.outputPath && remotionAvailable()
+  if (useRemotion) {
+    try {
+      const out = renderRemotionExplainer({
+        projectId, voicePath: voiceRes.outputPath!, srtPath: subtitlePath,
+        title: content.title, outro: content.cta || strategy?.own_cta?.[0] || '',
+      })
+      await spine.setRenderUrl(projectId, out)
+      renderUrl = out
+    } catch (e: any) { renderBlocked = `blocked_remotion_failed: ${(e?.message ?? e).toString().slice(0, 220)}` }
+  } else if (renderableAssets > 0 && voiceRes.outputPath) {
     try {
       const r = await renderProject({ projectId, format: o.format, voicePath: voiceRes.outputPath, musicPath: null, pacing: !!o.formatProfile, subtitlePath })
       renderUrl = r.outputPath
