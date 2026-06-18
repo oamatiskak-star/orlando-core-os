@@ -35,6 +35,9 @@ export const ACTORS = {
   YT_HEATMAP:      process.env.ACTOR_YT_HEATMAP     || 'epctex/youtube-video-heatmap-scraper',
   SOCIALBLADE:     process.env.ACTOR_SOCIALBLADE    || 'curious_coder/socialblade-youtube-api',
   RSS_NEWS:        process.env.ACTOR_RSS_NEWS       || 'aktech/rss-news-scraper',
+  REDDIT_SEARCHER: process.env.ACTOR_REDDIT         || 'agentx/reddit-searcher',
+  AI_HYPE_TRACKER: process.env.ACTOR_AI_HYPE        || 'wheat_tourist/ai-hype-tracker',
+  MARKET_INTEL:    process.env.ACTOR_MARKET_INTEL   || 'visita/global-markets-intelligence',
 
   // Cat 2 — Vastgoed
   IMMOSCOUT24:     process.env.ACTOR_IMMOSCOUT24    || 'epctex/immobilienscout24-scraper',
@@ -43,14 +46,19 @@ export const ACTORS = {
   ZILLOW:          process.env.ACTOR_ZILLOW         || 'maxcopell/zillow-zip-code-search',
   NINETYNINECO:    process.env.ACTOR_99CO           || 'epctex/99co-scraper',
   ZONAPROP:        process.env.ACTOR_ZONAPROP       || 'epctex/zonaprop-scraper',
+  AIRBNB:          process.env.ACTOR_AIRBNB         || 'tri_angle/airbnb-scraper',
 
   // Cat 4 — Aquier Leads
   B2B_LEADS:       process.env.ACTOR_B2B_LEADS      || 'dz_omar/ai-lead-extractor',
   YC_SCRAPER:      process.env.ACTOR_YC_SCRAPER     || 'epctex/y-combinator-scraper',
+  GMAPS_LEADS:     process.env.ACTOR_GMAPS_LEADS    || 'easyapi/google-maps-email-extractor',
+  APOLLO_LEADS:    process.env.ACTOR_APOLLO_LEADS   || 'pipelinelabs/lead-scraper-apollo-zoominfo',
 
   // Cat 5 — CF2 Distributie
   TRANSCRIPT_TO_LI: process.env.ACTOR_TRANSCRIPT_TO_LI || 'powerai/transcript-to-linkedin-posts-converter',
   VIDEO_TO_TEXT:   process.env.ACTOR_VIDEO_TO_TEXT  || 'nextapi/video-to-text',
+  VIDEO_TO_SOCIAL: process.env.ACTOR_VIDEO_TO_SOCIAL || 'agentx/video-to-social-post',
+  TWITTER_THREADS: process.env.ACTOR_TWITTER_THREADS || 'easyapi/twitter-thread-generator',
 }
 
 export const CF2_NEWS_FEEDS = (process.env.CF2_NEWS_FEEDS || [
