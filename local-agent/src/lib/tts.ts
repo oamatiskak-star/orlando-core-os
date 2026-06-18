@@ -32,24 +32,73 @@ function spawnEnv(): NodeJS.ProcessEnv {
   return { ...process.env, PATH: [process.env.PATH || '', ...EXTRA_BIN_DIRS].join(':') }
 }
 
+/** Splits tekst op zin-grenzen in chunks <= maxLen. Long-form (~13k tekens) faalt anders
+ *  op edge-tts (één lange request) en overschrijdt de OpenAI/ElevenLabs-limieten. */
+export function chunkText(text: string, maxLen = 2200): string[] {
+  const parts = text.replace(/\s+/g, ' ').trim().match(/[^.!?]+[.!?]+|\S[^.!?]*$/g) ?? [text]
+  const chunks: string[] = []
+  let cur = ''
+  for (const s of parts) {
+    if (cur && (cur.length + 1 + s.length) > maxLen) { chunks.push(cur.trim()); cur = s }
+    else cur += (cur ? ' ' : '') + s
+  }
+  if (cur.trim()) chunks.push(cur.trim())
+  return chunks
+}
+
+/** Concat meerdere mp3-chunks tot één bestand (ffmpeg concat-demuxer, -c copy). */
+export function concatAudio(parts: string[], outputPath: string): boolean {
+  const ffmpeg = resolveBin('ffmpeg', 'FFMPEG_BIN') || 'ffmpeg'
+  const listFile = outputPath + '.concat.txt'
+  fs.writeFileSync(listFile, parts.map(p => `file '${p.replace(/'/g, "'\\''")}'`).join('\n'))
+  const r = spawnSync(ffmpeg, ['-y', '-f', 'concat', '-safe', '0', '-i', listFile, '-c', 'copy', outputPath],
+    { timeout: 120_000, encoding: 'utf8', env: spawnEnv() })
+  try { fs.unlinkSync(listFile) } catch { /* */ }
+  return r.status === 0 && fs.existsSync(outputPath)
+}
+
+function edgeSynthOne(edgeBin: string, voice: string, text: string, out: string): boolean {
+  const tmp = out + '.script.txt'
+  fs.writeFileSync(tmp, text, 'utf8')
+  const r = spawnSync(edgeBin, ['--voice', voice, '--file', tmp, '--write-media', out],
+    { timeout: 180_000, encoding: 'utf8', env: spawnEnv() })
+  try { fs.unlinkSync(tmp) } catch { /* */ }
+  if (r.status !== 0 || !fs.existsSync(out)) {
+    console.warn(`edge-tts chunk faalde (status=${r.status}): ${(r.stderr || r.error?.message || '').toString().slice(0, 200)}`)
+    return false
+  }
+  return true
+}
+
 export async function generateTTS(
   text:       string,
   outputPath: string,
   voice:      string = 'nl-NL-ColetteNeural',
 ): Promise<void> {
-  // Schrijf script naar temp bestand (voorkomt shell-escape issues)
-  const tmpScript = outputPath + '.script.txt'
-  fs.writeFileSync(tmpScript, text, 'utf8')
-  const cleanup = () => { try { fs.unlinkSync(tmpScript) } catch { /* */ } }
+  const cleanup = () => { /* per-chunk cleanup gebeurt inline */ }
 
-  // 1) edge-tts (absoluut pad — geen PATH-afhankelijkheid)
+  // 1) edge-tts met chunking (long-form-veilig): splits op zinnen, synth per chunk, concat.
   const edgeBin = resolveBin('edge-tts', 'EDGE_TTS_BIN')
   if (edgeBin) {
-    const r = spawnSync(edgeBin, ['--voice', voice, '--file', tmpScript, '--write-media', outputPath],
-      { timeout: 60_000, encoding: 'utf8', env: spawnEnv() })
-    if (r.status === 0 && fs.existsSync(outputPath)) { cleanup(); return }
-    // edge-tts gevonden maar faalde → toon de echte reden (geen stille espeak-misleiding)
-    console.warn(`edge-tts faalde (status=${r.status}): ${(r.stderr || r.error?.message || '').toString().slice(0, 300)}`)
+    const chunks = chunkText(text)
+    if (chunks.length <= 1) {
+      if (edgeSynthOne(edgeBin, voice, text, outputPath)) { cleanup(); return }
+    } else {
+      const partPaths: string[] = []
+      let allOk = true
+      for (let i = 0; i < chunks.length; i++) {
+        const part = `${outputPath}.part${i}.mp3`
+        if (!edgeSynthOne(edgeBin, voice, chunks[i], part)) { allOk = false; break }
+        partPaths.push(part)
+      }
+      if (allOk && partPaths.length && concatAudio(partPaths, outputPath)) {
+        for (const p of partPaths) { try { fs.unlinkSync(p) } catch { /* */ } }
+        console.log(`edge-tts: ${chunks.length} chunks ge-synth + geconcat → ${outputPath}`)
+        cleanup(); return
+      }
+      for (const p of partPaths) { try { fs.unlinkSync(p) } catch { /* */ } }
+      console.warn(`edge-tts chunked faalde (chunks=${chunks.length}) — val terug op espeak`)
+    }
   } else {
     console.warn('edge-tts niet gevonden op PATH/gangbare dirs (zet EDGE_TTS_BIN of `pipx install edge-tts`)')
   }

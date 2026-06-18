@@ -23,4 +23,16 @@ export const FOLLOW_LIST: FollowEntry[] = [
   // { handle: '@<vastgoed-concurrent>', niche: 'vastgoed', language: 'nl' },
   // { handle: '@<crypto-concurrent>',   niche: 'crypto',   language: 'nl' },
   // { handle: 'UCxxxxxxxxxxxxxxxxxxxxxx', niche: 'sparen',  language: 'nl' },
+
+  // ── US/EN faceless finance data-explainer referentie (€60k-pilotmarkt) ──
+  // Winner-DNA-targets voor het faceless long-form data-explainer-format. Niet-resolvbare
+  // handles worden veilig overgeslagen. Cureer/uitbreiden naarmate de pilot leert.
+  { handle: '@WallStreetMillennial', niche: 'us_finance', language: 'en' },
+  { handle: '@HowMoneyWorks',        niche: 'us_finance', language: 'en' },
+  { handle: '@EconomicsExplained',   niche: 'us_finance', language: 'en' },
+  { handle: '@ThePlainBagel',        niche: 'us_finance', language: 'en' },
+  { handle: '@Companyman',           niche: 'us_finance', language: 'en' },
+  { handle: '@LogicallyAnswered',    niche: 'us_finance', language: 'en' },
+  { handle: '@ColdFusion',           niche: 'us_finance', language: 'en' },
+  { handle: '@MoneyMacro',           niche: 'us_finance', language: 'en' },
 ]

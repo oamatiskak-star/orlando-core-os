@@ -1,0 +1,112 @@
+import fs from 'fs'
+import os from 'os'
+import path from 'path'
+import { spawnSync } from 'child_process'
+import { resolveBin } from './tts'
+
+/**
+ * SUBTITLES (Content Factory 2.0 — synchrone ondertiteling).
+ *
+ * Genereert een SRT uit de ÉCHTE voicetrack via whisper.cpp (lokaal, gratis,
+ * geen API-afhankelijkheid). Tijdstempels komen uit de audio zelf → de captions
+ * lopen woord-accuraat synchroon en missen geen stukken (i.t.t. de oude statische
+ * caption-per-scene, die losliep van de stem).
+ *
+ * Lokaal-first: vereist whisper-cli (brew install whisper-cpp) + een ggml-model.
+ * Geen binary/model → geeft null terug (render valt netjes terug op géén of de
+ * legacy per-scene caption). Verzint NOOIT timings.
+ */
+
+const home = os.homedir()
+// Engels-only modellen (sneller/nauwkeuriger voor EN) en multilingual (vereist voor NL/ES/etc).
+const EN_MODELS = [
+  process.env.WHISPER_MODEL || '',
+  path.join(home, '.cache/whisper/ggml-base.en.bin'),
+  path.join(home, '.cache/whisper/ggml-small.en.bin'),
+  '/opt/homebrew/share/whisper-cpp/ggml-base.en.bin',
+]
+const MULTI_MODELS = [
+  process.env.WHISPER_MODEL_MULTI || '',
+  path.join(home, '.cache/whisper/ggml-base.bin'),
+  path.join(home, '.cache/whisper/ggml-small.bin'),
+]
+
+/** Kiest het model per taal: EN → .en-model (anders multilingual); NL/ES/etc → ALTIJD multilingual
+ *  (een .en-model brabbelt niet-Engelse audio → onleesbare captions). */
+function resolveModel(language?: string): string | null {
+  const isEn = (language || 'en').slice(0, 2).toLowerCase() === 'en'
+  const order = isEn ? [...EN_MODELS, ...MULTI_MODELS] : [...MULTI_MODELS, ...EN_MODELS]
+  for (const m of order) { if (m && fs.existsSync(m)) return m }
+  return null
+}
+
+/** whisper-cli leest WAV 16kHz mono — converteer de voice (mp3) eerst. */
+function toWav16k(ffmpeg: string, inPath: string, outWav: string): boolean {
+  const r = spawnSync(ffmpeg, ['-y', '-i', inPath, '-ar', '16000', '-ac', '1', '-c:a', 'pcm_s16le', outWav],
+    { timeout: 120_000, encoding: 'utf8' })
+  return r.status === 0 && fs.existsSync(outWav)
+}
+
+export interface SubtitleResult {
+  srtPath: string | null
+  reason: string | null   // gezet wanneer geen SRT (geen binary/model/transcriptie)
+}
+
+/**
+ * Maakt een SRT naast `outBase` (.srt) uit `voicePath`. `language` 'en'|'nl'|'es'.
+ * Korte, op-woord-gesplitste cues (max ~`maxLen` tekens) voor een vlotte news-cadans.
+ */
+export async function generateSubtitles(voicePath: string, outBase: string, opts: { language?: string; maxLen?: number; brand?: string } = {}): Promise<SubtitleResult> {
+  const whisper = resolveBin('whisper-cli', 'WHISPER_BIN') || resolveBin('whisper-cpp', 'WHISPER_BIN')
+  if (!whisper) return { srtPath: null, reason: 'blocked_no_whisper_cli' }
+  const model = resolveModel(opts.language)
+  if (!model) return { srtPath: null, reason: 'blocked_no_whisper_model' }
+  const ffmpeg = resolveBin('ffmpeg', 'FFMPEG_BIN') || 'ffmpeg'
+
+  const wav = `${outBase}.16k.wav`
+  if (!toWav16k(ffmpeg, voicePath, wav)) return { srtPath: null, reason: 'blocked_wav_convert_failed' }
+
+  const lang = (opts.language || 'en').slice(0, 2)
+  const maxLen = opts.maxLen ?? 34   // kortere cues → laatste woord past op één regel
+  const args = [
+    '-m', model, '-f', wav,
+    '-osrt', '-of', outBase,
+    '-ml', String(maxLen), '-sow',        // korte cues, splits op woordgrens
+    '-l', lang, '-np',                     // taal + geen log-spam
+    '-t', String(Math.max(2, Math.min(8, os.cpus().length - 1))),
+  ]
+  // Aquier-content: geef whisper de merknaam vooraf mee → het transcribeert de brand consistent
+  // als "Aquier" i.p.v. fonetische gokjes ("Aquire"/"Akhir"). Alleen voor de Aquier-promo.
+  if (opts.brand === 'aquier') {
+    // Taal-neutrale brand-bias (alleen de naam) → stuurt de spelling zonder de transcriptie-taal
+    // te verstoren (een Engelse prompt brabbelde NL/ES-audio).
+    args.push('--prompt', 'Aquier. Aquier. Aquier.', '--carry-initial-prompt')
+  }
+  const r = spawnSync(whisper, args, { timeout: 600_000, encoding: 'utf8' })
+  try { fs.unlinkSync(wav) } catch { /* */ }
+  const srt = `${outBase}.srt`
+  if (r.status !== 0 || !fs.existsSync(srt)) {
+    return { srtPath: null, reason: `blocked_whisper_failed: ${(r.stderr || r.error?.message || ('status=' + r.status)).toString().slice(0, 160)}` }
+  }
+  applyBrandCorrections(srt, opts.brand)
+  return { srtPath: srt, reason: null }
+}
+
+// Expliciete fonetische whisper-misspellingen van "Aquier" (whole-word). Geen gewone Engelse
+// woorden → veilig. Het werkwoord "acquire/acquired" staat er bewust NIET in.
+const AQUIER_ALIASES = ['Aquire','Aquir','Aquiere','Aquiera','Aquair','Aquaire','Aqueer','Aquie','Aquia','Aquiar',
+  'Akwier','Ackwier','Akwer','Akhir','Akhier','Akheer','Akeer','Akir','Akuyer','Akuier','Akuya','Aquyer','Acuyer']
+// Fuzzy vangnet voor onbekende varianten: A + k/q/c + u/w/h + paar letters + r/er/re-einde
+// (vangt Akuyer/Akhir/Aquire/Aqueer/Aquier). "acquire" begint met 'acq' → niet gevangen.
+const AQUIER_FUZZY = /\bA[kqc][uwh][a-eg-z]{0,4}(?:er|re|r)\b/gi   // 'f' uitgesloten → "aquifer" blijft intact
+
+/** Corrigeert merknaam-misspellingen in de SRT → "Aquier". Alleen voor Aquier-content (brand). */
+function applyBrandCorrections(srtPath: string, brand?: string): void {
+  if (brand !== 'aquier') return
+  try {
+    let s = fs.readFileSync(srtPath, 'utf8')
+    s = s.replace(new RegExp('\\b(?:' + AQUIER_ALIASES.join('|') + ')\\b', 'gi'), 'Aquier')
+    s = s.replace(AQUIER_FUZZY, 'Aquier')
+    fs.writeFileSync(srtPath, s, 'utf8')
+  } catch { /* niet-fataal */ }
+}

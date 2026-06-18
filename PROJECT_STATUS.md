@@ -7,7 +7,85 @@
 
 ---
 
-## 🎯 HUIDIGE FOCUS (2026-06-13 — CLI-L: Affiliate Activation Center / One-Click)
+## 🎯 HUIDIGE FOCUS (2026-06-16 — Autonome "€60k/maand-kanaal"-machine)
+**Opdracht Orlando:** pak alles op wat mist/niet werkt zodat instructie *"maak €60k/maand-kanaal"* autonoom beantwoord kan worden. Plan: `docs/PLAN_60K_CHANNEL_AUTONOMY_2026-06-16.md`.
+**Scope-akkoord:** klaar = autonome machine die €60k *najaagt* (geen knop); stage alles + Orlando keurt per prod-gate; organisch + Shorts-blitz €0 budget; content-kwaliteit in scope.
+**FASE A DIAGNOSE = KLAAR (live 16-6):** bindende constraint = **tractie/content-kwaliteit**, niet de meet-/geldplumbing. Bewijs: 1.142 video's live, SUM 60.914 views ooit (≈58/video), best-ooit 2.422, `views_30d`=0, 0 YPP-kanalen (hoogste 11 subs). Concurrent-mediaan 2.033 / max 714k. Revenue=€0 & CTR=0 zijn symptomen. → traction-first.
+**RE-SEQUENCE:** 1 meetlus → 2 content-kwaliteit(CQI-gate) → 5 distributie → 3 learning → 4 winner-DNA → 6 affiliate → 7 director/strategy → 8 Hermes-intent. Elke fase: branch→PR→gate.
+**🔴 OPEN GATES:** mig 185 prod + `mf_classify_dead_queue(true)`; `CF2_PUBLISH=1`; per-fase gates (zie plan).
+**GEDAAN 16-6:** branch `feat/measurement-loop`; migratie `215_measurement_loop_schedule.sql` (engine_schedule-rijen analytics-feedback + learning-loop, janitor-blok). Diagnose Fase 1: analytics draait maar one-shot (geen dagelijkse her-poll). Diagnose Fase 2: content krijgt 0 views door belofte≠payoff + geen pacing + blinde thumbnail + late dedup.
+**✅ BESLIST 16-6 (Orlando):** pilot = **Engels/US-finance faceless long-form data-explainer**. Bewijs: `docs/ANALYSE_11_KANALEN_60K_2026-06-16.md` (finance = enige kwadrant hoog-RPM × faceless-maakbaar; €60k ≈ 4–7M views/mnd vs 30–200M voor satisfying). US gekozen om plafond (RPM €15–40), risico = brute concurrentie + onze intel is NL.
+**✅ TRACK B — MEETLUS COMPLEET & GEVERIFIEERD (branch `feat/measurement-loop`, beide tsc exit 0):**
+- B1: `supabase/migrations/215_measurement_loop_schedule.sql` — engine_schedule-rijen (janitor-blok).
+- B2: **kernbug gefixt** — `enqueueAnalytics` jobId was `analytics_${videoId}` → botste met actieve job → 24u-herplanning stil gedropt → elke video 1× gemeten bij 0 views. Nu dag-gebucketde jobId. + nieuwe `youtube-engine/src/workers/analytics-sweep.ts` (window-gated dagelijkse her-poll van álle verified_live video's) + gewired in `index.ts` (+ shutdown).
+- B3: `local-agent/src/learning-loop-scheduler.ts` (window-gated, 1×/dag, spiegelt cf2-loop) + PM2-entry in `ecosystem.cli-r.config.js`.
+- **Niet gecommit** (wacht op Orlando's commit/PR-OK). **Gate:** mig 215 op prod + `pm2 restart` CLI-R.
+
+**✅ A1 — PRE-PUBLISH DEDUP COMMIT `ec4c17c9c`:** `youtube-engine/src/lib/title-dedup.ts` + gate in upload-orchestrator (near-duplicate titels → `duplicate_skipped` vóór upload, fail-open). tsc exit 0. 2 commits op branch, niet gepusht.
+
+**✅ FORMAT-ENGINE KERN GEWIRED (commits `6933fe547` + `4036ee09a`, local-agent tsc exit 0):**
+- `financial-data-fetch.ts` (FMP-client, graceful degrade), `chart-generator.ts` (QuickChart→PNG), scene-cap 16:9 40→150.
+- `ai.ts` data-explainer-prompt + FMP-injectie + anti-slop; `shadow-core` haalt databundel; `cf2-producer.resolveChannelFormat()` schakelt om op `content_rules.format_profile='us_finance_longform'`. Bestaande Shorts-kanalen ONGEWIJZIGD.
+- **Activatie-gates (Orlando):** (a) `FMP_API_KEY` in local-agent env; (b) pilotkanaal `content_rules` zetten: `{"format_profile":"us_finance_longform","target_seconds":840,"data_symbols":[...]}`.
+
+**✅ FORMAT-ENGINE AF + A3 + #3 (commits `94e88bcbc`, `c2db09d74`, `0e22fa8bd`, alle tsc exit 0):**
+- Charts-as-visual (`chart-intelligence.ts`, FMP→QuickChart→scene-asset, no-op zonder key) + render-pacing (per-scene punch-in, gegate op profiel) + premium TTS (mode 'premium' voor finance).
+- A3: tekst-overlay op thumbnail-frame-grab (CTR), fail-safe naar platte frame.
+- #3: 8 faceless US-finance referentiekanalen in scanner-volglijst (`seed-channels.ts`, niche us_finance) → winner-DNA-targets.
+
+**STAND:** 9 commits op `feat/measurement-loop`, niet gepusht. Meetlus + dedup + volledige format-engine + thumbnail + US-intel klaar & getypecheckt.
+
+**✅ MONETISATIE + HERMES-INTENT (commits `0c37b4d1d`, `4bbbca4a1`, tsc exit 0):**
+- `affiliate-injection.ts`: affiliate-links van het kanaal worden bij publicatie in de beschrijving geïnjecteerd (eerste euro's; was de ontbrekende schakel — links kwamen nooit vóór de kijker).
+- migratie 216: `channel_objectives` + `set_channel_objective()` (executor: doel + format_profile aan) + `v_channel_objective_progress` (echte 30d-omzet vs doel). FIX sleutelbug: channel_strategy.channel_id = media_holding_channels.id (resolveChannelFormat + objective gebruiken nu de juiste sleutel; live geverifieerd).
+
+**✅ VISUELE LAAG + CONTENT-CLEANUP (16-6, news-desk anchor — local-agent tsc exit 0, NIET gecommit):**
+Aanleiding Orlando: voice+script goed, maar visueel zwak/los; wil "news-presentator" (wat de stem zegt in beeld). Stap 1+2 gebouwd (stap 3 = OpenAI-billing was al opgelost).
+- **NIEUW `local-agent/src/lib/script-clean.ts`** — één sanitizer: `cleanForSpeech` (strip markdown/`(0:00-0:20)`/HOOK-DATABEAT-labels/bullets/regie-haakjes; bron-brackets weg, inhoud-brackets uitgepakt), `cleanTitle`, `captionFromText`, `wrapCaptionLines`. Functioneel getest op lek-script.
+- **`scene-planner.ts`** — `voice_text` altijd `cleanForSpeech`; `caption_text` = WAT DE STEM ZEGT (schoon, leesbaar begrensd) i.p.v. los 6-woord-label; ook in deterministische split.
+- **`shadow-core.ts`** — script één keer schoongemaakt vóór DB-write, scene-planner ÉN TTS (`cleanScript`); titel via `cleanTitle`. Geen leak meer in stem of beeld.
+- **`render.ts`** — news-desk anchor: titelbalk+accent bovenin (project-titel), grote lower-third caption-band (gesynct per scene, multi-line wrap), accentstreep. Chart-cutaways blijven achtergrond. Optionele audio-waveform onderin (`CF2_WAVEFORM=1`, default uit). Env: `CAPTION_ACCENT` (default news-rood).
+- **✅ GEVERIFIEERD via re-render b1c0c795 (S&P 500, 32 scenes, 94.9 MB):** titelbalk + accent + lower-third captions renderen correct (frames gecheckt). Fix tijdens test: drawtext brak op `%` → `expansion=none` + geen `%`-escaping; en-dash/em-dash bullets toegevoegd aan sanitizer. Runner: `scripts/rerender-news-desk.cjs`.
+- **🔴 PRODUCTIE-BLOCKER ffmpeg:** deze Mac had Homebrew-core ffmpeg 8.1 ZONDER libfreetype → `drawtext` ontbrak → oude renders hadden NOOIT captions. Opgelost: `brew uninstall ffmpeg` + `homebrew-ffmpeg/ffmpeg` tap (mét `--enable-libfreetype`). **Render-host Mac Mini moet dezelfde fix krijgen, anders rendert het news-desk-format live geen tekst.**
+- **Restartefacten (oud script, niet de nieuwe pipeline):** "The Shocking Number" inline-kopje + "$195. 07" spatie zitten in de bestaande voice_text; verdwijnen bij nieuw-gegenereerde content via de schone pipeline.
+
+**✅ SYNCHRONE ONDERTITELING + DUUR-FIX (16-6, na Orlando-feedback "ondertiteling mist stukken + niet synchroon" — tsc exit 0, NIET gecommit):**
+- **Oorzaak:** statische caption-per-scene liep los van de stem (afgekapt + niet synchroon). **OpenAI-transcriptie viel af** (insufficient_quota) → lokaal-first gekozen.
+- **NIEUW `local-agent/src/lib/subtitles.ts`** — whisper.cpp (`brew install whisper-cpp` + model `~/.cache/whisper/ggml-base.en.bin`) transcribeert de échte voicetrack → SRT met accurate tijdstempels, korte cues op woordgrens. Graceful null → legacy per-scene caption.
+- **`render.ts`** — brandt SRT met libass (`subtitles=...:force_style`) over de hele video (news lower-third), los van scene-grenzen; per-scene caption uit zodra SRT actief. + **duur-fix:** `probeDuration` (ffprobe) schaalt totale beeldduur naar voicelengte (b1c0c795: voice 386s vs scenes 256s → scale 1.51) + video-assets `-stream_loop -1` zodat slots vullen → `-shortest` kapt narratie niet meer af. Eerder: video 4:13 vs voice 6:26 (laatste ~2 min weg). Nu 6:26 volledig.
+- **`shadow-core.ts`** + runner — genereren SRT vóór render, geven `subtitlePath` door.
+- **Geverifieerd:** re-render b1c0c795 → captions synchroon (t=8s "As of the latest close, the S&P 500 is"), compleet tot 6:10 ("handful of mega-cap stocks?"), volledige 6:26. Previews via signed links geleverd.
+- **Setup-gates voor Mac Mini render-host:** (1) `homebrew-ffmpeg/ffmpeg` tap (libfreetype+libass — drawtext/subtitles); (2) `brew install whisper-cpp` + ggml-model in `~/.cache/whisper/`.
+
+- **Volgende:** Orlando beoordeelt video → commit op `feat/measurement-loop` → Mac Mini setup-gates → daarna schalen. Niet gecommit (wacht op OK).
+
+**STAND: machine end-to-end. 12 commits op `feat/measurement-loop`, niet gepusht. Alles tsc exit 0.**
+Keten: meten (sweep) → kwaliteit (dedup/anti-slop) → content (long-form finance data-explainer + FMP-data + charts + pacing + premium TTS) → CTR (thumbnail-overlay) → intel (US-finance targets) → monetiseren (affiliate-injectie) → sturen (channel_objectives + voortgang-view).
+
+**▶ "MAAK EEN €60k-KANAAL" (na gates) = één commando:**
+`select set_channel_objective('186af826-cfad-41a9-a093-5baf74d3c9c3', 60000, '2026-12-31');` (VermogenTv; media_holding_channels.id).
+
+**✅ OPTIMALISATIES + PROD-GATES (16-6):**
+- Optim gebouwd (commit `6d36574cd`): migratie 217 (winner-detector+horizon-planner → 'content'-blok) + `GET /api/media-holding/objectives`. Conversie-postback (`affiliate-engine/webhook/[network]`) + click-tracking (`/r/[code]`) bleken AL te bestaan → geldlus compleet (op echte broker-links na).
+- **TOEGEPAST OP PROD (via Supabase-MCP):** migratie **215** (analytics/learning engine_schedule) + **216** (channel_objectives + set_channel_objective + v_channel_objective_progress). Inert tot branch-deploy op CLI-R; breken niets.
+- **Gate #3 UITGEVOERD:** `set_channel_objective('186af826…',60000,'2026-12-31')` → VermogenTv doel €60k actief + content_rules.format_profile=us_finance_longform live geverifieerd.
+- **217 NIET op prod** (live-effect, niet in originele gate-lijst) — klaar voor jouw OK.
+
+**🔴 GATES DIE OP JOU WACHTEN (secret/remote — niet vanuit sandbox uitvoerbaar):**
+- #1 `FMP_API_KEY` in local-agent env (CLI-R). Zonder = data-explainer draait in graceful-degrade (geen echte cijfers/charts).
+- #4 echte broker-`affiliate_links` (Robinhood/Webull/Moomoo) voor VermogenTv — jouw broker-accounts.
+- #5 **code-deploy CLI-R** (git pull branch + build + `pm2 restart`) — pas dán leest de draaiende code het profiel + draaien analytics-sweep/learning-loop. PR/merge.
+- (optioneel) 217 op prod aanzetten.
+
+**ACTIVATIE-GATES (Orlando):** (a) `FMP_API_KEY` in local-agent env; (b) `set_channel_objective(...)` draaien (zet profiel + doel); (c) migraties **215 + 216** op prod; (d) `pm2 restart` CLI-R (analytics-sweep + learning-loop-scheduler) + nieuwe broker-affiliate_links rijen voor het kanaal; (e) PR/merge branch. Specs: `PRODUCTIE_SPEC_US_FINANCE_FACELESS.md`.
+3. **US-finance competitor-intel** (mitigeert NL-intel-gat) → scanner seeden.
+4. Content-format-engine: long-form (12–25min) script + FMP-data + grafieken + hook + retentie-pacing + premium TTS.
+5. Monetisatie: US-broker-affiliate + YPP-pad. 6. Hermes-intent "maak €60k-kanaal".
+Backlog: `docs/PLAN_60K_CHANNEL_AUTONOMY_2026-06-16.md`. Specs: `ANALYSE_11_KANALEN_60K_2026-06-16.md`, `PRODUCTIE_SPEC_US_FINANCE_FACELESS.md`.
+
+---
+
+## 🎯 VORIGE FOCUS (2026-06-13 — CLI-L: Affiliate Activation Center / One-Click)
 **Doel:** één command-center + één ACTIVEER-knop; Hermes voert alles uit wat technisch kan, toont
 alleen wettelijk/contractueel verplichte menselijke acties, gaat live bij referral/affiliate-link.
 **Branch:** `feat/affiliate-activation-center` (vanaf `feat/60k-autonomous-scale-loop`). Plan:
@@ -51,7 +129,7 @@ affiliate_setup_readiness() = 44 MANUAL-acties live. `next build` = laatste gate
 
 ---
 
-## 🎯 HUIDIGE FOCUS (2026-06-11 — CLI-L: Media Factory End-to-End Closure)
+## 🎯 VORIGE FOCUS (2026-06-11 — CLI-L: Media Factory End-to-End Closure)
 **Doel:** Media Factory autonoom (CEO Minutes/Day < 20) + één Command Center. Plan: `~/.claude/plans/glittery-swimming-sparkle.md`; audit live bewezen (geheugen `project_media_factory_closure`).
 **Beslissingen:** CF2 = enige pipeline of record (oude `youtube_upload_queue` uitfaseren); volautomatisch publiek met CQI/QC-gate als poortwachter.
 **Branch:** `feat/media-factory-command-center` (vanaf origin/main).

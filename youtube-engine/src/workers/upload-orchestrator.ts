@@ -2,6 +2,7 @@ import cron from 'node-cron'
 import { getSupabase, updateQueueStatus, addLog } from '../lib/supabase'
 import { enqueueUpload, enqueueAnalytics } from '../lib/redis-queue'
 import { buildOAuthClient, setVideoPublic } from '../lib/youtube-api'
+import { duplicateTitleOnChannel } from '../lib/title-dedup'
 import { notifyUploadStarted, notifyQuotaLimit } from '../lib/notifications'
 import { emitErrorEvent } from '../lib/error-emission'
 import { workerLogger } from '../lib/logger'
@@ -153,6 +154,18 @@ async function pollQueuedItems(): Promise<void> {
       await updateQueueStatus(item.id, 'manual_review_required', { last_error: cf2Block })
       await addLog(item.id, item.video_id, 'warn', 'CF2 upload-gate: upload geblokkeerd op objectieve QC-gate', { reason: cf2Block })
       continue
+    }
+
+    // Pre-publish dedup-gate — blokkeer near-duplicate titels vóór upload (anders straft
+    // YouTube beide duplicaten af als spam). Fail-open: DB-hiccup blokkeert de pijplijn niet.
+    if (videoTitle && videoTitle !== 'Onbekend') {
+      const dupReason = await duplicateTitleOnChannel(db, item.channel_id, videoTitle, item.id)
+      if (dupReason) {
+        log.warn('Pre-publish dedup: near-duplicate geblokkeerd', { queueId: item.id, reason: dupReason })
+        await updateQueueStatus(item.id, 'duplicate_skipped', { last_error: dupReason })
+        await addLog(item.id, item.video_id, 'warn', 'Pre-publish dedup: upload overgeslagen (near-duplicate)', { reason: dupReason })
+        continue
+      }
     }
 
     await updateQueueStatus(item.id, 'preparing')

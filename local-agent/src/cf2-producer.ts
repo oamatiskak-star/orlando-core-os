@@ -84,6 +84,64 @@ function langForNiche(niche: string | null): string {
   return 'en'
 }
 
+interface FormatConfig {
+  format: '16:9' | '9:16'
+  targetSeconds: number
+  formatProfile: string | null
+  dataSymbols: string[]
+  language: string | null   // taal uit de kanaalconfig (nl/en/es); null → afleiden uit niche
+}
+
+// Default = Shorts (bestaand gedrag). Alleen een kanaal met content_rules.format_profile
+// = 'us_finance_longform' schakelt om naar de faceless finance data-explainer (16:9, long-form
+// + FMP-data). Fail-safe naar default bij ontbrekende strategy of DB-fout.
+const DEFAULT_FORMAT: FormatConfig = { format: '9:16', targetSeconds: 50, formatProfile: null, dataSymbols: [], language: null }
+
+// LET OP sleutels: channel_strategy.channel_id = media_holding_channels.id (NIET youtube_channels.id).
+// Daarom resolven we op de media-channel-id (job.bron_channel_id), niet op de youtube-channel-id.
+async function resolveChannelFormat(client: SupabaseClient, mediaChannelId: string | null): Promise<FormatConfig> {
+  if (!mediaChannelId) return DEFAULT_FORMAT
+  try {
+    const { data } = await client.from('channel_strategy').select('content_rules').eq('channel_id', mediaChannelId).maybeSingle()
+    const rules = (data?.content_rules ?? {}) as Record<string, unknown>
+    const lang = typeof rules.language === 'string' ? (rules.language as string) : null
+    if (rules.format_profile === 'us_finance_longform') {
+      const sym = Array.isArray(rules.data_symbols) ? (rules.data_symbols as string[]) : []
+      return {
+        format: '16:9',
+        targetSeconds: typeof rules.target_seconds === 'number' ? rules.target_seconds : 840,
+        formatProfile: 'us_finance_longform',
+        dataSymbols: sym.length ? sym : ['^GSPC', '^IXIC', '^DJI'],
+        language: lang ?? 'en',
+      }
+    }
+    if (rules.format_profile === 'aquier_promo') {
+      // Aquier-promo: korte advertentie/explainer (16:9), product + werkende link uit aquier_products.
+      // Taal uit de kanaalconfig (AquierNL=nl, AquierTv=en, AquierTvEs=es).
+      return {
+        format: '16:9',
+        targetSeconds: typeof rules.target_seconds === 'number' ? rules.target_seconds : 90,
+        formatProfile: 'aquier_promo',
+        dataSymbols: [],
+        language: lang,
+      }
+    }
+    if (rules.format_profile === 'loops_short') {
+      // Satisfying-loop short (9:16): naadloze loop + muziek + hook-overlay, geen narratie.
+      return {
+        format: '9:16',
+        targetSeconds: typeof rules.target_seconds === 'number' ? rules.target_seconds : 24,
+        formatProfile: 'loops_short',
+        dataSymbols: [],
+        language: lang,
+      }
+    }
+    return { ...DEFAULT_FORMAT, language: lang }
+  } catch {
+    return DEFAULT_FORMAT
+  }
+}
+
 /** Resolveer onderwerp + youtube-kanaal voor een job (bron-winner / horizon-plan). */
 async function jobContext(client: SupabaseClient, job: Cf2Job): Promise<{ topic: string; channelId: string | null }> {
   let topic = job.reason ?? `${job.bron_niche ?? 'content'} video`
@@ -116,8 +174,13 @@ async function produceJobLive(client: SupabaseClient, job: Cf2Job): Promise<void
   // CF2-repair: HARDE niche-gate VÓÓR generatie. Topic moet binnen de kanaal-niche-topics vallen,
   // anders REJECT — geen script, geen render, geen QC, geen upload (bespaart productie + houdt
   // off-niche content (gaming/K-pop) van finance/vastgoed-kanalen). Fail-open zonder strategy/topics.
+  // Winnaar-replicatie (source_winner_video_id) = een BEWEZEN winnaar van het kanaal →
+  // per definitie on-niche; de letterlijke keyword-gate zou zo'n titel ("This machine runs
+  // forever 🔄") onterecht afkeuren. Sla de gate over voor winnaar-jobs; speculatieve/auto-
+  // topics (horizon/growth) blijven gegate tegen off-niche.
+  const isWinnerReplica = !!job.source_winner_video_id
   const gateStrategy = await loadChannelStrategy(ctx.channelId)
-  if (gateStrategy && gateStrategy.topics.length && !topicMatchesNiche(ctx.topic, gateStrategy.topics)) {
+  if (!isWinnerReplica && gateStrategy && gateStrategy.topics.length && !topicMatchesNiche(ctx.topic, gateStrategy.topics)) {
     const reason = `niche_gate_fail: topic "${ctx.topic}" valt buiten kanaal-topics [${gateStrategy.topics.join(', ')}]`
     log(`  ❌ NICHE-GATE: ${reason} — job afgewezen vóór generatie`)
     await client.from('cf2_jobs').update({ status: 'failed', updated_at: nowIso() }).eq('id', job.id)
@@ -128,16 +191,19 @@ async function produceJobLive(client: SupabaseClient, job: Cf2Job): Promise<void
   await setStep(client, job.id, 'creative', { status: 'running', started_at: nowIso() })
   log(`  creative/render bezig… (lokaal model + visual + tts + ffmpeg — kan minuten duren)`)
   try {
+    const fmt = await resolveChannelFormat(client, job.bron_channel_id)
     const r = await runShadowTopic({
       channelId: ctx.channelId,
       niche: job.bron_niche,
       topic: ctx.topic,
-      language: langForNiche(job.bron_niche),
-      format: '9:16',             // shorts-first (kanaalregel)
+      language: fmt.language ?? langForNiche(job.bron_niche),   // kanaalconfig leidt (AquierNL=nl, AquierTv=en, AquierTvEs=es)
+      format: fmt.format,         // default 9:16 (shorts); 16:9 voor finance-longform-profiel
       voice: 'default',
-      targetSeconds: 50,
+      targetSeconds: fmt.targetSeconds,
       lmStudioModel: LM_STUDIO_MODEL,
       ollamaModel: OLLAMA_MODEL,
+      formatProfile: fmt.formatProfile,
+      dataSymbols: fmt.dataSymbols,
     })
 
     await setStep(client, job.id, 'creative', { status: 'done', completed_at: nowIso(), meta: { project_id: r.projectId, title: r.title, scenes: r.sceneCount } })

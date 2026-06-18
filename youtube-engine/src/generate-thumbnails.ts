@@ -14,20 +14,38 @@ import path from 'path'
 const TMP_DIR = '/tmp/orlando-thumbnails'
 const THUMB_BUCKET = 'yt-thumbnails'
 const SIGNED_URL_TTL = 7 * 24 * 60 * 60 // 7 days
+// A3: tekst-overlay op de frame-grab (CTR). Faalt de font/overlay → val terug op platte frame.
+const THUMB_FONT = process.env.THUMB_FONT || process.env.CAPTION_FONT || '/System/Library/Fonts/Supplemental/Arial Bold.ttf'
 
 const supabase = createClient(
   process.env.SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 )
 
-async function extractFrameFromUrl(videoUrl: string, thumbPath: string, seekSecs = 4): Promise<void> {
+function escDraw(s: string): string {
+  return s.replace(/\\/g, '\\\\').replace(/:/g, '\\:').replace(/'/g, '’').replace(/%/g, '\\%')
+}
+
+/** Eerste ~4 woorden, uppercase — korte, leesbare thumbnail-tekst. */
+function thumbWords(title: string): string {
+  return title.split(/\s+/).filter(Boolean).slice(0, 4).join(' ').toUpperCase().slice(0, 40)
+}
+
+async function extractFrameFromUrl(videoUrl: string, thumbPath: string, seekSecs = 4, overlayText?: string): Promise<void> {
   return new Promise((resolve, reject) => {
+    const filters = ['scale=1280:720']
+    if (overlayText && fs.existsSync(THUMB_FONT)) {
+      filters.push(
+        `drawtext=fontfile='${THUMB_FONT}':text='${escDraw(overlayText)}':fontcolor=yellow:fontsize=84:` +
+        `box=1:boxcolor=black@0.6:boxborderw=24:x=(w-text_w)/2:y=h-(h/3)`,
+      )
+    }
     ffmpeg()
       .input(videoUrl)
       .inputOptions([`-ss ${seekSecs}`])     // fast seek BEFORE input
       .inputOptions(['-t 1'])                  // read max 1s worth of data
       .frames(1)
-      .size('1280x720')
+      .videoFilters(filters)                   // scale + optionele tekst-overlay
       .outputOptions(['-q:v 2'])
       .output(thumbPath)
       .on('end', () => resolve())
@@ -80,11 +98,16 @@ async function main() {
     try {
       // 1. Extract frame at 4s directly from the URL (FFmpeg streams just enough)
       process.stdout.write('  Frame extraheren... ')
+      const overlay = thumbWords(title)
       try {
-        await extractFrameFromUrl(fileUrl, tmpThumb, 4)
+        await extractFrameFromUrl(fileUrl, tmpThumb, 4, overlay)
       } catch {
-        // Fallback: try at 1s (very short video)
-        await extractFrameFromUrl(fileUrl, tmpThumb, 1)
+        try {
+          await extractFrameFromUrl(fileUrl, tmpThumb, 1, overlay)
+        } catch {
+          // Laatste redmiddel: platte frame zonder tekst (mag nooit blokkeren)
+          await extractFrameFromUrl(fileUrl, tmpThumb, 4)
+        }
       }
       const kb = Math.round(fs.statSync(tmpThumb).size / 1024)
       console.log(`✓ (${kb}KB)`)

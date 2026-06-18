@@ -1,6 +1,6 @@
 import fs from 'fs'
 import { spawnSync } from 'child_process'
-import { generateTTS, resolveBin } from './tts'
+import { generateTTS, resolveBin, chunkText, concatAudio } from './tts'
 
 /**
  * VOICE PROVIDER ROUTER (Content Factory 2.0 — FASE 2).
@@ -21,6 +21,7 @@ export const VOICE_GATE_PREMIUM = 'blocked_voice_below_95'          // gescoord 
 export const VOICE_GATE_NO_PROVIDER = 'blocked_no_voice_provider'    // geen enkele provider beschikbaar
 
 const LOCAL_ORDER:   VoiceProvider[] = ['local_xtts', 'piper', 'edge_tts']
+// OpenAI-TTS eerst (gefund + betrouwbaar); ElevenLabs secundair (betere kwaliteit zodra opgewaardeerd).
 const PREMIUM_ORDER: VoiceProvider[] = ['elevenlabs', 'openai_tts']
 
 // edge-tts vereist een geldige stemnaam ('default' → ValueError). Map per taal naar
@@ -115,6 +116,21 @@ async function runProvider(p: VoiceProvider, text: string, out: string, voice: s
   }
 }
 
+/** Long-form-veilige TTS: ElevenLabs/OpenAI hebben tekstlimieten per request. Chunk op
+ *  zin-grenzen, synth elk stuk, concat met ffmpeg. (edge-tts chunkt zelf al → 1 sub-chunk.) */
+async function synthChunked(p: VoiceProvider, text: string, out: string, voice: string): Promise<void> {
+  const chunks = chunkText(text, 2200)
+  if (chunks.length <= 1) { await runProvider(p, text, out, voice); return }
+  const parts: string[] = []
+  for (let i = 0; i < chunks.length; i++) {
+    const part = `${out}.part${i}.mp3`
+    await runProvider(p, chunks[i], part, voice)
+    parts.push(part)
+  }
+  if (!concatAudio(parts, out)) throw new Error(`TTS-concat faalde (${p}, ${chunks.length} chunks)`)
+  for (const pp of parts) { try { fs.unlinkSync(pp) } catch { /* */ } }
+}
+
 /**
  * Kiest een provider volgens de kostenregel en synthetiseert.
  * - shadow/bulk → eerste beschikbare LOKALE provider (gratis).
@@ -129,9 +145,13 @@ export async function synthVoice(text: string, outputPath: string, opts: SynthOp
   // Premium-publish met onvoldoende lokale score → probeer premium-providers.
   if (opts.mode === 'premium' && !localOk) {
     for (const p of PREMIUM_ORDER) {
-      if (providerAvailable(p)) {
-        await runProvider(p, text, outputPath, opts.voice)
+      if (!providerAvailable(p)) continue
+      try {
+        await synthChunked(p, text, outputPath, opts.voice)
         return { provider: p, outputPath, productionReady: true, gateReason: null }
+      } catch (e) {
+        // bv. ElevenLabs 402 (geen credits) → probeer de volgende premium-provider (OpenAI-TTS).
+        console.warn(`premium TTS ${p} faalde (${(e as { response?: { status?: number } })?.response?.status ?? (e as Error).message}) → volgende provider`)
       }
     }
     // Geen premium beschikbaar → val terug op lokaal maar markeer geblokkeerd.

@@ -44,7 +44,7 @@ async function fetchPlanned(limit) {
 function buildPrompt(page) {
   const niche = page.seo_niches || {}
   const cl = page.seo_keyword_clusters || {}
-  return `Je bent een Nederlandse financiële content-redacteur. Schrijf een SEO-geoptimaliseerd artikel in het Nederlands.
+  return `Je bent een Nederlandse financiële content-redacteur. Schrijf een SEO-geoptimaliseerd artikel in het Nederlands, geoptimaliseerd om geciteerd te worden door AI-zoekmachines (Google AI Overviews, ChatGPT, Perplexity, Gemini).
 
 ONDERWERP (H1): ${page.h1}
 NICHE: ${niche.naam} — ${niche.beschrijving || ''}
@@ -52,14 +52,15 @@ PRIMAIR ZOEKWOORD: ${cl.primary_keyword || page.h1}
 ZOEKINTENTIE: ${cl.search_intent || 'informational'}
 
 EISEN:
-- 700-1000 woorden, markdown (## koppen, lijsten waar nuttig).
-- Begin met een directe, waardevolle intro (geen "in dit artikel").
+- 700-1000 woorden, markdown (## koppen, lijsten waar nuttig). GEEN frontmatter, GEEN titel-H1 (die staat al vast).
+- ANTWOORD-ALINEA EERST: open met precies één alinea van 40-60 woorden die het primaire zoekwoord direct beantwoordt (definitie/kernantwoord, zelfstandig leesbaar). AI's citeren juist dit blok. Geen "in dit artikel", geen omhaal.
 - Feitelijk, concreet, geen verzonnen cijfers of bronnen. Bij twijfel: algemeen formuleren.
 - Geen persoonlijke naam, geen "ik". Naamloze, professionele toon (NL SEO-regel).
-- Eindig met een korte, natuurlijke call-to-action richting het YouTube-kanaal ${niche.channel_link} voor meer.
-- GEEN frontmatter, GEEN titel-H1 (die staat al vast). Begin met de intro-paragraaf.
+- Waar relevant: precies één markdown-vergelijkingstabel in GFM-format (headerrij + scheidingsrij "| --- | --- |" + datarijen) — tabellen worden het vaakst door AI geciteerd.
+- Sluit af met "## Veelgestelde vragen": 3-5 vragen, elke vraag op een eigen regel als vetgedrukte zin met vraagteken (exact: **Voorbeeldvraag?**), met daaronder 1-3 zinnen antwoord. Houd dit format exact aan — het voedt de FAQ-structured-data.
+- Daarna een korte, natuurlijke call-to-action richting het YouTube-kanaal ${niche.channel_link} voor meer.
 
-Geef ALLEEN de markdown-body terug.`
+Geef ALLEEN de markdown-body terug, beginnend met de antwoord-alinea.`
 }
 
 async function generate(page) {
