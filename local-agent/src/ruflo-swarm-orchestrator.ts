@@ -40,7 +40,6 @@ const db = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, { auth: { persi
 
 // ── Config laden ──────────────────────────────────────────────────────────────
 
-
 interface AgentDef {
   name: string
   type: string
