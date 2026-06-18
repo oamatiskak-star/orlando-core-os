@@ -201,7 +201,7 @@ module.exports = {
       autorestart: true,
       max_restarts: 999,
       restart_delay: 10000,
-      env: { NODE_ENV: 'production', PORT: '3012' },
+      env: { NODE_ENV: 'production', PORT: '3012', DOTENV_PATH: `${BASE}/.env.gh-secrets` },
       log_file:    '/tmp/pm2-apify-engine.log',
       error_file:  '/tmp/pm2-apify-engine-err.log',
       time:        true,
