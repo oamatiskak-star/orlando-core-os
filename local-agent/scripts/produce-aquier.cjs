@@ -15,7 +15,7 @@ const LANG = process.argv[4] || 'en'
     channelId: CH, niche: LANG === 'es' ? 'real_estate_aquier_es' : 'real_estate_aquier_en',
     topic: TOPIC, language: LANG, format: '16:9', voice: 'default', targetSeconds: 90,
     lmStudioModel: process.env.LM_STUDIO_MODEL || 'default', ollamaModel: process.env.OLLAMA_MODEL || 'llama3.2',
-    formatProfile: 'aquier_promo', dataSymbols: [],
+    formatProfile: 'aquier_promo', dataSymbols: [], renderEngine: 'remotion',
   })
   console.log(`KLAAR in ${Math.round((Date.now() - t0) / 1000)}s`)
   console.log(JSON.stringify({ projectId: r.projectId, title: r.title, scenes: r.sceneCount, voice: r.voiceProvider,

@@ -1,0 +1,116 @@
+import React from 'react'
+import { AbsoluteFill, Audio, staticFile, useCurrentFrame, useVideoConfig, interpolate, spring } from 'remotion'
+
+type Caption = { text: string; from: number; to: number } // seconden
+type Props = {
+  title: string
+  brand: string
+  accent: string
+  audioSrc: string
+  audioDurationSec: number
+  outro?: string
+  captions: Caption[]
+}
+
+/** Zachte, bewegende achtergrond-gradient (brand-kleur) — geen statische stock, wel rustig. */
+const Background: React.FC<{ brand: string; accent: string }> = ({ brand, accent }) => {
+  const frame = useCurrentFrame()
+  const { width, height } = useVideoConfig()
+  const drift = Math.sin(frame / 90) * 0.5 + 0.5
+  const cx = 30 + drift * 40
+  return (
+    <AbsoluteFill style={{ backgroundColor: brand }}>
+      <AbsoluteFill style={{
+        background: `radial-gradient(120% 120% at ${cx}% 18%, ${accent}33 0%, transparent 45%), radial-gradient(140% 140% at ${100 - cx}% 100%, #ffffff14 0%, transparent 50%)`,
+      }} />
+      {/* subtiel raster voor diepte */}
+      <AbsoluteFill style={{
+        backgroundImage: 'linear-gradient(#ffffff0a 1px, transparent 1px), linear-gradient(90deg, #ffffff0a 1px, transparent 1px)',
+        backgroundSize: '64px 64px', opacity: 0.5, maskImage: 'radial-gradient(80% 80% at 50% 40%, #000 30%, transparent 75%)',
+      }} />
+    </AbsoluteFill>
+  )
+}
+
+const TitleBar: React.FC<{ title: string; accent: string }> = ({ title, accent }) => {
+  const frame = useCurrentFrame()
+  const { fps } = useVideoConfig()
+  const slide = spring({ frame, fps, config: { damping: 200 }, durationInFrames: 18 })
+  return (
+    <div style={{ position: 'absolute', top: 0, left: 0, right: 0, transform: `translateY(${interpolate(slide, [0, 1], [-90, 0])}px)` }}>
+      <div style={{ background: '#0009', padding: '20px 44px', display: 'flex', alignItems: 'center', gap: 16 }}>
+        <div style={{ width: 14, height: 40, background: accent, borderRadius: 3 }} />
+        <span style={{ color: '#fff', font: '700 38px Arial, sans-serif', letterSpacing: 0.3 }}>{title}</span>
+      </div>
+      <div style={{ height: 6, background: accent }} />
+    </div>
+  )
+}
+
+/** Lower-third kinetische caption: actieve cue, met inkomende animatie. */
+const Captions: React.FC<{ captions: Caption[]; accent: string }> = ({ captions, accent }) => {
+  const frame = useCurrentFrame()
+  const { fps, height } = useVideoConfig()
+  const t = frame / fps
+  const active = captions.find((c) => t >= c.from && t < c.to)
+  if (!active) return null
+  const localFrame = Math.max(0, frame - Math.round(active.from * fps))
+  const enter = spring({ frame: localFrame, fps, config: { damping: 200 }, durationInFrames: 8 })
+  return (
+    <div style={{
+      position: 'absolute', left: 0, right: 0, bottom: Math.round(height / 8),
+      display: 'flex', justifyContent: 'center',
+      transform: `translateY(${interpolate(enter, [0, 1], [24, 0])}px)`, opacity: enter,
+    }}>
+      <div style={{ maxWidth: '78%', textAlign: 'center', background: '#000a', borderRadius: 14, padding: '16px 30px', borderBottom: `5px solid ${accent}` }}>
+        <span style={{ color: '#fff', font: '700 50px Arial, sans-serif', lineHeight: 1.25 }}>{active.text}</span>
+      </div>
+    </div>
+  )
+}
+
+const IntroCard: React.FC<{ title: string; accent: string }> = ({ title, accent }) => {
+  const frame = useCurrentFrame()
+  const { fps } = useVideoConfig()
+  const introEnd = Math.round(1.1 * fps)
+  if (frame > introEnd + 12) return null
+  const s = spring({ frame, fps, config: { damping: 200 }, durationInFrames: 16 })
+  const out = interpolate(frame, [introEnd, introEnd + 12], [1, 0], { extrapolateLeft: 'clamp', extrapolateRight: 'clamp' })
+  return (
+    <AbsoluteFill style={{ justifyContent: 'center', alignItems: 'center', opacity: out }}>
+      <div style={{ transform: `scale(${interpolate(s, [0, 1], [0.86, 1])})`, textAlign: 'center', opacity: s }}>
+        <div style={{ width: 90, height: 8, background: accent, borderRadius: 4, margin: '0 auto 28px' }} />
+        <span style={{ color: '#fff', font: '800 84px Arial, sans-serif', maxWidth: 1400, display: 'inline-block', lineHeight: 1.1 }}>{title}</span>
+      </div>
+    </AbsoluteFill>
+  )
+}
+
+const OutroCard: React.FC<{ outro: string; accent: string }> = ({ outro, accent }) => {
+  const frame = useCurrentFrame()
+  const { fps, durationInFrames } = useVideoConfig()
+  const start = durationInFrames - Math.round(1.2 * fps)
+  if (frame < start || !outro) return null
+  const s = spring({ frame: frame - start, fps, config: { damping: 200 }, durationInFrames: 14 })
+  return (
+    <AbsoluteFill style={{ justifyContent: 'center', alignItems: 'center', background: '#000c', opacity: s }}>
+      <div style={{ textAlign: 'center' }}>
+        <div style={{ width: 70, height: 8, background: accent, borderRadius: 4, margin: '0 auto 24px' }} />
+        <span style={{ color: '#fff', font: '800 64px Arial, sans-serif', maxWidth: 1300, display: 'inline-block' }}>{outro}</span>
+      </div>
+    </AbsoluteFill>
+  )
+}
+
+export const Explainer: React.FC<Props> = ({ title, brand, accent, audioSrc, outro, captions }) => {
+  return (
+    <AbsoluteFill>
+      <Background brand={brand} accent={accent} />
+      <Audio src={staticFile(audioSrc)} />
+      <TitleBar title={title} accent={accent} />
+      <Captions captions={captions || []} accent={accent} />
+      <IntroCard title={title} accent={accent} />
+      <OutroCard outro={outro || ''} accent={accent} />
+    </AbsoluteFill>
+  )
+}
