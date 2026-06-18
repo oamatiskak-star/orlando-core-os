@@ -15,8 +15,8 @@ try {
 const BASE = process.env.ORLANDO_REPO || __dirname
 
 const SUPA_ENV = {
-  SUPABASE_URL:              process.env.SUPABASE_URL              || 'https://shaunumewswpxhmgbtvv.supabase.co',
-  SUPABASE_SERVICE_ROLE_KEY: process.env.SUPABASE_SERVICE_ROLE_KEY || '',
+  SUPABASE_URL: process.env.SUPABASE_URL || 'https://shaunumewswpxhmgbtvv.supabase.co',
+  ...(process.env.SUPABASE_SERVICE_ROLE_KEY ? { SUPABASE_SERVICE_ROLE_KEY: process.env.SUPABASE_SERVICE_ROLE_KEY } : {}),
 }
 
 module.exports = {

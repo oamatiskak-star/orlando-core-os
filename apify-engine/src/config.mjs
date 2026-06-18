@@ -15,7 +15,7 @@ function loadEnvFile(p) {
     let val = m[2].trim()
     if ((val.startsWith('"') && val.endsWith('"')) || (val.startsWith("'") && val.endsWith("'")))
       val = val.slice(1, -1)
-    if (val && process.env[m[1]] === undefined) process.env[m[1]] = val
+    if (val && !process.env[m[1]]) process.env[m[1]] = val
   }
   _loadedFiles.push(p)
   return true
