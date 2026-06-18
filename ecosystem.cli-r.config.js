@@ -5,7 +5,24 @@
 // VOORKEUR: gebruik docker compose -f docker-compose.cli-r.yml up -d via Coolify.
 // Deze PM2 config is de fallback voor directe uitvoering zonder Docker.
 
-const BASE = process.env.ORLANDO_BASE ?? '/Users/bouwproffsnederlandbv/Github/orlando-core-os'
+const os  = require('os')
+const fs  = require('fs')
+
+// Laad ~/.orlando-env zodat PM2 child-processen SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY etc. krijgen.
+try {
+  const raw = fs.readFileSync(os.homedir() + '/.orlando-env', 'utf8')
+  for (const line of raw.split('\n')) {
+    const m = line.match(/^export\s+([A-Z_][A-Z0-9_]*)=["']?([^"'\n#]*)["']?/)
+    if (m) process.env[m[1]] = m[2].trim()
+  }
+} catch { /* ~/.orlando-env niet gevonden — skip */ }
+
+const BASE = process.env.ORLANDO_BASE ?? process.env.ORLANDO_CORE_OS_DIR ?? '/Users/bouwproffsnederlandbv/Github/orlando-core-os'
+
+const SUPA_ENV = {
+  SUPABASE_URL:              process.env.SUPABASE_URL              || 'https://shaunumewswpxhmgbtvv.supabase.co',
+  SUPABASE_SERVICE_ROLE_KEY: process.env.SUPABASE_SERVICE_ROLE_KEY || '',
+}
 
 module.exports = {
   apps: [
@@ -21,7 +38,7 @@ module.exports = {
       autorestart:   true,
       max_restarts:  999,
       restart_delay: 5000,
-      env: { NODE_ENV: 'production' },
+      env: { NODE_ENV: 'production', ...SUPA_ENV },
       log_file:      '/tmp/pm2-local-agent.log',
       error_file:    '/tmp/pm2-local-agent-err.log',
       time:          true,
@@ -38,7 +55,7 @@ module.exports = {
       autorestart:   true,
       max_restarts:  999,
       restart_delay: 5000,
-      env: { NODE_ENV: 'production' },
+      env: { NODE_ENV: 'production', ...SUPA_ENV },
       log_file:      '/tmp/pm2-content-factory.log',
       error_file:    '/tmp/pm2-content-factory-err.log',
       time:          true,
@@ -55,7 +72,7 @@ module.exports = {
       autorestart:   true,
       max_restarts:  999,
       restart_delay: 5000,
-      env: { NODE_ENV: 'production', WORKER_ID: 'W1' },
+      env: { NODE_ENV: 'production', WORKER_ID: 'W1', ...SUPA_ENV },
       log_file:      '/tmp/pm2-video-worker-1.log',
       error_file:    '/tmp/pm2-video-worker-1-err.log',
       time:          true,
@@ -70,7 +87,7 @@ module.exports = {
       autorestart:   true,
       max_restarts:  999,
       restart_delay: 5000,
-      env: { NODE_ENV: 'production', WORKER_ID: 'W2' },
+      env: { NODE_ENV: 'production', WORKER_ID: 'W2', ...SUPA_ENV },
       log_file:      '/tmp/pm2-video-worker-2.log',
       error_file:    '/tmp/pm2-video-worker-2-err.log',
       time:          true,
@@ -87,7 +104,7 @@ module.exports = {
       autorestart:   true,
       max_restarts:  999,
       restart_delay: 5000,
-      env: { NODE_ENV: 'production' },
+      env: { NODE_ENV: 'production', ...SUPA_ENV },
       log_file:      '/tmp/pm2-seo-optimizer.log',
       error_file:    '/tmp/pm2-seo-optimizer-err.log',
       time:          true,
@@ -104,7 +121,7 @@ module.exports = {
       autorestart:   true,
       max_restarts:  999,
       restart_delay: 5000,
-      env: { NODE_ENV: 'production' },
+      env: { NODE_ENV: 'production', ...SUPA_ENV },
       log_file:      '/tmp/pm2-learning-loop-scheduler.log',
       error_file:    '/tmp/pm2-learning-loop-scheduler-err.log',
       time:          true,
@@ -121,7 +138,7 @@ module.exports = {
       autorestart:   true,
       max_restarts:  999,
       restart_delay: 5000,
-      env: { NODE_ENV: 'production' },
+      env: { NODE_ENV: 'production', ...SUPA_ENV },
       log_file:      '/tmp/pm2-youtube-engine.log',
       error_file:    '/tmp/pm2-youtube-engine-err.log',
       time:          true,
@@ -138,7 +155,7 @@ module.exports = {
       autorestart:   true,
       max_restarts:  999,
       restart_delay: 10000,
-      env: { NODE_ENV: 'production' },
+      env: { NODE_ENV: 'production', ...SUPA_ENV },
       log_file:      '/tmp/pm2-youtube-watchdog.log',
       error_file:    '/tmp/pm2-youtube-watchdog-err.log',
       time:          true,
@@ -155,7 +172,7 @@ module.exports = {
       autorestart:   true,
       max_restarts:  999,
       restart_delay: 5000,
-      env: { NODE_ENV: 'production' },
+      env: { NODE_ENV: 'production', ...SUPA_ENV },
       log_file:      '/tmp/pm2-mail-engine.log',
       error_file:    '/tmp/pm2-mail-engine-err.log',
       time:          true,
@@ -172,7 +189,7 @@ module.exports = {
       autorestart:   true,
       max_restarts:  999,
       restart_delay: 5000,
-      env: { NODE_ENV: 'production', MACHINE_ID: 'cli-r-executor-1' },
+      env: { NODE_ENV: 'production', MACHINE_ID: 'cli-r-executor-1', ...SUPA_ENV },
       log_file:      '/tmp/pm2-planning-engine.log',
       error_file:    '/tmp/pm2-planning-engine-err.log',
       time:          true,
@@ -188,7 +205,7 @@ module.exports = {
       watch:          false,
       autorestart:    false,
       cron_restart:   '30 5 * * *',
-      env: { NODE_ENV: 'production' },
+      env: { NODE_ENV: 'production', ...SUPA_ENV },
       log_file:       '/tmp/pm2-daily-scheduler.log',
       error_file:     '/tmp/pm2-daily-scheduler-err.log',
       time:           true,
@@ -205,7 +222,7 @@ module.exports = {
       autorestart:   true,
       max_restarts:  999,
       restart_delay: 15000,
-      env: { NODE_ENV: 'production', NODE_ID: 'cli-r', POLL_INTERVAL_MS: '30000' },
+      env: { NODE_ENV: 'production', NODE_ID: 'cli-r', POLL_INTERVAL_MS: '30000', ...SUPA_ENV },
       log_file:      '/tmp/pm2-monitoring-agent.log',
       error_file:    '/tmp/pm2-monitoring-agent-err.log',
       time:          true,
@@ -234,6 +251,7 @@ module.exports = {
         REBUILD_COOLDOWN_MS: '600000',
         WATCHDOG_DENYLIST: '',
         PORT: '3007',
+        ...SUPA_ENV,
       },
       log_file:      '/tmp/pm2-local-watchdog.log',
       error_file:    '/tmp/pm2-local-watchdog-err.log',
