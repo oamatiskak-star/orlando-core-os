@@ -4,6 +4,8 @@ import { fileURLToPath } from 'url'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 
+const _loadedFiles = []
+
 function loadEnvFile(p) {
   if (!p || !existsSync(p)) return false
   for (const line of readFileSync(p, 'utf8').split('\n')) {
@@ -14,6 +16,7 @@ function loadEnvFile(p) {
       val = val.slice(1, -1)
     if (val && process.env[m[1]] === undefined) process.env[m[1]] = val
   }
+  _loadedFiles.push(p)
   return true
 }
 
@@ -22,6 +25,8 @@ loadEnvFile(join(__dirname, '..', '.env'))
 loadEnvFile(join(__dirname, '..', '..', '.env.gh-secrets'))
 loadEnvFile(join(__dirname, '..', '..', 'local-agent', '.env'))
 loadEnvFile(join(__dirname, '..', '..', 'youtube-engine', '.env'))
+
+export const LOADED_ENV_FILES = _loadedFiles
 
 export const SUPABASE_URL  = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL
 export const SERVICE_KEY   = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_KEY

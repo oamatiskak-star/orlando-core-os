@@ -8,7 +8,7 @@
  *   Cat 5 apify:cf2-distribution   → youtube-blok (06:00-07:00)
  */
 import http from 'node:http'
-import { PORT, TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID } from './config.mjs'
+import { PORT, TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID, APIFY_TOKEN, LOADED_ENV_FILES } from './config.mjs'
 import { windowOpen, heartbeat } from './lib/supabase.mjs'
 import { run as runCf2Intelligence }  from './workers/cf2-intelligence.mjs'
 import { run as runVastgoed }         from './workers/vastgoed-scrapers.mjs'
@@ -80,8 +80,25 @@ const server = http.createServer(async (req, res) => {
       service: 'apify-engine',
       running,
       lastRun,
+      apify_token: APIFY_TOKEN ? `${APIFY_TOKEN.slice(0, 12)}… (${APIFY_TOKEN.length}c)` : 'MISSING',
+      env_files: LOADED_ENV_FILES,
       time: new Date().toISOString(),
     }))
+  }
+  if (req.method === 'GET' && req.url === '/test-apify') {
+    try {
+      if (!APIFY_TOKEN) {
+        res.writeHead(500, { 'Content-Type': 'application/json' })
+        return res.end(JSON.stringify({ ok: false, error: 'APIFY_TOKEN not set', env_files: LOADED_ENV_FILES }))
+      }
+      const r = await fetch(`https://api.apify.com/v2/users/me?token=${APIFY_TOKEN}`)
+      const body = await r.json().catch(() => r.text())
+      res.writeHead(r.ok ? 200 : r.status, { 'Content-Type': 'application/json' })
+      return res.end(JSON.stringify({ ok: r.ok, status: r.status, token_prefix: APIFY_TOKEN.slice(0, 12), body }))
+    } catch (err) {
+      res.writeHead(500, { 'Content-Type': 'application/json' })
+      return res.end(JSON.stringify({ ok: false, error: err.message }))
+    }
   }
   if (req.method === 'POST' && req.url === '/run') {
     const result = await dispatch('manual').catch(e => ({ error: String(e?.message || e) }))
@@ -113,3 +130,5 @@ setInterval(() => dispatch('cron').catch(err => console.error('[cron]', err.mess
 // ── Eerste heartbeat bij opstart ──────────────────────────────────
 heartbeat('engine.apify-engine.tick', { started: true }).catch(() => {})
 console.log('[apify-engine] gestart — workers:', WORKERS.map(w => w.name).join(', '))
+console.log('[apify-engine] env-files geladen:', LOADED_ENV_FILES.join(', '))
+console.log(`[apify-engine] APIFY_TOKEN: ${APIFY_TOKEN ? `${APIFY_TOKEN.slice(0, 12)}… (${APIFY_TOKEN.length} chars)` : 'NIET GEVONDEN ⚠️'}`)
