@@ -54,11 +54,29 @@ export const ACTORS = {
   GMAPS_LEADS:     process.env.ACTOR_GMAPS_LEADS    || 'easyapi/google-maps-email-extractor',
   APOLLO_LEADS:    process.env.ACTOR_APOLLO_LEADS   || 'pipelinelabs/lead-scraper-apollo-zoominfo',
 
+  // Cat 1 — CF2 Intelligence (extra)
+  TIKTOK_SCRAPER:  process.env.ACTOR_TIKTOK          || 'apidojo/tiktok-scraper',
+  CRYPTO_NEWS:     process.env.ACTOR_CRYPTO_NEWS      || 'sync-network/awesome-crypto-news-scraper',
+  SOCIAL_TRENDS:   process.env.ACTOR_SOCIAL_TRENDS    || 'manju4k/social-media-trend-scraper-6-in-1-ai-analysis',
+
+  // Cat 2 — Vastgoed (extra)
+  CREXI:           process.env.ACTOR_CREXI            || 'jupri/crexi',
+  IMMOWELT:        process.env.ACTOR_IMMOWELT         || 'azzouzana/immowelt-de-search-results-scraper-by-search-url',
+  ZUMPER:          process.env.ACTOR_ZUMPER           || 'scrapemind/zumpercom-scraper',
+  NINETYNINACRES:  process.env.ACTOR_99ACRES          || 'fatihtahta/99acres-scraper',
+
+  // Cat 4 — Aquier Leads (extra)
+  LI_POSTS:        process.env.ACTOR_LI_POSTS         || 'scary_good_apis/linkedin-search-posts',
+  LI_PROFILES:     process.env.ACTOR_LI_PROFILES      || 'dataweave/linkedin-profile-scraper',
+  JOBS_SCRAPER:    process.env.ACTOR_JOBS_SCRAPER      || 'agentx/all-jobs-scraper',
+
   // Cat 5 — CF2 Distributie
   TRANSCRIPT_TO_LI: process.env.ACTOR_TRANSCRIPT_TO_LI || 'powerai/transcript-to-linkedin-posts-converter',
   VIDEO_TO_TEXT:   process.env.ACTOR_VIDEO_TO_TEXT  || 'nextapi/video-to-text',
   VIDEO_TO_SOCIAL: process.env.ACTOR_VIDEO_TO_SOCIAL || 'agentx/video-to-social-post',
   TWITTER_THREADS: process.env.ACTOR_TWITTER_THREADS || 'easyapi/twitter-thread-generator',
+  FB_AD_COPY:      process.env.ACTOR_FB_AD_COPY       || 'powerai/facebook-ad-copywriter-creator',
+  PODCAST_IDEAS:   process.env.ACTOR_PODCAST_IDEAS    || 'powerai/podcast-episode-ideas-creator',
 }
 
 export const CF2_NEWS_FEEDS = (process.env.CF2_NEWS_FEEDS || [
@@ -68,6 +86,7 @@ export const CF2_NEWS_FEEDS = (process.env.CF2_NEWS_FEEDS || [
 ].join(',')).split(',').filter(Boolean)
 
 export const CF2_COMPETITOR_CHANNELS = (process.env.CF2_COMPETITOR_CHANNELS || '').split(',').filter(Boolean)
+export const CF2_TIKTOK_QUERIES = (process.env.CF2_TIKTOK_QUERIES || 'finance investing,stock market tips,crypto market').split(',').filter(Boolean)
 
 export const AQUIER_LEAD_QUERIES = (process.env.AQUIER_LEAD_QUERIES || 'founder AI startup,developer SaaS tools').split(',').filter(Boolean)
 

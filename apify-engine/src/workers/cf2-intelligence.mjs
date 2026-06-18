@@ -8,7 +8,7 @@
  */
 import { runAndCollect } from '../lib/apify.mjs'
 import { db, heartbeat } from '../lib/supabase.mjs'
-import { ACTORS, CF2_NEWS_FEEDS, CF2_COMPETITOR_CHANNELS } from '../config.mjs'
+import { ACTORS, CF2_NEWS_FEEDS, CF2_COMPETITOR_CHANNELS, CF2_TIKTOK_QUERIES } from '../config.mjs'
 
 const ENGINE_KEY = 'apify:cf2-intelligence'
 
@@ -172,6 +172,82 @@ async function fetchAIHypeTopics(log) {
   }
 }
 
+async function fetchTikTokTrends(log) {
+  const queries = CF2_TIKTOK_QUERIES.length ? CF2_TIKTOK_QUERIES : ['finance investing', 'stock market tips', 'crypto market']
+  const items = []
+  for (const query of queries.slice(0, 3)) {
+    try {
+      const { items: posts, runId } = await runAndCollect(
+        ACTORS.TIKTOK_SCRAPER,
+        { searchQuery: query, maxItems: 20, type: 'search' },
+        { timeoutMs: 120_000 },
+      )
+      for (const post of posts) {
+        if (!post.text && !post.desc && !post.description) continue
+        items.push({
+          source: 'tiktok',
+          actor_run_id: runId,
+          title: post.text || post.desc || post.description || '',
+          url: post.webVideoUrl || post.url || (post.id ? `https://tiktok.com/@${post.authorMeta?.name}/video/${post.id}` : null),
+          description: `Views: ${post.playCount || 0} | Likes: ${post.diggCount || 0}`,
+          published_at: post.createTime ? new Date(post.createTime * 1000).toISOString() : null,
+          relevance_score: Math.min((post.playCount || 0) / 5_000_000, 1),
+        })
+      }
+      log(`TikTok "${query}" → ${posts.length} posts`)
+    } catch (err) {
+      log(`⚠️  TikTok "${query}": ${err.message}`)
+    }
+  }
+  return items
+}
+
+async function fetchCryptoNews(log) {
+  try {
+    const { items, runId } = await runAndCollect(
+      ACTORS.CRYPTO_NEWS,
+      { searchQuery: 'Bitcoin Ethereum crypto market', maxItems: 20 },
+      { timeoutMs: 120_000 },
+    )
+    log(`Crypto News → ${items.length} articles`)
+    return items.map(item => ({
+      source: 'crypto_news',
+      actor_run_id: runId,
+      title: item.title || item.headline || '',
+      url: item.url || item.link || null,
+      description: item.body?.slice(0, 500) || item.description || item.summary || null,
+      published_at: item.publishedAt ? new Date(item.publishedAt).toISOString() : null,
+      relevance_score: 0.7,
+    })).filter(t => t.title)
+  } catch (err) {
+    log(`⚠️  Crypto News: ${err.message}`)
+    return []
+  }
+}
+
+async function fetchSocialTrends(log) {
+  try {
+    const { items, runId } = await runAndCollect(
+      ACTORS.SOCIAL_TRENDS,
+      { topic: 'finance investing wealth', platforms: ['youtube', 'tiktok', 'twitter'], maxItems: 20 },
+      { timeoutMs: 180_000 },
+    )
+    log(`Social Trends 6-in-1 → ${items.length} trends`)
+    return items.map(item => ({
+      source: 'social_trends',
+      actor_run_id: runId,
+      title: item.title || item.hashtag || item.trend || '',
+      url: item.url || null,
+      description: item.summary || item.analysis || item.description || null,
+      published_at: item.date ? new Date(item.date).toISOString() : null,
+      relevance_score: item.engagementScore ? Math.min(item.engagementScore / 100, 1) : 0.6,
+    })).filter(t => t.title)
+  } catch (err) {
+    log(`⚠️  Social Trends: ${err.message}`)
+    return []
+  }
+}
+
 async function fetchMarketIntelligence(log) {
   try {
     const { items, runId } = await runAndCollect(
@@ -199,15 +275,18 @@ export async function run(log = console.log) {
   log('[cf2-intelligence] start')
   const started = Date.now()
 
-  const [rssTopics, ytTopics, redditTopics, aiHypeTopics, marketTopics] = await Promise.all([
+  const [rssTopics, ytTopics, redditTopics, aiHypeTopics, marketTopics, tiktokTopics, cryptoTopics, socialTrends] = await Promise.all([
     fetchRssTopics(log),
     fetchYouTubeTrending(log),
     fetchRedditTopics(log),
     fetchAIHypeTopics(log),
     fetchMarketIntelligence(log),
+    fetchTikTokTrends(log),
+    fetchCryptoNews(log),
+    fetchSocialTrends(log),
   ])
 
-  const allTopics = [...rssTopics, ...ytTopics, ...redditTopics, ...aiHypeTopics, ...marketTopics]
+  const allTopics = [...rssTopics, ...ytTopics, ...redditTopics, ...aiHypeTopics, ...marketTopics, ...tiktokTopics, ...cryptoTopics, ...socialTrends]
     .filter(t => t.title)
 
   if (allTopics.length) {
@@ -226,8 +305,11 @@ export async function run(log = console.log) {
     reddit: redditTopics.length,
     ai_hype: aiHypeTopics.length,
     market: marketTopics.length,
+    tiktok: tiktokTopics.length,
+    crypto: cryptoTopics.length,
+    social_trends: socialTrends.length,
     ms,
   })
-  log(`[cf2-intelligence] klaar in ${ms}ms — ${allTopics.length} topics (RSS:${rssTopics.length} YT:${ytTopics.length} Reddit:${redditTopics.length} AI:${aiHypeTopics.length} Market:${marketTopics.length})`)
+  log(`[cf2-intelligence] klaar in ${ms}ms — ${allTopics.length} topics (RSS:${rssTopics.length} YT:${ytTopics.length} Reddit:${redditTopics.length} AI:${aiHypeTopics.length} Market:${marketTopics.length} TikTok:${tiktokTopics.length} Crypto:${cryptoTopics.length} Social:${socialTrends.length})`)
   return { topics: allTopics.length }
 }

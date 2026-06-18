@@ -103,6 +103,92 @@ async function fetchGoogleMapsLeads(log) {
   return leads
 }
 
+async function fetchLinkedInLeads(log) {
+  const queries = AQUIER_LEAD_QUERIES.slice(0, 2)
+  const leads = []
+  for (const query of queries) {
+    try {
+      const { items: posts, runId: postsRun } = await runAndCollect(
+        ACTORS.LI_POSTS,
+        { keyword: query, maxResults: 30 },
+        { timeoutMs: 120_000 },
+      )
+      log(`LinkedIn Posts "${query}" → ${posts.length} posts`)
+      for (const post of posts) {
+        const name = post.authorName || post.author?.name || null
+        if (!name && !post.authorUrl) continue
+        leads.push({
+          source: 'linkedin_posts',
+          actor_run_id: postsRun,
+          company: null,
+          name,
+          email: null,
+          linkedin_url: post.authorUrl || post.author?.url || null,
+          website: null,
+          description: post.text?.slice(0, 300) || post.content?.slice(0, 300) || null,
+          raw: post,
+        })
+      }
+    } catch (err) {
+      log(`⚠️  LinkedIn Posts "${query}": ${err.message}`)
+    }
+  }
+
+  try {
+    const { items: profiles, runId: profilesRun } = await runAndCollect(
+      ACTORS.LI_PROFILES,
+      { searchUrl: 'https://www.linkedin.com/search/results/people/?keywords=founder+AI+startup', maxProfiles: 50 },
+      { timeoutMs: 180_000 },
+    )
+    log(`LinkedIn Profiles → ${profiles.length} profielen`)
+    for (const p of profiles) {
+      leads.push({
+        source: 'linkedin_profiles',
+        actor_run_id: profilesRun,
+        company: p.currentCompany || p.company || null,
+        name: p.name || p.fullName || null,
+        email: p.email || null,
+        linkedin_url: p.profileUrl || p.url || null,
+        website: null,
+        description: p.headline || p.title || null,
+        raw: p,
+      })
+    }
+  } catch (err) {
+    log(`⚠️  LinkedIn Profiles: ${err.message}`)
+  }
+  return leads
+}
+
+async function fetchJobSignals(log) {
+  const leads = []
+  try {
+    const { items, runId } = await runAndCollect(
+      ACTORS.JOBS_SCRAPER,
+      { query: 'AI engineer SaaS startup', location: 'Netherlands', maxItems: 50, platform: 'linkedin' },
+      { timeoutMs: 180_000 },
+    )
+    log(`Job Signals → ${items.length} vacatures`)
+    for (const job of items) {
+      if (!job.company && !job.companyName) continue
+      leads.push({
+        source: 'job_signals',
+        actor_run_id: runId,
+        company: job.companyName || job.company || null,
+        name: null,
+        email: null,
+        linkedin_url: job.companyLinkedinUrl || job.companyUrl || null,
+        website: job.companyWebsite || null,
+        description: `Hiring: ${job.title || job.jobTitle || ''} — ${job.location || ''}`,
+        raw: job,
+      })
+    }
+  } catch (err) {
+    log(`⚠️  Job Signals: ${err.message}`)
+  }
+  return leads
+}
+
 async function fetchApolloLeads(log) {
   const queries = AQUIER_LEAD_QUERIES.slice(0, 2) // max 2 queries voor kostenbeheer
   const leads = []
@@ -138,14 +224,16 @@ export async function run(log = console.log) {
   log('[aquier-leads] start')
   const started = Date.now()
 
-  const [b2bLeads, ycLeads, gmapsLeads, apolloLeads] = await Promise.all([
+  const [b2bLeads, ycLeads, gmapsLeads, apolloLeads, linkedinLeads, jobLeads] = await Promise.all([
     fetchB2BLeads(log),
     fetchYCombinatorLeads(log),
     fetchGoogleMapsLeads(log),
     fetchApolloLeads(log),
+    fetchLinkedInLeads(log),
+    fetchJobSignals(log),
   ])
 
-  const allLeads = [...b2bLeads, ...ycLeads, ...gmapsLeads, ...apolloLeads]
+  const allLeads = [...b2bLeads, ...ycLeads, ...gmapsLeads, ...apolloLeads, ...linkedinLeads, ...jobLeads]
   let saved = 0, skipped = 0
 
   for (const lead of allLeads) {
@@ -163,7 +251,7 @@ export async function run(log = console.log) {
   }
 
   const ms = Date.now() - started
-  await heartbeat(ENGINE_KEY, { saved, skipped, b2b: b2bLeads.length, yc: ycLeads.length, gmaps: gmapsLeads.length, apollo: apolloLeads.length, ms })
-  log(`[aquier-leads] klaar in ${ms}ms — ${saved} opgeslagen, ${skipped} duplicaten (B2B:${b2bLeads.length} YC:${ycLeads.length} Maps:${gmapsLeads.length} Apollo:${apolloLeads.length})`)
+  await heartbeat(ENGINE_KEY, { saved, skipped, b2b: b2bLeads.length, yc: ycLeads.length, gmaps: gmapsLeads.length, apollo: apolloLeads.length, linkedin: linkedinLeads.length, jobs: jobLeads.length, ms })
+  log(`[aquier-leads] klaar in ${ms}ms — ${saved} opgeslagen, ${skipped} duplicaten (B2B:${b2bLeads.length} YC:${ycLeads.length} Maps:${gmapsLeads.length} Apollo:${apolloLeads.length} LI:${linkedinLeads.length} Jobs:${jobLeads.length})`)
   return { saved, skipped }
 }

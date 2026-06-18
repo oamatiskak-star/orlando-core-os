@@ -111,6 +111,54 @@ async function generateMultiPlatformPosts(videoId, youtubeUrl, log) {
   }
 }
 
+async function generateFacebookAdCopy(videoId, youtubeUrl, transcript, log) {
+  try {
+    const { items, runId } = await runAndCollect(
+      ACTORS.FB_AD_COPY,
+      { transcript: transcript.slice(0, 3000), videoUrl: youtubeUrl, adCount: 3 },
+      { timeoutMs: 120_000 },
+    )
+    return items
+      .map(item => ({ content: item.adCopy || item.copy || item.content || item.text || '' }))
+      .filter(p => p.content)
+      .map(p => ({
+        video_id: videoId,
+        youtube_url: youtubeUrl,
+        platform: 'facebook_ad',
+        content: p.content,
+        actor_run_id: runId,
+        status: 'draft',
+      }))
+  } catch (err) {
+    log(`⚠️  Facebook Ad Copy ${youtubeUrl}: ${err.message}`)
+    return []
+  }
+}
+
+async function generatePodcastEpisodes(videoId, youtubeUrl, transcript, log) {
+  try {
+    const { items, runId } = await runAndCollect(
+      ACTORS.PODCAST_IDEAS,
+      { transcript: transcript.slice(0, 4000), videoUrl: youtubeUrl, episodeCount: 2 },
+      { timeoutMs: 120_000 },
+    )
+    return items
+      .map(item => ({ content: item.episodeOutline || item.episode || item.content || item.text || '' }))
+      .filter(p => p.content)
+      .map(p => ({
+        video_id: videoId,
+        youtube_url: youtubeUrl,
+        platform: 'podcast',
+        content: p.content,
+        actor_run_id: runId,
+        status: 'draft',
+      }))
+  } catch (err) {
+    log(`⚠️  Podcast Episodes ${youtubeUrl}: ${err.message}`)
+    return []
+  }
+}
+
 async function generateVideoTranscriptIfMissing(videoId, youtubeUrl, log) {
   const { data: video } = await db()
     .from('content_items')
@@ -150,19 +198,21 @@ export async function run(log = console.log) {
       || await generateVideoTranscriptIfMissing(video.id, video.youtube_url, log)
     if (!transcript) continue
 
-    const [liPosts, twPosts, multiPosts] = await Promise.all([
+    const [liPosts, twPosts, multiPosts, fbAdPosts, podcastPosts] = await Promise.all([
       generateLinkedInPosts(video.id, video.youtube_url, transcript, log),
       generateTwitterThreads(video.id, video.youtube_url, transcript, log),
       generateMultiPlatformPosts(video.id, video.youtube_url, log),
+      generateFacebookAdCopy(video.id, video.youtube_url, transcript, log),
+      generatePodcastEpisodes(video.id, video.youtube_url, transcript, log),
     ])
 
-    const allPosts = [...liPosts, ...twPosts, ...multiPosts]
+    const allPosts = [...liPosts, ...twPosts, ...multiPosts, ...fbAdPosts, ...podcastPosts]
     if (allPosts.length) {
       const { error } = await db().from('cf2_cross_platform_posts').insert(allPosts)
       if (error) log(`⚠️  Posts opslaan ${video.youtube_url}: ${error.message}`)
       else {
         totalPosts += allPosts.length
-        log(`✓ ${allPosts.length} posts draft (LI:${liPosts.length} TW:${twPosts.length} Multi:${multiPosts.length}) → ${video.title || video.youtube_url}`)
+        log(`✓ ${allPosts.length} posts draft (LI:${liPosts.length} TW:${twPosts.length} Multi:${multiPosts.length} FB:${fbAdPosts.length} Podcast:${podcastPosts.length}) → ${video.title || video.youtube_url}`)
       }
     }
   }
