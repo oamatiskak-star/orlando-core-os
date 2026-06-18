@@ -184,6 +184,51 @@ module.exports = {
       time:        true,
     },
 
+    // ── 7. Apify Engine — 5 categorieën via Engine Planner ──────────────
+    //    Cat 1: CF2 Intelligence (RSS + YouTube competitor transcripts)
+    //    Cat 2: Vastgoed Apify Scrapers (DE/AE/SG/US/LATAM)
+    //    Cat 3: Hermes MCP Registry (seed van 131 MCP servers)
+    //    Cat 4: Aquier Lead Generation (B2B Leads + YCombinator)
+    //    Cat 5: CF2 Cross-Platform Distributie (LinkedIn posts)
+    //    Vereist: APIFY_API_TOKEN in .env of .env.gh-secrets
+    {
+      name:        'apify-engine',
+      cwd:         `${BASE}/apify-engine`,
+      script:      'node',
+      args:        'src/index.mjs',
+      interpreter: 'none',
+      watch:       false,
+      autorestart: true,
+      max_restarts: 999,
+      restart_delay: 10000,
+      env: { NODE_ENV: 'production', PORT: '3012' },
+      log_file:    '/tmp/pm2-apify-engine.log',
+      error_file:  '/tmp/pm2-apify-engine-err.log',
+      time:        true,
+    },
+
+    // ── 8. ScrapeGraph Engine — LLM-gestuurde webscraper (Python/FastAPI) ──
+    //    SmartScraper, SearchGraph, MarkdownifyGraph, BatchScraper via Claude.
+    //    Node.js workers roepen aan via fetch('http://localhost:3013/scrape').
+    //    Setup: cd scrapegraph-engine && pip install -r requirements.txt
+    //           && playwright install chromium
+    //    Vereist: ANTHROPIC_API_KEY in .env.gh-secrets
+    {
+      name:        'scrapegraph-engine',
+      cwd:         `${BASE}/scrapegraph-engine`,
+      script:      'python',
+      args:        '-m uvicorn main:app --host 0.0.0.0 --port 3013',
+      interpreter: 'none',
+      watch:       false,
+      autorestart: true,
+      max_restarts: 999,
+      restart_delay: 10000,
+      env: { NODE_ENV: 'production', SCRAPEGRAPH_PORT: '3013' },
+      log_file:    '/tmp/pm2-scrapegraph-engine.log',
+      error_file:  '/tmp/pm2-scrapegraph-engine-err.log',
+      time:        true,
+    },
+
     // ── Ruflo Dispatcher — AI-orchestratie in 'ai' tijdblok (04:00-06:00 NL) ──
     // Checkt engine_window_open('ai:ruflo-coordinator') elke 5 minuten.
     // Spawnt ruflo CLI voor dagcontext-opslag (AgentDB) + viral-patterns-analyse
