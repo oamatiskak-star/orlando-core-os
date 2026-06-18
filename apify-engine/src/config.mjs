@@ -20,6 +20,8 @@ function loadEnvFile(p) {
 loadEnvFile(process.env.DOTENV_PATH)
 loadEnvFile(join(__dirname, '..', '.env'))
 loadEnvFile(join(__dirname, '..', '..', '.env.gh-secrets'))
+loadEnvFile(join(__dirname, '..', '..', 'local-agent', '.env'))
+loadEnvFile(join(__dirname, '..', '..', 'youtube-engine', '.env'))
 
 export const SUPABASE_URL  = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL
 export const SERVICE_KEY   = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_KEY
