@@ -46,11 +46,29 @@ MSG="$(getf message)"; [[ -z "$MSG" ]] && MSG="$(getf prompt)"
 PROJECT="$(basename "${CWD:-$PWD}" 2>/dev/null)"
 
 # Tab-titel: de naam die Claude/de terminal aan de tab geeft (tmux pane/window-titel),
-# zodat in het dashboard herkenbaar is welke tab welke sessie is.
+# zodat in het dashboard herkenbaar is welke tab welke sessie is. Op hosts waar
+# Claude vanuit de home-map start (bv cli-r) is cwd-basename voor elke tab gelijk;
+# daarom vallen we terug op een herkenbare samenstelling "<HOST> w<venster> · <map>".
 TITLE=""
 if [[ -n "$TMUX" ]] && command -v tmux >/dev/null 2>&1; then
-  TITLE="$(tmux display-message -p '#{pane_title}' 2>/dev/null)"
-  [[ -z "$TITLE" ]] && TITLE="$(tmux display-message -p '#W' 2>/dev/null)"
+  TGT=(); [[ -n "$TMUX_PANE" ]] && TGT=(-t "$TMUX_PANE")
+  WIN="$(tmux display-message "${TGT[@]}" -p '#I' 2>/dev/null)"
+  PT="$(tmux display-message "${TGT[@]}" -p '#{pane_title}' 2>/dev/null)"
+  WN="$(tmux display-message "${TGT[@]}" -p '#W' 2>/dev/null)"
+  HOSTSHORT="$(hostname -s 2>/dev/null)"
+  # gebruik een door de gebruiker/wrapper gezette pane- of venster-naam; negeer
+  # nietszeggende defaults (lege/shell/commando/host/pad-titels).
+  for cand in "$PT" "$WN"; do
+    case "$cand" in
+      ""|zsh|-zsh|bash|-bash|sh|node|claude|tmux|"$HOST"|"$HOSTSHORT"|/*|*@*:*) ;;
+      *) TITLE="$cand"; break ;;
+    esac
+  done
+  # fallback: per-tab herkenbare naam (uppercase host-prefix, zoals de iPhone-naam)
+  if [[ -z "$TITLE" ]]; then
+    HUP="$(printf '%s' "${OSM_HOST:-$HOST}" | tr '[:lower:]' '[:upper:]')"
+    TITLE="${HUP}${WIN:+ w$WIN} · ${PROJECT:-?}"
+  fi
 fi
 
 case "$EVENT" in
