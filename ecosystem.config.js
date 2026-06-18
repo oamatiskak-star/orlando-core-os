@@ -1,7 +1,23 @@
 const os = require('os')
+const fs = require('fs')
+
+// Laad ~/.orlando-env zodat PM2 child-processen SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY etc. krijgen.
+try {
+  const raw = fs.readFileSync(os.homedir() + '/.orlando-env', 'utf8')
+  for (const line of raw.split('\n')) {
+    const m = line.match(/^export\s+([A-Z_][A-Z0-9_]*)=["']?([^"'\n#]*)["']?/)
+    if (m) process.env[m[1]] = m[2].trim()
+  }
+} catch { /* ~/.orlando-env niet gevonden — skip */ }
+
 // Repo-root = de map waarin dit bestand staat → host-onafhankelijk (CLI-R, CLI-L, ...).
 // Override mogelijk met ORLANDO_REPO env-var.
 const BASE = process.env.ORLANDO_REPO || __dirname
+
+const SUPA_ENV = {
+  SUPABASE_URL:              process.env.SUPABASE_URL              || 'https://shaunumewswpxhmgbtvv.supabase.co',
+  SUPABASE_SERVICE_ROLE_KEY: process.env.SUPABASE_SERVICE_ROLE_KEY || '',
+}
 
 module.exports = {
   apps: [
@@ -16,7 +32,7 @@ module.exports = {
       autorestart: true,
       max_restarts: 999,
       restart_delay: 5000,
-      env: { NODE_ENV: 'production' },
+      env: { NODE_ENV: 'production', ...SUPA_ENV },
       log_file:    '/tmp/pm2-local-agent.log',
       error_file:  '/tmp/pm2-local-agent-err.log',
       time:        true,
@@ -33,7 +49,7 @@ module.exports = {
       autorestart: true,
       max_restarts: 999,
       restart_delay: 5000,
-      env: { NODE_ENV: 'production' },
+      env: { NODE_ENV: 'production', ...SUPA_ENV },
       log_file:    '/tmp/pm2-account-setup-runner.log',
       error_file:  '/tmp/pm2-account-setup-runner-err.log',
       time:        true,
@@ -53,7 +69,7 @@ module.exports = {
       autorestart: true,
       max_restarts: 999,
       restart_delay: 5000,
-      env: { NODE_ENV: 'production' },
+      env: { NODE_ENV: 'production', ...SUPA_ENV },
       log_file:    '/tmp/pm2-dispatch-runner.log',
       error_file:  '/tmp/pm2-dispatch-runner-err.log',
       time:        true,
@@ -74,7 +90,7 @@ module.exports = {
       autorestart: true,
       max_restarts: 999,
       restart_delay: 5000,
-      env: { NODE_ENV: 'production' },
+      env: { NODE_ENV: 'production', ...SUPA_ENV },
       log_file:    '/tmp/pm2-browser-registration-runner.log',
       error_file:  '/tmp/pm2-browser-registration-runner-err.log',
       time:        true,
@@ -91,7 +107,7 @@ module.exports = {
       autorestart: true,
       max_restarts: 999,
       restart_delay: 5000,
-      env: { NODE_ENV: 'production' },
+      env: { NODE_ENV: 'production', ...SUPA_ENV },
       log_file:    '/tmp/pm2-youtube-engine.log',
       error_file:  '/tmp/pm2-youtube-engine-err.log',
       time:        true,
@@ -108,7 +124,7 @@ module.exports = {
       autorestart:  true,
       max_restarts: 999,
       restart_delay: 10000,
-      env: { NODE_ENV: 'production' },
+      env: { NODE_ENV: 'production', ...SUPA_ENV },
       log_file:     '/tmp/pm2-youtube-watchdog.log',
       error_file:   '/tmp/pm2-youtube-watchdog-err.log',
       out_file:     `${os.homedir()}/.pm2/logs/youtube-watchdog-out.log`,
@@ -126,7 +142,7 @@ module.exports = {
       autorestart: true,
       max_restarts: 999,
       restart_delay: 5000,
-      env: { NODE_ENV: 'production' },
+      env: { NODE_ENV: 'production', ...SUPA_ENV },
       log_file:    '/tmp/pm2-mail-engine.log',
       error_file:  '/tmp/pm2-mail-engine-err.log',
       time:        true,
@@ -143,7 +159,7 @@ module.exports = {
       autorestart: true,
       max_restarts: 999,
       restart_delay: 5000,
-      env: { NODE_ENV: 'production', PORT: '3007' },
+      env: { NODE_ENV: 'production', PORT: '3007', ...SUPA_ENV },
       log_file:    '/tmp/pm2-language-engine.log',
       error_file:  '/tmp/pm2-language-engine-err.log',
       time:        true,
@@ -159,7 +175,7 @@ module.exports = {
       watch:         false,
       autorestart:   false,
       cron_restart:  '30 5 * * *',
-      env: { NODE_ENV: 'production' },
+      env: { NODE_ENV: 'production', ...SUPA_ENV },
       log_file:      '/tmp/pm2-daily-scheduler.log',
       error_file:    '/tmp/pm2-daily-scheduler-err.log',
       time:          true,
@@ -178,7 +194,7 @@ module.exports = {
       autorestart: true,
       max_restarts: 999,
       restart_delay: 5000,
-      env: { NODE_ENV: 'production', PORT: '3007' },
+      env: { NODE_ENV: 'production', PORT: '3007', ...SUPA_ENV },
       log_file:    '/tmp/pm2-competitor-intel-engine.log',
       error_file:  '/tmp/pm2-competitor-intel-engine-err.log',
       time:        true,
@@ -201,7 +217,7 @@ module.exports = {
       autorestart: true,
       max_restarts: 999,
       restart_delay: 10000,
-      env: { NODE_ENV: 'production', PORT: '3012', DOTENV_PATH: `${BASE}/.env.gh-secrets` },
+      env: { NODE_ENV: 'production', PORT: '3012', DOTENV_PATH: `${BASE}/.env.gh-secrets`, ...SUPA_ENV },
       log_file:    '/tmp/pm2-apify-engine.log',
       error_file:  '/tmp/pm2-apify-engine-err.log',
       time:        true,
@@ -243,7 +259,7 @@ module.exports = {
       autorestart: true,
       max_restarts: 999,
       restart_delay: 10000,
-      env: { NODE_ENV: 'production' },
+      env: { NODE_ENV: 'production', ...SUPA_ENV },
       log_file:    '/tmp/pm2-ruflo-dispatcher.log',
       error_file:  '/tmp/pm2-ruflo-dispatcher-err.log',
       time:        true,
@@ -265,7 +281,7 @@ module.exports = {
       autorestart: true,
       max_restarts: 999,
       restart_delay: 15000,
-      env: { NODE_ENV: 'production' },
+      env: { NODE_ENV: 'production', ...SUPA_ENV },
       log_file:    '/tmp/pm2-ruflo-swarm-orchestrator.log',
       error_file:  '/tmp/pm2-ruflo-swarm-orchestrator-err.log',
       time:        true,

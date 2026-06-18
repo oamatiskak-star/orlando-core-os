@@ -71,7 +71,7 @@
           {
             "type": "command",
             "command": "node \"$CLAUDE_PROJECT_DIR/.claude/hooks/orlando-hooks.mjs\" session-start",
-            "timeout": 10000
+            "timeout": 40000
           }
         ]
       }

@@ -1,0 +1,30 @@
+# Orlando Core OS — systemd user service (CLI R / Linux)
+#
+# Installeren (eenmalig):
+#   bash scripts/setup-startup.sh
+#
+# Of handmatig:
+#   mkdir -p ~/.config/systemd/user
+#   cp scripts/orlando-autostart.service ~/.config/systemd/user/
+#   systemctl --user daemon-reload
+#   systemctl --user enable orlando-autostart.service
+#   loginctl enable-linger $(whoami)
+#
+# Vereist ~/.orlando-env met MACHINE_ID + SUPABASE_SERVICE_ROLE_KEY.
+
+[Unit]
+Description=Orlando Core OS Autostart
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+EnvironmentFile=-%h/.orlando-env
+ExecStartPre=/bin/sleep 20
+ExecStart=/bin/bash -lc "REPO_PATH/scripts/boot-autostart.sh"
+StandardOutput=append:/tmp/orlando-autostart.log
+StandardError=append:/tmp/orlando-autostart-err.log
+
+[Install]
+WantedBy=default.target

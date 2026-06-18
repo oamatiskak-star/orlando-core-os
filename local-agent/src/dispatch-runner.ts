@@ -17,6 +17,7 @@
  * dan logt het dat één keer en blijft idle pollen zonder te crashen.
  */
 
+import './ws-shim'
 import 'dotenv/config'
 import { createClient } from '@supabase/supabase-js'
 
