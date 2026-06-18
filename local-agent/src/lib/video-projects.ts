@@ -121,3 +121,8 @@ export async function assertNoQueue(projectId: string): Promise<boolean> {
   const { data } = await db.from('video_projects').select('queue_id').eq('id', projectId).single()
   return !data?.queue_id
 }
+
+/** Zet render_url op het project (voor render-paden buiten renderProject, bv. Remotion). */
+export async function setRenderUrl(projectId: string, url: string): Promise<void> {
+  await db.from('video_projects').update({ render_url: url }).eq('id', projectId)
+}

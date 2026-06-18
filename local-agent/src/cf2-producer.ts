@@ -90,12 +90,13 @@ interface FormatConfig {
   formatProfile: string | null
   dataSymbols: string[]
   language: string | null   // taal uit de kanaalconfig (nl/en/es); null → afleiden uit niche
+  renderEngine: string | null   // 'remotion' → high-end motion-graphic render
 }
 
 // Default = Shorts (bestaand gedrag). Alleen een kanaal met content_rules.format_profile
 // = 'us_finance_longform' schakelt om naar de faceless finance data-explainer (16:9, long-form
 // + FMP-data). Fail-safe naar default bij ontbrekende strategy of DB-fout.
-const DEFAULT_FORMAT: FormatConfig = { format: '9:16', targetSeconds: 50, formatProfile: null, dataSymbols: [], language: null }
+const DEFAULT_FORMAT: FormatConfig = { format: '9:16', targetSeconds: 50, formatProfile: null, dataSymbols: [], language: null, renderEngine: null }
 
 // LET OP sleutels: channel_strategy.channel_id = media_holding_channels.id (NIET youtube_channels.id).
 // Daarom resolven we op de media-channel-id (job.bron_channel_id), niet op de youtube-channel-id.
@@ -105,6 +106,7 @@ async function resolveChannelFormat(client: SupabaseClient, mediaChannelId: stri
     const { data } = await client.from('channel_strategy').select('content_rules').eq('channel_id', mediaChannelId).maybeSingle()
     const rules = (data?.content_rules ?? {}) as Record<string, unknown>
     const lang = typeof rules.language === 'string' ? (rules.language as string) : null
+    const renderEngine = typeof rules.render_engine === 'string' ? (rules.render_engine as string) : null
     if (rules.format_profile === 'us_finance_longform') {
       const sym = Array.isArray(rules.data_symbols) ? (rules.data_symbols as string[]) : []
       return {
@@ -112,7 +114,7 @@ async function resolveChannelFormat(client: SupabaseClient, mediaChannelId: stri
         targetSeconds: typeof rules.target_seconds === 'number' ? rules.target_seconds : 840,
         formatProfile: 'us_finance_longform',
         dataSymbols: sym.length ? sym : ['^GSPC', '^IXIC', '^DJI'],
-        language: lang ?? 'en',
+        language: lang ?? 'en', renderEngine,
       }
     }
     if (rules.format_profile === 'aquier_promo') {
@@ -123,20 +125,20 @@ async function resolveChannelFormat(client: SupabaseClient, mediaChannelId: stri
         targetSeconds: typeof rules.target_seconds === 'number' ? rules.target_seconds : 90,
         formatProfile: 'aquier_promo',
         dataSymbols: [],
-        language: lang,
+        language: lang, renderEngine,
       }
     }
     if (rules.format_profile === 'loops_short') {
-      // Satisfying-loop short (9:16): naadloze loop + muziek + hook-overlay, geen narratie.
+      // Satisfying-loop short (9:16): naadloze loop + muziek + hook-overlay, geen narratie (geen Remotion).
       return {
         format: '9:16',
         targetSeconds: typeof rules.target_seconds === 'number' ? rules.target_seconds : 24,
         formatProfile: 'loops_short',
         dataSymbols: [],
-        language: lang,
+        language: lang, renderEngine: null,
       }
     }
-    return { ...DEFAULT_FORMAT, language: lang }
+    return { ...DEFAULT_FORMAT, language: lang, renderEngine }
   } catch {
     return DEFAULT_FORMAT
   }
@@ -204,6 +206,7 @@ async function produceJobLive(client: SupabaseClient, job: Cf2Job): Promise<void
       ollamaModel: OLLAMA_MODEL,
       formatProfile: fmt.formatProfile,
       dataSymbols: fmt.dataSymbols,
+      renderEngine: fmt.renderEngine,
     })
 
     await setStep(client, job.id, 'creative', { status: 'done', completed_at: nowIso(), meta: { project_id: r.projectId, title: r.title, scenes: r.sceneCount } })
