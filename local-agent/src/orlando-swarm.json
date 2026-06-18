@@ -1,0 +1,71 @@
+{
+  "version": "1.0",
+  "topology": "hierarchical",
+  "queen": {
+    "name": "orlando-queen",
+    "type": "agent-hierarchical-coordinator",
+    "description": "Centrale coördinator voor alle Orlando sub-swarms"
+  },
+  "swarms": [
+    {
+      "name": "orlando-youtube",
+      "engine_key": "youtube",
+      "description": "YouTube content research en strategische intelligence (06:00-07:00 NL)",
+      "strategy": "specialized",
+      "agents": [
+        {
+          "name": "orlando-trend-researcher",
+          "type": "agent-researcher",
+          "role": "trend-research",
+          "task": "Analyseer trending YouTube-topics voor de Orlando-financiën/vastgoed-kanalen. Gebruik viral_patterns-data als context. Identificeer top-5 kansen op hoge CTR voor de komende 24 uur. Output: JSON-lijst met topic, niche, verwacht_ctr_boost, rationale."
+        },
+        {
+          "name": "orlando-seo-agent",
+          "type": "agent-coder",
+          "role": "seo-optimization",
+          "task": "Review SEO-kansen voor YouTube-titels. Pas de vuistregel toe: max 70 tekens, jaar erbij indien zinvol, getal of urgentie toevoegen. Geef concrete herformuleringen voor de 3 slechtst-scorende titels."
+        },
+        {
+          "name": "orlando-quality-agent",
+          "type": "agent-reviewer",
+          "role": "quality-check",
+          "task": "Controleer de laatste 5 gegenereerde video-projecten op kwaliteit. Beoordeel: hook-kracht (0-100), CTA-aanwezigheid, branding-consistentie. Geef GO of BLOCK met reden."
+        }
+      ]
+    },
+    {
+      "name": "orlando-acquisition",
+      "engine_key": "acq_ai",
+      "description": "Acquisitie-intelligentie en affiliate-discovery (17:00-18:30 NL)",
+      "strategy": "specialized",
+      "agents": [
+        {
+          "name": "orlando-deal-researcher",
+          "type": "agent-researcher",
+          "role": "deal-research",
+          "task": "Analyseer de meest recente vastgoed-leads voor deals met off-market potentieel. Focus op: aankoopprijs < 80% WOZ, huurrendement > 6%, snelle overdracht mogelijk. Rapporteer top-3 kansen met beknopte onderbouwing."
+        },
+        {
+          "name": "orlando-affiliate-researcher",
+          "type": "agent-researcher",
+          "role": "affiliate-discovery",
+          "task": "Identificeer nieuwe affiliate-programma's in de niche financiën/vastgoed/YouTube-growth met EPC > €5 of recurring commissie. Zoek naar programma's die nog niet in affiliate_programs staan. Geef provider-naam, URL, geschat EPC en matchscore voor Orlando-publiek."
+        }
+      ]
+    },
+    {
+      "name": "orlando-memory",
+      "engine_key": "ai",
+      "description": "AI-voorbereiding: memory consolidatie en dagplanning (04:00-06:00 NL)",
+      "strategy": "specialized",
+      "agents": [
+        {
+          "name": "orlando-memory-specialist",
+          "type": "agent-memory-specialist",
+          "role": "memory-consolidation",
+          "task": "Consolideer de learnings van gisteren: viral_patterns met hoge actualiteitsscore, video_learning_summary-checkpoints en winner-trajectories. Sla de top-10 patronen op in AgentDB onder namespace orlando:patterns:<datum>. Dit geheugen wordt gebruikt door de YouTube-swarm om 06:00."
+        }
+      ]
+    }
+  ]
+}
