@@ -243,6 +243,7 @@ export async function runShadowTopic(o: ShadowOpts): Promise<ShadowResult> {
       const out = renderRemotionExplainer({
         projectId, voicePath: voiceRes.outputPath!, srtPath: subtitlePath,
         title: content.title, outro: content.cta || strategy?.own_cta?.[0] || '',
+        stats: content.stats || [],
       })
       await spine.setRenderUrl(projectId, out)
       renderUrl = out
