@@ -21,6 +21,7 @@
  * GEEN mock-data: ontbrekende LLM → run faalt expliciet (recorded), geen verzonnen velden.
  */
 
+import './ws-shim'
 import 'dotenv/config'
 import axios from 'axios'
 import { createClient } from '@supabase/supabase-js'

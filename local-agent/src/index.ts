@@ -1,3 +1,4 @@
+import './ws-shim'
 import 'dotenv/config'
 import { createClient } from '@supabase/supabase-js'
 import fs from 'fs'

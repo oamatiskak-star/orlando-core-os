@@ -28,6 +28,7 @@
  * CAPTCHA/2FA/anti-bot-challenge óf ontbrekende gegevens valt hij automatisch terug op de
  * menselijke goedkeur-gate; hij verzendt nooit met incomplete data.
  */
+import './ws-shim'
 import 'dotenv/config'
 import { randomBytes } from 'crypto'
 import { createClient, SupabaseClient } from '@supabase/supabase-js'
