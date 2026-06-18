@@ -31,12 +31,40 @@ if command -v ollama >/dev/null 2>&1; then
   pgrep -x ollama >/dev/null 2>&1 || { log "ollama serve"; (ollama serve >/dev/null 2>&1 &) ; }
 fi
 
-# 2) PM2 — herstel opgeslagen processen + garandeer de resume-listener van deze host
+# 2) PM2 — herstel + ecosystem-fallback als resurrect onvoldoende oplevert
 if command -v pm2 >/dev/null 2>&1; then
   pm2 resurrect >/dev/null 2>&1 || true
+
+  # Tel online processen; als < 3 → start vanuit de juiste ecosystem
+  ONLINE=0
+  if command -v jq >/dev/null 2>&1; then
+    ONLINE=$(pm2 jlist 2>/dev/null | jq '[.[] | select(.pm2_env.status=="online")] | length' 2>/dev/null || echo 0)
+  fi
+  if [ "${ONLINE:-0}" -lt 3 ]; then
+    log "PM2 te weinig processen online ($ONLINE) — start vanuit ecosystem"
+    if [ "$MACHINE_ID" = "cli-r" ]; then
+      pm2 start "$REPO/ecosystem.cli-r.config.js" >/dev/null 2>&1 || true
+    else
+      pm2 start "$REPO/ecosystem.config.js" >/dev/null 2>&1 || true
+    fi
+  fi
+
+  # Garandeer de resume-listener van deze host
   pm2 describe "resume-listener-$MACHINE_ID" >/dev/null 2>&1 || \
     pm2 start "$REPO/scripts/ecosystem.resume-listener.config.js" --only "resume-listener-$MACHINE_ID" >/dev/null 2>&1 || true
+
+  # Garandeer ruflo-dispatcher + ruflo-swarm-orchestrator (nieuw 2026-06-18)
+  if [ "$MACHINE_ID" = "cli-r" ]; then
+    pm2 describe ruflo-dispatcher >/dev/null 2>&1 || \
+      pm2 start "$REPO/ecosystem.config.js" --only ruflo-dispatcher >/dev/null 2>&1 || true
+    pm2 describe ruflo-swarm-orchestrator >/dev/null 2>&1 || \
+      pm2 start "$REPO/ecosystem.config.js" --only ruflo-swarm-orchestrator >/dev/null 2>&1 || true
+    pm2 describe apify-engine >/dev/null 2>&1 || \
+      pm2 start "$REPO/ecosystem.config.js" --only apify-engine >/dev/null 2>&1 || true
+  fi
+
   pm2 save >/dev/null 2>&1 || true
+  log "PM2 online: $(pm2 jlist 2>/dev/null | jq '[.[] | select(.pm2_env.status=="online")] | length' 2>/dev/null || echo '?') processen"
 fi
 
 # 3) Verzamel actieve workers en log de host online bij Hermes
