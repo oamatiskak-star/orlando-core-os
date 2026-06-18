@@ -8,7 +8,7 @@
  */
 import { runAndCollect } from '../lib/apify.mjs'
 import { db, heartbeat } from '../lib/supabase.mjs'
-import { ACTORS, CF2_NEWS_FEEDS, CF2_COMPETITOR_CHANNELS } from '../config.mjs'
+import { ACTORS, CF2_NEWS_FEEDS, CF2_COMPETITOR_CHANNELS, CF2_TIKTOK_QUERIES, CF2_GOOGLE_TRENDS_KEYWORDS } from '../config.mjs'
 
 const ENGINE_KEY = 'apify:cf2-intelligence'
 
@@ -172,6 +172,82 @@ async function fetchAIHypeTopics(log) {
   }
 }
 
+async function fetchTikTokTrends(log) {
+  const queries = CF2_TIKTOK_QUERIES.length ? CF2_TIKTOK_QUERIES : ['finance investing', 'stock market tips', 'crypto market']
+  const items = []
+  for (const query of queries.slice(0, 3)) {
+    try {
+      const { items: posts, runId } = await runAndCollect(
+        ACTORS.TIKTOK_SCRAPER,
+        { searchQuery: query, maxItems: 20, type: 'search' },
+        { timeoutMs: 120_000 },
+      )
+      for (const post of posts) {
+        if (!post.text && !post.desc && !post.description) continue
+        items.push({
+          source: 'tiktok',
+          actor_run_id: runId,
+          title: post.text || post.desc || post.description || '',
+          url: post.webVideoUrl || post.url || (post.id ? `https://tiktok.com/@${post.authorMeta?.name}/video/${post.id}` : null),
+          description: `Views: ${post.playCount || 0} | Likes: ${post.diggCount || 0}`,
+          published_at: post.createTime ? new Date(post.createTime * 1000).toISOString() : null,
+          relevance_score: Math.min((post.playCount || 0) / 5_000_000, 1),
+        })
+      }
+      log(`TikTok "${query}" → ${posts.length} posts`)
+    } catch (err) {
+      log(`⚠️  TikTok "${query}": ${err.message}`)
+    }
+  }
+  return items
+}
+
+async function fetchCryptoNews(log) {
+  try {
+    const { items, runId } = await runAndCollect(
+      ACTORS.CRYPTO_NEWS,
+      { searchQuery: 'Bitcoin Ethereum crypto market', maxItems: 20 },
+      { timeoutMs: 120_000 },
+    )
+    log(`Crypto News → ${items.length} articles`)
+    return items.map(item => ({
+      source: 'crypto_news',
+      actor_run_id: runId,
+      title: item.title || item.headline || '',
+      url: item.url || item.link || null,
+      description: item.body?.slice(0, 500) || item.description || item.summary || null,
+      published_at: item.publishedAt ? new Date(item.publishedAt).toISOString() : null,
+      relevance_score: 0.7,
+    })).filter(t => t.title)
+  } catch (err) {
+    log(`⚠️  Crypto News: ${err.message}`)
+    return []
+  }
+}
+
+async function fetchSocialTrends(log) {
+  try {
+    const { items, runId } = await runAndCollect(
+      ACTORS.SOCIAL_TRENDS,
+      { topic: 'finance investing wealth', platforms: ['youtube', 'tiktok', 'twitter'], maxItems: 20 },
+      { timeoutMs: 180_000 },
+    )
+    log(`Social Trends 6-in-1 → ${items.length} trends`)
+    return items.map(item => ({
+      source: 'social_trends',
+      actor_run_id: runId,
+      title: item.title || item.hashtag || item.trend || '',
+      url: item.url || null,
+      description: item.summary || item.analysis || item.description || null,
+      published_at: item.date ? new Date(item.date).toISOString() : null,
+      relevance_score: item.engagementScore ? Math.min(item.engagementScore / 100, 1) : 0.6,
+    })).filter(t => t.title)
+  } catch (err) {
+    log(`⚠️  Social Trends: ${err.message}`)
+    return []
+  }
+}
+
 async function fetchMarketIntelligence(log) {
   try {
     const { items, runId } = await runAndCollect(
@@ -195,20 +271,239 @@ async function fetchMarketIntelligence(log) {
   }
 }
 
+async function fetchHackerNews(log) {
+  try {
+    const { items, runId } = await runAndCollect(
+      ACTORS.HACKER_NEWS,
+      { maxItems: 30, type: 'top' },
+      { timeoutMs: 120_000 },
+    )
+    log(`Hacker News → ${items.length} items`)
+    return items.map(item => ({
+      source: 'hacker_news',
+      actor_run_id: runId,
+      title: item.title || item.name || '',
+      url: item.url || item.link || null,
+      description: item.text?.slice(0, 500) || item.description || null,
+      published_at: item.time ? new Date(item.time * 1000).toISOString() : null,
+      relevance_score: Math.min((item.score || 0) / 1000, 1),
+    })).filter(t => t.title)
+  } catch (err) {
+    log(`⚠️  Hacker News: ${err.message}`)
+    return []
+  }
+}
+
+async function fetchVCStartupIntel(log) {
+  try {
+    const { items, runId } = await runAndCollect(
+      ACTORS.VC_STARTUP_INTEL,
+      { maxItems: 20, stage: 'seed,series-a' },
+      { timeoutMs: 120_000 },
+    )
+    log(`VC Startup Intel → ${items.length} deals`)
+    return items.map(item => ({
+      source: 'vc_startup_intel',
+      actor_run_id: runId,
+      title: item.startup || item.company || item.title || '',
+      url: item.url || item.sourceUrl || null,
+      description: item.summary || item.description || item.round || null,
+      published_at: item.date ? new Date(item.date).toISOString() : null,
+      relevance_score: 0.8,
+    })).filter(t => t.title)
+  } catch (err) {
+    log(`⚠️  VC Startup Intel: ${err.message}`)
+    return []
+  }
+}
+
+async function fetchProductHunt(log) {
+  try {
+    const { items, runId } = await runAndCollect(
+      ACTORS.PRODUCT_HUNT,
+      { maxItems: 20, period: 'today' },
+      { timeoutMs: 120_000 },
+    )
+    log(`Product Hunt → ${items.length} producten`)
+    return items.map(item => ({
+      source: 'product_hunt',
+      actor_run_id: runId,
+      title: item.name || item.title || '',
+      url: item.url || item.productUrl || null,
+      description: item.tagline || item.description || null,
+      published_at: item.createdAt ? new Date(item.createdAt).toISOString() : null,
+      relevance_score: Math.min((item.votesCount || item.upvotes || 0) / 1000, 1),
+    })).filter(t => t.title)
+  } catch (err) {
+    log(`⚠️  Product Hunt: ${err.message}`)
+    return []
+  }
+}
+
+async function fetchGoogleTrends(log) {
+  const keywords = CF2_GOOGLE_TRENDS_KEYWORDS.length
+    ? CF2_GOOGLE_TRENDS_KEYWORDS
+    : ['investing', 'stock market', 'AI tools', 'crypto']
+  try {
+    const { items, runId } = await runAndCollect(
+      ACTORS.GOOGLE_TRENDS,
+      { keywords: keywords.slice(0, 5), geo: 'US', timeRange: 'now 7-d' },
+      { timeoutMs: 120_000 },
+    )
+    log(`Google Trends → ${items.length} trends`)
+    return items.map(item => ({
+      source: 'google_trends',
+      actor_run_id: runId,
+      title: item.query || item.keyword || item.title || '',
+      url: null,
+      description: `Trend index: ${item.value || item.interest || 0}`,
+      published_at: item.date ? new Date(item.date).toISOString() : null,
+      relevance_score: Math.min((item.value || item.interest || 0) / 100, 1),
+    })).filter(t => t.title)
+  } catch (err) {
+    log(`⚠️  Google Trends: ${err.message}`)
+    return []
+  }
+}
+
+async function fetchYouTubeTrendingPPR(log) {
+  try {
+    const { items, runId } = await runAndCollect(
+      ACTORS.YT_TRENDING_PPR,
+      { country: 'US', category: 'Finance', maxResults: 20 },
+      { timeoutMs: 120_000 },
+    )
+    log(`YouTube Trending PPR → ${items.length} video's`)
+    return items.map(v => ({
+      source: 'youtube_trending_ppr',
+      actor_run_id: runId,
+      title: v.title || v.name || '',
+      url: v.url || (v.id ? `https://youtube.com/watch?v=${v.id}` : null),
+      description: v.description || null,
+      published_at: v.uploadDate ? new Date(v.uploadDate).toISOString() : null,
+      relevance_score: Math.min((v.viewCount || 0) / 1_000_000, 1),
+    })).filter(t => t.title)
+  } catch (err) {
+    log(`⚠️  YouTube Trending PPR: ${err.message}`)
+    return []
+  }
+}
+
+async function fetchInstagramReels(log) {
+  const queries = ['finance tips', 'investing advice', 'stock market']
+  const items = []
+  for (const query of queries.slice(0, 2)) {
+    try {
+      const { items: reels, runId } = await runAndCollect(
+        ACTORS.IG_REELS,
+        { search: query, maxResults: 15 },
+        { timeoutMs: 120_000 },
+      )
+      for (const reel of reels) {
+        if (!reel.caption && !reel.text) continue
+        items.push({
+          source: 'instagram_reels',
+          actor_run_id: runId,
+          title: (reel.caption || reel.text || '').slice(0, 200),
+          url: reel.url || (reel.id ? `https://www.instagram.com/reel/${reel.id}/` : null),
+          description: `Views: ${reel.videoViewCount || reel.playCount || 0} | Likes: ${reel.likesCount || 0}`,
+          published_at: reel.timestamp ? new Date(reel.timestamp).toISOString() : null,
+          relevance_score: Math.min((reel.videoViewCount || reel.playCount || 0) / 1_000_000, 1),
+        })
+      }
+      log(`Instagram Reels "${query}" → ${reels.length} reels`)
+    } catch (err) {
+      log(`⚠️  Instagram Reels "${query}": ${err.message}`)
+    }
+  }
+  return items
+}
+
+async function fetchGoogleSERP(log) {
+  const queries = ['best investment strategies 2025', 'AI finance tools', 'passive income ideas']
+  const items = []
+  for (const query of queries.slice(0, 2)) {
+    try {
+      const { items: results, runId } = await runAndCollect(
+        ACTORS.GOOGLE_SERP,
+        { queries: [query], maxPagesPerQuery: 1, resultsPerPage: 10 },
+        { timeoutMs: 120_000 },
+      )
+      for (const r of results) {
+        if (!r.title) continue
+        items.push({
+          source: 'google_serp',
+          actor_run_id: runId,
+          title: r.title,
+          url: r.url || r.link || null,
+          description: r.description || r.snippet || null,
+          published_at: null,
+          relevance_score: r.position ? Math.max(1 - r.position / 10, 0.1) : 0.5,
+        })
+      }
+      log(`Google SERP "${query}" → ${results.length} resultaten`)
+    } catch (err) {
+      log(`⚠️  Google SERP "${query}": ${err.message}`)
+    }
+  }
+  return items
+}
+
+async function fetchGoogleNews(log) {
+  try {
+    const { items, runId } = await runAndCollect(
+      ACTORS.GOOGLE_NEWS,
+      { query: 'finance investing stock market', maxItems: 30, language: 'en' },
+      { timeoutMs: 120_000 },
+    )
+    log(`Google News → ${items.length} artikelen`)
+    return items.map(item => ({
+      source: 'google_news',
+      actor_run_id: runId,
+      title: item.title || item.headline || '',
+      url: item.url || item.link || null,
+      description: item.description || item.snippet || null,
+      published_at: item.publishedAt || item.pubDate ? new Date(item.publishedAt || item.pubDate).toISOString() : null,
+      relevance_score: 0.7,
+    })).filter(t => t.title)
+  } catch (err) {
+    log(`⚠️  Google News: ${err.message}`)
+    return []
+  }
+}
+
 export async function run(log = console.log) {
   log('[cf2-intelligence] start')
   const started = Date.now()
 
-  const [rssTopics, ytTopics, redditTopics, aiHypeTopics, marketTopics] = await Promise.all([
+  const [
+    rssTopics, ytTopics, redditTopics, aiHypeTopics, marketTopics,
+    tiktokTopics, cryptoTopics, socialTrends,
+    hnTopics, vcTopics, phTopics, gtTopics, ytPprTopics, igTopics, serpTopics, gnTopics,
+  ] = await Promise.all([
     fetchRssTopics(log),
     fetchYouTubeTrending(log),
     fetchRedditTopics(log),
     fetchAIHypeTopics(log),
     fetchMarketIntelligence(log),
+    fetchTikTokTrends(log),
+    fetchCryptoNews(log),
+    fetchSocialTrends(log),
+    fetchHackerNews(log),
+    fetchVCStartupIntel(log),
+    fetchProductHunt(log),
+    fetchGoogleTrends(log),
+    fetchYouTubeTrendingPPR(log),
+    fetchInstagramReels(log),
+    fetchGoogleSERP(log),
+    fetchGoogleNews(log),
   ])
 
-  const allTopics = [...rssTopics, ...ytTopics, ...redditTopics, ...aiHypeTopics, ...marketTopics]
-    .filter(t => t.title)
+  const allTopics = [
+    ...rssTopics, ...ytTopics, ...redditTopics, ...aiHypeTopics, ...marketTopics,
+    ...tiktokTopics, ...cryptoTopics, ...socialTrends,
+    ...hnTopics, ...vcTopics, ...phTopics, ...gtTopics, ...ytPprTopics, ...igTopics, ...serpTopics, ...gnTopics,
+  ].filter(t => t.title)
 
   if (allTopics.length) {
     const { error } = await db().from('cf2_topic_feed').insert(allTopics)
@@ -226,8 +521,19 @@ export async function run(log = console.log) {
     reddit: redditTopics.length,
     ai_hype: aiHypeTopics.length,
     market: marketTopics.length,
+    tiktok: tiktokTopics.length,
+    crypto: cryptoTopics.length,
+    social_trends: socialTrends.length,
+    hacker_news: hnTopics.length,
+    vc_intel: vcTopics.length,
+    product_hunt: phTopics.length,
+    google_trends: gtTopics.length,
+    yt_ppr: ytPprTopics.length,
+    ig_reels: igTopics.length,
+    google_serp: serpTopics.length,
+    google_news: gnTopics.length,
     ms,
   })
-  log(`[cf2-intelligence] klaar in ${ms}ms — ${allTopics.length} topics (RSS:${rssTopics.length} YT:${ytTopics.length} Reddit:${redditTopics.length} AI:${aiHypeTopics.length} Market:${marketTopics.length})`)
+  log(`[cf2-intelligence] klaar in ${ms}ms — ${allTopics.length} topics (RSS:${rssTopics.length} YT:${ytTopics.length} Reddit:${redditTopics.length} AI:${aiHypeTopics.length} Market:${marketTopics.length} TikTok:${tiktokTopics.length} Crypto:${cryptoTopics.length} Social:${socialTrends.length} HN:${hnTopics.length} VC:${vcTopics.length} PH:${phTopics.length} GT:${gtTopics.length} YT-PPR:${ytPprTopics.length} IG:${igTopics.length} SERP:${serpTopics.length} GNews:${gnTopics.length})`)
   return { topics: allTopics.length }
 }

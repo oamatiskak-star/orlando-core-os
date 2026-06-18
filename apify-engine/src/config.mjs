@@ -20,6 +20,8 @@ function loadEnvFile(p) {
 loadEnvFile(process.env.DOTENV_PATH)
 loadEnvFile(join(__dirname, '..', '.env'))
 loadEnvFile(join(__dirname, '..', '..', '.env.gh-secrets'))
+loadEnvFile(join(__dirname, '..', '..', 'local-agent', '.env'))
+loadEnvFile(join(__dirname, '..', '..', 'youtube-engine', '.env'))
 
 export const SUPABASE_URL  = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL
 export const SERVICE_KEY   = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_KEY
@@ -54,11 +56,62 @@ export const ACTORS = {
   GMAPS_LEADS:     process.env.ACTOR_GMAPS_LEADS    || 'easyapi/google-maps-email-extractor',
   APOLLO_LEADS:    process.env.ACTOR_APOLLO_LEADS   || 'pipelinelabs/lead-scraper-apollo-zoominfo',
 
+  // Cat 1 — CF2 Intelligence (extra)
+  TIKTOK_SCRAPER:  process.env.ACTOR_TIKTOK          || 'apidojo/tiktok-scraper',
+  CRYPTO_NEWS:     process.env.ACTOR_CRYPTO_NEWS      || 'sync-network/awesome-crypto-news-scraper',
+  SOCIAL_TRENDS:   process.env.ACTOR_SOCIAL_TRENDS    || 'manju4k/social-media-trend-scraper-6-in-1-ai-analysis',
+
+  // Cat 2 — Vastgoed (extra)
+  CREXI:           process.env.ACTOR_CREXI            || 'jupri/crexi',
+  IMMOWELT:        process.env.ACTOR_IMMOWELT         || 'azzouzana/immowelt-de-search-results-scraper-by-search-url',
+  ZUMPER:          process.env.ACTOR_ZUMPER           || 'scrapemind/zumpercom-scraper',
+  NINETYNINACRES:  process.env.ACTOR_99ACRES          || 'fatihtahta/99acres-scraper',
+
+  // Cat 4 — Aquier Leads (extra)
+  LI_POSTS:        process.env.ACTOR_LI_POSTS         || 'scary_good_apis/linkedin-search-posts',
+  LI_PROFILES:     process.env.ACTOR_LI_PROFILES      || 'dataweave/linkedin-profile-scraper',
+  JOBS_SCRAPER:    process.env.ACTOR_JOBS_SCRAPER      || 'agentx/all-jobs-scraper',
+
   // Cat 5 — CF2 Distributie
-  TRANSCRIPT_TO_LI: process.env.ACTOR_TRANSCRIPT_TO_LI || 'powerai/transcript-to-linkedin-posts-converter',
-  VIDEO_TO_TEXT:   process.env.ACTOR_VIDEO_TO_TEXT  || 'nextapi/video-to-text',
-  VIDEO_TO_SOCIAL: process.env.ACTOR_VIDEO_TO_SOCIAL || 'agentx/video-to-social-post',
-  TWITTER_THREADS: process.env.ACTOR_TWITTER_THREADS || 'easyapi/twitter-thread-generator',
+  TRANSCRIPT_TO_LI:    process.env.ACTOR_TRANSCRIPT_TO_LI    || 'powerai/transcript-to-linkedin-posts-converter',
+  VIDEO_TO_TEXT:       process.env.ACTOR_VIDEO_TO_TEXT        || 'nextapi/video-to-text',
+  VIDEO_TO_SOCIAL:     process.env.ACTOR_VIDEO_TO_SOCIAL      || 'agentx/video-to-social-post',
+  TWITTER_THREADS:     process.env.ACTOR_TWITTER_THREADS      || 'easyapi/twitter-thread-generator',
+  FB_AD_COPY:          process.env.ACTOR_FB_AD_COPY           || 'powerai/facebook-ad-copywriter-creator',
+  PODCAST_IDEAS:       process.env.ACTOR_PODCAST_IDEAS        || 'powerai/podcast-episode-ideas-creator',
+
+  // Cat 1 — CF2 Intelligence (round 3)
+  HACKER_NEWS:         process.env.ACTOR_HACKER_NEWS          || 'benthepythondev/hacker-news-intelligence',
+  VC_STARTUP_INTEL:    process.env.ACTOR_VC_STARTUP_INTEL     || 'visita/venture-capital-startup-intelligence',
+  PRODUCT_HUNT:        process.env.ACTOR_PRODUCT_HUNT         || 'danpoletaev/product-hunt-scraper',
+  GOOGLE_TRENDS:       process.env.ACTOR_GOOGLE_TRENDS        || 'early_kiosk/google-trends-scraper',
+  YT_TRENDING_PPR:     process.env.ACTOR_YT_TRENDING_PPR      || 'apidojo/youtube-trending-scraper',
+  IG_REELS:            process.env.ACTOR_IG_REELS             || 'apify/instagram-reel-scraper',
+  GOOGLE_SERP:         process.env.ACTOR_GOOGLE_SERP          || 'apify/google-search-scraper',
+  GOOGLE_NEWS:         process.env.ACTOR_GOOGLE_NEWS          || 'data_xplorer/google-news-scraper',
+
+  // Cat 2 — Vastgoed (round 3)
+  BOOKING_COM:         process.env.ACTOR_BOOKING_COM          || 'agenscrape/booking-com-stays-scraper',
+  VRBO_SEARCH:         process.env.ACTOR_VRBO_SEARCH          || 'ecomscrape/vrbo-property-search-scraper',
+  VRBO_DETAILS:        process.env.ACTOR_VRBO_DETAILS         || 'ecomscrape/vrbo-property-details-page-scraper',
+  UK_PROPERTY:         process.env.ACTOR_UK_PROPERTY          || 'femstar/uk-property-data-scraper-rightmove-zoopla',
+  AIRBNB_CALENDAR:     process.env.ACTOR_AIRBNB_CALENDAR      || 'rigelbytes/airbnb-availability-calendar',
+  FURNISHED_FINDER:    process.env.ACTOR_FURNISHED_FINDER     || 'rigelbytes/furnished-finder-fast',
+  AGODA:               process.env.ACTOR_AGODA                || 'knagymate/fast-agoda-scraper',
+
+  // Cat 4 — Aquier Leads (round 3)
+  CRUNCHBASE:          process.env.ACTOR_CRUNCHBASE           || 'pratikdani/crunchbase-companies-bulk-scraper-no-cookies',
+  CAREER_ATS:          process.env.ACTOR_CAREER_ATS           || 'canadesk/career-scraper',
+  WELLFOUND:           process.env.ACTOR_WELLFOUND            || 'clearpath/wellfound-api-job-scraper',
+  COMPANY_INTEL:       process.env.ACTOR_COMPANY_INTEL        || 'easyapi/company-research-intelligence-tool',
+  LI_ENRICHMENT:       process.env.ACTOR_LI_ENRICHMENT        || 'anchor/linkedin-profile-enrichment',
+  SHOPIFY_FINDER:      process.env.ACTOR_SHOPIFY_FINDER       || 'igolaizola/shopify-store-finder',
+
+  // Cat 5 — CF2 Distributie (round 3)
+  VIDEO_SCRIPT:        process.env.ACTOR_VIDEO_SCRIPT         || 'powerai/video-script-generator',
+  TWITTER_AUTO:        process.env.ACTOR_TWITTER_AUTO         || 'hamdo/twitter-automation-api',
+  ANSWER_PUBLIC:       process.env.ACTOR_ANSWER_PUBLIC        || 'deadlyaccurate/answer-the-public',
+  SHORT_VIDEO_REWRITER: process.env.ACTOR_SHORT_VIDEO_REWRITER || 'decent_businessman/short-video-ai-rewriter-blog-script',
 }
 
 export const CF2_NEWS_FEEDS = (process.env.CF2_NEWS_FEEDS || [
@@ -68,6 +121,8 @@ export const CF2_NEWS_FEEDS = (process.env.CF2_NEWS_FEEDS || [
 ].join(',')).split(',').filter(Boolean)
 
 export const CF2_COMPETITOR_CHANNELS = (process.env.CF2_COMPETITOR_CHANNELS || '').split(',').filter(Boolean)
+export const CF2_TIKTOK_QUERIES = (process.env.CF2_TIKTOK_QUERIES || 'finance investing,stock market tips,crypto market').split(',').filter(Boolean)
+export const CF2_GOOGLE_TRENDS_KEYWORDS = (process.env.CF2_GOOGLE_TRENDS_KEYWORDS || 'investing,stock market,AI tools,crypto,passive income').split(',').filter(Boolean)
 
 export const AQUIER_LEAD_QUERIES = (process.env.AQUIER_LEAD_QUERIES || 'founder AI startup,developer SaaS tools').split(',').filter(Boolean)
 
