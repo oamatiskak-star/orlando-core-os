@@ -1,0 +1,4 @@
+node_modules/
+public/voice.mp3
+props.json
+out/
