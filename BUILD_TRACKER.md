@@ -12,6 +12,13 @@
 
 ---
 
+## ⏭️ GEPLAND
+| Taak | Wanneer | Detail |
+|---|---|---|
+| **Wikidata P856 (official website)** | **vr 2026-06-19 09:00 CEST** | Op item **Q140279062** (Aquier): property `P856 = https://aquier.com` toevoegen → bidirectionele entity-koppeling (aquier.com `sameAs`→Wikidata via PR #161; Wikidata→aquier.com via P856). Versterkt Google Knowledge Graph. Handmatige Wikidata-edit (ingelogd). |
+
+---
+
 ## A. KLAAR EN BEWEZEN (met bewijs)
 
 ### Aquier — merged PR's (allemaal 2026-06-08, op origin/main)
