@@ -8,7 +8,7 @@
  *   Cat 5 apify:cf2-distribution   → youtube-blok (06:00-07:00)
  */
 import http from 'node:http'
-import { PORT, TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID, APIFY_TOKEN, LOADED_ENV_FILES } from './config.mjs'
+import { PORT, TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID, APIFY_TOKEN, LOADED_ENV_FILES, SUPABASE_URL, SERVICE_KEY } from './config.mjs'
 import { windowOpen, heartbeat } from './lib/supabase.mjs'
 import { run as runCf2Intelligence }  from './workers/cf2-intelligence.mjs'
 import { run as runVastgoed }         from './workers/vastgoed-scrapers.mjs'
@@ -81,6 +81,8 @@ const server = http.createServer(async (req, res) => {
       running,
       lastRun,
       apify_token: APIFY_TOKEN ? `${APIFY_TOKEN.slice(0, 12)}… (${APIFY_TOKEN.length}c)` : 'MISSING',
+      supabase_url: SUPABASE_URL ? `${SUPABASE_URL.slice(0, 30)}…` : 'MISSING',
+      service_key: SERVICE_KEY ? `${SERVICE_KEY.slice(0, 10)}… (${SERVICE_KEY.length}c)` : 'MISSING',
       env_files: LOADED_ENV_FILES,
       time: new Date().toISOString(),
     }))
