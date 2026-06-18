@@ -1,6 +1,7 @@
 import { existsSync, readFileSync } from 'fs'
-import { join, dirname } from 'path'
+import { join, dirname, resolve } from 'path'
 import { fileURLToPath } from 'url'
+import { homedir } from 'os'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 
@@ -22,14 +23,18 @@ function loadEnvFile(p) {
 
 loadEnvFile(process.env.DOTENV_PATH)
 loadEnvFile(join(__dirname, '..', '.env'))
+loadEnvFile(join(__dirname, '..', '..', '.env'))
+loadEnvFile(join(__dirname, '..', '..', '.env.local'))
 loadEnvFile(join(__dirname, '..', '..', '.env.gh-secrets'))
 loadEnvFile(join(__dirname, '..', '..', 'local-agent', '.env'))
 loadEnvFile(join(__dirname, '..', '..', 'youtube-engine', '.env'))
+loadEnvFile(join(homedir(), '.env'))
+loadEnvFile(join(homedir(), '.env.local'))
 
 export const LOADED_ENV_FILES = _loadedFiles
 
 export const SUPABASE_URL  = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL
-export const SERVICE_KEY   = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_KEY
+export const SERVICE_KEY   = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_KEY || process.env.SERVICE_ROLE_KEY || process.env.SUPABASE_KEY
 export const APIFY_TOKEN   = process.env.APIFY_API_TOKEN || process.env.APIFY_TOKEN || ''
 export const PORT          = parseInt(process.env.PORT || '3012', 10)
 export const REPO_ROOT     = join(__dirname, '..', '..')
@@ -135,5 +140,5 @@ export const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN || ''
 export const TELEGRAM_CHAT_ID   = process.env.TELEGRAM_CHAT_ID || ''
 
 if (!SUPABASE_URL || !SERVICE_KEY) {
-  throw new Error('SUPABASE_URL en SUPABASE_SERVICE_ROLE_KEY zijn vereist')
+  console.warn('[apify-engine] ⚠️  SUPABASE_URL of SERVICE_KEY ontbreekt — DB-functies werken niet')
 }
