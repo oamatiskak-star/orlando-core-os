@@ -1,8 +1,10 @@
 /**
  * Cat 5 — CF2 Cross-Platform Distributie
- * Vindt gepubliceerde YouTube-video's zonder cross-platform posts,
- * genereert LinkedIn-posts vanuit het transcript, slaat op als draft.
- * "Video 2 Social" Apify-actor genereert ook Instagram + Twitter copy.
+ * Vindt gepubliceerde YouTube-video's zonder cross-platform posts en genereert:
+ * - LinkedIn posts (5 varianten)
+ * - Twitter/X threads
+ * - Multi-platform social copy via Video-to-Social actor (Instagram, newsletter, etc.)
+ * Alles wordt als draft opgeslagen in cf2_cross_platform_posts.
  */
 import { runAndCollect } from '../lib/apify.mjs'
 import { db, heartbeat } from '../lib/supabase.mjs'
@@ -12,7 +14,6 @@ const ENGINE_KEY = 'apify:cf2-distribution'
 const MAX_PER_RUN = 5  // max video's per run om Apify-kosten te beheersen
 
 async function getUndistributedVideos() {
-  // Haal gepubliceerde video's op die nog geen LinkedIn-post hebben
   const { data: videos } = await db()
     .from('content_items')
     .select('id, youtube_url, title, transcript')
@@ -23,7 +24,7 @@ async function getUndistributedVideos() {
 
   if (!videos?.length) return []
 
-  // Filter op video's zonder bestaande distributie-posts
+  // Filter op video's zonder bestaande LinkedIn-post
   const { data: existing } = await db()
     .from('cf2_cross_platform_posts')
     .select('video_id')
@@ -41,14 +42,63 @@ async function generateLinkedInPosts(videoId, youtubeUrl, transcript, log) {
       { transcript: transcript.slice(0, 5000), youtubeUrl, postCount: 5 },
       { timeoutMs: 120_000 },
     )
-    const posts = []
-    for (const item of items) {
-      const content = item.post || item.content || item.text || ''
-      if (!content) continue
-      posts.push({
+    return items
+      .map(item => ({ content: item.post || item.content || item.text || '' }))
+      .filter(p => p.content)
+      .map(p => ({
         video_id: videoId,
         youtube_url: youtubeUrl,
         platform: 'linkedin',
+        content: p.content,
+        actor_run_id: runId,
+        status: 'draft',
+      }))
+  } catch (err) {
+    log(`⚠️  LinkedIn posts ${youtubeUrl}: ${err.message}`)
+    return []
+  }
+}
+
+async function generateTwitterThreads(videoId, youtubeUrl, transcript, log) {
+  try {
+    const { items, runId } = await runAndCollect(
+      ACTORS.TWITTER_THREADS,
+      { transcript: transcript.slice(0, 5000), youtubeUrl, threadCount: 2 },
+      { timeoutMs: 120_000 },
+    )
+    return items
+      .map(item => ({ content: item.thread || item.content || item.text || '' }))
+      .filter(p => p.content)
+      .map(p => ({
+        video_id: videoId,
+        youtube_url: youtubeUrl,
+        platform: 'twitter',
+        content: p.content,
+        actor_run_id: runId,
+        status: 'draft',
+      }))
+  } catch (err) {
+    log(`⚠️  Twitter threads ${youtubeUrl}: ${err.message}`)
+    return []
+  }
+}
+
+async function generateMultiPlatformPosts(videoId, youtubeUrl, log) {
+  try {
+    const { items, runId } = await runAndCollect(
+      ACTORS.VIDEO_TO_SOCIAL,
+      { videoUrl: youtubeUrl, platforms: ['instagram', 'newsletter'], postCount: 2 },
+      { timeoutMs: 180_000 },
+    )
+    const posts = []
+    for (const item of items) {
+      const platform = item.platform || 'instagram'
+      const content = item.post || item.content || item.caption || item.text || ''
+      if (!content || !['instagram', 'newsletter'].includes(platform)) continue
+      posts.push({
+        video_id: videoId,
+        youtube_url: youtubeUrl,
+        platform,
         content,
         actor_run_id: runId,
         status: 'draft',
@@ -56,13 +106,12 @@ async function generateLinkedInPosts(videoId, youtubeUrl, transcript, log) {
     }
     return posts
   } catch (err) {
-    log(`⚠️  LinkedIn posts voor ${youtubeUrl}: ${err.message}`)
+    log(`⚠️  Multi-platform posts ${youtubeUrl}: ${err.message}`)
     return []
   }
 }
 
 async function generateVideoTranscriptIfMissing(videoId, youtubeUrl, log) {
-  // Controleer of er al een transcript is
   const { data: video } = await db()
     .from('content_items')
     .select('transcript')
@@ -71,7 +120,7 @@ async function generateVideoTranscriptIfMissing(videoId, youtubeUrl, log) {
   if (video?.transcript) return video.transcript
 
   try {
-    const { items, runId } = await runAndCollect(
+    const { items } = await runAndCollect(
       ACTORS.VIDEO_TO_TEXT,
       { url: youtubeUrl },
       { timeoutMs: 180_000 },
@@ -101,13 +150,19 @@ export async function run(log = console.log) {
       || await generateVideoTranscriptIfMissing(video.id, video.youtube_url, log)
     if (!transcript) continue
 
-    const posts = await generateLinkedInPosts(video.id, video.youtube_url, transcript, log)
-    if (posts.length) {
-      const { error } = await db().from('cf2_cross_platform_posts').insert(posts)
+    const [liPosts, twPosts, multiPosts] = await Promise.all([
+      generateLinkedInPosts(video.id, video.youtube_url, transcript, log),
+      generateTwitterThreads(video.id, video.youtube_url, transcript, log),
+      generateMultiPlatformPosts(video.id, video.youtube_url, log),
+    ])
+
+    const allPosts = [...liPosts, ...twPosts, ...multiPosts]
+    if (allPosts.length) {
+      const { error } = await db().from('cf2_cross_platform_posts').insert(allPosts)
       if (error) log(`⚠️  Posts opslaan ${video.youtube_url}: ${error.message}`)
       else {
-        totalPosts += posts.length
-        log(`✓ ${posts.length} LinkedIn-posts draft → ${video.title || video.youtube_url}`)
+        totalPosts += allPosts.length
+        log(`✓ ${allPosts.length} posts draft (LI:${liPosts.length} TW:${twPosts.length} Multi:${multiPosts.length}) → ${video.title || video.youtube_url}`)
       }
     }
   }

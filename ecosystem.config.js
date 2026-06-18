@@ -210,14 +210,13 @@ module.exports = {
     // ── 8. ScrapeGraph Engine — LLM-gestuurde webscraper (Python/FastAPI) ──
     //    SmartScraper, SearchGraph, MarkdownifyGraph, BatchScraper via Claude.
     //    Node.js workers roepen aan via fetch('http://localhost:3013/scrape').
-    //    Setup: cd scrapegraph-engine && pip install -r requirements.txt
-    //           && playwright install chromium
+    //    Setup: bash scrapegraph-engine/setup.sh  (maakt venv + playwright)
     //    Vereist: ANTHROPIC_API_KEY in .env.gh-secrets
     {
       name:        'scrapegraph-engine',
       cwd:         `${BASE}/scrapegraph-engine`,
-      script:      'python',
-      args:        '-m uvicorn main:app --host 0.0.0.0 --port 3013',
+      script:      'venv/bin/uvicorn',
+      args:        'main:app --host 0.0.0.0 --port 3013',
       interpreter: 'none',
       watch:       false,
       autorestart: true,

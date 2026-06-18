@@ -1,9 +1,10 @@
 /**
  * Cat 1 — CF2 Intelligence
- * - Scrapt transcripts van competitor YouTube-kanalen
- * - Haalt trending US-finance topics op via RSS + YouTube Trending
- * - Slaat alles op als topic-kandidaten in cf2_topic_feed
- * - Vult cf2_competitor_transcripts voor script-analyse
+ * - RSS + YouTube Trending (US finance)
+ * - Reddit trending finance discussions
+ * - AI Hype Tracker (GitHub trending + AI nieuws)
+ * - Global Markets Intelligence (sentiment-scored nieuwsanalyse)
+ * - Competitor YouTube transcripts
  */
 import { runAndCollect } from '../lib/apify.mjs'
 import { db, heartbeat } from '../lib/supabase.mjs'
@@ -118,16 +119,97 @@ async function scrapeCompetitorTranscripts(log) {
   }
 }
 
+async function fetchRedditTopics(log) {
+  const subreddits = ['investing', 'stocks', 'personalfinance', 'financialindependence', 'SecurityAnalysis']
+  const items = []
+  for (const sub of subreddits) {
+    try {
+      const { items: posts, runId } = await runAndCollect(
+        ACTORS.REDDIT_SEARCHER,
+        { subreddit: sub, type: 'hot', maxItems: 20 },
+        { timeoutMs: 120_000 },
+      )
+      for (const post of posts) {
+        if (!post.title) continue
+        items.push({
+          source: 'reddit',
+          actor_run_id: runId,
+          title: post.title,
+          url: post.url || post.permalink || null,
+          description: post.selftext?.slice(0, 500) || null,
+          published_at: post.created ? new Date(post.created * 1000).toISOString() : null,
+          relevance_score: Math.min((post.score || 0) / 10_000, 1),
+        })
+      }
+      log(`Reddit r/${sub} → ${posts.length} posts`)
+    } catch (err) {
+      log(`⚠️  Reddit r/${sub}: ${err.message}`)
+    }
+  }
+  return items
+}
+
+async function fetchAIHypeTopics(log) {
+  try {
+    const { items, runId } = await runAndCollect(
+      ACTORS.AI_HYPE_TRACKER,
+      { maxItems: 30 },
+      { timeoutMs: 120_000 },
+    )
+    log(`AI Hype Tracker → ${items.length} items`)
+    return items.map(item => ({
+      source: 'ai_hype',
+      actor_run_id: runId,
+      title: item.title || item.name || '',
+      url: item.url || item.link || null,
+      description: item.description || item.summary || null,
+      published_at: item.date ? new Date(item.date).toISOString() : null,
+      relevance_score: Math.min((item.stars || item.score || 0) / 10_000, 1),
+    })).filter(t => t.title)
+  } catch (err) {
+    log(`⚠️  AI Hype Tracker: ${err.message}`)
+    return []
+  }
+}
+
+async function fetchMarketIntelligence(log) {
+  try {
+    const { items, runId } = await runAndCollect(
+      ACTORS.MARKET_INTEL,
+      { topics: ['S&P 500', 'Federal Reserve', 'interest rates', 'inflation', 'earnings'], maxItems: 20 },
+      { timeoutMs: 120_000 },
+    )
+    log(`Market Intelligence → ${items.length} analyses`)
+    return items.map(item => ({
+      source: 'market_intel',
+      actor_run_id: runId,
+      title: item.title || item.headline || '',
+      url: item.url || null,
+      description: item.summary || item.analysis || null,
+      published_at: item.publishedAt ? new Date(item.publishedAt).toISOString() : null,
+      relevance_score: item.sentimentScore ? Math.abs(item.sentimentScore) : 0.7,
+    })).filter(t => t.title)
+  } catch (err) {
+    log(`⚠️  Market Intelligence: ${err.message}`)
+    return []
+  }
+}
+
 export async function run(log = console.log) {
   log('[cf2-intelligence] start')
   const started = Date.now()
 
-  const [rssTopics, ytTopics] = await Promise.all([
+  const [rssTopics, ytTopics, redditTopics, aiHypeTopics, marketTopics] = await Promise.all([
     fetchRssTopics(log),
     fetchYouTubeTrending(log),
+    fetchRedditTopics(log),
+    fetchAIHypeTopics(log),
+    fetchMarketIntelligence(log),
   ])
 
-  const allTopics = [...rssTopics, ...ytTopics].filter(t => t.title)
+  const allTopics = [...rssTopics, ...ytTopics, ...redditTopics, ...aiHypeTopics, ...marketTopics]
+    .filter(t => t.title)
+
   if (allTopics.length) {
     const { error } = await db().from('cf2_topic_feed').insert(allTopics)
     if (error) log(`⚠️  Topic feed insert: ${error.message}`)
@@ -137,7 +219,15 @@ export async function run(log = console.log) {
   await scrapeCompetitorTranscripts(log)
 
   const ms = Date.now() - started
-  await heartbeat(ENGINE_KEY, { topics: allTopics.length, ms })
-  log(`[cf2-intelligence] klaar in ${ms}ms`)
+  await heartbeat(ENGINE_KEY, {
+    topics: allTopics.length,
+    rss: rssTopics.length,
+    youtube: ytTopics.length,
+    reddit: redditTopics.length,
+    ai_hype: aiHypeTopics.length,
+    market: marketTopics.length,
+    ms,
+  })
+  log(`[cf2-intelligence] klaar in ${ms}ms — ${allTopics.length} topics (RSS:${rssTopics.length} YT:${ytTopics.length} Reddit:${redditTopics.length} AI:${aiHypeTopics.length} Market:${marketTopics.length})`)
   return { topics: allTopics.length }
 }
