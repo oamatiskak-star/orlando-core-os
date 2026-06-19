@@ -199,6 +199,8 @@ async function dismissConsent(page: Page): Promise<void> {
 async function runForm(page: Page, rl: readline.Interface): Promise<'quit' | 'done'> {
   const history: string[] = []
   let stale = 0
+  let lastSig = ''
+  let repeat = 0
   for (let step = 1; step <= MAX_STEPS; step++) {
     await page.waitForTimeout(1200)
     await dismissConsent(page)
@@ -226,6 +228,7 @@ async function runForm(page: Page, rl: readline.Interface): Promise<'quit' | 'do
     if (decision.done) return 'done'
 
     const acts = decision.actions ?? []
+    const sig = JSON.stringify(acts.map(a => `${a.action}:${a.ref}`))
     let ok = 0
     for (const act of acts) {
       const r = await execute(page, act)
@@ -235,6 +238,16 @@ async function runForm(page: Page, rl: readline.Interface): Promise<'quit' | 'do
       await page.waitForTimeout(300)
     }
     if (history.length > 12) history.splice(0, history.length - 12)
+
+    // Lus-detectie: exact dezelfde acties als vorige stap → vastgelopen (bv. custom
+    // phone-widget / form die telkens reset). Pauzeer zodat de mens het afmaakt.
+    if (sig !== '[]' && sig === lastSig) repeat++; else repeat = 0
+    lastSig = sig
+    if (repeat >= 2) {
+      const ans = (await rl.question('    ⚠ Agent loopt vast op dit formulier (zelfde acties). Maak het evt. zelf af in Chrome → [Enter]=volgend programma · q=stop > ')).trim().toLowerCase()
+      if (ans === 'q') return 'quit'
+      return 'done'
+    }
 
     // Geen voortgang (geen acties, of alles faalde) → na 3× het programma overslaan.
     if (acts.length === 0 || ok === 0) stale++; else stale = 0
