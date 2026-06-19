@@ -225,6 +225,7 @@ export const NAV_MODULES: Record<string, NavModuleDef> = {
   account_setup_hub:     { key: 'account_setup_hub',     label: 'Affiliate Programs', href: '/dashboard/account-setup',                 icon: Layers },
   account_setup_accounts:{ key: 'account_setup_accounts',label: 'Programma Registry', href: '/dashboard/account-setup/accounts',        icon: UserCheck },
   account_setup_action:  { key: 'account_setup_action',  label: 'Requires Action',    href: '/dashboard/account-setup/requires-action', icon: AlertCircle },
+  account_setup_backlinks:{ key: 'account_setup_backlinks',label: 'Backlink Factory',  href: '/dashboard/account-setup/backlinks',       icon: Link },
 
   // ── HOLDING ECOSYSTEM (24-milestone roadmap, holding-niveau) ──────────────
   holding_milestones:  { key: 'holding_milestones',  label: 'Holding Ecosystem',       href: '/dashboard/holding-milestones',      icon: Target },
@@ -306,7 +307,7 @@ export const COMPANY_NAV: Record<string, CompanyNav> = {
         ],
       },
       { title: 'Operationeel', modules: ['build_tracker', 'tracker_canonical', 'tracker_dagprioriteit', 'build_war_room', 'osm','accounts', 'projecten', 'planning', 'crm', 'documenten', 'agenda', 'taken'] },
-      { title: 'Affiliate & Revenue', modules: ['account_setup_hub', 'account_setup_accounts', 'account_setup_action'] },
+      { title: 'Affiliate & Revenue', modules: ['account_setup_hub', 'account_setup_accounts', 'account_setup_action', 'account_setup_backlinks'] },
       { title: 'Routines Control', modules: ['routines_hub', 'routines_live', 'routines_agents', 'routines_logs'] },
     ],
     globalBottom: ['meldingen', 'instellingen'],
