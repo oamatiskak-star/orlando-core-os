@@ -47,6 +47,42 @@ export function buildYouTubeClient(auth: OAuth2Client): youtube_v3.Youtube {
   return google.youtube({ version: 'v3', auth })
 }
 
+/**
+ * Voegt (idempotent) een regel toe aan de KANAALBESCHRIJVING (brandingSettings).
+ * Veilig: haalt eerst de volledige brandingSettings op en stuurt die compleet
+ * terug — alleen de description wordt aangevuld (geen banner/keywords/trailer
+ * overschreven). Slaat over als de URL al in de beschrijving staat.
+ * Vereist scope youtube.force-ssl (aanwezig). Returnt de uitkomst-status.
+ */
+export async function appendChannelDescriptionLink(
+  auth: OAuth2Client,
+  line: string,
+  opts: { apply: boolean } = { apply: false },
+): Promise<'skipped_present' | 'no_branding' | 'would_update' | 'updated'> {
+  const yt = buildYouTubeClient(auth)
+  const cur = await yt.channels.list({ part: ['brandingSettings'], mine: true })
+  const ch = cur.data.items?.[0]
+  if (!ch?.id || !ch.brandingSettings) return 'no_branding'
+
+  const desc = ch.brandingSettings.channel?.description ?? ''
+  if (desc.includes('aquier.com')) return 'skipped_present'
+
+  const newDesc = desc.trim() ? `${desc.trim()}\n\n${line}` : line
+  if (!opts.apply) return 'would_update'
+
+  await yt.channels.update({
+    part: ['brandingSettings'],
+    requestBody: {
+      id: ch.id,
+      brandingSettings: {
+        ...ch.brandingSettings,
+        channel: { ...ch.brandingSettings.channel, description: newDesc },
+      },
+    },
+  })
+  return 'updated'
+}
+
 export interface UploadParams {
   filePath: string
   title: string
