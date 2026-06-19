@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { Layers, AlertCircle, Wallet, CheckCircle2, Clock, Zap } from 'lucide-react'
+import { Layers, AlertCircle, Wallet, CheckCircle2, Clock, Zap, Eye } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
 import { getActiveCompany } from '@/lib/active-company-server'
 import { KpiStrip, type Kpi } from '@/components/executive/KpiStrip'
@@ -12,6 +12,8 @@ import {
 import { AFFILIATE_SETUP } from '@/lib/affiliate-programs/setup-data'
 import { ProgramSetupCard } from './ProgramSetupCard'
 import { SharedRegistrationCard } from './SharedRegistrationCard'
+import ContinueInClaude from '@/components/build/ContinueInClaude'
+import type { ContinuePromptContext } from '@/lib/continue-prompt'
 
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
@@ -58,6 +60,25 @@ export default async function AccountSetupHubPage() {
     .map(cat => ({ cat, items: programs.filter(p => p.category === cat) }))
     .filter(g => g.items.length > 0)
 
+  const registryAgentContext: ContinuePromptContext = {
+    tracker: 'Affiliate & Revenue — Program Registry',
+    itemType: 'affiliate-signup',
+    name: 'Affiliate signup-sessie',
+    company: company.name,
+    route: '/dashboard/account-setup',
+    description:
+      'Orlando meldt zich aan bij de affiliate-programma’s en moet aanmeldvragen beantwoorden. Kijk live mee en ' +
+      'help per vraag met de juiste promotie-tekst, audience-omschrijving, payout/tax-gegevens en de in te vullen velden. ' +
+      'Bron-data: affiliate_programs.metadata (signup_pack/setup/registration) in de orlando-core-os Supabase en ' +
+      'lib/affiliate-programs/setup-data.ts. Site = aquier.com, entiteit = Modiwerijo Financial Management BV.',
+    extra: [
+      { label: 'Property', value: 'aquier.com' },
+      { label: 'Entiteit', value: 'Modiwerijo Financial Management BV (KvK 97494380, BTW NL868076314B01)' },
+      { label: 'Payout', value: 'PayPal o.amatiskak@gmail.com (Make.com = Wise)' },
+      { label: 'Setup-data', value: 'lib/affiliate-programs/setup-data.ts + affiliate_programs.metadata' },
+    ],
+  }
+
   return (
     <div className="space-y-5">
       <KpiStrip items={kpis} />
@@ -75,6 +96,17 @@ export default async function AccountSetupHubPage() {
         </div>
         <span className="text-[11px] text-violet-200/80">Openen →</span>
       </Link>
+
+      <div className="flex items-center justify-between gap-3 rounded-xl border border-emerald-500/20 bg-emerald-500/[0.06] px-4 py-3">
+        <div className="flex items-center gap-2.5">
+          <Eye size={16} className="text-emerald-300" />
+          <div>
+            <p className="text-[13px] font-semibold text-white">Setup Agent laten meekijken</p>
+            <p className="text-[10px] text-white/50">Start een agent-sessie (cli-l) die live meehelpt bij het beantwoorden van aanmeldvragen.</p>
+          </div>
+        </div>
+        <ContinueInClaude context={registryAgentContext} size="sm" label="Agent meekijken" />
+      </div>
 
       <SharedRegistrationCard />
 

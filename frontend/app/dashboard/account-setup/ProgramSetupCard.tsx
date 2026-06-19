@@ -7,6 +7,8 @@ import clsx from 'clsx'
 import { AccountStatusBadge } from '@/lib/affiliate-programs/badges'
 import type { ProgramOverviewRow } from '@/lib/affiliate-programs/types'
 import type { ProgramSetup } from '@/lib/affiliate-programs/setup-data'
+import ContinueInClaude from '@/components/build/ContinueInClaude'
+import type { ContinuePromptContext } from '@/lib/continue-prompt'
 
 function fmtMoney(n: number): string {
   return n.toLocaleString('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 })
@@ -61,6 +63,26 @@ export function ProgramSetupCard({ program, setup, detailHref }: Props) {
   const [open, setOpen] = useState(false)
   const hasSetup = setup !== null
 
+  const agentContext: ContinuePromptContext | null = setup
+    ? {
+        tracker: 'Affiliate & Revenue — Program Registry',
+        itemType: 'affiliate-signup',
+        name: `Affiliate signup: ${program.name}`,
+        route: '/dashboard/account-setup',
+        description:
+          `Kijk live mee terwijl Orlando zich aanmeldt bij ${program.name} en help de aanmeldvragen beantwoorden. ` +
+          'Gebruik de voorbereide gegevens (promotie-tekst, audience, payout/tax, in te vullen velden) uit ' +
+          'affiliate_programs.metadata (signup_pack/setup/registration) en lib/affiliate-programs/setup-data.ts. ' +
+          'Site = aquier.com, entiteit = Modiwerijo Financial Management BV (KvK 97494380, BTW NL868076314B01).',
+        extra: [
+          { label: 'Aanmeld-URL', value: setup.signupUrl },
+          { label: 'Netwerk', value: setup.network },
+          { label: 'Approval', value: setup.approval },
+          { label: 'In te vullen velden', value: setup.requiredFields.join(' · ') },
+        ],
+      }
+    : null
+
   return (
     <div className="bg-white/[0.02] border border-white/[0.05] rounded-xl overflow-hidden">
       <div className="p-3">
@@ -106,15 +128,18 @@ export function ProgramSetupCard({ program, setup, detailHref }: Props) {
 
       {hasSetup && open && setup && (
         <div className="border-t border-white/[0.06] bg-white/[0.015] p-3 space-y-3">
-          <a
-            href={setup.signupUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center gap-1.5 rounded-lg border border-violet-500/25 bg-violet-500/[0.10] px-2.5 py-1.5 text-[11px] font-semibold text-violet-100 hover:bg-violet-500/[0.18] transition-colors"
-          >
-            <ExternalLink size={12} />
-            Open aanmeldpagina
-          </a>
+          <div className="flex flex-wrap items-center gap-2">
+            <a
+              href={setup.signupUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1.5 rounded-lg border border-violet-500/25 bg-violet-500/[0.10] px-2.5 py-1.5 text-[11px] font-semibold text-violet-100 hover:bg-violet-500/[0.18] transition-colors"
+            >
+              <ExternalLink size={12} />
+              Open aanmeldpagina
+            </a>
+            {agentContext && <ContinueInClaude context={agentContext} size="xs" label="Agent meekijken" />}
+          </div>
 
           <div className="grid grid-cols-2 gap-x-3 gap-y-2">
             <Fact label="Netwerk" value={setup.network} />
