@@ -17,6 +17,10 @@ import 'dotenv/config'
 import * as readline from 'node:readline/promises'
 import { stdin as input, stdout as output } from 'node:process'
 import { chromium, BrowserContext, Page } from 'playwright'
+import { createClient } from '@supabase/supabase-js'
+
+const SUPABASE_URL = process.env.SUPABASE_URL
+const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY
 
 // Brein: standaard lokaal/gratis via Ollama; 'anthropic' als je daar tegoed op zet.
 const BACKEND = (process.env.BROWSER_AGENT_BACKEND ?? 'ollama').toLowerCase()
@@ -35,7 +39,7 @@ const PROFILE = {
   email: 'o.amatiskak@gmail.com', website: 'https://aquier.com', country: 'Netherlands',
   company: 'Modiwerijo Financial Management BV', kvk: '97494380', vat: 'NL868076314B01',
   payout: 'PayPal o.amatiskak@gmail.com', tax_form: 'W-8BEN-E (non-US entity)',
-  phone: '(ONBEKEND — vraag de mens)',
+  phone: '+31630068831',
   about: 'Aquier (aquier.com) is a personal-finance, investing and real-estate knowledge base (~300 articles, EN + NL, NL-first, expanding). Operated under Modiwerijo Financial Management BV (Netherlands).',
   audience: 'Self-directed retail investors and small-business owners researching finance, investing, real estate and the tools to grow online. Primarily Dutch and English-speaking.',
   promotion: 'Content and SEO only: long-form articles, reviews and comparison content plus an email newsletter, built around organic search and editorial recommendations. No brand-keyword bidding, no incentivized traffic.',
@@ -156,14 +160,66 @@ async function execute(page: Page, act: { action: string; ref: string; value?: s
   return `onbekende actie ${act.action}`
 }
 
+type Target = { name: string; url: string }
+
+/** Gerichte, nog-niet-aangemelde programma's met een echt formulier (geen e-mail/geblokkeerd). */
+async function loadTargets(): Promise<Target[]> {
+  if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) { console.error('SUPABASE env ontbreekt → geef een --url mee.'); return [] }
+  const db = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, { auth: { persistSession: false } })
+  const { data } = await db.from('affiliate_programs')
+    .select('name, url, account_status, metadata')
+    .eq('account_status', 'not_started').not('url', 'is', null)
+  type Row = { name: string; url: string | null; metadata: { targeted?: { included?: boolean; grp?: string; rank?: number }; blocked?: unknown; apply?: { method?: string }; signup_pack?: { signup_url?: string } } | null }
+  const rows = (data ?? []) as Row[]
+  return rows
+    .filter(r => r.metadata?.targeted?.included === true && !r.metadata?.blocked && r.metadata?.apply?.method !== 'email')
+    .sort((a, b) => `${a.metadata?.targeted?.grp}${a.metadata?.targeted?.rank}`.localeCompare(`${b.metadata?.targeted?.grp}${b.metadata?.targeted?.rank}`))
+    .map(r => ({ name: r.name, url: r.metadata?.signup_pack?.signup_url || (r.url as string) }))
+}
+
+/** Doorloop één formulier (meerstaps) tot klaar / mens-stop. */
+async function runForm(page: Page, rl: readline.Interface): Promise<'quit' | 'done'> {
+  for (let step = 1; step <= MAX_STEPS; step++) {
+    await page.waitForTimeout(1500)
+    const els = await snapshot(page)
+    const url = page.url(); const title = await page.title().catch(() => '')
+    console.log(`  ── stap ${step} · ${title || url}`)
+    let decision: AgentDecision
+    try { decision = await askLLM(url, title, els, []) }
+    catch (e) { console.error('    LLM-fout:', (e as Error).message); return 'done' }
+    if (decision.note) console.log(`    agent: ${decision.note}`)
+
+    if (decision.human) {
+      const submitGate = /verzend|submit|bevestig/i.test(decision.human)
+      if (AUTO_SUBMIT && submitGate) {
+        const submit = page.locator('button[type=submit], button:has-text("Submit"), button:has-text("Apply"), button:has-text("Register"), button:has-text("Create"), button:has-text("Sign up")').first()
+        await submit.click({ timeout: 5000 }).catch(() => {})
+        console.log('    → finale knop geklikt (AUTO_SUBMIT)')
+        return 'done'
+      }
+      const ans = (await rl.question(`    ⏸  ${decision.human}\n    Los op in Chrome → [Enter]=verder · s=skip programma · q=stop > `)).trim().toLowerCase()
+      if (ans === 'q') return 'quit'
+      if (ans === 's' || submitGate) return 'done'
+      continue
+    }
+    if (decision.done) return 'done'
+
+    for (const act of decision.actions ?? []) {
+      console.log(`    · ${await execute(page, act)}`)
+      await page.waitForTimeout(300)
+    }
+  }
+  return 'done'
+}
+
 async function main() {
   const urlArg = process.argv.indexOf('--url')
   const startUrl = urlArg >= 0 ? process.argv[urlArg + 1] : null
 
-  let context: BrowserContext, page: Page, cleanup: () => Promise<void>
+  let page: Page, cleanup: () => Promise<void>
   try {
     const browser = await chromium.connectOverCDP(CDP_URL)
-    context = browser.contexts()[0] ?? await browser.newContext()
+    const context: BrowserContext = browser.contexts()[0] ?? await browser.newContext()
     page = context.pages().find(p => !p.url().startsWith('chrome')) ?? await context.newPage()
     cleanup = async () => { await browser.close().catch(() => {}) }
     console.log(`Aangehaakt aan jouw Chrome via CDP ✓  (brein: ${BACKEND} · ${MODEL})\n`)
@@ -173,44 +229,17 @@ async function main() {
   }
 
   const rl = readline.createInterface({ input, output })
-  if (startUrl) { await page.goto(startUrl, { waitUntil: 'domcontentloaded' }).catch(() => {}) }
-
   try {
-    for (let step = 1; step <= MAX_STEPS; step++) {
-      await page.waitForTimeout(1200)
-      const els = await snapshot(page)
-      const url = page.url(); const title = await page.title().catch(() => '')
-      console.log(`\n── stap ${step} · ${title || url}`)
-      const history: string[] = []
-      let decision: AgentDecision
-      try { decision = await askLLM(url, title, els, history) }
-      catch (e) { console.error('  LLM-fout:', (e as Error).message); break }
-
-      if (decision.note) console.log(`  agent: ${decision.note}`)
-
-      if (decision.human) {
-        const ans = (await rl.question(`  ⏸  ${decision.human}\n  Los het in Chrome op, dan [Enter]=verder · s=skip-pagina · q=stop > `)).trim().toLowerCase()
-        if (ans === 'q') break
-        if (ans === 's') { await page.waitForTimeout(500); continue }
-        // bij "klaar om te verzenden": optioneel zelf de finale knop klikken
-        if (AUTO_SUBMIT && /verzend|submit/i.test(decision.human)) {
-          const submit = page.locator('button[type=submit], button:has-text("Submit"), button:has-text("Apply"), button:has-text("Register"), button:has-text("Create")').first()
-          await submit.click().catch(() => {})
-          console.log('  → finale knop geklikt (AUTO_SUBMIT)')
-        }
-        continue
-      }
-
-      if (decision.done) { console.log('  ✓ agent: pagina klaar.');
-        const ans = (await rl.question('  [Enter]=volgende stap/pagina · q=stop > ')).trim().toLowerCase()
-        if (ans === 'q') break; else continue
-      }
-
-      for (const act of decision.actions ?? []) {
-        const r = await execute(page, act)
-        console.log(`  · ${r}`)
-        await page.waitForTimeout(300)
-      }
+    const targets: Target[] = startUrl ? [{ name: 'handmatig', url: startUrl }] : await loadTargets()
+    if (!targets.length) { console.log('Geen aanmeld-doelen gevonden.'); return }
+    console.log(`Aanmeld-lijst: ${targets.length} programma's\n`)
+    for (let i = 0; i < targets.length; i++) {
+      const t = targets[i]
+      console.log(`\n════ [${i + 1}/${targets.length}] ${t.name}\n      ${t.url}`)
+      await page.goto(t.url, { waitUntil: 'domcontentloaded', timeout: 60_000 }).catch(() => console.log('      ⚠ navigeren traag/mislukt — los in Chrome op'))
+      const r = await runForm(page, rl)
+      if (r === 'quit') { console.log('\nGestopt door gebruiker.'); break }
+      console.log(`  ✓ ${t.name} afgerond/overgeslagen`)
     }
   } finally {
     rl.close()
