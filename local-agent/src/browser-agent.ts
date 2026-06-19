@@ -59,7 +59,8 @@ Regels:
 - Tussenstap-knoppen (Next, Continue, Add, Volgende) MAG je klikken om door te gaan.
 - De FINALE knop (Submit / Apply / Create account / Register / Pay / Confirm) NIET klikken → {"actions":[...],"human":"klaar om te verzenden — controleer en bevestig"}.
 - Captcha / 2FA / login / "verify you are human": {"actions":[],"human":"captcha/2fa/login"}.
-- Niets meer te doen op deze pagina en geen knop om door te gaan: {"actions":[],"done":true}.`
+- Niets meer te doen op deze pagina en geen knop om door te gaan: {"actions":[],"done":true}.
+- Als 'Recente acties' laat zien dat een actie faalde (overslaan/FOUT) of niets veranderde: herhaal die actie NIET. Kies een ander element, of als er echt geen voortgang mogelijk is geef {"actions":[],"done":true}.`
 
 type Element = { ref: string; tag: string; type: string; label: string; value: string; options?: string[] }
 type AgentDecision = { actions?: { action: string; ref: string; value?: string }[]; human?: string; done?: boolean; note?: string }
@@ -180,15 +181,32 @@ async function loadTargets(): Promise<Target[]> {
     .map(r => ({ name: r.name, url: r.metadata?.signup_pack?.signup_url || (r.url as string) }))
 }
 
+/** Klik gangbare cookie/consent-knoppen weg zodat het formulier bereikbaar wordt. */
+async function dismissConsent(page: Page): Promise<void> {
+  const sels = [
+    '#onetrust-accept-btn-handler', 'button#onetrust-accept-btn-handler',
+    'button:has-text("Accept all")', 'button:has-text("Accept All")',
+    'button:has-text("Alles accepteren")', 'button:has-text("Accepteren")',
+    'button:has-text("I Accept")', 'button:has-text("I agree")', 'button:has-text("Agree")',
+    '[aria-label="Accept all"]', '.cookie button:has-text("Accept")',
+  ]
+  for (const s of sels) {
+    try { const b = page.locator(s).first(); if (await b.count() && await b.isVisible()) { await b.click({ timeout: 2000 }); return } } catch { /* volgende */ }
+  }
+}
+
 /** Doorloop één formulier (meerstaps) tot klaar / mens-stop. */
 async function runForm(page: Page, rl: readline.Interface): Promise<'quit' | 'done'> {
+  const history: string[] = []
+  let stale = 0
   for (let step = 1; step <= MAX_STEPS; step++) {
-    await page.waitForTimeout(1500)
+    await page.waitForTimeout(1200)
+    await dismissConsent(page)
     const els = await snapshot(page)
     const url = page.url(); const title = await page.title().catch(() => '')
     console.log(`  ── stap ${step} · ${title || url}`)
     let decision: AgentDecision
-    try { decision = await askLLM(url, title, els, []) }
+    try { decision = await askLLM(url, title, els, history) }
     catch (e) { console.error('    LLM-fout:', (e as Error).message); return 'done' }
     if (decision.note) console.log(`    agent: ${decision.note}`)
 
@@ -203,14 +221,24 @@ async function runForm(page: Page, rl: readline.Interface): Promise<'quit' | 'do
       const ans = (await rl.question(`    ⏸  ${decision.human}\n    Los op in Chrome → [Enter]=verder · s=skip programma · q=stop > `)).trim().toLowerCase()
       if (ans === 'q') return 'quit'
       if (ans === 's' || submitGate) return 'done'
-      continue
+      stale = 0; continue
     }
     if (decision.done) return 'done'
 
-    for (const act of decision.actions ?? []) {
-      console.log(`    · ${await execute(page, act)}`)
+    const acts = decision.actions ?? []
+    let ok = 0
+    for (const act of acts) {
+      const r = await execute(page, act)
+      console.log(`    · ${r}`)
+      history.push(r)
+      if (!/^(overslaan|FOUT|onbekende)/.test(r)) ok++
       await page.waitForTimeout(300)
     }
+    if (history.length > 12) history.splice(0, history.length - 12)
+
+    // Geen voortgang (geen acties, of alles faalde) → na 3× het programma overslaan.
+    if (acts.length === 0 || ok === 0) stale++; else stale = 0
+    if (stale >= 3) { console.log('    ⚠ geen voortgang (3×) → programma overgeslagen.'); return 'done' }
   }
   return 'done'
 }
