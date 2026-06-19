@@ -185,10 +185,12 @@ async function loadTargets(): Promise<Target[]> {
 async function dismissConsent(page: Page): Promise<void> {
   const sels = [
     '#onetrust-accept-btn-handler', 'button#onetrust-accept-btn-handler',
-    'button:has-text("Accept all")', 'button:has-text("Accept All")',
-    'button:has-text("Alles accepteren")', 'button:has-text("Accepteren")',
-    'button:has-text("I Accept")', 'button:has-text("I agree")', 'button:has-text("Agree")',
-    '[aria-label="Accept all"]', '.cookie button:has-text("Accept")',
+    '.osano-cm-accept-all', 'button.osano-cm-accept-all', '.osano-cm-button--type_accept',
+    '#truste-consent-button', '.cc-allow', '.cc-dismiss',
+    'button:has-text("Accept all")', 'button:has-text("Accept All")', 'button:has-text("Accept All Cookies")',
+    'button:has-text("Allow all")', 'button:has-text("Alles accepteren")', 'button:has-text("Accepteren")',
+    'button:has-text("I Accept")', 'button:has-text("I agree")', 'button:has-text("Agree")', 'button:has-text("Got it")',
+    '[aria-label="Accept all"]', '[aria-label*="accept" i]', '.cookie button:has-text("Accept")',
   ]
   for (const s of sels) {
     try { const b = page.locator(s).first(); if (await b.count() && await b.isVisible()) { await b.click({ timeout: 2000 }); return } } catch { /* volgende */ }
@@ -198,14 +200,19 @@ async function dismissConsent(page: Page): Promise<void> {
 /** Doorloop één formulier (meerstaps) tot klaar / mens-stop. */
 async function runForm(page: Page, rl: readline.Interface): Promise<'quit' | 'done'> {
   const history: string[] = []
+  const filled = new Set<string>()
   let stale = 0
   let lastSig = ''
+  let lastView = ''
   let repeat = 0
   for (let step = 1; step <= MAX_STEPS; step++) {
     await page.waitForTimeout(1200)
     await dismissConsent(page)
     const els = await snapshot(page)
     const url = page.url(); const title = await page.title().catch(() => '')
+    const view = `${url}|${title}`
+    const viewChanged = view !== lastView
+    lastView = view
     console.log(`  ── stap ${step} · ${title || url}`)
     let decision: AgentDecision
     try { decision = await askLLM(url, title, els, history) }
@@ -229,12 +236,12 @@ async function runForm(page: Page, rl: readline.Interface): Promise<'quit' | 'do
 
     const acts = decision.actions ?? []
     const sig = JSON.stringify(acts.map(a => `${a.action}:${a.ref}`))
-    let ok = 0
+    let newVals = 0
     for (const act of acts) {
       const r = await execute(page, act)
       console.log(`    · ${r}`)
       history.push(r)
-      if (!/^(overslaan|FOUT|onbekende)/.test(r)) ok++
+      if (r.startsWith('fill') && act.value && !filled.has(act.value)) { filled.add(act.value); newVals++ }
       await page.waitForTimeout(300)
     }
     if (history.length > 12) history.splice(0, history.length - 12)
@@ -249,9 +256,10 @@ async function runForm(page: Page, rl: readline.Interface): Promise<'quit' | 'do
       return 'done'
     }
 
-    // Geen voortgang (geen acties, of alles faalde) → na 3× het programma overslaan.
-    if (acts.length === 0 || ok === 0) stale++; else stale = 0
-    if (stale >= 3) { console.log('    ⚠ geen voortgang (3×) → programma overgeslagen.'); return 'done' }
+    // Echte voortgang = een NIEUW veld gevuld óf de pagina veranderde. Re-fills van
+    // dezelfde waarden (ronddwalen op netwerk-hubs) tellen niet → na 3× skippen.
+    if (newVals === 0 && !viewChanged) stale++; else stale = 0
+    if (stale >= 3) { console.log('    ⚠ geen echte voortgang (3×) → programma overgeslagen.'); return 'done' }
   }
   return 'done'
 }
