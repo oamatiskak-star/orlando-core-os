@@ -38,6 +38,10 @@ const CATEGORY_STYLE: Record<ProgramCategory, string> = {
   affiliate_network: 'text-indigo-300 border-indigo-400/30 bg-indigo-500/10',
   marketplace:       'text-orange-300 border-orange-400/30 bg-orange-500/10',
   maker_hardware:    'text-rose-300 border-rose-400/30 bg-rose-500/10',
+  automation:        'text-teal-300 border-teal-400/30 bg-teal-500/10',
+  productivity:      'text-sky-300 border-sky-400/30 bg-sky-500/10',
+  ai_video:          'text-fuchsia-300 border-fuchsia-400/30 bg-fuchsia-500/10',
+  creator_tools:     'text-lime-300 border-lime-400/30 bg-lime-500/10',
   other:             'text-white/50 border-white/10 bg-white/[0.04]',
 }
 
