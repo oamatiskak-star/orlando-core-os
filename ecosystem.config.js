@@ -90,7 +90,9 @@ module.exports = {
       autorestart: true,
       max_restarts: 999,
       restart_delay: 5000,
-      env: { NODE_ENV: 'production', ...SUPA_ENV },
+      // PLAYWRIGHT_BROWSERS_PATH expliciet → onafhankelijk van een (mis)geconfigureerde HOME.
+      // Chromium staat in /Users/Shared (world-readable) zodat elke PM2-env hem vindt.
+      env: { NODE_ENV: 'production', PLAYWRIGHT_BROWSERS_PATH: '/Users/Shared/ms-playwright', ...SUPA_ENV },
       log_file:    '/tmp/pm2-browser-registration-runner.log',
       error_file:  '/tmp/pm2-browser-registration-runner-err.log',
       time:        true,
