@@ -15,7 +15,7 @@ import type { AccountStatus, ProgramCategory, RunKind, HumanActionStatus, LoginS
 
 const ALL_CATEGORIES: ProgramCategory[] = ['saas_ai', 'finance_crypto', 'vastgoed_data', 'affiliate_network', 'other']
 const ALL_ACCOUNT_STATUS: AccountStatus[] = ['not_started', 'applied', 'pending', 'approved', 'active', 'payout_active', 'rejected', 'suspended']
-const ALL_RUN_KINDS: RunKind[] = ['account_setup', 'affiliate_registration', 'verification', 'revenue_sync', 'reminder', 'terms_analysis']
+const ALL_RUN_KINDS: RunKind[] = ['account_setup', 'affiliate_registration', 'verification', 'revenue_sync', 'reminder', 'terms_analysis', 'browser_registration', 'live_assist']
 const ALL_LOGIN_STATUS: LoginStatus[] = ['none', 'created', 'verified', 'mfa_pending', 'locked']
 const ALL_DOC_KINDS: DocKind[] = ['kyc_id', 'proof_address', 'tax_form', 'contract', 'bank', 'other']
 const ALL_DOC_STATUS: DocStatus[] = ['required', 'uploaded', 'verified', 'rejected']
@@ -441,6 +441,79 @@ export async function startBrowserRegistration(formData: FormData): Promise<{ ru
   await audit(programId, run.id, 'browser.registration_enqueued', { gmail_label: gmailLabel })
   revalidateAll()
   return { runId: run.id as string }
+}
+
+// ── Live co-watch sessie (Setup Agent + MCP Agent kijken mee) ────────────────
+// Spiegel van browser_registration: daar vult de agent en keurt de mens goed;
+// hier vult de MENS de aanmeldformulieren en kijken de agents LIVE mee + geven
+// guidance. Eén globale sessie (program_id null) loopt over álle aanmeldingen.
+//
+// QUEUE-CONTRACT voor de agent-kant (CLI-L Setup-runner + MCP-agent, los proces):
+//   - run_kind = 'affiliate_registration', payload.mode = 'live_assist'
+//   - watchers = ['setup_agent','mcp_agent']
+//   - agents claimen de run (claimed_by/heartbeat_at), lezen open vragen uit
+//     account_setup_human_actions (metadata.mode='live_assist') en posten
+//     guidance terug als account_setup_run_steps (step_kind 'generate_followup',
+//     output = { role:'agent', agent, message }). De gedeployde server kan deze
+//     agents niet zelf draaien — die haken aan via de queue.
+export async function startLiveAssist(): Promise<{ runId: string }> {
+  const admin = createAdminClient()
+  const { data: run, error } = await admin
+    .from('account_setup_runs')
+    .insert({
+      program_id: null,
+      run_kind: 'live_assist',
+      status: 'queued',
+      trigger_kind: 'manual',
+      payload: {
+        mode: 'live_assist',
+        watchers: ['setup_agent', 'mcp_agent'],
+        purpose: 'Mens vult affiliate-aanmeldformulieren in; agents kijken mee en assisteren bij de vragen.',
+      },
+    })
+    .select('id')
+    .single()
+  if (error || !run) throw new Error(error?.message ?? 'Sessie starten mislukt')
+
+  await audit(null, run.id, 'live_assist.started', { watchers: ['setup_agent', 'mcp_agent'] })
+  return { runId: run.id as string }
+}
+
+export async function endLiveAssist(formData: FormData) {
+  const runId = String(formData.get('run_id') ?? '').trim()
+  if (!runId) throw new Error('run_id ontbreekt')
+
+  const admin = createAdminClient()
+  const { error } = await admin
+    .from('account_setup_runs')
+    .update({ status: 'completed', ended_at: new Date().toISOString() })
+    .eq('id', runId)
+  if (error) throw new Error(error.message)
+
+  await audit(null, runId, 'live_assist.ended', {})
+}
+
+// Mens stelt tijdens het invullen een vraag aan de meekijkende agents.
+export async function postAssistQuestion(formData: FormData) {
+  const runId = String(formData.get('run_id') ?? '').trim()
+  const question = String(formData.get('question') ?? '').trim()
+  const program = String(formData.get('program') ?? '').trim()
+  if (!runId) throw new Error('run_id ontbreekt')
+  if (!question) throw new Error('Vraag is leeg')
+
+  const admin = createAdminClient()
+  const { error } = await admin.from('account_setup_human_actions').insert({
+    program_id: null,
+    run_id: runId,
+    action_kind: 'other',
+    title: program ? `Vraag tijdens aanmelding — ${program}` : 'Vraag tijdens aanmelding',
+    description: question,
+    status: 'open',
+    metadata: { mode: 'live_assist', program: program || null },
+  })
+  if (error) throw new Error(error.message)
+
+  await audit(null, runId, 'live_assist.question', { program: program || null })
 }
 
 // Signed URL voor een browser-step screenshot. Server-side via service-role,
