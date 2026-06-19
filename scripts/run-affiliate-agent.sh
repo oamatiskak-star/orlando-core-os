@@ -17,13 +17,17 @@ REPO="$HOME/Github/orlando-core-os"
 # laad SUPABASE/ANTHROPIC/OLLAMA env zodat de agent de lijst + brein heeft
 [ -f "$HOME/.orlando-env" ] && { set -a; . "$HOME/.orlando-env"; set +a; }
 
-if ! curl -s "http://127.0.0.1:$PORT/json/version" >/dev/null 2>&1; then
-  echo "Start debug-Chrome op poort $PORT (apart profiel, je gewone Chrome blijft open)…"
-  "$CHROME" --remote-debugging-port="$PORT" --user-data-dir="$DEBUG_DIR" \
-    --no-first-run --no-default-browser-check about:blank >/tmp/chrome-debug.log 2>&1 &
-  curl -s --retry 25 --retry-delay 1 --retry-connrefused "http://127.0.0.1:$PORT/json/version" >/dev/null
-  echo "Chrome klaar."
-fi
+# Altijd een VERSE debug-Chrome: een oude/vastgelopen instance op deze poort gaf
+# CDP-hangs ("kan pagina niet openen"). We killen alleen de debug-instance (poort),
+# nooit je gewone Chrome. Het profiel staat op schijf, dus logins blijven bewaard.
+echo "Start verse debug-Chrome op poort $PORT (apart profiel; je gewone Chrome blijft open)…"
+pkill -f "remote-debugging-port=$PORT" 2>/dev/null || true
+sleep 1
+rm -f "$DEBUG_DIR/Singleton"* 2>/dev/null || true
+"$CHROME" --remote-debugging-port="$PORT" --user-data-dir="$DEBUG_DIR" \
+  --no-first-run --no-default-browser-check about:blank >/tmp/chrome-debug.log 2>&1 &
+curl -s --retry 25 --retry-delay 1 --retry-connrefused "http://127.0.0.1:$PORT/json/version" >/dev/null
+echo "Chrome klaar."
 
 # breng het Chrome-venster naar de voorgrond zodat je de agent ziet werken
 osascript -e 'tell application "Google Chrome" to activate' >/dev/null 2>&1 || true
