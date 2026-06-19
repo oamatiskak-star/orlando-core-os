@@ -142,15 +142,17 @@ async function askLLM(url: string, title: string, els: Element[], history: strin
 
 async function execute(page: Page, act: { action: string; ref: string; value?: string }): Promise<string> {
   const loc = page.locator(`[data-agent-ref="${act.ref}"]`).first()
+  const opt = { timeout: 5000 } // snel falen i.p.v. 30s hangen op niet-actionable elementen
   try {
-    if (act.action === 'fill') { await loc.fill(act.value ?? ''); return `fill ${act.ref}="${(act.value ?? '').slice(0, 30)}"` }
+    await loc.scrollIntoViewIfNeeded({ timeout: 2500 }).catch(() => {})
+    if (act.action === 'fill') { await loc.fill(act.value ?? '', opt); return `fill ${act.ref}="${(act.value ?? '').slice(0, 30)}"` }
     if (act.action === 'select') {
-      await loc.selectOption({ label: act.value ?? '' }).catch(async () => { await loc.selectOption(act.value ?? '') })
+      await loc.selectOption({ label: act.value ?? '' }, opt).catch(async () => { await loc.selectOption(act.value ?? '', opt) })
       return `select ${act.ref}=${act.value}`
     }
-    if (act.action === 'check') { await loc.check(); return `check ${act.ref}` }
-    if (act.action === 'click') { await loc.click(); return `click ${act.ref}` }
-  } catch (e) { return `FOUT ${act.action} ${act.ref}: ${(e as Error).message.slice(0, 60)}` }
+    if (act.action === 'check') { await loc.check(opt); return `check ${act.ref}` }
+    if (act.action === 'click') { await loc.click(opt); return `click ${act.ref}` }
+  } catch (e) { return `overslaan ${act.action} ${act.ref}: ${(e as Error).message.split('\n')[0].slice(0, 50)}` }
   return `onbekende actie ${act.action}`
 }
 
