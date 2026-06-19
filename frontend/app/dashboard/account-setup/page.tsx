@@ -1,19 +1,24 @@
 import Link from 'next/link'
-import { Layers, AlertCircle, Wallet, CheckCircle2, Clock, Zap } from 'lucide-react'
+import { Layers, AlertCircle, Wallet, CheckCircle2, Clock, Zap, Eye } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
 import { getActiveCompany } from '@/lib/active-company-server'
 import { KpiStrip, type Kpi } from '@/components/executive/KpiStrip'
-import { AccountStatusBadge, CategoryBadge } from '@/lib/affiliate-programs/badges'
+import { CategoryBadge } from '@/lib/affiliate-programs/badges'
 import {
   CATEGORY_LABEL,
   type ProgramOverviewRow,
   type ProgramCategory,
 } from '@/lib/affiliate-programs/types'
+import { AFFILIATE_SETUP } from '@/lib/affiliate-programs/setup-data'
+import { ProgramSetupCard } from './ProgramSetupCard'
+import { SharedRegistrationCard } from './SharedRegistrationCard'
+import ContinueInClaude from '@/components/build/ContinueInClaude'
+import type { ContinuePromptContext } from '@/lib/continue-prompt'
 
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
 
-const CATEGORY_ORDER: ProgramCategory[] = ['saas_ai', 'finance_crypto', 'vastgoed_data', 'affiliate_network', 'other']
+const CATEGORY_ORDER: ProgramCategory[] = ['saas_ai', 'finance_crypto', 'vastgoed_data', 'automation', 'productivity', 'affiliate_network', 'other']
 
 function fmtMoney(n: number): string {
   return n.toLocaleString('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 })
@@ -55,6 +60,25 @@ export default async function AccountSetupHubPage() {
     .map(cat => ({ cat, items: programs.filter(p => p.category === cat) }))
     .filter(g => g.items.length > 0)
 
+  const registryAgentContext: ContinuePromptContext = {
+    tracker: 'Affiliate & Revenue — Program Registry',
+    itemType: 'affiliate-signup',
+    name: 'Affiliate signup-sessie',
+    company: company.name,
+    route: '/dashboard/account-setup',
+    description:
+      'Orlando meldt zich aan bij de affiliate-programma’s en moet aanmeldvragen beantwoorden. Kijk live mee en ' +
+      'help per vraag met de juiste promotie-tekst, audience-omschrijving, payout/tax-gegevens en de in te vullen velden. ' +
+      'Bron-data: affiliate_programs.metadata (signup_pack/setup/registration) in de orlando-core-os Supabase en ' +
+      'lib/affiliate-programs/setup-data.ts. Site = aquier.com, entiteit = Modiwerijo Financial Management BV.',
+    extra: [
+      { label: 'Property', value: 'aquier.com' },
+      { label: 'Entiteit', value: 'Modiwerijo Financial Management BV (KvK 97494380, BTW NL868076314B01)' },
+      { label: 'Payout', value: 'PayPal o.amatiskak@gmail.com (Make.com = Wise)' },
+      { label: 'Setup-data', value: 'lib/affiliate-programs/setup-data.ts + affiliate_programs.metadata' },
+    ],
+  }
+
   return (
     <div className="space-y-5">
       <KpiStrip items={kpis} />
@@ -73,6 +97,19 @@ export default async function AccountSetupHubPage() {
         <span className="text-[11px] text-violet-200/80">Openen →</span>
       </Link>
 
+      <div className="flex items-center justify-between gap-3 rounded-xl border border-emerald-500/20 bg-emerald-500/[0.06] px-4 py-3">
+        <div className="flex items-center gap-2.5">
+          <Eye size={16} className="text-emerald-300" />
+          <div>
+            <p className="text-[13px] font-semibold text-white">Setup Agent laten meekijken</p>
+            <p className="text-[10px] text-white/50">Start een agent-sessie (cli-l) die live meehelpt bij het beantwoorden van aanmeldvragen.</p>
+          </div>
+        </div>
+        <ContinueInClaude context={registryAgentContext} size="sm" label="Agent meekijken" />
+      </div>
+
+      <SharedRegistrationCard />
+
       {total === 0 ? (
         <div className="bg-white/[0.04] rounded-xl border border-white/[0.06] py-12 text-center">
           <Layers size={24} className="text-white/15 mx-auto mb-3" />
@@ -90,30 +127,12 @@ export default async function AccountSetupHubPage() {
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5">
               {items.map((p) => (
-                <Link
+                <ProgramSetupCard
                   key={p.id}
-                  href={`/dashboard/account-setup/accounts?focus=${p.id}`}
-                  className="bg-white/[0.02] border border-white/[0.05] rounded-xl p-3 hover:border-white/15 transition-colors block"
-                >
-                  <div className="flex items-center justify-between gap-2 mb-1.5">
-                    <span className="text-[13px] text-white/90 font-medium leading-tight truncate">{p.name}</span>
-                    <AccountStatusBadge status={p.account_status} size="xs" />
-                  </div>
-                  <div className="flex items-center gap-3 text-[10px] text-white/40">
-                    {Number(p.monthly_revenue) > 0 && (
-                      <span className="text-emerald-300/80 tabular-nums">{fmtMoney(Number(p.monthly_revenue))}/mo</span>
-                    )}
-                    {p.open_human_actions > 0 && (
-                      <span className="text-red-300/80">{p.open_human_actions} action{p.open_human_actions === 1 ? '' : 's'}</span>
-                    )}
-                    {p.active_runs > 0 && (
-                      <span className="text-blue-300/80">{p.active_runs} run{p.active_runs === 1 ? '' : 's'}</span>
-                    )}
-                    {p.required_docs > 0 && (
-                      <span className="text-amber-300/80">{p.required_docs} doc{p.required_docs === 1 ? '' : 's'}</span>
-                    )}
-                  </div>
-                </Link>
+                  program={p}
+                  setup={AFFILIATE_SETUP[p.name] ?? null}
+                  detailHref={`/dashboard/account-setup/accounts?focus=${p.id}`}
+                />
               ))}
             </div>
           </div>

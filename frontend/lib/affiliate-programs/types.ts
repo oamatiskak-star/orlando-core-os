@@ -8,6 +8,10 @@ export type ProgramCategory =
   | 'affiliate_network'
   | 'marketplace'
   | 'maker_hardware'
+  | 'automation'
+  | 'productivity'
+  | 'ai_video'
+  | 'creator_tools'
   | 'other'
 
 export type AccountStatus =
@@ -129,6 +133,10 @@ export const CATEGORY_LABEL: Record<ProgramCategory, string> = {
   affiliate_network: 'Affiliate Networks',
   marketplace: 'Marketplace',
   maker_hardware: 'Maker / Hardware',
+  automation: 'Automation / No-code',
+  productivity: 'Productivity',
+  ai_video: 'AI / Video',
+  creator_tools: 'Creator Tools',
   other: 'Overig',
 }
 
