@@ -17,7 +17,6 @@ import 'dotenv/config'
 import * as readline from 'node:readline/promises'
 import { stdin as input, stdout as output } from 'node:process'
 import { chromium, BrowserContext, Page } from 'playwright'
-import { createClient } from '@supabase/supabase-js'
 
 const SUPABASE_URL = process.env.SUPABASE_URL
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY
@@ -163,17 +162,21 @@ async function execute(page: Page, act: { action: string; ref: string; value?: s
 type Target = { name: string; url: string }
 
 /** Gerichte, nog-niet-aangemelde programma's met een echt formulier (geen e-mail/geblokkeerd). */
+type Row = { name: string; url: string | null; metadata: { targeted?: { included?: boolean; grp?: string; rank?: number }; blocked?: unknown; apply?: { method?: string }; signup_pack?: { signup_url?: string } } | null }
+
+/** Gerichte, nog-niet-aangemelde programma's via Supabase REST (geen supabase-js → werkt op Node 20). */
 async function loadTargets(): Promise<Target[]> {
   if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) { console.error('SUPABASE env ontbreekt → geef een --url mee.'); return [] }
-  const db = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, { auth: { persistSession: false } })
-  const { data } = await db.from('affiliate_programs')
-    .select('name, url, account_status, metadata')
-    .eq('account_status', 'not_started').not('url', 'is', null)
-  type Row = { name: string; url: string | null; metadata: { targeted?: { included?: boolean; grp?: string; rank?: number }; blocked?: unknown; apply?: { method?: string }; signup_pack?: { signup_url?: string } } | null }
-  const rows = (data ?? []) as Row[]
+  const q = `${SUPABASE_URL}/rest/v1/affiliate_programs?select=name,url,account_status,metadata&account_status=eq.not_started&url=not.is.null`
+  const res = await fetch(q, { headers: { apikey: SUPABASE_SERVICE_ROLE_KEY, Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}` } })
+  if (!res.ok) { console.error('Supabase REST fout:', res.status, (await res.text()).slice(0, 120)); return [] }
+  const rows = await res.json() as Row[]
   return rows
     .filter(r => r.metadata?.targeted?.included === true && !r.metadata?.blocked && r.metadata?.apply?.method !== 'email')
-    .sort((a, b) => `${a.metadata?.targeted?.grp}${a.metadata?.targeted?.rank}`.localeCompare(`${b.metadata?.targeted?.grp}${b.metadata?.targeted?.rank}`))
+    .sort((a, b) => {
+      const ga = a.metadata?.targeted?.grp ?? '', gb = b.metadata?.targeted?.grp ?? ''
+      return ga !== gb ? ga.localeCompare(gb) : (a.metadata?.targeted?.rank ?? 0) - (b.metadata?.targeted?.rank ?? 0)
+    })
     .map(r => ({ name: r.name, url: r.metadata?.signup_pack?.signup_url || (r.url as string) }))
 }
 
