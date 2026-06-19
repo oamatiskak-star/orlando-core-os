@@ -25,5 +25,9 @@ if ! curl -s "http://127.0.0.1:$PORT/json/version" >/dev/null 2>&1; then
   echo "Chrome klaar."
 fi
 
+# breng het Chrome-venster naar de voorgrond zodat je de agent ziet werken
+osascript -e 'tell application "Google Chrome" to activate' >/dev/null 2>&1 || true
+echo "→ Kijk naar het Chrome-venster; de prompts staan hieronder in deze Terminal."
+
 cd "$REPO/local-agent"
 exec npx ts-node --transpile-only src/browser-agent.ts "$@"
