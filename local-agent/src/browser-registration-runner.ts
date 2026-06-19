@@ -32,7 +32,7 @@ import './ws-shim'
 import 'dotenv/config'
 import { randomBytes } from 'crypto'
 import { createClient, SupabaseClient } from '@supabase/supabase-js'
-import { chromium, Browser, Page } from 'playwright'
+import { chromium, BrowserContext, Page } from 'playwright'
 import { loadFieldMap, firstAvailable, FieldDescriptor, ExtractDescriptor } from './browser/field-map'
 import { buildScreenshotPath, uploadScreenshot } from './browser/storage'
 
@@ -306,7 +306,7 @@ async function executeRun(run: RunRow): Promise<void> {
       .then(({ error }) => { if (error) log(`Heartbeat fout ${run.id}: ${error.message}`) })
   }, RUN_HEARTBEAT_MS)
 
-  let browser: Browser | null = null
+  let context: BrowserContext | null = null
   try {
     if (!run.program_id) throw new Error('browser_registration vereist program_id')
     const program = await loadProgram(run.program_id)
@@ -342,9 +342,21 @@ async function executeRun(run: RunRow): Promise<void> {
     let missingData = 0
     if (autoSubmit) await audit(program.id, run.id, 'browser.auto_submit.enabled', { service: SERVICE_ID })
 
-    browser = await chromium.launch({ headless: false, args: ['--start-maximized'] })
-    const context = await browser.newContext({ viewport: null })
-    const page = await context.newPage()
+    // Echte Google Chrome + persistent profiel + GEEN automation-vlaggen.
+    // Cloudflare/Turnstile flagt 'navigator.webdriver' en de --enable-automation-infobar;
+    // door channel:'chrome' te gebruiken en die vlaggen te strippen ziet het venster
+    // eruit als een normale browser, zodat de mens de challenge kan oplossen. Het
+    // persistente profiel bewaart de Cloudflare-clearance + login voor volgende runs.
+    const userDataDir = process.env.BROWSER_REG_PROFILE_DIR
+      ?? `${process.env.HOME ?? '/tmp'}/.orlando-browser-reg-profile`
+    context = await chromium.launchPersistentContext(userDataDir, {
+      headless: false,
+      channel: 'chrome',
+      viewport: null,
+      args: ['--start-maximized', '--disable-blink-features=AutomationControlled'],
+      ignoreDefaultArgs: ['--enable-automation'],
+    })
+    const page = context.pages()[0] ?? await context.newPage()
 
     // 1) navigeren
     await page.goto(fieldMap.signup_url, { waitUntil: 'domcontentloaded', timeout: 60_000 })
@@ -443,7 +455,7 @@ async function executeRun(run: RunRow): Promise<void> {
     log(`Run ${run.id} ✗ FAILED: ${err.message}`)
   } finally {
     clearInterval(hbTimer)
-    await browser?.close().catch(() => {})
+    await context?.close().catch(() => {})
   }
 }
 
