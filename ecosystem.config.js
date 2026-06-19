@@ -80,6 +80,27 @@ module.exports = {
       time:        true,
     },
 
+    // ── Live Assist Runner — Setup Agent kijkt LIVE mee bij handmatig aanmelden ──
+    // Mens vult de affiliate-formulieren in; deze runner claimt de live_assist-
+    // sessie, beantwoordt zijn vragen via lokale LLM en post guidance terug in de
+    // dashboard-feed. Geen browser nodig (headless host prima). Eindigt wanneer de
+    // mens de sessie sluit in het dashboard of na de max-duur.
+    {
+      name:        'live-assist-runner',
+      cwd:         `${BASE}/local-agent`,
+      script:      'npx',
+      args:        'ts-node --transpile-only src/live-assist-runner.ts',
+      interpreter: 'none',
+      watch:       false,
+      autorestart: true,
+      max_restarts: 999,
+      restart_delay: 5000,
+      env: { NODE_ENV: 'production' },
+      log_file:    '/tmp/pm2-live-assist-runner.log',
+      error_file:  '/tmp/pm2-live-assist-runner-err.log',
+      time:        true,
+    },
+
     // ── 2. YouTube Engine — altijd actief, slot-filler + upload + verificatie ──
     {
       name:        'youtube-engine',

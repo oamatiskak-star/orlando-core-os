@@ -32,6 +32,8 @@ export type RunKind =
   | 'revenue_sync'
   | 'reminder'
   | 'terms_analysis'
+  | 'browser_registration'
+  | 'live_assist'
 
 export type RunStatus =
   | 'queued'

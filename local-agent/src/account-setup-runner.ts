@@ -146,6 +146,7 @@ async function claimNextRun(): Promise<RunRow | null> {
     .select('id')
     .eq('status', 'queued')
     .neq('run_kind', 'browser_registration') // browser-registration heeft een eigen headed runner
+    .neq('run_kind', 'live_assist')          // live co-watch heeft een eigen live-assist-runner
     .order('started_at', { ascending: true })
     .limit(5)
 

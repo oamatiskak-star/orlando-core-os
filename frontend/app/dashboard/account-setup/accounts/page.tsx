@@ -8,6 +8,7 @@ import {
   CATEGORY_LABEL, ACCOUNT_STATUS_LABEL,
   type AffiliateProgramRow, type AccountStatus, type ProgramCategory,
 } from '@/lib/affiliate-programs/types'
+import { ApplicationKitsPanel } from './ApplicationKitsPanel'
 
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
@@ -180,6 +181,9 @@ export default async function AccountsPage({
         &quot;Analyse&quot; plaatst een <span className="font-mono text-white/50">terms_analysis</span>-run in de queue
         (account_setup_runs). De Account Setup Agent (local-agent) vat dan voorwaarden + payout-structuur samen — komt online in Fase 3.
       </p>
+
+      {/* Invul-klare aanmeld-kits per programma */}
+      <ApplicationKitsPanel />
     </div>
   )
 }
