@@ -46,11 +46,15 @@ export default function OfferEngineClient({ initial, lastRun }: { initial: Row[]
   }
 
   async function decide(id: string, status: string) {
-    setBusyId(id)
+    setBusyId(id); setMsg(null)
     try {
-      await fetch('/api/media-holding/offer-engine/decide', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ id, status }) })
+      const res = await fetch('/api/media-holding/offer-engine/decide', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ id, status }) })
+      const j = await res.json().catch(() => ({}))
+      if (!res.ok) { setMsg(j.error ?? `Fout ${res.status}`); return }
+      setMsg(status === 'approved' ? '✓ Goedgekeurd' : status === 'rejected' ? '✗ Afgewezen' : `Status → ${status}`)
       router.refresh()
-    } finally { setBusyId(null) }
+    } catch (e) { setMsg(e instanceof Error ? e.message : 'Netwerkfout') }
+    finally { setBusyId(null) }
   }
 
   return (
