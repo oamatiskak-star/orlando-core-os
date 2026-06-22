@@ -43,6 +43,23 @@ const CTA_LABELS: Record<string, string> = {
   HeyGen: '🎬 AI-avatars via HeyGen',
 }
 
+// Aquier-funnel-brug: UTM-getagde kennisbank-link per finance-niche-kanaal, zodat
+// video-verkeer meetbaar wordt als kanaal 'youtube' (vastgoed_core.v_growth_channels)
+// en doorstroomt naar leads. Zie skills/aquier/youtube-growth-engine/BRIDGE.md.
+const AQUIER_NICHE_BY_CHANNEL: Record<string, string> = {
+  VastgoedTv: 'vastgoed', BeleggingsTv: 'beleggen', VermogenTv: 'vermogen',
+  SpaarTv: 'sparen', CryptoVermogen: 'crypto',
+}
+function buildAquierFunnelLine(channel: { name?: string | null; naam?: string | null }, videoId: string | null | undefined): string | null {
+  const channelName = channel.name ?? channel.naam
+  if (!channelName) return null
+  const niche = AQUIER_NICHE_BY_CHANNEL[channelName]
+  if (!niche) return null // alleen finance-niche-kanalen (niet de loop-kanalen)
+  const utm = `utm_source=youtube&utm_medium=video&utm_campaign=${channelName.toLowerCase()}` +
+    (videoId ? `&utm_content=${encodeURIComponent(videoId)}` : '')
+  return `📊 Gratis ${niche}-checklist + ontdek verborgen vastgoedwaarde → https://aquier.com/kennisbank/onderwerp/${niche}?${utm}`
+}
+
 /**
  * Voegt tracked affiliate-shortlink-CTA's toe aan de beschrijving op basis van de ACTIEVE
  * affiliate_links die aan dit kanaal gemapt zijn. 100% data-gedreven (affiliate_links/-mappings),
@@ -202,9 +219,14 @@ export function startYouTubeUploadWorker(): Worker {
 
       let lastProgressLog = 0
       // Affiliate-CTA: tracked shortlink(s) uit actieve affiliate_links in de beschrijving (/r/<code>).
-      const description = await buildAffiliateDescription(db, channel, video.description ?? '')
+      let description = await buildAffiliateDescription(db, channel, video.description ?? '')
+      // Aquier-funnel-brug: UTM-getagde kennisbank-link bovenaan (idempotent, alleen finance-kanalen).
+      const aquierLine = buildAquierFunnelLine(channel, videoId)
+      if (aquierLine && !description.includes('aquier.com/kennisbank')) {
+        description = `${aquierLine}\n\n${description}`.trim()
+      }
       if (description !== (video.description ?? '')) {
-        await addLog(queueId, videoId, 'info', 'Affiliate-shortlink toegevoegd aan beschrijving')
+        await addLog(queueId, videoId, 'info', 'Affiliate-shortlink + Aquier-funnel-link toegevoegd aan beschrijving')
       }
       const result = await uploadVideo(auth, {
         filePath,
