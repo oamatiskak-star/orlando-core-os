@@ -65,9 +65,13 @@ export async function appendChannelDescriptionLink(
   if (!ch?.id || !ch.brandingSettings) return 'no_branding'
 
   const desc = ch.brandingSettings.channel?.description ?? ''
-  if (desc.includes('aquier.com')) return 'skipped_present'
+  if (desc.includes(line)) return 'skipped_present' // exact deze (UTM-)regel staat er al
 
-  const newDesc = desc.trim() ? `${desc.trim()}\n\n${line}` : line
+  // Vervang een eventuele oudere aquier.com-regel (bv. zonder UTM) door de nieuwe regel,
+  // zodat per-kanaal UTM-tagging ook bestaande beschrijvingen bijwerkt. Alleen
+  // aquier.com-regels worden geraakt; de rest van de beschrijving blijft intact.
+  const cleaned = desc.split('\n').filter(l => !l.includes('aquier.com')).join('\n').trim()
+  const newDesc = cleaned ? `${cleaned}\n\n${line}` : line
   if (!opts.apply) return 'would_update'
 
   await yt.channels.update({
