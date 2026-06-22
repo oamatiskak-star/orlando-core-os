@@ -25,14 +25,15 @@ const NICHE_BY_CHANNEL: Record<string, string> = {
   VermogenTv: 'vermogen', SpaarTv: 'sparen', VastgoedTv: 'vastgoed',
   CryptoVermogen: 'crypto', BeleggingsTv: 'beleggen',
 }
-// Niet-NL-kanalen → Engelse landing (/en) i.p.v. de NL-kennisbank.
-// AquierDE: voorlopig /en — vervang door /de zodra die landing bestaat (nu 404).
-const EN_CHANNELS = new Set(['PropertyInvestorTv', 'AquierTvEs', 'AquierTv', 'AquierDE'])
-const APPLY = process.env.APPLY === '1'
+// Engelstalige kanalen → /en. AquierDE → de Duitse landing /de.
+const EN_CHANNELS = new Set(['PropertyInvestorTv', 'AquierTvEs', 'AquierTv'])
 
 /** Per-kanaal UTM-getagde owned-link. */
 function ownedLinkLine(naam: string): string {
   const utm = `utm_source=youtube&utm_medium=channel&utm_campaign=${naam.toLowerCase()}`
+  if (naam === 'AquierDE') {
+    return `🔗 Verborgenen Immobilienwert finden, bevor der Markt es tut → https://aquier.com/de?${utm}`
+  }
   if (EN_CHANNELS.has(naam)) {
     return `🔗 Off-market real estate deals & AI analysis → https://aquier.com/en?${utm}`
   }
@@ -40,6 +41,7 @@ function ownedLinkLine(naam: string): string {
   const path = niche ? `/kennisbank/onderwerp/${niche}` : '/kennisbank'
   return `🔗 Off-market vastgoeddeals & AI-analyse → https://aquier.com${path}?${utm}`
 }
+const APPLY = process.env.APPLY === '1'
 
 async function main() {
   const db = getSupabase()

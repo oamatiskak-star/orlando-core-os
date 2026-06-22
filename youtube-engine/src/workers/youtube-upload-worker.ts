@@ -53,10 +53,14 @@ const AQUIER_NICHE_BY_CHANNEL: Record<string, string> = {
 function buildAquierFunnelLine(channel: { name?: string | null; naam?: string | null }, videoId: string | null | undefined): string | null {
   const channelName = channel.name ?? channel.naam
   if (!channelName) return null
+  const utmTail = (videoId ? `&utm_content=${encodeURIComponent(videoId)}` : '')
+  // AquierDE → de Duitse landing /de.
+  if (channelName === 'AquierDE') {
+    return `📊 Immobilienwert entdecken, bevor der Markt es tut → https://aquier.com/de?utm_source=youtube&utm_medium=video&utm_campaign=aquierde${utmTail}`
+  }
   const niche = AQUIER_NICHE_BY_CHANNEL[channelName]
   if (!niche) return null // alleen finance-niche-kanalen (niet de loop-kanalen)
-  const utm = `utm_source=youtube&utm_medium=video&utm_campaign=${channelName.toLowerCase()}` +
-    (videoId ? `&utm_content=${encodeURIComponent(videoId)}` : '')
+  const utm = `utm_source=youtube&utm_medium=video&utm_campaign=${channelName.toLowerCase()}${utmTail}`
   return `📊 Gratis ${niche}-checklist + ontdek verborgen vastgoedwaarde → https://aquier.com/kennisbank/onderwerp/${niche}?${utm}`
 }
 
