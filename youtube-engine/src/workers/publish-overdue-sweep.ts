@@ -1,6 +1,7 @@
 import { getSupabase } from '../lib/supabase'
 import { buildOAuthClient, setVideoPublic } from '../lib/youtube-api'
 import { workerLogger } from '../lib/logger'
+import { ensureOwnedLinks } from '../lib/owned-link'
 
 const log = workerLogger('publish-overdue-finance')
 
@@ -90,6 +91,10 @@ export function startPublishOverdueSweep(): NodeJS.Timeout {
       lastRunDay = today
       const { published, quotaHit } = await publishOverdueFinance()
       log.info('Publish-overdue finance-sweep', { published, quotaHit, max: MAX_PER_RUN })
+      // Zorg dat elk finance-kanaal de UTM-getagde owned-link in de beschrijving heeft
+      // (idempotent; zet o.a. AquierDE → /de zodra de quota het toelaat).
+      const links = await ensureOwnedLinks(true, log)
+      log.info('Owned-links ensured', links)
     } catch (e) {
       log.error('publish-sweep tick failed', { error: (e as Error).message })
     }
