@@ -18,15 +18,16 @@ import { logger } from './lib/logger'
 
 const FINANCE_CHANNELS = [
   'VermogenTv', 'SpaarTv', 'VastgoedTv', 'CryptoVermogen', 'BeleggingsTv',
-  'AquierTv', 'AquierNL', 'AquierTvEs', 'PropertyInvestorTv',
+  'AquierTv', 'AquierNL', 'AquierTvEs', 'AquierDE', 'PropertyInvestorTv',
 ]
 // NL-kanaal → kennisbank-niche-hub (matchend onderwerp).
 const NICHE_BY_CHANNEL: Record<string, string> = {
   VermogenTv: 'vermogen', SpaarTv: 'sparen', VastgoedTv: 'vastgoed',
   CryptoVermogen: 'crypto', BeleggingsTv: 'beleggen',
 }
-// EN-kanalen → Engelse landing (/en) i.p.v. de NL-kennisbank.
-const EN_CHANNELS = new Set(['PropertyInvestorTv', 'AquierTvEs', 'AquierTv'])
+// Niet-NL-kanalen → Engelse landing (/en) i.p.v. de NL-kennisbank.
+// AquierDE: voorlopig /en — vervang door /de zodra die landing bestaat (nu 404).
+const EN_CHANNELS = new Set(['PropertyInvestorTv', 'AquierTvEs', 'AquierTv', 'AquierDE'])
 const APPLY = process.env.APPLY === '1'
 
 /** Per-kanaal UTM-getagde owned-link. */

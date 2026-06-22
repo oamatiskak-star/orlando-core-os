@@ -14,6 +14,7 @@ import { startSlotFillerWorker } from './workers/slot-filler-worker'
 import { startAutoPlanner } from './workers/auto-planner-worker'
 import { startFileCleanupWorker } from './workers/file-cleanup-worker'
 import { startAnalyticsSweep } from './workers/analytics-sweep'
+import { startPublishOverdueSweep } from './workers/publish-overdue-sweep'
 
 const startTime = Date.now()
 let lastErrorTime: number | null = null
@@ -44,6 +45,10 @@ async function main() {
 
   // Meetlus: dagelijkse window-gated her-poll van alle live video's (Engine Planner: content:analytics-feedback)
   const analyticsSweepTimer = startAnalyticsSweep()
+
+  // Publiceer-lus: dagelijkse window-gated, quota-capped publish van overdue private
+  // finance-video's (Engine Planner: content:publish-overdue-finance, blok nl_slow).
+  const publishSweepTimer = startPublishOverdueSweep()
 
   logger.info(`${workers.length} workers running`)
   logger.info('Engine is live — watching for upload jobs')
@@ -84,6 +89,7 @@ async function main() {
   async function gracefulShutdown(signal: string) {
     logger.info(`Received ${signal} — graceful shutdown`)
     clearInterval(analyticsSweepTimer)
+    clearInterval(publishSweepTimer)
     for (const worker of workers) {
       await worker.close()
     }
