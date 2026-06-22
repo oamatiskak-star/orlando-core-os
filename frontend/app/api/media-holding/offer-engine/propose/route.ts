@@ -58,7 +58,8 @@ de koper-waarde benoemt. Antwoord UITSLUITEND met JSON, exact dit schema, geen e
 Aanbod:
 ${list}`
         const { text } = await generateText({
-          model: claude.sonnet, maxOutputTokens: 1400,
+          // Goedkoopste model: titel/omschrijving-verrijking is een simpele taak → Haiku.
+          model: claude.haiku, maxOutputTokens: 1400,
           messages: [{ role: 'user', content: prompt }],
         })
         const json = JSON.parse(text.slice(text.indexOf('{'), text.lastIndexOf('}') + 1))
@@ -72,7 +73,7 @@ ${list}`
           }).eq('id', c.id).eq('status', 'proposed') // nooit een besliste kandidaat aanraken
           enriched++
         }
-        model = 'claude-sonnet-4-6'
+        model = 'claude-haiku-4-5-20251001'
       } catch (e) {
         status = 'deterministic_fallback'
         fallbackReason = (e instanceof Error ? e.message : String(e)).slice(0, 200)

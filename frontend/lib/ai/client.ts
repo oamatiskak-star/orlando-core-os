@@ -1,7 +1,12 @@
 import { createGateway } from 'ai'
 import { createAnthropic } from '@ai-sdk/anthropic'
 
-const useGateway = !!(process.env.VERCEL_OIDC_TOKEN || process.env.AI_GATEWAY_API_KEY)
+// Een expliciet gezette ANTHROPIC_API_KEY (de directe, gefundde key) krijgt voorrang
+// op de door Vercel auto-geïnjecteerde VERCEL_OIDC_TOKEN. Zonder deze guard kaapt de
+// AI Gateway altijd de routing en wordt de directe Anthropic-key (met credits) genegeerd.
+const useGateway =
+  !process.env.ANTHROPIC_API_KEY &&
+  !!(process.env.VERCEL_OIDC_TOKEN || process.env.AI_GATEWAY_API_KEY)
 
 const gw = useGateway
   ? createGateway({ apiKey: process.env.AI_GATEWAY_API_KEY })
