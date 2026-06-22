@@ -82,6 +82,62 @@ export async function publishOverdueFinance(max: number = MAX_PER_RUN): Promise<
 }
 
 /** Window-gated dagelijkse sweep die een capped batch overdue finance-video's publiceert. */
+// Quota-realistische cap voor recovery (de orchestrator uploadt enkele/dag/kanaal binnen de YT-quota).
+const RECOVER_MAX_PER_RUN = parseInt(process.env.RECOVER_ARCHIVED_MAX_PER_RUN ?? '30', 10)
+
+/**
+ * Haalt 'archived' upload-records (door de eenmalige mf_classify_dead_queue-opschoning) terug naar
+ * 'queued' zodat de orchestrator ze alsnog uploadt — MITS (a) er nog een bronbestand is én (b) de
+ * QC-gate fail-open doorlaat (geen video_projects-koppeling die NIET geslaagd is). Capped per run.
+ * Idempotent + loop-vrij: een teruggezet record is niet meer 'archived' (mf_classify is eenmalig),
+ * dus wordt niet opnieuw opgepakt; mislukte uploads gaan naar failed/unrecoverable, niet terug.
+ */
+export async function recoverArchivedFinance(max: number = RECOVER_MAX_PER_RUN): Promise<{ recovered: number }> {
+  const db = getSupabase()
+  const { data: chans } = await db.from('youtube_channels').select('id, name').in('name', FINANCE_CHANNELS)
+  const financeIds = (chans ?? []).map((c) => c.id)
+  if (financeIds.length === 0) return { recovered: 0 }
+
+  const { data: archived } = await db
+    .from('youtube_upload_queue')
+    .select('id, video_id, channel_id')
+    .eq('status', 'archived')
+    .in('channel_id', financeIds)
+    .is('youtube_video_id', null)
+    .limit(max * 3)
+  if (!archived || archived.length === 0) return { recovered: 0 }
+
+  // (a) alleen records met een bronbestand
+  const videoIds = archived.map((a) => a.video_id).filter(Boolean) as string[]
+  const { data: vids } = await db
+    .from('youtube_videos').select('id, file_path, storage_path').in('id', videoIds)
+  const withSource = new Set((vids ?? []).filter((v) => v.file_path || v.storage_path).map((v) => v.id))
+
+  // (b) QC-gate: sluit records uit met een CF2-koppeling die NIET geslaagd is (geen koppeling = fail-open)
+  const queueIds = archived.map((a) => a.id)
+  const { data: projects } = await db
+    .from('video_projects').select('queue_id, approved, quality_passed').in('queue_id', queueIds)
+  const qcBlocked = new Set(
+    (projects ?? []).filter((p) => p.approved !== true && p.quality_passed !== true).map((p) => p.queue_id),
+  )
+
+  const eligible = archived
+    .filter((a) => a.video_id && withSource.has(a.video_id) && !qcBlocked.has(a.id))
+    .slice(0, max)
+
+  let recovered = 0
+  const now = new Date().toISOString()
+  for (const item of eligible) {
+    const { error } = await db
+      .from('youtube_upload_queue')
+      .update({ status: 'queued', last_error: null, retry_count: 0, scheduled_publish_at: now, updated_at: now })
+      .eq('id', item.id)
+    if (!error) recovered++
+    else log.warn('recover-archived faalde', { id: item.id, error: error.message })
+  }
+  return { recovered }
+}
+
 export function startPublishOverdueSweep(): NodeJS.Timeout {
   const tick = async () => {
     try {
@@ -95,6 +151,9 @@ export function startPublishOverdueSweep(): NodeJS.Timeout {
       // (idempotent; zet o.a. AquierDE → /de zodra de quota het toelaat).
       const links = await ensureOwnedLinks(true, log)
       log.info('Owned-links ensured', links)
+      // Haal onterecht gearchiveerde (legacy, met bronbestand + QC-pass) uploads terug naar de queue.
+      const rec = await recoverArchivedFinance()
+      log.info('Archived-recovery', rec)
     } catch (e) {
       log.error('publish-sweep tick failed', { error: (e as Error).message })
     }
