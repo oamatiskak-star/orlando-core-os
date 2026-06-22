@@ -1,7 +1,11 @@
 /**
- * Owned backlink: voegt de aquier.com-link toe aan de KANAALBESCHRIJVING van de
- * finance-kanalen (NIET de loop-kanalen BrickPulse/LoopForge/SliceTheory — daar
- * past een finance-link niet). Idempotent + veilig (GET-eerst, alleen aanvullen).
+ * Owned backlink: voegt per finance-kanaal een UTM-getagde Aquier-link toe aan de
+ * KANAALBESCHRIJVING (NIET de loop-kanalen BrickPulse/LoopForge/SliceTheory — daar past
+ * een finance-link niet). NL-kanalen → de matchende kennisbank-niche-hub; EN-kanalen → /en.
+ * Idempotent (vervangt een oudere aquier.com-regel door de UTM-versie) + veilig (GET-eerst).
+ *
+ * UTM (utm_medium=channel, utm_campaign=<kanaal>) → verkeer telt als kanaal 'youtube' in
+ * vastgoed_core.v_youtube_channel_health / v_growth_channels.
  *
  * Dry-run standaard (toont wat zou gebeuren). Echt schrijven: APPLY=1.
  *   npx ts-node --transpile-only src/add-owned-link.ts          # dry-run
@@ -12,12 +16,29 @@ import { getSupabase, ChannelRecord } from './lib/supabase'
 import { buildOAuthClient, appendChannelDescriptionLink } from './lib/youtube-api'
 import { logger } from './lib/logger'
 
-const LINK_LINE = '🔗 Off-market vastgoeddeals & AI-analyse → https://aquier.com'
 const FINANCE_CHANNELS = [
   'VermogenTv', 'SpaarTv', 'VastgoedTv', 'CryptoVermogen', 'BeleggingsTv',
   'AquierTv', 'AquierNL', 'AquierTvEs', 'PropertyInvestorTv',
 ]
+// NL-kanaal → kennisbank-niche-hub (matchend onderwerp).
+const NICHE_BY_CHANNEL: Record<string, string> = {
+  VermogenTv: 'vermogen', SpaarTv: 'sparen', VastgoedTv: 'vastgoed',
+  CryptoVermogen: 'crypto', BeleggingsTv: 'beleggen',
+}
+// EN-kanalen → Engelse landing (/en) i.p.v. de NL-kennisbank.
+const EN_CHANNELS = new Set(['PropertyInvestorTv', 'AquierTvEs', 'AquierTv'])
 const APPLY = process.env.APPLY === '1'
+
+/** Per-kanaal UTM-getagde owned-link. */
+function ownedLinkLine(naam: string): string {
+  const utm = `utm_source=youtube&utm_medium=channel&utm_campaign=${naam.toLowerCase()}`
+  if (EN_CHANNELS.has(naam)) {
+    return `🔗 Off-market real estate deals & AI analysis → https://aquier.com/en?${utm}`
+  }
+  const niche = NICHE_BY_CHANNEL[naam]
+  const path = niche ? `/kennisbank/onderwerp/${niche}` : '/kennisbank'
+  return `🔗 Off-market vastgoeddeals & AI-analyse → https://aquier.com${path}?${utm}`
+}
 
 async function main() {
   const db = getSupabase()
@@ -32,8 +53,9 @@ async function main() {
 
     try {
       const auth = buildOAuthClient(ch)
-      const result = await appendChannelDescriptionLink(auth, LINK_LINE, { apply: APPLY })
-      logger.info(`  ${naam}: ${result}`)
+      const line = ownedLinkLine(naam)
+      const result = await appendChannelDescriptionLink(auth, line, { apply: APPLY })
+      logger.info(`  ${naam}: ${result} — ${line}`)
     } catch (e) {
       logger.error(`  ${naam}: FOUT — ${(e as Error).message}`)
     }
