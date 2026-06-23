@@ -121,7 +121,7 @@ export function startYouTubeUploadWorker(): Worker {
       let tempDownloaded: string | null = null
 
       if (isStorageUrl) {
-        const tmpDir = process.env.VIDEO_OUTPUT_DIR ?? '/tmp/orlando-videos'
+        const tmpDir = process.env.VIDEO_OUTPUT_DIR ?? '/opt/orlando-videos/work'
         fs.mkdirSync(tmpDir, { recursive: true })
         const tmpFile = path.join(tmpDir, `download_${videoId}_${Date.now()}.mp4`)
         log.info('Downloading video from storage', { queueId, url: rawPath })
@@ -258,7 +258,7 @@ export function startYouTubeUploadWorker(): Worker {
         let tempThumb: string | null = null
 
         if (video.thumbnail_path.startsWith('http')) {
-          const tmpDir = process.env.VIDEO_OUTPUT_DIR ?? '/tmp/orlando-videos'
+          const tmpDir = process.env.VIDEO_OUTPUT_DIR ?? '/opt/orlando-videos/work'
           fs.mkdirSync(tmpDir, { recursive: true })
           const ext = video.thumbnail_path.split('?')[0].split('.').pop() ?? 'jpg'
           const tmpFile = path.join(tmpDir, `thumb_${videoId}_${Date.now()}.${ext}`)
