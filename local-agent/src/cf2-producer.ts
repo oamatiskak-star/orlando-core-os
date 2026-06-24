@@ -173,6 +173,23 @@ async function produceJobLive(client: SupabaseClient, job: Cf2Job): Promise<void
   const short = job.id.slice(0, 8)
   log(`job ${short} → "${ctx.topic}" (niche=${job.bron_niche ?? '?'}, kanaal=${ctx.channelId ?? 'geen'})`)
 
+  // ANTI-FLOOD BUFFER-GUARD (vóór de render). Loop-shorts zijn goedkoop te produceren, dus zonder
+  // cap ramt de producer honderden/dag → queue-flood, render-verspilling én verdringing van andere
+  // kanalen (de upload doet ~20/dag/kanaal). Render NIET als het kanaal al een volle buffer heeft;
+  // annuleer de surplus-job (geen render/queue). Cap ≈ 48u-buffer (env CF2_CHANNEL_BUFFER_CAP, default 48).
+  const BUFFER_CAP = parseInt(process.env.CF2_CHANNEL_BUFFER_CAP ?? '48', 10)
+  if (ctx.channelId && BUFFER_CAP > 0) {
+    const { count } = await client.from('youtube_upload_queue')
+      .select('id', { count: 'exact', head: true })
+      .eq('channel_id', ctx.channelId)
+      .in('status', ['queued', 'planned', 'retrying', 'preparing', 'uploading', 'normalizing', 'verifying'])
+    if ((count ?? 0) >= BUFFER_CAP) {
+      log(`  ⏸ buffer-cap: kanaal heeft al ${count} in buffer (≥${BUFFER_CAP}) — surplus-job geannuleerd (geen render)`)
+      await client.from('cf2_jobs').update({ status: 'cancelled', updated_at: nowIso() }).eq('id', job.id)
+      return
+    }
+  }
+
   // CF2-repair: HARDE niche-gate VÓÓR generatie. Topic moet binnen de kanaal-niche-topics vallen,
   // anders REJECT — geen script, geen render, geen QC, geen upload (bespaart productie + houdt
   // off-niche content (gaming/K-pop) van finance/vastgoed-kanalen). Fail-open zonder strategy/topics.
