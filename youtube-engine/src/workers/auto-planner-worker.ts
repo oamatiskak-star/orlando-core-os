@@ -18,7 +18,7 @@ const CHANNEL_HOURS_OVERRIDE: Record<string, number[]> = {
   AquierTvEs:         [10, 14, 18],
 }
 
-const HORIZON_DAYS  = 30
+const HORIZON_DAYS  = parseInt(process.env.AUTO_PLANNER_HORIZON_DAYS ?? '7', 10)  // was 30 → opgeblazen lege planned-buffer; 7d = MIN_BUFFER, env-tunable
 const MIN_BUFFER_DAYS = 7
 const DEFAULT_SLOTS_PER_DAY = 6
 
