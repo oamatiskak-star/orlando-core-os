@@ -13,7 +13,10 @@ const log = workerLogger('ffmpeg-normalizer')
 
 const THREADS    = parseInt(process.env.FFMPEG_THREADS ?? '2')
 const MUSIC_DIR  = process.env.MUSIC_ASSETS_DIR ?? '/opt/orlando-videos/music'
-const DOWNLOAD_DIR = process.env.VIDEO_OUTPUT_DIR ?? '/tmp/orlando-videos'
+// Persistente werkmap (NIET /tmp): /tmp werd tussen produce en upload gewist
+// (reboot / macOS-cleanup / storage-watchdog) → "Input file not found". Default
+// nu /opt/orlando-videos/work (consistent met MUSIC_DIR). Override via VIDEO_OUTPUT_DIR.
+const DOWNLOAD_DIR = process.env.VIDEO_OUTPUT_DIR ?? '/opt/orlando-videos/work'
 
 // Stream remote URL → lokale file. Idempotent: skip als file al bestaat
 // met size > 0. Vervangt inputPath in de normalizer wanneer atlas_upload
@@ -163,8 +166,23 @@ export function startFfmpegNormalizerWorker(): Worker {
       // Support remote URLs (Replicate, Supabase Storage, etc.) — download eerst
       inputPath = await ensureLocalInput(inputPath, videoId)
 
+      // SELF-HEAL: lokaal /tmp-bestand weg? Val terug op de DUURZAME storage_path
+      // (Supabase Storage-URL) en download die opnieuw. Dit is de root-cause-fix:
+      // voorkomt "Input file not found" wanneer de vluchtige werkmap is gewist
+      // tussen produce en upload. Alleen reproduceren nodig als storage_path óók weg is.
       if (!fs.existsSync(inputPath)) {
-        throw new Error(`Input file not found: ${inputPath}`)
+        const { data: vid } = await getSupabase()
+          .from('youtube_videos').select('storage_path').eq('id', videoId).maybeSingle()
+        const durable = String(vid?.storage_path ?? '').trim()
+        if (durable && /^https?:\/\//i.test(durable)) {
+          log.info('Lokaal bestand weg — herstel via duurzame storage_path', { videoId })
+          await addLog(queueId, videoId, 'info', 'Self-heal: hervat via storage_path', { durable })
+          inputPath = await ensureLocalInput(durable, videoId)
+        }
+      }
+
+      if (!fs.existsSync(inputPath)) {
+        throw new Error(`Input file not found (en geen herbruikbare storage_path): ${inputPath}`)
       }
 
       const probeData = await probeVideo(inputPath)
