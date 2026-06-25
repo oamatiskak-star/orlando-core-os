@@ -7,19 +7,25 @@ const log = workerLogger('auto-planner')
 
 // Preferred hour distribution per channel — overrides auto-generated hours.
 // Channels not listed here get evenly-spaced hours based on daily_upload_target.
+// Cap = 1 long + 1 short/dag voor alle overige kanalen (2 slots, prime-time
+// gespreid). Loop-kanalen staan NIET in de override → generateHours(daily_upload_target=6).
 const CHANNEL_HOURS_OVERRIDE: Record<string, number[]> = {
-  VermogenTv:         [6, 9, 12, 15, 18, 21],
-  PropertyInvestorTv: [7, 10, 13, 16, 19, 22],
-  VastgoedTv:         [6, 9, 12, 15, 18, 21],
-  SpaarTv:            [7, 10, 13, 16, 19, 22],
-  CryptoVermogen:     [8, 11, 14, 17, 20, 23],
-  BeleggingsTv:       [8, 11, 14, 17, 20, 23],
-  AquierTv:           [9, 13, 17],
-  AquierTvEs:         [10, 14, 18],
+  VermogenTv:         [9, 18],
+  PropertyInvestorTv: [10, 19],
+  VastgoedTv:         [9, 18],
+  SpaarTv:            [10, 19],
+  CryptoVermogen:     [11, 20],
+  BeleggingsTv:       [11, 20],
+  AquierTv:           [9, 17],
+  AquierNL:           [8, 16],
+  AquierDE:           [8, 16],
+  AquierTvEs:         [10, 18],
 }
 
-const HORIZON_DAYS  = parseInt(process.env.AUTO_PLANNER_HORIZON_DAYS ?? '7', 10)  // was 30 → opgeblazen lege planned-buffer; 7d = MIN_BUFFER, env-tunable
-const MIN_BUFFER_DAYS = 7
+// Slot-lead-time: plan 72u (3 dagen) vooruit, buffer 3 dagen. Daarna produce 48u
+// vooraf (slot-filler) en upload 24u vooraf (upload-worker) → 24u storingsbuffer.
+const HORIZON_DAYS  = parseInt(process.env.AUTO_PLANNER_HORIZON_DAYS ?? '3', 10)
+const MIN_BUFFER_DAYS = parseInt(process.env.AUTO_PLANNER_MIN_BUFFER_DAYS ?? '3', 10)
 const DEFAULT_SLOTS_PER_DAY = 6
 
 // Generate n evenly-spaced hours across 24h starting at 00:00 UTC
@@ -128,7 +134,7 @@ async function runAutoPlanner(): Promise<void> {
 }
 
 export function startAutoPlanner(): void {
-  log.info('Auto-planner worker gestart — dynamische limiet per kanaal (daily_upload_target), 30d horizon, 7d buffer')
+  log.info(`Auto-planner gestart — cap per kanaal (daily_upload_target), ${HORIZON_DAYS}d horizon = 72u slot-lead, ${MIN_BUFFER_DAYS}d buffer`)
 
   runAutoPlanner().catch(err => log.error('Startup run mislukt', { error: (err as Error).message }))
 

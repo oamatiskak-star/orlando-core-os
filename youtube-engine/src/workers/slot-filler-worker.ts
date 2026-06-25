@@ -5,6 +5,10 @@ import { workerLogger } from '../lib/logger'
 
 const log = workerLogger('slot-filler')
 
+// Video 48u vooraf: vul een slot pas wanneer de publicatietijd binnen 48u valt.
+// Zo staat de video 48u van tevoren klaar (en wordt 24u vooraf geüpload).
+const PRODUCE_LEAD_HOURS = parseInt(process.env.SLOT_FILL_LEAD_HOURS ?? '48', 10)
+
 /**
  * Koppelt klaarstaande videos (status='queued', file_path aanwezig)
  * aan de eerstvolgende lege geplande slot per kanaal.
@@ -57,6 +61,7 @@ async function fillSlots(): Promise<void> {
       .eq('status', 'planned')
       .is('video_id', null)
       .gt('scheduled_publish_at', new Date().toISOString())
+      .lte('scheduled_publish_at', new Date(Date.now() + PRODUCE_LEAD_HOURS * 3_600_000).toISOString())
       .order('scheduled_publish_at', { ascending: true })
       .limit(videos.length)
 
